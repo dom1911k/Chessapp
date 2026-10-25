@@ -90,7 +90,12 @@ jobs:
           KS="$RUNNER_TEMP/release.keystore"
           # Pasting can add spaces or line breaks; base64 never contains them.
           if ! printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$KS" 2>/dev/null; then
-            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64 text. Copy it again with: base64 -i chess-coach-release.keystore | pbcopy (Mac) and replace the secret."
+            # Describe what was pasted without revealing it: length and unexpected characters only.
+            CLEAN=$(printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]')
+            ODD=$(printf '%s' "$CLEAN" | tr -d 'A-Za-z0-9+/=' | fold -w1 | sort -u | tr -d '\n')
+            echo "Secret length: ${#CLEAN} characters (a real key is several thousand)."
+            echo "Unexpected characters: '${ODD}'"
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64 text. See the README (Step 3) and paste it again."
             exit 1
           fi
           if ! keytool -list -keystore "$KS" -storepass "$KEYSTORE_PASSWORD" -alias "${KEY_ALIAS:-chesscoach}" > /dev/null 2>&1; then
