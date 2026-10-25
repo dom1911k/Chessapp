@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Chess Coach</string>
+    <string name="title_activity_main">Chess Coach</string>
+    <string name="package_name">io.github.dom1911k.chesscoach</string>
+    <string name="custom_url_scheme">io.github.dom1911k.chesscoach</string>
+</resources>

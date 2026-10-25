@@ -15,3 +15,4 @@ android/app/release
 android/capacitor-cordova-android-plugins/build
 android/.idea
 .cache
+*.tsbuildinfo

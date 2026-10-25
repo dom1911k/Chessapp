@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><rect width="108" height="108" rx="24" fill="#23804f"/>
+  <!-- Adaptive-icon foreground: keep content inside the central 66x66 safe zone. -->
+  <g fill="#ffffff">
+    <circle cx="50" cy="38" r="8.5"/>
+    <path d="M43.5 47.5h13l-1.6 4.2c4.2 5.3 6.6 11.6 7.4 18.3h-24.6c.8-6.7 3.2-13 7.4-18.3z"/>
+    <rect x="34" y="71" width="32" height="7.5" rx="3"/>
+  </g>
+  <path fill="#facc15" d="M68 24.5a8 8 0 1 1-4.6 14.6l-4.4 1.6 1.4-4.2A8 8 0 0 1 68 24.5z"/>
+  <rect x="66.9" y="27.3" width="2.4" height="6.4" rx="1.2" fill="#1d6641"/>
+  <circle cx="68.1" cy="36.4" r="1.4" fill="#1d6641"/>
+</svg>

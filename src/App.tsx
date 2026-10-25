@@ -1,5 +1,5 @@
 import { App as CapApp } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { useEffect, useState, type ReactNode } from 'react';
 import { requestPersistentStorage } from './lib/db';
 import { handleBack, useNav, type Screen, type Tab } from './lib/nav';
@@ -71,6 +71,7 @@ function useTheme() {
       const dark = theme === 'dark' || (theme === 'system' && mq.matches);
       document.documentElement.classList.toggle('dark', dark);
       document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0c0a09' : '#f5f5f4');
+      if (Capacitor.isNativePlatform()) void SystemBars.setStyle({ style: dark ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch(() => undefined);
     };
     apply();
     mq.addEventListener('change', apply);
