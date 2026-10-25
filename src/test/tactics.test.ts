@@ -102,7 +102,7 @@ describe('misc', () => {
       { uci: '', san: '', color: 'b', fenBefore: '', fenAfter: '', isUser: false },
       { uci: '', san: '', color: 'w', fenBefore: '', fenAfter: '', isUser: true, classification: 'best', accuracy: 100, wpLoss: 0 },
     ]);
-    expect(s.accuracy).toBe(60);
+    expect(s.accuracy).toBe(47);
     expect(s.biggestMistakePly).toBe(0);
     expect(s.lessonTheme).toBe('fork');
   });

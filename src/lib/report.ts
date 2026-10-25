@@ -11,7 +11,12 @@ export function summarize(plies: PlyRecord[]): GameSummary {
   const mine = plies.map((p, i) => ({ p, i })).filter(({ p }) => p.isUser && p.classification);
   const counts = emptyCounts();
   for (const { p } of mine) counts[p.classification!]++;
-  const accuracy = mine.length ? mine.reduce((a, { p }) => a + (p.accuracy ?? 100), 0) / mine.length : 0;
+  // Like Lichess, blend the plain mean with the harmonic mean so one big blunder isn't hidden
+  // by many easy moves played in an already decided position.
+  const accs = mine.map(({ p }) => Math.max(1, p.accuracy ?? 100));
+  const mean = accs.length ? accs.reduce((a, b) => a + b, 0) / accs.length : 0;
+  const harmonic = accs.length ? accs.length / accs.reduce((a, b) => a + 1 / b, 0) : 0;
+  const accuracy = (mean + harmonic) / 2;
 
   let biggest: number | null = null;
   let worst = 0;

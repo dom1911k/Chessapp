@@ -1,11 +1,42 @@
+import { useEffect, useState } from 'react';
 import { Header } from '../components/ui';
+import { db } from '../lib/db';
+import { useNav } from '../lib/nav';
+import { formatDate } from '../lib/store/finish';
+import type { GameRecord } from '../lib/store/types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function HistoryScreen(_props: any) {
+export function HistoryScreen() {
+  const [games, setGames] = useState<GameRecord[] | null>(null);
+  const push = useNav((s) => s.push);
+  useEffect(() => {
+    void db.games.orderBy('endedAt').reverse().toArray().then(setGames);
+  }, []);
   return (
     <div className="flex h-full flex-col">
-      <Header title="History" />
-      <p className="p-4 text-stone-500">Coming in a later milestone.</p>
+      <Header title="Past games" back />
+      <div className="mx-auto w-full max-w-xl flex-1 space-y-2 overflow-y-auto p-4">
+        {games?.length === 0 && <p className="text-center text-stone-500">No finished games yet.</p>}
+        {games?.map((g) => (
+          <button key={g.id} className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'report', gameId: g.id! })}>
+            <span className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white ${g.userResult === 'win' ? 'bg-emerald-600' : g.userResult === 'loss' ? 'bg-red-500' : 'bg-stone-400'}`}>
+              {g.userResult === 'win' ? 'W' : g.userResult === 'loss' ? 'L' : 'D'}
+            </span>
+            <span className="flex-1">
+              <span className="block font-semibold">
+                {g.userColor === 'w' ? '♔' : '♚'} vs Bot ~{g.elo}
+              </span>
+              <span className="block text-xs text-stone-500">
+                {formatDate(g.endedAt)} · {g.reason}
+                {g.opening ? ` · ${g.opening}` : ''}
+              </span>
+            </span>
+            <span className="text-right">
+              <span className="block font-bold">{g.summary.accuracy}%</span>
+              <span className="block text-xs text-stone-500">{g.summary.counts.blunder} blunders</span>
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
