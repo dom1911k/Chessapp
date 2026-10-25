@@ -1,11 +1,161 @@
-import { Header } from '../components/ui';
+import { useEffect, useRef, useState } from 'react';
+import { Board } from '../components/Board';
+import { CoachBubble } from '../components/Coach';
+import { Header, Spinner } from '../components/ui';
+import { formatScore } from '../lib/chess/evaluation';
+import { formatLine, lineToSan, tryMove, type MoveInput } from '../lib/chess/game';
+import { explainMove, type CoachComment } from '../lib/coach';
+import { getEngine, type AnalysisResult } from '../lib/engine';
+import { ANALYSIS_DEPTH } from '../lib/store/play';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function ExploreScreen(_props: any) {
+interface Step {
+  uci: string;
+  san: string;
+  fenBefore: string;
+  fenAfter: string;
+}
+
+/** Analysis sandbox: play any move and the coach explains what happens after it. */
+export function ExploreScreen({ fen, orientation, title }: { fen: string; orientation: 'white' | 'black'; title?: string }) {
+  const [steps, setSteps] = useState<Step[]>([]);
+  const [comment, setComment] = useState<CoachComment | null>(null);
+  const [reply, setReply] = useState<{ line: string[]; fen: string; eval: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [showBest, setShowBest] = useState<{ san: string; uci: string } | null>(null);
+  const run = useRef(0);
+  const current = steps.length ? steps[steps.length - 1].fenAfter : fen;
+
+  useEffect(() => () => getEngine().cancelAll(), []);
+
+  const onMove = (m: MoveInput) => {
+    const r = tryMove(current, m);
+    if (!r) return false;
+    const step = { uci: r.move.lan, san: r.move.san, fenBefore: current, fenAfter: r.fen };
+    setSteps((s) => [...s, step]);
+    setComment(null);
+    setReply(null);
+    setShowBest(null);
+    void analyse(step);
+    return true;
+  };
+
+  const analyse = async (step: Step) => {
+    const my = ++run.current;
+    setBusy(true);
+    try {
+      const engine = getEngine();
+      const before: AnalysisResult = await engine.analyze(step.fenBefore, { depth: ANALYSIS_DEPTH, movetime: 3000, multipv: 3 });
+      const after = await engine.analyze(step.fenAfter, { depth: ANALYSIS_DEPTH, movetime: 3000 });
+      if (my !== run.current) return;
+      setComment(explainMove({ fenBefore: step.fenBefore, uci: step.uci, before, after }));
+      const pv = after.lines[0]?.pv ?? [];
+      setReply(pv.length ? { line: pv, fen: step.fenAfter, eval: after.lines[0] ? formatScore(after.lines[0].score) : '' } : null);
+    } catch {
+      /* cancelled */
+    } finally {
+      if (my === run.current) setBusy(false);
+    }
+  };
+
+  const best = async () => {
+    const a = await getEngine().analyze(current, { depth: ANALYSIS_DEPTH, movetime: 3000, multipv: 3 });
+    const uci = a.lines[0]?.pv[0];
+    if (uci) setShowBest({ uci, san: lineToSan(current, [uci])[0] });
+  };
+
+  const playReply = () => {
+    if (!reply) return;
+    const r = tryMove(reply.fen, reply.line[0]);
+    if (!r) return;
+    setSteps((s) => [...s, { uci: r.move.lan, san: r.move.san, fenBefore: reply.fen, fenAfter: r.fen }]);
+    setComment(null);
+    setReply(null);
+  };
+
+  const reset = () => {
+    run.current++;
+    getEngine().cancelAll();
+    setSteps([]);
+    setComment(null);
+    setReply(null);
+    setShowBest(null);
+    setBusy(false);
+  };
+
+  const undo = () => {
+    run.current++;
+    setSteps((s) => s.slice(0, -1));
+    setComment(null);
+    setReply(null);
+    setShowBest(null);
+    setBusy(false);
+  };
+
+  const last = steps[steps.length - 1];
+  const arrows = [
+    ...(comment?.arrows ?? []),
+    ...(showBest ? [{ from: showBest.uci.slice(0, 2), to: showBest.uci.slice(2, 4), tone: 'good' as const }] : []),
+  ];
+
   return (
     <div className="flex h-full flex-col">
-      <Header title="Explore" />
-      <p className="p-4 text-stone-500">Coming in a later milestone.</p>
+      <Header title={title ?? 'Explore'} back />
+      <div className="mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4">
+        <div className="px-1.5">
+          <Board
+            fen={current}
+            orientation={orientation}
+            movable={busy ? null : 'both'}
+            onMove={onMove}
+            arrows={arrows}
+            highlights={comment?.highlights ?? []}
+            lastMove={last ? { from: last.uci.slice(0, 2), to: last.uci.slice(2, 4) } : null}
+          />
+        </div>
+        <div className="px-3 text-sm text-stone-500">{steps.length ? formatLine(fen, steps.map((s) => s.san)) : 'Play any move to see what the coach thinks of it.'}</div>
+        <div className="space-y-3 px-3">
+          {busy && (
+            <CoachBubble mood="thinking">
+              <p className="flex items-center gap-2">
+                <Spinner /> Let me look at that…
+              </p>
+            </CoachBubble>
+          )}
+          {comment && !busy && (
+            <CoachBubble badge={comment.classification} mood={comment.classification === 'blunder' || comment.classification === 'mistake' ? 'concerned' : 'happy'}>
+              {comment.text.map((t, i) => (
+                <p key={i}>{t}</p>
+              ))}
+              {reply && (
+                <p className="pt-1 text-sm text-stone-500">
+                  Engine expects: {formatLine(reply.fen, lineToSan(reply.fen, reply.line, 5))} ({reply.eval})
+                </p>
+              )}
+            </CoachBubble>
+          )}
+          {showBest && !comment && (
+            <CoachBubble>
+              <p>The engine's choice here is {showBest.san}.</p>
+            </CoachBubble>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {reply && (
+              <button className="btn-secondary" onClick={playReply}>
+                Play reply
+              </button>
+            )}
+            <button className="btn-secondary" disabled={!steps.length} onClick={undo}>
+              Undo
+            </button>
+            <button className="btn-secondary" disabled={!steps.length} onClick={reset}>
+              Reset
+            </button>
+            <button className="btn-secondary" disabled={busy} onClick={best}>
+              Best move?
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
