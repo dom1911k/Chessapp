@@ -54,38 +54,7 @@ Think of a strong password (at least 12 characters, e.g. four random words).
    - **Secret:** your password
    - Click **Add secret**.
 
-### Step 3 — Create the signing key
-
-Pick **one** of the two options.
-
-<details open>
-<summary><b>Option A (easiest): let GitHub create it</b></summary>
-
-1. In your repository, click **Actions** (top bar).
-   If GitHub asks, click **"I understand my workflows, go ahead and enable them"**.
-2. In the left list click **Create signing key (one-time)** → **Run workflow** → green **Run workflow** button.
-3. Wait about a minute until the run shows a green check mark ✅, then click on the run.
-4. At the bottom under **Artifacts**, click **chess-coach-signing-key** to download a zip file. Unzip it.
-   It contains:
-   - `chess-coach-release.keystore` — **your key. Keep a copy somewhere safe** (e.g. Google Drive *and* a USB stick),
-     next to your password.
-   - `keystore-base64.txt` — the same key as text, for the next step.
-5. Open `keystore-base64.txt` (with any text editor, e.g. Notepad), select all, copy.
-6. Back in **Settings → Secrets and variables → Actions → New repository secret**:
-   - **Name:** `ANDROID_KEYSTORE_BASE64`
-   - **Secret:** paste the text
-   - Click **Add secret**.
-7. Go back to the workflow run page and click the 🗑️ trash icon next to the artifact to delete it
-   (it also disappears automatically after one day). Your repository is public, and although the key
-   is useless without your password, there is no reason to leave it lying around.
-
-The workflow refuses to run a second time once `ANDROID_KEYSTORE_BASE64` exists, so you can't
-accidentally replace your key.
-
-</details>
-
-<details>
-<summary><b>Option B: create it on your computer</b></summary>
+### Step 3 — Create the signing key on your computer
 
 You need Java installed (free: <https://adoptium.net> → download the "JDK", install with the defaults).
 Then open a terminal (Windows: press Start, type `cmd`, Enter; Mac: open the "Terminal" app) and run:
@@ -101,10 +70,14 @@ Then turn the file into text:
 - **Mac:** `base64 -i chess-coach-release.keystore -o keystore-base64.txt`
 - **Linux:** `base64 -w 0 chess-coach-release.keystore > keystore-base64.txt`
 
-Copy the contents of `keystore-base64.txt` into a new repository secret named
-`ANDROID_KEYSTORE_BASE64` (see Option A, step 6). Keep `chess-coach-release.keystore` safe.
+Open `keystore-base64.txt` (any text editor, e.g. Notepad), select all, copy. Then in
+**Settings → Secrets and variables → Actions → New repository secret**:
 
-</details>
+- **Name:** `ANDROID_KEYSTORE_BASE64`
+- **Secret:** paste the text → **Add secret**.
+
+**Keep `chess-coach-release.keystore` and your password somewhere safe** (e.g. a password manager and
+Google Drive). Never upload the keystore to the repository — it's public.
 
 ### Your secrets at a glance
 
