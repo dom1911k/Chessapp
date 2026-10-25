@@ -3,6 +3,7 @@ name: Android release
 # Builds a signed APK and attaches it to a GitHub Release.
 # Runs when a tag like v1.2.3 is pushed, or manually from the Actions tab
 # (then it creates the tag for you from the version you type in).
+# Needs the secrets ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD (see README).
 on:
   push:
     tags: ['v*']
