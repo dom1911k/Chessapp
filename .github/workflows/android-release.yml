@@ -84,7 +84,20 @@ jobs:
       - name: Restore signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          KS="$RUNNER_TEMP/release.keystore"
+          # Pasting can add spaces or line breaks; base64 never contains them.
+          if ! printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$KS" 2>/dev/null; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64 text. Copy it again with: base64 -i chess-coach-release.keystore | pbcopy (Mac) and replace the secret."
+            exit 1
+          fi
+          if ! keytool -list -keystore "$KS" -storepass "$KEYSTORE_PASSWORD" -alias "${KEY_ALIAS:-chesscoach}" > /dev/null 2>&1; then
+            echo "::error::The keystore could not be opened with ANDROID_KEYSTORE_PASSWORD (wrong password, or the key alias is not 'chesscoach'). Check both secrets."
+            exit 1
+          fi
+          echo "Signing key OK."
 
       - name: Build signed APK
         working-directory: android
