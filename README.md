@@ -10,11 +10,11 @@ built into the app.
 
 | | |
 |---|---|
-| **Play** | Bot from ~400 to ~2000 Elo, unlimited take-backs, hints, "Why not this move?", safety overlay that shows hanging pieces and threats. Every move is rated Best / Good / Inaccuracy / Mistake / Blunder; on a mistake the coach pauses and explains. |
-| **Puzzles** | ~20,000 Lichess puzzles (rated 600–1800), your own puzzle rating, 15 themed sets (forks, pins, mates, …). |
-| **Daily** | A 10–15 minute session: reviews of positions you got wrong (from your games and puzzles) on a 1 → 3 → 7 → 14 → 30 day schedule, plus new puzzles on your weakest themes. |
-| **Learn** | Endgame drills against the engine (queen mate, rook mate, two-bishop mate, king-and-pawn endings) and opening names with their main ideas. |
-| **Progress** | Rating chart, streak, blunders per game, strongest/weakest themes. |
+| **Play** | Bot from ~400 to ~2000 Elo, unlimited take-backs, hints, "Threats?" (what is my opponent planning?), "Why not this move?", safety overlay, notes when the bot attacks something. Every move is rated Best / Good / Inaccuracy / Mistake / Blunder; on a mistake the coach pauses and explains. Optional move confirmation against slips. |
+| **Puzzles** | ~20,000 Lichess puzzles (rated 600–1800), your own puzzle rating, 15 themed sets, and Puzzle Rush (3 minutes, 3 mistakes). |
+| **Daily** | A 10–15 minute session: reviews of positions you got wrong (from your games and puzzles) on a 1 → 3 → 7 → 14 → 30 day schedule, plus new puzzles on your weakest themes. Optional daily reminder. |
+| **Learn** | Six guided lessons (checkmate, free pieces, forks, pins, back rank, opening principles), endgame drills against the engine (basic mates, king-and-pawn, Lucena, Philidor, queen vs pawn) and opening names with their main ideas. |
+| **Progress** | Weekly summary, rating chart, streak, blunders per game, strongest/weakest themes, and recurring mistake patterns across games. |
 | **Backup** | Export everything to one file and import it on a new phone (Settings → Backup). |
 | **Updates** | The app finds new versions on GitHub and installs them for you. |
 
