@@ -16,6 +16,7 @@ built into the app.
 | **Learn** | Endgame drills against the engine (queen mate, rook mate, two-bishop mate, king-and-pawn endings) and opening names with their main ideas. |
 | **Progress** | Rating chart, streak, blunders per game, strongest/weakest themes. |
 | **Backup** | Export everything to one file and import it on a new phone (Settings → Backup). |
+| **Updates** | The app finds new versions on GitHub and installs them for you. |
 
 ---
 
@@ -140,12 +141,15 @@ The version number and Android's internal version code are taken from the tag
 
 ## 🔄 Updating the app on your phone
 
-Exactly like installing: open the Releases page on your phone, download the newest `.apk`,
-open it and tap **Update**. Your games, puzzle rating, streak and review cards stay where they are.
+**Inside the app:** once a day (when you're online) Chess Coach checks GitHub for a new release and asks
+whether to update. You can also check any time under **⚙️ Settings → App updates → Check for updates**.
+Tap **Update**: the app downloads the new APK and Android shows its install screen — tap **Update** there.
+The first time, Android asks you to allow Chess Coach to install apps ("Allow from this source").
+Your games, puzzle rating, streak and review cards are kept.
 
-Extra safety: before big updates or when changing phones, use **Settings (⚙️) → Backup → Export**
-and save the file to Google Drive or send it to yourself. On the new phone, install the app
-and use **Import**.
+**Manually:** open the Releases page on your phone, download the newest `.apk`, open it and tap **Update**.
+
+Extra safety: before big updates or when changing phones, use **⚙️ Settings → Backup → Export**.
 
 > ⚠️ Never uninstall the app to "update" it — uninstalling deletes its data. If Android ever says
 > *"App not installed as package conflicts with an existing package"*, the APK was signed with a
@@ -215,6 +219,12 @@ npm run puzzles -- --input lichess_db_puzzle.csv.zst --count 20000 --min 600 --m
 
 The script streams and decompresses the file, keeps popular, well-rated puzzles with short
 solutions, and picks a seeded, balanced sample across 16 themes and six rating bands.
+
+### In-app updates
+
+`src/lib/update.ts` asks the GitHub API for the latest release of `REPO` and compares versions;
+`android/.../ApkUpdaterPlugin.java` downloads the `.apk` asset and opens the system installer
+(permission `REQUEST_INSTALL_PACKAGES`).
 
 ### Icons
 

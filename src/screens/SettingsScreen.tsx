@@ -1,6 +1,7 @@
 import { Header, Segmented, Toggle } from '../components/ui';
 import { useSettings } from '../lib/settings';
 import { BackupCard } from '../components/BackupCard';
+import { UpdateCard } from '../components/UpdatePanel';
 
 export function SettingsScreen() {
   const s = useSettings();
@@ -27,6 +28,7 @@ export function SettingsScreen() {
           <Toggle checked={s.safetyOverlay} onChange={(v) => s.set({ safetyOverlay: v })} label="Safety overlay (hanging pieces & threats)" />
           <Toggle checked={s.showEvalBar} onChange={(v) => s.set({ showEvalBar: v })} label="Show evaluation bar" />
         </div>
+        <UpdateCard />
         <BackupCard />
         <p className="px-2 text-xs text-stone-500">
           Chess Coach runs fully offline. Engine: Stockfish 19 (GPLv3). Puzzles: Lichess puzzle database (CC0).

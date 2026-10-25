@@ -18,6 +18,8 @@ import { ReviewScreen } from './screens/ReviewScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { EndgameScreen } from './screens/EndgameScreen';
 import { OpeningsScreen } from './screens/OpeningsScreen';
+import { UpdateDialog } from './components/UpdatePanel';
+import { autoCheck, type UpdateInfo } from './lib/update';
 
 const TABS: { tab: Tab; label: string; icon: ReactNode }[] = [
   { tab: 'play', label: 'Play', icon: <path d="M9 3h6l-1 3h2l-1.5 4H16l1 9H7l1-9h1.5L8 6h2z" /> },
@@ -107,11 +109,15 @@ export function App() {
   const { tab, stack, setTab } = useNav();
   const loaded = useSettings((s) => s.loaded);
   const toast = useAndroidBack();
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
   useTheme();
 
   useEffect(() => {
     requestPersistentStorage();
     void useSettings.getState().load().then(() => usePlay.getState().load());
+    // Look for a new version (at most once a day, silently skipped when offline).
+    const t = setTimeout(() => void autoCheck().then(setUpdate), 4000);
+    return () => clearTimeout(t);
   }, []);
 
   if (!loaded) return null;
@@ -150,6 +156,7 @@ export function App() {
           </div>
         </nav>
       )}
+      <UpdateDialog update={update} onClose={() => setUpdate(null)} />
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 bottom-20 flex justify-center">
           <div className="rounded-full bg-stone-800 px-4 py-2 text-sm text-white shadow-lg">Press back again to exit — your game is saved</div>

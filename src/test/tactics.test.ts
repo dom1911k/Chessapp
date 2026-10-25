@@ -107,3 +107,14 @@ describe('misc', () => {
     expect(s.lessonTheme).toBe('fork');
   });
 });
+
+import { compareVersions } from '../lib/update';
+describe('update versions', () => {
+  it('compares versions', () => {
+    expect(compareVersions('1.0.1', '1.0.0')).toBeGreaterThan(0);
+    expect(compareVersions('v1.10.0', '1.9.9')).toBeGreaterThan(0);
+    expect(compareVersions('1.0.0', '1.0.0')).toBe(0);
+    expect(compareVersions('1.0.0', '0.0.0-dev')).toBeGreaterThan(0);
+    expect(compareVersions('0.9.0', '1.0.0')).toBeLessThan(0);
+  });
+});
