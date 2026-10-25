@@ -7,8 +7,10 @@ export interface Card {
   id: string; // 'p:<puzzleId>' or 'm:<gameId>:<ply>'
   kind: 'puzzle' | 'mistake';
   puzzleId?: string;
-  /** Position where the user must find the move. */
+  /** Starting position (for Lichess puzzles: before the opponent's setup move). */
   fen: string;
+  setup?: string;
+  rating?: number;
   /** Solution line in UCI, starting with the user's move. Mistake cards have one move. */
   solution: string[];
   /** For mistake cards: what was played in the game. */
