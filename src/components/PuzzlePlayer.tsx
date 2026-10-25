@@ -109,8 +109,8 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
   const checkAlternative = async (beforeFen: string, uci: string, afterFen: string) => {
     try {
       const e = getEngine();
-      const before = await e.analyze(beforeFen, { depth: ANALYSIS_DEPTH, movetime: 3000, multipv: 3 });
-      const after = await e.analyze(afterFen, { depth: ANALYSIS_DEPTH, movetime: 3000 });
+      const before = await e.analyze(beforeFen, { depth: ANALYSIS_DEPTH, movetime: 3000, multipv: 3, owner: 'puzzle' });
+      const after = await e.analyze(afterFen, { depth: ANALYSIS_DEPTH, movetime: 3000, owner: 'puzzle' });
       const s0 = before.lines[0]?.score;
       const s1 = after.lines[0]?.score;
       if (s0 && s1) {

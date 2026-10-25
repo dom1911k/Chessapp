@@ -25,7 +25,7 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
   const run = useRef(0);
   const current = steps.length ? steps[steps.length - 1].fenAfter : fen;
 
-  useEffect(() => () => getEngine().cancelAll(), []);
+  useEffect(() => () => getEngine().cancelAll('explore'), []);
 
   const onMove = (m: MoveInput) => {
     const r = tryMove(current, m);
@@ -44,8 +44,8 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
     setBusy(true);
     try {
       const engine = getEngine();
-      const before: AnalysisResult = await engine.analyze(step.fenBefore, { depth: ANALYSIS_DEPTH, movetime: 3000, multipv: 3 });
-      const after = await engine.analyze(step.fenAfter, { depth: ANALYSIS_DEPTH, movetime: 3000 });
+      const before: AnalysisResult = await engine.analyze(step.fenBefore, { depth: ANALYSIS_DEPTH, movetime: 3000, multipv: 3, owner: 'explore' });
+      const after = await engine.analyze(step.fenAfter, { depth: ANALYSIS_DEPTH, movetime: 3000, owner: 'explore' });
       if (my !== run.current) return;
       setComment(explainMove({ fenBefore: step.fenBefore, uci: step.uci, before, after }));
       const pv = after.lines[0]?.pv ?? [];
@@ -58,7 +58,7 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
   };
 
   const best = async () => {
-    const a = await getEngine().analyze(current, { depth: ANALYSIS_DEPTH, movetime: 3000, multipv: 3 });
+    const a = await getEngine().analyze(current, { depth: ANALYSIS_DEPTH, movetime: 3000, multipv: 3, owner: 'explore' });
     const uci = a.lines[0]?.pv[0];
     if (uci) setShowBest({ uci, san: lineToSan(current, [uci])[0] });
   };
@@ -74,7 +74,7 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
 
   const reset = () => {
     run.current++;
-    getEngine().cancelAll();
+    getEngine().cancelAll('explore');
     setSteps([]);
     setComment(null);
     setReply(null);

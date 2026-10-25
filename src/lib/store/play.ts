@@ -51,7 +51,7 @@ export function turnOf(fen: string): Color {
 }
 
 async function analyze(fen: string, multipv = 3, depth = ANALYSIS_DEPTH): Promise<AnalysisResult> {
-  return getEngine().analyze(fen, { depth, movetime: ANALYSIS_TIME, multipv });
+  return getEngine().analyze(fen, { depth, movetime: ANALYSIS_TIME, multipv, owner: 'play' });
 }
 
 function save(g: SavedGame) {
@@ -80,7 +80,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     const g = get().game;
     if (!g) return;
     token++;
-    getEngine().cancelAll();
+    getEngine().cancelAll('play');
     set({ phase: 'over', hint: null });
     const gameId = await finishGame(g, result, reason);
     set({ over: { result, reason, gameId } });
@@ -217,7 +217,7 @@ export const usePlay = create<PlayStore>((set, get) => {
 
     newGame(color, elo) {
       token++;
-      getEngine().cancelAll();
+      getEngine().cancelAll('play');
       const game: SavedGame = {
         id: 'play',
         userColor: color,
@@ -279,7 +279,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       const lastUserIdx = g.plies.map((p) => p.isUser).lastIndexOf(true);
       if (lastUserIdx < 0) return;
       token++;
-      getEngine().cancelAll();
+      getEngine().cancelAll('play');
       const undone = g.plies[lastUserIdx];
       update((gg) => {
         gg.plies = gg.plies.slice(0, lastUserIdx);
@@ -334,7 +334,7 @@ export const usePlay = create<PlayStore>((set, get) => {
 
     leaveGame() {
       token++;
-      getEngine().cancelAll();
+      getEngine().cancelAll('play');
       set({ game: null, phase: 'setup', over: null, comment: null, hint: null, message: null });
     },
   };

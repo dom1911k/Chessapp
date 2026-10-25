@@ -20,7 +20,7 @@ export interface DrillProgress {
 }
 export const DRILL_KEY = 'endgameProgress';
 
-const ENGINE = { depth: 16, movetime: 1500 };
+const ENGINE = { depth: 16, movetime: 1500, owner: 'endgame' };
 
 export function EndgameScreen({ drillId }: { drillId: string }) {
   const drill = drillById(drillId)!;
@@ -37,7 +37,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
   const fen = history[history.length - 1];
   const myMoves = Math.floor((history.length - 1) / 2) + (history.length % 2 === 0 ? 1 : 0);
 
-  useEffect(() => () => getEngine().cancelAll(), []);
+  useEffect(() => () => getEngine().cancelAll('endgame'), []);
 
   const evaluate = useCallback(async (f: string) => {
     const a = await getEngine().analyze(f, ENGINE);
@@ -134,7 +134,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
 
   const takeback = () => {
     run.current++;
-    getEngine().cancelAll();
+    getEngine().cancelAll('endgame');
     // Remove the opponent's reply and your move.
     setHistory((h) => {
       const myTurnLen = h.length % 2 === 1 ? h.length - 2 : h.length - 1;
@@ -148,7 +148,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
 
   const restart = (newPosition = false) => {
     run.current++;
-    getEngine().cancelAll();
+    getEngine().cancelAll('endgame');
     const f = newPosition ? pickFen(drill, startFen) : startFen;
     setStartFen(f);
     setHistory([f]);

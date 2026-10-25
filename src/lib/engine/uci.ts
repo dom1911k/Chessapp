@@ -81,10 +81,11 @@ export class UciEngine implements Engine {
     });
   }
 
-  cancelAll() {
-    for (const j of this.queue) j.reject(new CancelledError());
-    this.queue = [];
-    if (this.current) {
+  cancelAll(owner?: string) {
+    const mine = (j: Job) => owner === undefined || j.opts.owner === owner;
+    for (const j of this.queue) if (mine(j)) j.reject(new CancelledError());
+    this.queue = this.queue.filter((j) => !mine(j));
+    if (this.current && mine(this.current)) {
       this.current.cancelled = true;
       this.transport.send('stop');
     }

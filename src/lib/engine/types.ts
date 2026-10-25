@@ -20,10 +20,12 @@ export interface AnalyzeOptions {
   multipv?: number;
   /** Ignore cache and always search. */
   fresh?: boolean;
+  /** Who asked (e.g. 'play', 'explore'); lets a screen cancel only its own jobs. */
+  owner?: string;
 }
 
 export interface Engine {
   analyze(fen: string, opts?: AnalyzeOptions): Promise<AnalysisResult>;
-  /** Cancel queued jobs and stop the running search (pending promises reject). */
-  cancelAll(): void;
+  /** Cancel queued jobs and the running search of `owner` (all if omitted); their promises reject. */
+  cancelAll(owner?: string): void;
 }
