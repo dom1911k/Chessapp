@@ -3,6 +3,7 @@ import { Board } from '../components/Board';
 import { EvalGraph } from '../components/Charts';
 import { CoachBubble, FlagButton } from '../components/Coach';
 import { MoveList } from '../components/MoveList';
+import { PlayFromHere } from '../components/PlayFromHere';
 import { Header, Spinner } from '../components/ui';
 import { formatScore } from '../lib/chess/evaluation';
 import { db } from '../lib/db';
@@ -91,6 +92,7 @@ export function ReviewScreen({ gameId, ply }: { gameId: number; ply?: number }) 
             <CoachBubble><p>Step through the game with ▶, or jump to the next mistake with ⚠️.</p></CoachBubble>
           )}
           <EvalGraph plies={g.plies} current={i} onSelect={setI} />
+          <PlayFromHere fen={fen} color={g.userColor} />
         </div>
       </div>
     </div>

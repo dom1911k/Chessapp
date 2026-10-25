@@ -81,8 +81,16 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
     const my = ++run.current;
     const c = new Chess(after);
     if (c.isCheckmate()) return finish(true, `Checkmate in ${movesUsed} moves! ${movesUsed <= drill.maxMoves ? 'Goal reached. 🎉' : ''}`);
-    if (c.isStalemate()) return finish(false, 'Stalemate! The king had no legal move but was not in check — that\'s a draw. Always leave the king a square until you can give mate.');
-    if (c.isInsufficientMaterial()) return finish(false, 'There isn\'t enough material left to checkmate — it\'s a draw.');
+    const hold = drill.goal === 'hold';
+    if (c.isStalemate() || c.isInsufficientMaterial() || c.isThreefoldRepetition())
+      return hold
+        ? finish(true, 'Draw! You held the position. 🎉')
+        : c.isStalemate()
+          ? finish(false, 'Stalemate! The king had no legal move but was not in check — that\'s a draw. Always leave the king a square until you can give mate.')
+          : finish(false, 'There isn\'t enough material left to checkmate — it\'s a draw.');
+    // Won the pawn: the opponent has nothing but the king (a promoted pawn doesn't count as won).
+    if (drill.goal === 'capture' && !parseFen(after).board.some((p) => p && p.color !== me && p.type !== 'k'))
+      return finish(true, `You won the pawn in ${movesUsed} moves! The rest is an easy queen mate. 🎉`);
     if (drill.goal === 'promote' && promoted) {
       setStatus('thinking');
       const a = await evaluate(after).catch(() => null);
@@ -91,13 +99,19 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
       if (!s || scoreToCp(s) > 300) return finish(true, `You promoted the pawn in ${movesUsed} moves! 🎉`);
       return finish(false, 'You promoted, but the new queen can be captured right away. Promote only when the square is safe!');
     }
-    if (movesUsed >= drill.maxMoves) return finish(false, `That's ${drill.maxMoves} moves — the goal was ${drill.goalText.toLowerCase()}. Try again!`);
+    if (movesUsed >= drill.maxMoves && !hold) return finish(false, `That's ${drill.maxMoves} moves — the goal was ${drill.goalText.toLowerCase()}. Try again!`);
 
     setStatus('thinking');
     try {
       const a = await evaluate(after);
       if (my !== run.current) return;
-      setTip(coachTip(before, after, a.lines[0]?.score));
+      const sc = a.lines[0]?.score;
+      if (hold && sc) {
+        const mine = scoreToCp(povScore(sc, me));
+        if (mine < -350) return finish(false, 'That move loses — now the attacker can force a win. Take it back and try to keep your king (or rook) in the defensive spot.');
+        if (movesUsed >= drill.maxMoves) return finish(true, `You held the draw for ${drill.maxMoves} moves! 🎉`);
+      }
+      setTip(coachTip(before, after, sc));
       const reply = a.lines[0]?.pv[0] ?? a.bestMove;
       if (!reply) return;
       await new Promise((r) => setTimeout(r, 350));
@@ -106,7 +120,8 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
       setHistory((h) => [...h, rr.fen]);
       setLast({ from: reply.slice(0, 2), to: reply.slice(2, 4) });
       const c2 = new Chess(rr.fen);
-      if (c2.isInsufficientMaterial() || c2.isStalemate()) return finish(false, 'Your opponent captured your last piece that could win — it\'s a draw.');
+      if (c2.isCheckmate()) return finish(false, 'Checkmate — your opponent got through. Take back a move and try again!');
+      if (c2.isInsufficientMaterial() || c2.isStalemate()) return hold ? finish(true, 'Draw! You held the position. 🎉') : finish(false, 'Your opponent captured your last piece that could win — it\'s a draw.');
       if (drill.goal === 'promote' && !parseFen(rr.fen).board.some((p) => p?.type === 'p' && p.color === me))
         return finish(false, 'Your pawn was captured. Try again — keep it protected by your king!');
       setStatus('playing');
@@ -131,6 +146,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
     if (drill.engineTips === false) return null;
     const cpA = scoreToCp(pa);
     const cpB = pb ? scoreToCp(pb) : null;
+    if (drill.goal === 'hold') return cpA < -150 ? drill.tips[tipIndex.current++ % drill.tips.length] : null;
     if (cpB !== null && cpB > 300 && cpA < 100) return 'Oh no — that lets the win slip away. Take it back and try another idea.';
     // Mate got further away: not making progress.
     if (pb?.type === 'mate' && pa.type === 'mate' && pa.value > pb.value + 1) return drill.tips[tipIndex.current++ % drill.tips.length];

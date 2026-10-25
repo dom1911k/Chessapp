@@ -5,7 +5,7 @@ import { Header, Spinner } from '../components/ui';
 import { CLASS_LABEL, type Classification } from '../lib/chess/evaluation';
 import { formatLine } from '../lib/chess/game';
 import { db } from '../lib/db';
-import { THEMES } from '../lib/lessons';
+import { THEMES } from '../lib/themes';
 import { useNav } from '../lib/nav';
 import { THEME_SETS } from '../lib/puzzles/themes';
 import { formatDate } from '../lib/store/finish';

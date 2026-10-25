@@ -1,4 +1,4 @@
-import type { GameResult } from '../chess/game';
+import { START_FEN, type GameResult } from '../chess/game';
 import { bumpActivity, db, kvSet } from '../db';
 import { detectOpening } from '../openings';
 import { recurringPattern, summarize } from '../report';
@@ -27,7 +27,7 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     reason,
     userResult,
     summary,
-    opening: detectOpening(g.plies.map((p) => p.san))?.name,
+    opening: g.startFen === START_FEN ? detectOpening(g.plies.map((p) => p.san))?.name : undefined,
   };
   const gameId = await db.transaction('rw', [db.games, db.current, db.cards], async () => {
     const id = await db.games.add(record);

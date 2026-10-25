@@ -18,9 +18,12 @@ import { ReviewScreen } from './screens/ReviewScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { EndgameScreen } from './screens/EndgameScreen';
 import { OpeningsScreen } from './screens/OpeningsScreen';
+import { RushScreen } from './screens/RushScreen';
+import { LessonScreen } from './screens/LessonScreen';
 import { UpdateDialog } from './components/UpdatePanel';
 import { autoCheck, type UpdateInfo } from './lib/update';
 import { calibrate } from './lib/engine/speed';
+import { applyReminder } from './lib/reminders';
 
 const TABS: { tab: Tab; label: string; icon: ReactNode }[] = [
   { tab: 'play', label: 'Play', icon: <path d="M9 3h6l-1 3h2l-1.5 4H16l1 9H7l1-9h1.5L8 6h2z" /> },
@@ -63,6 +66,10 @@ function StackScreen({ screen }: { screen: Screen }) {
       return <EndgameScreen drillId={screen.drillId} />;
     case 'openings':
       return <OpeningsScreen />;
+    case 'rush':
+      return <RushScreen />;
+    case 'lesson':
+      return <LessonScreen lessonId={screen.lessonId} />;
   }
 }
 
@@ -116,6 +123,8 @@ export function App() {
   useEffect(() => {
     requestPersistentStorage();
     void useSettings.getState().load().then(() => {
+      const st = useSettings.getState();
+      if (st.reminderEnabled) void applyReminder(true, st.reminderTime);
       // Measure engine speed (cached for a month) so analysis fits this phone; runs alongside loading.
       void calibrate();
       return usePlay.getState().load();

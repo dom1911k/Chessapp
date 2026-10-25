@@ -32,7 +32,7 @@ interface PlayStore {
   botNote: ThreatInfo | null;
   over: { result: GameResult; reason: string; gameId: number } | null;
   load(): Promise<void>;
-  newGame(color: Color, elo: number): void;
+  newGame(color: Color, elo: number, startFen?: string): void;
   userMove(m: MoveInput): boolean;
   continueGame(): void;
   tryAgain(): void;
@@ -225,14 +225,14 @@ export const usePlay = create<PlayStore>((set, get) => {
       }
     },
 
-    newGame(color, elo) {
+    newGame(color, elo, startFen = START_FEN) {
       token++;
       getEngine().cancelAll('play');
       const game: SavedGame = {
         id: 'play',
         userColor: color,
         elo,
-        startFen: START_FEN,
+        startFen,
         startedAt: Date.now(),
         plies: [],
         takebacks: 0,
@@ -241,7 +241,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       };
       set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null });
       save(game);
-      if (color === 'b') void botMove();
+      if (turnOf(startFen) !== color) void botMove();
       else {
         set({ phase: 'userTurn' });
         prefetch();

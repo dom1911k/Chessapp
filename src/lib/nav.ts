@@ -11,6 +11,8 @@ export type Screen =
   | { name: 'puzzle'; mode: PuzzleMode }
   | { name: 'endgame'; drillId: string }
   | { name: 'openings' }
+  | { name: 'rush' }
+  | { name: 'lesson'; lessonId: string }
   | { name: 'settings' }
   | { name: 'history' };
 

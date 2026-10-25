@@ -2,10 +2,11 @@
 export interface Drill {
   id: string;
   title: string;
-  group: 'Basic checkmates' | 'Pawn endings';
+  group: 'Basic checkmates' | 'Pawn endings' | 'Rook & queen endings';
   icon: string;
   description: string;
-  goal: 'mate' | 'promote';
+  /** mate; promote a pawn safely; win the enemy pawn; or hold the draw for maxMoves moves. */
+  goal: 'mate' | 'promote' | 'capture' | 'hold';
   /** Maximum number of your moves. */
   maxMoves: number;
   goalText: string;
@@ -101,5 +102,72 @@ export const DRILLS: Drill[] = [
     ],
   },
 ];
+
+DRILLS.push(
+  {
+    id: 'kpk-defend',
+    title: 'Defend with the king',
+    group: 'Pawn endings',
+    icon: '🛡️',
+    description: 'King against king and pawn: stop the pawn and hold the draw.',
+    goal: 'hold',
+    maxMoves: 15,
+    goalText: 'Hold the draw for 15 moves',
+    fens: ['4k3/8/8/4P3/4K3/8/8/8 b - - 0 1', '8/8/4k3/8/4PK2/8/8/8 b - - 0 1'],
+    tips: [
+      'Stay in front of the pawn with your king — block its path.',
+      'Take the opposition: face the enemy king with one square between you, so it has to give way.',
+      'When the pawn reaches your back rank\'s doorstep, keep your king on the square in front of it or right next to it.',
+    ],
+  },
+  {
+    id: 'lucena',
+    title: 'Lucena: build a bridge',
+    group: 'Rook & queen endings',
+    icon: '🌉',
+    description: 'Rook and pawn against rook — the most important winning technique.',
+    goal: 'promote',
+    maxMoves: 20,
+    goalText: 'Promote the pawn',
+    fens: ['1K6/1P1k4/8/8/8/8/r7/2R5 w - - 0 1', '2K5/2P1k3/8/8/8/8/1r6/3R4 w - - 0 1'],
+    tips: [
+      'First push the enemy king away from your pawn with a rook check along the file.',
+      'Then bring your rook to the 4th rank: later it will block the checks — that\'s the "bridge".',
+      'Walk your king out toward your rook; when the checks come, put your rook in between.',
+    ],
+  },
+  {
+    id: 'philidor',
+    title: 'Philidor: hold the draw',
+    group: 'Rook & queen endings',
+    icon: '🧱',
+    description: 'Rook against rook and pawn — the classic defence.',
+    goal: 'hold',
+    maxMoves: 15,
+    goalText: 'Hold the draw for 15 moves',
+    fens: ['4k3/7R/r7/4PK2/8/8/8/8 b - - 0 1', '3k4/R7/3r4/3PK3/8/8/8/8 b - - 0 1'],
+    tips: [
+      'Keep your rook on your 6th rank (the third rank from your side) so the enemy king can\'t come forward.',
+      'Once the pawn steps onto your 6th rank, swing your rook to the far side and check the king from behind.',
+      'Keep your own king on the squares in front of the pawn.',
+    ],
+  },
+  {
+    id: 'qvp',
+    title: 'Queen vs pawn',
+    group: 'Rook & queen endings',
+    icon: '♛',
+    description: 'Stop a pawn on the 7th rank with your queen, then win it.',
+    goal: 'capture',
+    maxMoves: 20,
+    goalText: 'Win the pawn in under 20 moves',
+    fens: ['8/8/8/8/1K6/8/3pk3/7Q w - - 0 1', '8/8/8/8/1K6/8/1p1k4/7Q w - - 0 1'],
+    tips: [
+      'Check the king or attack the promotion square to gain time.',
+      'Force the enemy king in front of its own pawn — then it blocks the pawn for one move…',
+      '…and use that moment to bring your own king closer.',
+    ],
+  },
+);
 
 export const drillById = (id: string) => DRILLS.find((d) => d.id === id);

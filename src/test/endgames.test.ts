@@ -11,11 +11,15 @@ describe('endgame drills', () => {
       for (const fen of d.fens) {
         const c = new Chess(fen);
         expect(c.isGameOver(), fen).toBe(false);
-        const r = await e.analyze(fen, { depth: 22 });
+        const r = await e.analyze(fen, { depth: d.group === 'Rook & queen endings' ? 16 : 22 });
         const s = povScore(r.lines[0].score, c.turn());
         console.log(d.id, fen, JSON.stringify(s));
-        // Long mates (rook, bishops) are beyond the lite engine's horizon, but must be clearly winning.
-        const ok = s.type === 'mate' ? s.value > 0 && s.value <= d.maxMoves : s.value > 250;
+        // Long mates (rook, bishops) are beyond the lite engine's horizon, but must be clearly winning;
+        // "hold" drills must be drawn with best play.
+        const ok =
+          d.goal === 'hold'
+            ? s.type === 'cp' && Math.abs(s.value) < 150
+            : s.type === 'mate' ? s.value > 0 && s.value <= d.maxMoves : s.value > 250;
         expect(ok, fen).toBe(true);
       }
     }

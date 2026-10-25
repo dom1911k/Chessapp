@@ -1,5 +1,5 @@
 import { db, kvGet } from '../db';
-import { THEMES } from '../lessons';
+import { THEMES } from '../themes';
 import { FOCUS_KEY } from '../store/finish';
 import type { Theme } from '../coach/types';
 import { loadRange } from './data';

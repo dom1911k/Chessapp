@@ -1,6 +1,6 @@
 import type { Classification } from './chess/evaluation';
 import type { Theme } from './coach/types';
-import { THEMES } from './lessons';
+import { THEMES } from './themes';
 import type { GameSummary, PlyRecord } from './store/types';
 
 export function emptyCounts(): Record<Classification, number> {

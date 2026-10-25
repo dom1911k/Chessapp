@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Board } from '../components/Board';
 import { CoachBubble } from '../components/Coach';
 import { Header, Spinner } from '../components/ui';
+import { PlayFromHere } from '../components/PlayFromHere';
 import { formatScore } from '../lib/chess/evaluation';
 import { formatLine, lineToSan, tryMove, type MoveInput } from '../lib/chess/game';
 import { explainMove, type CoachComment } from '../lib/coach';
@@ -153,6 +154,7 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
             <button className="btn-secondary" disabled={busy} onClick={best}>
               Best move?
             </button>
+            <PlayFromHere fen={current} color={orientation === 'white' ? 'w' : 'b'} />
           </div>
         </div>
       </div>

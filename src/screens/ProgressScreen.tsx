@@ -8,6 +8,7 @@ import { themeStats, type ThemeStat } from '../lib/puzzles/select';
 import { themeLabel } from '../lib/puzzles/themes';
 import { bestStreak, currentStreak } from '../lib/stats';
 import { SettingsButton } from './PlayScreen';
+import { weeklySummary, type WeekStats } from '../lib/weekly';
 
 interface Data {
   rating: number;
@@ -20,6 +21,7 @@ interface Data {
   best: number;
   themes: ThemeStat[];
   days: { day: string; n: number }[];
+  week: Awaited<ReturnType<typeof weeklySummary>>;
 }
 
 export function ProgressScreen() {
@@ -57,6 +59,7 @@ export function ProgressScreen() {
         best: await bestStreak(),
         themes: (await themeStats()).filter((t) => t.attempts >= 3).sort((a, b) => b.score - a.score),
         days: last14,
+        week: await weeklySummary(),
       });
     })();
   }, [tab]);
@@ -74,6 +77,7 @@ export function ProgressScreen() {
           <Stat label="Day streak" value={`🔥 ${d.streak}`} sub={`best ${d.best}`} />
           <Stat label="Games" value={d.games.w + d.games.d + d.games.l} sub={`${d.games.w}W ${d.games.d}D ${d.games.l}L`} />
         </div>
+        <WeekCard week={d.week} />
         <div className="card !p-3">
           <div className="mb-1 text-sm font-semibold text-stone-500">Puzzle rating over time</div>
           <LineChart values={d.ratings} />
@@ -131,6 +135,46 @@ function ThemeList({ title, list }: { title: string; list: ThemeStat[] }) {
           </div>
         ))
       )}
+    </div>
+  );
+}
+
+function WeekCard({ week }: { week: { thisWeek: WeekStats; lastWeek: WeekStats } }) {
+  const { thisWeek: t, lastWeek: l } = week;
+  const rows: { label: string; now: string; before: string; better: boolean | null }[] = [
+    { label: 'Training days', now: `${t.activeDays}/7`, before: `${l.activeDays}/7`, better: t.activeDays === l.activeDays ? null : t.activeDays > l.activeDays },
+    { label: 'Puzzles solved', now: `${t.puzzlesSolved}`, before: `${l.puzzlesSolved}`, better: t.puzzlesSolved === l.puzzlesSolved ? null : t.puzzlesSolved > l.puzzlesSolved },
+    { label: 'Games', now: `${t.games}`, before: `${l.games}`, better: null },
+    {
+      label: 'Game accuracy',
+      now: t.accuracy === null ? '–' : `${t.accuracy}%`,
+      before: l.accuracy === null ? '–' : `${l.accuracy}%`,
+      better: t.accuracy === null || l.accuracy === null || t.accuracy === l.accuracy ? null : t.accuracy > l.accuracy,
+    },
+    {
+      label: 'Blunders per game',
+      now: t.blundersPerGame === null ? '–' : `${t.blundersPerGame}`,
+      before: l.blundersPerGame === null ? '–' : `${l.blundersPerGame}`,
+      better: t.blundersPerGame === null || l.blundersPerGame === null || t.blundersPerGame === l.blundersPerGame ? null : t.blundersPerGame < l.blundersPerGame,
+    },
+  ];
+  return (
+    <div className="card !p-3">
+      <div className="mb-1 flex justify-between text-sm font-semibold text-stone-500">
+        <span>This week</span>
+        <span className="font-normal">vs. last week</span>
+      </div>
+      {rows.map((r) => (
+        <div key={r.label} className="flex items-center justify-between py-0.5 text-sm">
+          <span>{r.label}</span>
+          <span>
+            <b>{r.now}</b>{' '}
+            <span className={r.better === null ? 'text-stone-400' : r.better ? 'text-emerald-600' : 'text-red-500'}>
+              {r.better === null ? '' : r.better ? '▲' : '▼'} {r.before}
+            </span>
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

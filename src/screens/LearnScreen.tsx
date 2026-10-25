@@ -6,22 +6,43 @@ import { DRILLS } from '../lib/endgames';
 import { useNav } from '../lib/nav';
 import { DRILL_KEY, type DrillProgress } from './EndgameScreen';
 import { SettingsButton } from './PlayScreen';
+import { LESSONS } from '../lib/lessons/data';
+import { LESSONS_KEY } from './LessonScreen';
 
 export function LearnScreen() {
   const push = useNav((s) => s.push);
   const tab = useNav((s) => s.tab);
+  const stackLen = useNav((s) => s.stack.length);
   const [progress, setProgress] = useState<Record<string, DrillProgress>>({});
+  const [lessonsDone, setLessonsDone] = useState<string[]>([]);
   useEffect(() => {
-    if (tab === 'learn') void kvGet(DRILL_KEY, {}).then(setProgress);
-  }, [tab]);
+    if (tab !== 'learn' || stackLen) return;
+    void kvGet(DRILL_KEY, {}).then(setProgress);
+    void kvGet<string[]>(LESSONS_KEY, []).then(setLessonsDone);
+  }, [tab, stackLen]);
   const groups = [...new Set(DRILLS.map((d) => d.group))];
   return (
     <div className="flex h-full flex-col">
       <Header title="Learn" right={<SettingsButton />} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-5 overflow-y-auto p-4">
         <CoachBubble>
-          <p>Endgames are where games are won. Practice these against the engine until they feel easy!</p>
+          <p>Start with the short lessons, then practise endgames against the engine until they feel easy!</p>
         </CoachBubble>
+        <section>
+          <h2 className="mb-2 px-1 text-sm font-semibold text-stone-500">Lessons</h2>
+          <div className="grid grid-cols-2 gap-2.5">
+            {LESSONS.map((l) => (
+              <button key={l.id} className="card !p-3 text-left" onClick={() => push({ name: 'lesson', lessonId: l.id })}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{l.icon}</span>
+                  <span className="font-semibold leading-tight">{l.title}</span>
+                </div>
+                <div className="mt-1 text-xs text-stone-500">{l.summary}</div>
+                {lessonsDone.includes(l.id) && <div className="mt-1 text-xs font-semibold text-emerald-600">✓ Done</div>}
+              </button>
+            ))}
+          </div>
+        </section>
         {groups.map((g) => (
           <section key={g}>
             <h2 className="mb-2 px-1 text-sm font-semibold text-stone-500">{g}</h2>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
+import { START_FEN } from '../lib/chess/game';
 import { detectOpening } from '../lib/openings';
 import { useNav } from '../lib/nav';
 import { useSettings } from '../lib/settings';
@@ -98,7 +99,7 @@ function GameView() {
   const fen = currentFen(g);
   const orientation = g.userColor === 'w' ? 'white' : 'black';
   const last = g.plies[g.plies.length - 1];
-  const opening = useMemo(() => detectOpening(g.plies.map((p) => p.san)), [g.plies]);
+  const opening = useMemo(() => (g.startFen === START_FEN ? detectOpening(g.plies.map((p) => p.san)) : null), [g.plies, g.startFen]);
   const myTurn = s.phase === 'userTurn' && turnOf(fen) === g.userColor;
 
   const arrows: CoachArrow[] = [];

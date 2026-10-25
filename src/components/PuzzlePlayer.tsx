@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Board } from './Board';
 import { CoachBubble } from './Coach';
 import { Spinner } from './ui';
+import { PlayFromHere } from './PlayFromHere';
 import { tryMove, type MoveInput } from '../lib/chess/game';
 import { classify, povScore, winPct } from '../lib/chess/evaluation';
 import { explainKeyMove, getHint } from '../lib/coach';
@@ -26,9 +27,11 @@ interface Props {
   nextLabel?: string;
   /** Extra content under the coach bubble when finished (rating change…). */
   footer?: React.ReactNode;
+  /** Puzzle Rush: no hints or explanations, a wrong move ends the puzzle, auto-advance. */
+  fast?: boolean;
 }
 
-export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle', footer }: Props) {
+export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle', footer, fast = false }: Props) {
   const startFen = useMemo(() => (spec.setup ? tryMove(spec.fen, spec.setup)!.fen : spec.fen), [spec]);
   const userColor = startFen.split(' ')[1] as 'w' | 'b';
   const [fen, setFen] = useState(spec.setup ? spec.fen : startFen);
@@ -48,7 +51,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
       setFen(startFen);
       setLast({ from: spec.setup!.slice(0, 2), to: spec.setup!.slice(2, 4) });
       setState('solving');
-    }, 700);
+    }, fast ? 350 : 700);
     return () => clearTimeout(t);
   }, [spec, startFen]);
 
@@ -66,6 +69,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
       playSound('success');
       setState('solved');
       finish(true);
+      if (fast) setTimeout(() => onNext?.(), 450);
       return;
     }
     // Opponent reply.
@@ -107,6 +111,13 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     setFailed(true);
     setState('wrong');
     playSound('error');
+    if (fast) {
+      if (!finished.current) {
+        finished.current = true;
+        onFinish({ success: false, hintsUsed: 0 });
+      }
+      setTimeout(() => onNext?.(), 700);
+    }
   };
 
   const checkAlternative = async (beforeFen: string, uci: string, afterFen: string) => {
@@ -192,6 +203,11 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
           highlights={hint?.highlights ?? []}
         />
       </div>
+      {fast ? (
+        <div className="px-3 text-center text-sm font-semibold text-stone-500">
+          {state === 'solving' ? `${userColor === 'w' ? 'White' : 'Black'} to move` : state === 'wrong' ? '✗ Missed' : state === 'solved' ? '✓ Solved' : '…'}
+        </div>
+      ) : (
       <div className="space-y-3 px-3">
         {state === 'intro' && <CoachBubble mood="thinking"><p>Watch your opponent's move…</p></CoachBubble>}
         {state === 'solving' && (
@@ -221,7 +237,12 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
         {done && explanation && (
           <CoachBubble
             mood={state === 'solved' ? 'happy' : 'concerned'}
-            actions={onNext && <button className="btn-primary" onClick={onNext}>{nextLabel}</button>}
+            actions={
+              <>
+                {onNext && <button className="btn-primary" onClick={onNext}>{nextLabel}</button>}
+                <PlayFromHere fen={startFen} color={userColor} label="▶ Play it out" />
+              </>
+            }
           >
             <p className="font-semibold">{state === 'solved' ? (failed || hints ? 'Solved — with a little help.' : 'Correct! 🎉') : "Here's the solution."}</p>
             {note && <p>{note}</p>}
@@ -250,6 +271,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

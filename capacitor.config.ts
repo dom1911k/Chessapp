@@ -17,6 +17,10 @@ const config: CapacitorConfig = {
       insetsHandling: 'native',
       initialViewportFitValueHint: 'cover',
     },
+    LocalNotifications: {
+      smallIcon: 'ic_stat_notify',
+      iconColor: '#23804F',
+    },
   },
 };
 

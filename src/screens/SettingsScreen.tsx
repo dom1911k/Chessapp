@@ -3,6 +3,8 @@ import { BOARD_THEMES, useSettings, type BoardTheme } from '../lib/settings';
 import { BackupCard } from '../components/BackupCard';
 import { UpdateCard } from '../components/UpdatePanel';
 import { FeedbackCard } from '../components/FeedbackCard';
+import { applyReminder, remindersSupported } from '../lib/reminders';
+import { useState } from 'react';
 
 export function SettingsScreen() {
   const s = useSettings();
@@ -50,6 +52,7 @@ export function SettingsScreen() {
           <Toggle checked={s.safetyOverlay} onChange={(v) => s.set({ safetyOverlay: v })} label="Safety overlay (hanging pieces & threats)" />
           <Toggle checked={s.showEvalBar} onChange={(v) => s.set({ showEvalBar: v })} label="Show evaluation bar" />
         </div>
+        <ReminderCard />
         <UpdateCard />
         <BackupCard />
         <FeedbackCard />
@@ -57,6 +60,35 @@ export function SettingsScreen() {
           Chess Coach runs fully offline. Engine: Stockfish 19 (GPLv3). Puzzles: Lichess puzzle database (CC0).
         </p>
       </div>
+    </div>
+  );
+}
+
+function ReminderCard() {
+  const s = useSettings();
+  const [denied, setDenied] = useState(false);
+  if (!remindersSupported()) return null;
+  const apply = async (enabled: boolean, time: string) => {
+    const ok = await applyReminder(enabled, time);
+    setDenied(!ok);
+    s.set({ reminderEnabled: ok && enabled, reminderTime: time });
+  };
+  return (
+    <div className="card">
+      <div className="text-sm font-semibold text-stone-500">Daily reminder</div>
+      <Toggle checked={s.reminderEnabled} onChange={(v) => void apply(v, s.reminderTime)} label="Remind me to train every day" />
+      {s.reminderEnabled && (
+        <label className="flex items-center justify-between py-1 text-sm">
+          <span>Time</span>
+          <input
+            type="time"
+            value={s.reminderTime}
+            onChange={(e) => e.target.value && void apply(true, e.target.value)}
+            className="rounded-lg bg-stone-100 px-2 py-1 dark:bg-stone-800"
+          />
+        </label>
+      )}
+      {denied && <p className="text-sm text-red-600">Notifications are blocked. Allow them for Chess Coach in Android settings.</p>}
     </div>
   );
 }

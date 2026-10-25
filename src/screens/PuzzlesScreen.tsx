@@ -40,6 +40,13 @@ export function PuzzlesScreen() {
             Solve puzzles
           </button>
         </div>
+        <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'rush' })}>
+          <span className="text-2xl">⚡</span>
+          <span className="flex-1">
+            <span className="block font-semibold">Puzzle Rush</span>
+            <span className="block text-xs text-stone-500">3 minutes, 3 mistakes — how many can you solve?</span>
+          </span>
+        </button>
         {weak.length > 0 && count >= 5 && (
           <CoachBubble>
             <p>
