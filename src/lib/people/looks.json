@@ -1,0 +1,99 @@
+{
+ "coach": {
+  "top": "bun",
+  "hairColor": "a55728",
+  "skinColor": "edb98a",
+  "clothing": "blazerAndSweater",
+  "clothesColor": "25557c",
+  "accessories": "round",
+  "accessoriesColor": "262e33",
+  "backgroundColor": "b6e3d4"
+ },
+ "lily": {
+  "top": "bob",
+  "hairColor": "c93305",
+  "skinColor": "ffdbb4",
+  "clothing": "hoodie",
+  "clothesColor": "ffafb9",
+  "backgroundColor": "ffe3e8"
+ },
+ "tom": {
+  "top": "sides",
+  "hairColor": "e8e1e1",
+  "skinColor": "edb98a",
+  "clothing": "collarAndSweater",
+  "clothesColor": "a7ffc4",
+  "accessories": "prescription02",
+  "accessoriesColor": "3c4f5c",
+  "facialHair": "beardLight",
+  "facialHairColor": "e8e1e1",
+  "backgroundColor": "e6f0d6"
+ },
+ "maya": {
+  "top": "curly",
+  "hairColor": "2c1b18",
+  "skinColor": "ae5d29",
+  "clothing": "graphicShirt",
+  "clothingGraphic": "pizza",
+  "clothesColor": "ffffb1",
+  "backgroundColor": "fff1c7"
+ },
+ "jonas": {
+  "top": "shortFlat",
+  "hairColor": "d6b370",
+  "skinColor": "ffdbb4",
+  "clothing": "shirtCrewNeck",
+  "clothesColor": "5199e4",
+  "facialHair": "beardMedium",
+  "facialHairColor": "b58143",
+  "backgroundColor": "d6e8fa"
+ },
+ "priya": {
+  "top": "straight01",
+  "hairColor": "2c1b18",
+  "skinColor": "d08b5b",
+  "clothing": "collarAndSweater",
+  "clothesColor": "65c9ff",
+  "accessories": "round",
+  "accessoriesColor": "262e33",
+  "backgroundColor": "e0ecff"
+ },
+ "marcus": {
+  "top": "dreads01",
+  "hairColor": "2c1b18",
+  "skinColor": "614335",
+  "clothing": "hoodie",
+  "clothesColor": "ff5c5c",
+  "facialHair": "beardLight",
+  "facialHairColor": "2c1b18",
+  "backgroundColor": "ffd9cf"
+ },
+ "sofia": {
+  "top": "longButNotTooLong",
+  "hairColor": "724133",
+  "skinColor": "edb98a",
+  "clothing": "blazerAndShirt",
+  "clothesColor": "262e33",
+  "backgroundColor": "e9e3f7"
+ },
+ "viktor": {
+  "top": "theCaesar",
+  "hairColor": "929598",
+  "skinColor": "ffdbb4",
+  "clothing": "blazerAndShirt",
+  "clothesColor": "3c4f5c",
+  "facialHair": "moustacheFancy",
+  "facialHairColor": "929598",
+  "accessories": "prescription01",
+  "accessoriesColor": "262e33",
+  "backgroundColor": "e3e3e3"
+ },
+ "mei": {
+  "top": "straightAndStrand",
+  "hairColor": "2c1b18",
+  "skinColor": "ffdbb4",
+  "clothing": "collarAndSweater",
+  "clothesColor": "ff488e",
+  "backgroundColor": "f3e6d3"
+ }
+}

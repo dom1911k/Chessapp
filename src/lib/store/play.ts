@@ -1,7 +1,7 @@
 // Play-vs-bot state machine with live coaching.
 import { create } from 'zustand';
 import { chooseBotMove, botParams } from '../bot';
-import { moveAccuracy, winPct, povScore, type Score } from '../chess/evaluation';
+import { moveAccuracy, winPct, povScore, scoreToCp, type Score } from '../chess/evaluation';
 import { gameOverInfo, START_FEN, tryMove, type GameResult, type MoveInput } from '../chess/game';
 import { other, type Color } from '../chess/pos';
 import { explainMove, explainTakeback, getHint, type CoachComment } from '../coach';
@@ -12,6 +12,7 @@ import { CancelledError, getEngine, type AnalysisResult } from '../engine';
 import { analysisLimits } from '../engine/speed';
 import { useSettings } from '../settings';
 import { playSound } from '../sound';
+import { opponentById, pickLine, type ChatEvent, type Mood } from '../people';
 import { finishGame } from './finish';
 import type { SavedGame } from './types';
 
@@ -30,9 +31,11 @@ interface PlayStore {
   threat: ThreatInfo | null;
   /** Note about a threat the bot's last move created. */
   botNote: ThreatInfo | null;
+  /** The opponent's latest chat line. */
+  chat: { text: string; mood: Mood; ply: number } | null;
   over: { result: GameResult; reason: string; gameId: number } | null;
   load(): Promise<void>;
-  newGame(color: Color, elo: number, startFen?: string): void;
+  newGame(color: Color, elo: number, startFen?: string, opponentId?: string): void;
   userMove(m: MoveInput): boolean;
   continueGame(): void;
   tryAgain(): void;
@@ -65,7 +68,25 @@ function save(g: SavedGame) {
   void db.current.put(structuredClone(g));
 }
 
+const CHAT_MOOD: Partial<Record<ChatEvent, Mood>> = {
+  userBlunder: 'happy',
+  botCapture: 'happy',
+  botWinning: 'happy',
+  botWins: 'happy',
+  botLosing: 'worried',
+  botLoses: 'worried',
+  userGoodMove: 'worried',
+};
+
 export const usePlay = create<PlayStore>((set, get) => {
+  /** Let the opponent say something (with probability `p`). */
+  const say = (event: ChatEvent, p = 1) => {
+    const g = get().game;
+    const o = opponentById(g?.opponentId);
+    if (!g || !o || Math.random() > p) return;
+    set({ chat: { text: pickLine(o, event), mood: CHAT_MOOD[event] ?? 'neutral', ply: g.plies.length } });
+  };
+
   const update = (fn: (g: SavedGame) => void) => {
     const g = get().game;
     if (!g) return;
@@ -89,6 +110,9 @@ export const usePlay = create<PlayStore>((set, get) => {
     token++;
     getEngine().cancelAll('play');
     set({ phase: 'over', hint: null });
+    const botWon = result !== '1/2-1/2' && (result === '1-0') !== (g.userColor === 'w');
+    say(reason === 'resignation' ? 'userResigned' : result === '1/2-1/2' ? 'draw' : botWon ? 'botWins' : 'botLoses');
+    if (!botWon && result !== '1/2-1/2') setTimeout(() => playSound('win'), 350);
     const gameId = await finishGame(g, result, reason);
     set({ over: { result, reason, gameId } });
   };
@@ -136,6 +160,8 @@ export const usePlay = create<PlayStore>((set, get) => {
         return;
       }
       const serious = comment.classification === 'mistake' || comment.classification === 'blunder';
+      if (serious) say('userBlunder', 0.85);
+      else if (comment.ruleIds.some((r) => r === 'praise-tactic' || r === 'praise-mate' || r === 'praise-capture')) say('userGoodMove', 0.7);
       if (serious && useSettings.getState().pauseOnMistakes) {
         playSound('error');
         set({ phase: 'paused', comment: { comment, ply: i } });
@@ -158,13 +184,15 @@ export const usePlay = create<PlayStore>((set, get) => {
       const started = Date.now();
       const a = await analyze(fen, params.multipv, Math.max(analysisLimits().depth, params.depth));
       if (my !== token) return;
-      const uci = chooseBotMove(fen, a, g.elo);
+      const uci = chooseBotMove(fen, a, g.elo, Math.random, opponentById(g.opponentId)?.style);
       await sleep(Math.max(0, 600 - (Date.now() - started)));
       if (my !== token || !uci) return;
       const r = tryMove(fen, uci)!;
       update((gg) => {
         gg.plies.push({ uci, san: r.move.san, color: r.move.color, fenBefore: fen, fenAfter: r.fen, isUser: false });
       });
+      if (r.move.san.includes('+')) say('botCheck', 0.5);
+      else if (r.move.captured) say('botCapture', 0.3);
       if (await checkOver(get().game!)) return;
       set({ phase: 'userTurn', botNote: useSettings.getState().botNotes ? botMoveNote(fen, r.fen, uci, g.userColor) : null });
       prefetch();
@@ -186,6 +214,16 @@ export const usePlay = create<PlayStore>((set, get) => {
         update((x) => {
           x.plies[i] = { ...x.plies[i], evalAfter: a.lines[0]?.score };
         });
+        const s = a.lines[0]?.score;
+        if (s) {
+          const botCp = scoreToCp(povScore(s, other(gg.userColor)));
+          const told = get().game!.told;
+          const flag = botCp >= 300 ? 'chat:winning' : botCp <= -300 ? 'chat:losing' : null;
+          if (flag && !told.includes(flag)) {
+            update((x) => void x.told.push(flag));
+            say(flag === 'chat:winning' ? 'botWinning' : 'botLosing');
+          }
+        }
       })
       .catch(() => undefined);
   };
@@ -198,6 +236,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     hint: null,
     threat: null,
     botNote: null,
+    chat: null,
     over: null,
 
     async load() {
@@ -225,13 +264,14 @@ export const usePlay = create<PlayStore>((set, get) => {
       }
     },
 
-    newGame(color, elo, startFen = START_FEN) {
+    newGame(color, elo, startFen = START_FEN, opponentId) {
       token++;
       getEngine().cancelAll('play');
       const game: SavedGame = {
         id: 'play',
         userColor: color,
         elo,
+        opponentId,
         startFen,
         startedAt: Date.now(),
         plies: [],
@@ -239,8 +279,9 @@ export const usePlay = create<PlayStore>((set, get) => {
         hintsUsed: 0,
         told: [],
       };
-      set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null });
+      set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null });
       save(game);
+      say('greet');
       if (turnOf(startFen) !== color) void botMove();
       else {
         set({ phase: 'userTurn' });
@@ -303,6 +344,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         botNote: null,
         message: explainTakeback(undone.comment, undone.fenBefore),
       });
+      say('takeback', 0.6);
       prefetch();
     },
 
@@ -361,7 +403,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     leaveGame() {
       token++;
       getEngine().cancelAll('play');
-      set({ game: null, phase: 'setup', over: null, comment: null, hint: null, message: null, threat: null, botNote: null });
+      set({ game: null, phase: 'setup', over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null });
     },
   };
 });

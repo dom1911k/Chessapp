@@ -49,7 +49,9 @@ function useMoveSounds(fen: string, lastMove: { from: string; to: string } | nul
     prev.current = fen;
     if (before === fen || !lastMove) return;
     const c = new Chess(fen);
-    playSound(c.inCheck() ? 'check' : pieceCount(fen) < pieceCount(before) ? 'capture' : 'move');
+    const moved = c.get(lastMove.to as Square);
+    const castle = moved?.type === 'k' && Math.abs(lastMove.to.charCodeAt(0) - lastMove.from.charCodeAt(0)) === 2;
+    playSound(c.inCheck() ? 'check' : pieceCount(fen) < pieceCount(before) ? 'capture' : castle ? 'castle' : 'move');
   }, [fen, lastMove]);
 }
 

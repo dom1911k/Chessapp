@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNav } from '../lib/nav';
 import { useSettings } from '../lib/settings';
 import { usePlay } from '../lib/store/play';
+import { opponentById } from '../lib/people';
 import { Dialog } from './ui';
 
 /** Button that turns any position into a game against the bot. */
@@ -10,6 +11,7 @@ export function PlayFromHere({ fen, color, label = '▶ Play from here' }: { fen
   const [ask, setAsk] = useState(false);
   const setTab = useNav((s) => s.setTab);
   const elo = useSettings((s) => s.botElo);
+  const oppId = useSettings((s) => s.opponentId);
   const g = usePlay((s) => s.game);
   if (new Chess(fen).isGameOver()) return null;
   const me = color ?? (fen.split(' ')[1] as 'w' | 'b');
@@ -17,7 +19,8 @@ export function PlayFromHere({ fen, color, label = '▶ Play from here' }: { fen
     setAsk(false);
     const play = usePlay.getState();
     if (play.game && play.phase !== 'over') await play.abandon();
-    play.newGame(me, elo, fen);
+    const o = opponentById(oppId);
+    play.newGame(me, o?.elo ?? elo, fen, o?.id);
     setTab('play');
   };
   const busy = g && g.plies.length > 0 && usePlay.getState().phase !== 'over';

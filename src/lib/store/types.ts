@@ -23,6 +23,8 @@ export interface SavedGame {
   id: 'play';
   userColor: Color;
   elo: number;
+  /** Opponent character (see lib/people); undefined for custom strength. */
+  opponentId?: string;
   startFen: string;
   startedAt: number;
   plies: PlyRecord[];

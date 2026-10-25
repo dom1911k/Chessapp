@@ -10,7 +10,7 @@ built into the app.
 
 | | |
 |---|---|
-| **Play** | Bot from ~400 to ~2000 Elo, unlimited take-backs, hints, "Threats?" (what is my opponent planning?), "Why not this move?", safety overlay, notes when the bot attacks something. Every move is rated Best / Good / Inaccuracy / Mistake / Blunder; on a mistake the coach pauses and explains. Optional move confirmation against slips. |
+| **Play** | Nine opponents with their own portraits and personalities, from Lily (~400) to Mei (~2000) — they chat, react and play in their own style — or a custom-strength bot from ~400 to ~2000 Elo, unlimited take-backs, hints, "Threats?" (what is my opponent planning?), "Why not this move?", safety overlay, notes when the bot attacks something. Every move is rated Best / Good / Inaccuracy / Mistake / Blunder; on a mistake the coach pauses and explains. Optional move confirmation against slips. |
 | **Puzzles** | ~20,000 Lichess puzzles (rated 600–1800), your own puzzle rating, 15 themed sets, and Puzzle Rush (3 minutes, 3 mistakes). |
 | **Daily** | A 10–15 minute session: reviews of positions you got wrong (from your games and puzzles) on a 1 → 3 → 7 → 14 → 30 day schedule, plus new puzzles on your weakest themes. Optional daily reminder. |
 | **Learn** | Six guided lessons (checkmate, free pieces, forks, pins, back rank, opening principles), endgame drills against the engine (basic mates, king-and-pawn, Lucena, Philidor, queen vs pawn) and opening names with their main ideas. |
@@ -214,4 +214,5 @@ same key is installed over the old one. Don't change `appId` in `capacitor.confi
 - [Stockfish](https://stockfishchess.org) via [stockfish.js](https://github.com/nmrugg/stockfish.js) — GPLv3.
   Because the APK contains Stockfish, the app as a whole is distributed under the GPLv3; its full source is this repository.
 - Puzzles: [Lichess puzzle database](https://database.lichess.org/#puzzles) — CC0.
+- Character portraits: "Avataaars" by Pablo Stanley (free for personal and commercial use), generated with [DiceBear](https://www.dicebear.com) (MIT) — see `scripts/make-portraits.mjs`.
 - [chess.js](https://github.com/jhlywa/chess.js) (BSD-2), [react-chessboard](https://github.com/Clariity/react-chessboard) (MIT), [Capacitor](https://capacitorjs.com) (MIT), [Dexie](https://dexie.org) (Apache-2.0).

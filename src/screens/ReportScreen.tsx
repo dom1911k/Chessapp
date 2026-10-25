@@ -8,6 +8,7 @@ import { db } from '../lib/db';
 import { THEMES } from '../lib/themes';
 import { useNav } from '../lib/nav';
 import { THEME_SETS } from '../lib/puzzles/themes';
+import { opponentById } from '../lib/people';
 import { formatDate } from '../lib/store/finish';
 import type { GameRecord } from '../lib/store/types';
 
@@ -38,7 +39,7 @@ export function ReportScreen({ gameId }: { gameId: number }) {
             <div>
               <div className="text-xl font-bold">{resultText}</div>
               <div className="text-sm text-stone-500">
-                vs Bot ~{g.elo} · {g.reason} · {formatDate(g.endedAt)}
+                vs {opponentById(g.opponentId)?.name ?? 'Bot'} ~{g.elo} · {g.reason} · {formatDate(g.endedAt)}
               </div>
               {g.opening && <div className="text-sm text-stone-500">{g.opening}</div>}
             </div>

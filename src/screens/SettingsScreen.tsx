@@ -4,6 +4,7 @@ import { BackupCard } from '../components/BackupCard';
 import { UpdateCard } from '../components/UpdatePanel';
 import { FeedbackCard } from '../components/FeedbackCard';
 import { applyReminder, remindersSupported } from '../lib/reminders';
+import { playSound } from '../lib/sound';
 import { useState } from 'react';
 
 export function SettingsScreen() {
@@ -43,6 +44,21 @@ export function SettingsScreen() {
           <Toggle checked={s.largePieces} onChange={(v) => s.set({ largePieces: v })} label="Larger pieces" />
           <Toggle checked={s.showCoordinates} onChange={(v) => s.set({ showCoordinates: v })} label="Board coordinates" />
           <Toggle checked={s.sound} onChange={(v) => s.set({ sound: v })} label="Sound effects" />
+          {s.sound && (
+            <label className="flex items-center gap-3 py-1 text-sm">
+              <span>Volume</span>
+              <input
+                type="range"
+                min={0.1}
+                max={1}
+                step={0.05}
+                value={s.soundVolume}
+                onChange={(e) => s.set({ soundVolume: Number(e.target.value) })}
+                onPointerUp={() => playSound('move')}
+                className="flex-1 accent-brand-600"
+              />
+            </label>
+          )}
           <Toggle checked={s.confirmMoves} onChange={(v) => s.set({ confirmMoves: v })} label="Confirm each move (prevents slips)" />
         </div>
         <div className="card divide-y divide-stone-100 dark:divide-stone-800">
@@ -57,7 +73,7 @@ export function SettingsScreen() {
         <BackupCard />
         <FeedbackCard />
         <p className="px-2 text-xs text-stone-500">
-          Chess Coach runs fully offline. Engine: Stockfish 19 (GPLv3). Puzzles: Lichess puzzle database (CC0).
+          Chess Coach runs fully offline. Engine: Stockfish 19 (GPLv3). Puzzles: Lichess puzzle database (CC0). Portraits: Avataaars by Pablo Stanley, via DiceBear.
         </p>
       </div>
     </div>

@@ -7,12 +7,16 @@ import { DEFAULT_ELO } from './bot';
 export interface Settings {
   theme: 'system' | 'light' | 'dark';
   botElo: number;
+  /** Chosen opponent, or 'custom' for the strength slider. */
+  opponentId: string;
   colorPref: 'w' | 'b' | 'random';
   safetyOverlay: boolean;
   showEvalBar: boolean;
   pauseOnMistakes: boolean;
   showCoordinates: boolean;
   sound: boolean;
+  /** 0..1 */
+  soundVolume: number;
   /** Point out threats created by the bot's moves. */
   botNotes: boolean;
   /** Ask for a confirmation tap before a move is played (prevents slips). */
@@ -36,12 +40,14 @@ export const BOARD_THEMES: Record<BoardTheme, { label: string; light: string; da
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   botElo: DEFAULT_ELO,
+  opponentId: 'tom',
   colorPref: 'w',
   safetyOverlay: false,
   showEvalBar: false,
   pauseOnMistakes: true,
   showCoordinates: true,
   sound: true,
+  soundVolume: 0.7,
   botNotes: true,
   confirmMoves: false,
   boardTheme: 'green',

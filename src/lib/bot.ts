@@ -4,6 +4,7 @@
 import { Chess } from 'chess.js';
 import { povScore, scoreToCp } from './chess/evaluation';
 import type { AnalysisResult } from './engine/types';
+import type { PlayStyle } from './people';
 
 export const MIN_ELO = 400;
 export const MAX_ELO = 2000;
@@ -45,11 +46,20 @@ export function eloLabel(elo: number): string {
   return 'Expert';
 }
 
+/** How a play style nudges the choice between candidate moves (in centipawns). */
+function styleBonus(style: PlayStyle, san: string): number {
+  const forcing = san.includes('x') || san.includes('+');
+  if (style === 'aggressive') return forcing ? 45 : 0;
+  if (style === 'solid') return forcing ? -15 : san.startsWith('O-O') ? 30 : 0;
+  return 0;
+}
+
 export function chooseBotMove(
   fen: string,
   analysis: AnalysisResult,
   elo: number,
   rand: () => number = Math.random,
+  style: PlayStyle = 'balanced',
 ): string | null {
   const p = botParams(elo);
   const chess = new Chess(fen);
@@ -64,15 +74,20 @@ export function chooseBotMove(
   const bestPov = povScore(best.score, turn);
   if (bestPov.type === 'mate' && bestPov.value === 1 && elo >= 900) return best.pv[0];
 
-  if (rand() < p.randomMoveChance) {
+  // "Wild" players (Lily) make more random moves.
+  const randomChance = style === 'wild' ? Math.min(0.35, p.randomMoveChance * 2) : p.randomMoveChance;
+  if (rand() < randomChance) {
     // A "human" move: prefer natural-looking moves (captures/development) over pure noise.
     const natural = legal.filter((m) => m.captured || ['n', 'b'].includes(m.piece) || m.piece === 'p');
     const pool = natural.length ? natural : legal;
     return pool[Math.floor(rand() * pool.length)].lan;
   }
 
-  const cps = lines.map((l) => scoreToCp(povScore(l.score, turn)));
-  const top = cps[0];
+  const cps = lines.map((l) => {
+    const san = legal.find((m) => m.lan === l.pv[0])?.san ?? '';
+    return scoreToCp(povScore(l.score, turn)) + styleBonus(style, san);
+  });
+  const top = Math.max(...cps);
   const weights = cps.map((cp) => Math.exp(-Math.min(3000, top - cp) / p.temperature));
   const total = weights.reduce((a, b) => a + b, 0);
   let r = rand() * total;

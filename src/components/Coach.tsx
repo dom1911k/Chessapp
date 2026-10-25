@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { flagExplanation } from '../lib/feedback';
+import { COACH, portrait, type Mood } from '../lib/people';
 import type { CoachComment } from '../lib/coach/types';
 import { CLASS_LABEL, CLASS_SYMBOL, type Classification } from '../lib/chess/evaluation';
 
@@ -19,36 +20,14 @@ export function ClassBadge({ c }: { c: Classification }) {
   );
 }
 
-/** The coach character: a friendly owl. */
+/** Round portrait of a person (coach or opponent) in a given mood. */
+export function Portrait({ id, mood = 'neutral', size = 44, className = '' }: { id: string; mood?: Mood; size?: number; className?: string }) {
+  return <img src={portrait(id, mood)} width={size} height={size} alt="" draggable={false} className={`shrink-0 rounded-full ${className}`} style={{ width: size, height: size }} />;
+}
+
+/** The coach. */
 export function CoachAvatar({ mood = 'happy', size = 44 }: { mood?: 'happy' | 'concerned' | 'thinking'; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden className="shrink-0">
-      <circle cx="32" cy="34" r="27" fill="#8b6b4a" />
-      <path d="M10 18 L20 26 L14 30 Z M54 18 L44 26 L50 30 Z" fill="#6f5338" />
-      <ellipse cx="32" cy="44" rx="16" ry="13" fill="#e8d5b5" />
-      <circle cx="22" cy="30" r="9" fill="#fff" />
-      <circle cx="42" cy="30" r="9" fill="#fff" />
-      {mood === 'thinking' ? (
-        <>
-          <circle cx="24" cy="27" r="4" fill="#2d2d2d" />
-          <circle cx="44" cy="27" r="4" fill="#2d2d2d" />
-        </>
-      ) : (
-        <>
-          <circle cx="22" cy="31" r="4" fill="#2d2d2d" />
-          <circle cx="42" cy="31" r="4" fill="#2d2d2d" />
-        </>
-      )}
-      <circle cx="23.5" cy="29.5" r="1.3" fill="#fff" />
-      <circle cx="43.5" cy="29.5" r="1.3" fill="#fff" />
-      <path d="M29 37 L35 37 L32 42 Z" fill="#f2a33a" />
-      {mood === 'concerned' ? (
-        <path d="M14 20 Q22 17 29 22 M35 22 Q42 17 50 20" stroke="#4a3622" strokeWidth="2" fill="none" />
-      ) : null}
-      <rect x="18" y="8" width="28" height="6" rx="2" fill="#2d2d2d" />
-      <rect x="24" y="2" width="16" height="7" rx="1.5" fill="#2d2d2d" />
-    </svg>
-  );
+  return <Portrait id={COACH.id} mood={mood === 'concerned' ? 'worried' : mood === 'happy' ? 'neutral' : 'neutral'} size={size} />;
 }
 
 export function CoachBubble({

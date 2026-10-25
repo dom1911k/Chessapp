@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
-import { povScore, winPct } from '../lib/chess/evaluation';
+import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
 import { START_FEN } from '../lib/chess/game';
 import { detectOpening } from '../lib/openings';
@@ -8,7 +8,8 @@ import { useNav } from '../lib/nav';
 import { useSettings } from '../lib/settings';
 import { currentFen, turnOf, usePlay } from '../lib/store/play';
 import { Board } from '../components/Board';
-import { CoachBubble, FlagButton } from '../components/Coach';
+import { CoachBubble, FlagButton, Portrait } from '../components/Coach';
+import { OPPONENTS, opponentById, type Mood } from '../lib/people';
 import { Dialog, EvalBar, Header, Segmented, Spinner } from '../components/ui';
 import { MoveList } from '../components/MoveList';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
@@ -25,18 +26,56 @@ function SetupView() {
   const settings = useSettings();
   const newGame = usePlay((s) => s.newGame);
   const push = useNav((s) => s.push);
+  const custom = settings.opponentId === 'custom';
+  const opp = custom ? null : (opponentById(settings.opponentId) ?? OPPONENTS[1]);
   const start = () => {
     const color = settings.colorPref === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : settings.colorPref;
-    newGame(color, settings.botElo);
+    newGame(color, opp ? opp.elo : settings.botElo, undefined, opp?.id);
   };
   return (
     <div className="flex h-full flex-col">
       <Header title="Play" right={<SettingsButton />} />
       <div className="mx-auto w-full max-w-md flex-1 space-y-4 overflow-y-auto p-4">
-        <CoachBubble>
-          <p>Ready for a game? I'll watch your moves and help you whenever something goes wrong.</p>
-        </CoachBubble>
-        <div className="card space-y-4">
+        <div>
+          <div className="mb-2 px-1 text-sm font-semibold text-stone-500">Choose your opponent</div>
+          <div className="grid grid-cols-3 gap-2">
+            {OPPONENTS.map((o) => (
+              <button
+                key={o.id}
+                onClick={() => settings.set({ opponentId: o.id })}
+                className={`card flex flex-col items-center !p-2 transition ${settings.opponentId === o.id ? '!ring-2 !ring-brand-600' : ''}`}
+              >
+                <Portrait id={o.id} size={56} mood={settings.opponentId === o.id ? 'happy' : 'neutral'} />
+                <span className="mt-1 text-sm font-semibold leading-tight">{o.name}</span>
+                <span className="text-xs text-stone-500">{o.elo}</span>
+              </button>
+            ))}
+          </div>
+          <button className={`mt-2 w-full rounded-xl px-3 py-2 text-left text-sm ${custom ? 'bg-brand-100 font-semibold text-brand-700 dark:bg-brand-700/30 dark:text-brand-100' : 'text-stone-500'}`} onClick={() => settings.set({ opponentId: 'custom' })}>
+            ⚙️ Custom strength…
+          </button>
+        </div>
+        {opp ? (
+          <div className="card flex gap-3">
+            <Portrait id={opp.id} size={64} />
+            <div>
+              <div className="font-bold">{opp.name} <span className="font-normal text-stone-500">· ~{opp.elo}</span></div>
+              <div className="text-xs font-semibold text-brand-700 dark:text-brand-500">{opp.tagline}</div>
+              <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">{opp.bio}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="card">
+            <div className="mb-1 flex items-baseline justify-between">
+              <span className="text-sm font-semibold text-stone-500">Bot strength</span>
+              <span className="text-sm font-bold">
+                ~{settings.botElo} <span className="font-normal text-stone-500">· {eloLabel(settings.botElo)}</span>
+              </span>
+            </div>
+            <input type="range" min={MIN_ELO} max={MAX_ELO} step={50} value={settings.botElo} onChange={(e) => settings.set({ botElo: Number(e.target.value) })} className="w-full accent-brand-600" />
+          </div>
+        )}
+        <div className="card space-y-3">
           <div>
             <div className="mb-2 text-sm font-semibold text-stone-500">You play</div>
             <Segmented
@@ -49,30 +88,43 @@ function SetupView() {
               ]}
             />
           </div>
-          <div>
-            <div className="mb-1 flex items-baseline justify-between">
-              <span className="text-sm font-semibold text-stone-500">Bot strength</span>
-              <span className="text-sm font-bold">
-                ~{settings.botElo} <span className="font-normal text-stone-500">· {eloLabel(settings.botElo)}</span>
-              </span>
-            </div>
-            <input
-              type="range"
-              min={MIN_ELO}
-              max={MAX_ELO}
-              step={50}
-              value={settings.botElo}
-              onChange={(e) => settings.set({ botElo: Number(e.target.value) })}
-              className="w-full accent-brand-600"
-            />
-          </div>
           <button className="btn-primary w-full !py-3 text-base" onClick={start}>
-            Start game
+            Play {opp ? opp.name : 'the bot'}
           </button>
         </div>
         <button className="btn-ghost w-full" onClick={() => push({ name: 'history' })}>
           Past games
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** Opponent row above the board: portrait (mood follows the game), name and chat bubble. */
+function OpponentBar() {
+  const s = usePlay();
+  const g = s.game!;
+  const o = opponentById(g.opponentId);
+  const lastEval = [...g.plies].reverse().find((p) => p.evalAfter)?.evalAfter;
+  const botCp = lastEval ? scoreToCp(povScore(lastEval, g.userColor === 'w' ? 'b' : 'w')) : 0;
+  const recentChat = s.chat && s.chat.ply >= g.plies.length - 1 ? s.chat : null;
+  const mood: Mood = recentChat ? recentChat.mood : botCp > 150 ? 'happy' : botCp < -150 ? 'worried' : 'neutral';
+  const thinking = s.phase === 'botThinking';
+  return (
+    <div className="flex items-start gap-2 px-3 pb-1.5">
+      {o ? <Portrait id={o.id} mood={mood} size={40} /> : <span className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-200 text-xl dark:bg-stone-800">🤖</span>}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="font-semibold">{o ? o.name : 'Bot'}</span>
+          <span className="text-stone-500">~{g.elo}</span>
+          {thinking && <span className="flex items-center gap-1 text-xs text-stone-500"><Spinner className="!h-3 !w-3" /> thinking…</span>}
+          {s.phase === 'analyzing' && <span className="flex items-center gap-1 text-xs text-stone-500"><Spinner className="!h-3 !w-3" /> coach is looking…</span>}
+        </div>
+        {recentChat && (
+          <div key={recentChat.text + recentChat.ply} className="animate-pop mt-0.5 inline-block rounded-2xl rounded-tl-sm bg-white px-3 py-1.5 text-sm shadow-sm ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
+            {recentChat.text}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -159,21 +211,7 @@ function GameView() {
         }
       />
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col overflow-y-auto">
-        <div className="flex items-center justify-between px-3 pb-1.5 text-sm">
-          <span className="font-semibold">
-            🤖 Bot <span className="font-normal text-stone-500">~{g.elo}</span>
-          </span>
-          {s.phase === 'botThinking' && (
-            <span className="flex items-center gap-1.5 text-stone-500">
-              <Spinner /> thinking…
-            </span>
-          )}
-          {s.phase === 'analyzing' && (
-            <span className="flex items-center gap-1.5 text-stone-500">
-              <Spinner /> coach is looking…
-            </span>
-          )}
-        </div>
+        <OpponentBar />
         <div className="flex gap-1.5 px-1.5">
           {settings.showEvalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
           <div className="flex-1">
