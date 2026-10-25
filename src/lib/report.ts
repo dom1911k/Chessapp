@@ -7,6 +7,27 @@ export function emptyCounts(): Record<Classification, number> {
   return { best: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
 }
 
+/** Main mistake themes of one game (each counted once). */
+export function gameMistakeThemes(plies: PlyRecord[]): Set<Theme> {
+  const out = new Set<Theme>();
+  for (const p of plies) {
+    if (!p.isUser || (p.classification !== 'mistake' && p.classification !== 'blunder')) continue;
+    const themes = p.comment?.themes ?? [];
+    const main = themes.find((t) => t !== 'material') ?? themes[0];
+    if (main) out.add(main);
+  }
+  return out;
+}
+
+/** The theme that appears in at least 3 of the given games (newest first), if any. */
+export function recurringPattern(games: PlyRecord[][]): GameSummary['pattern'] {
+  if (games.length < 3) return undefined;
+  const tally = new Map<Theme, number>();
+  for (const g of games) for (const t of gameMistakeThemes(g)) tally.set(t, (tally.get(t) ?? 0) + 1);
+  const [theme, count] = [...tally.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
+  return theme && count && count >= 3 ? { theme, count, of: games.length } : undefined;
+}
+
 export function summarize(plies: PlyRecord[]): GameSummary {
   const mine = plies.map((p, i) => ({ p, i })).filter(({ p }) => p.isUser && p.classification);
   const counts = emptyCounts();

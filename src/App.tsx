@@ -20,6 +20,7 @@ import { EndgameScreen } from './screens/EndgameScreen';
 import { OpeningsScreen } from './screens/OpeningsScreen';
 import { UpdateDialog } from './components/UpdatePanel';
 import { autoCheck, type UpdateInfo } from './lib/update';
+import { calibrate } from './lib/engine/speed';
 
 const TABS: { tab: Tab; label: string; icon: ReactNode }[] = [
   { tab: 'play', label: 'Play', icon: <path d="M9 3h6l-1 3h2l-1.5 4H16l1 9H7l1-9h1.5L8 6h2z" /> },
@@ -114,7 +115,11 @@ export function App() {
 
   useEffect(() => {
     requestPersistentStorage();
-    void useSettings.getState().load().then(() => usePlay.getState().load());
+    void useSettings.getState().load().then(() => {
+      // Measure engine speed (cached for a month) so analysis fits this phone; runs alongside loading.
+      void calibrate();
+      return usePlay.getState().load();
+    });
     // Look for a new version (at most once a day, silently skipped when offline).
     const t = setTimeout(() => void autoCheck().then(setUpdate), 4000);
     return () => clearTimeout(t);

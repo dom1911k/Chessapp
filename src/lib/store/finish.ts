@@ -1,7 +1,7 @@
 import type { GameResult } from '../chess/game';
 import { bumpActivity, db, kvSet } from '../db';
 import { detectOpening } from '../openings';
-import { summarize } from '../report';
+import { recurringPattern, summarize } from '../report';
 import { newCardDue, type Card } from '../srs';
 import type { GameRecord, SavedGame } from './types';
 
@@ -16,6 +16,8 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
   const userResult =
     result === '1/2-1/2' ? 'draw' : (result === '1-0') === (g.userColor === 'w') ? 'win' : 'loss';
   const summary = summarize(g.plies);
+  const recent = await db.games.orderBy('endedAt').reverse().limit(4).toArray();
+  summary.pattern = recurringPattern([g.plies, ...recent.map((r) => r.plies)]);
   const { id: _id, ...rest } = g;
   void _id;
   const record: GameRecord = {
@@ -57,6 +59,8 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     return id;
   });
   await bumpActivity('games');
-  if (summary.lessonTheme) await kvSet(FOCUS_KEY, { theme: summary.lessonTheme, until: Date.now() + 7 * 864e5 });
+  // A recurring pattern beats a one-game lesson for steering puzzle practice.
+  const focus = summary.pattern?.theme ?? summary.lessonTheme;
+  if (focus) await kvSet(FOCUS_KEY, { theme: focus, until: Date.now() + 7 * 864e5 });
   return gameId;
 }

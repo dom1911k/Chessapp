@@ -6,7 +6,7 @@ import { formatScore } from '../lib/chess/evaluation';
 import { formatLine, lineToSan, tryMove, type MoveInput } from '../lib/chess/game';
 import { explainMove, type CoachComment } from '../lib/coach';
 import { getEngine, type AnalysisResult } from '../lib/engine';
-import { ANALYSIS_DEPTH } from '../lib/store/play';
+import { analysisLimits } from '../lib/engine/speed';
 
 interface Step {
   uci: string;
@@ -44,8 +44,8 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
     setBusy(true);
     try {
       const engine = getEngine();
-      const before: AnalysisResult = await engine.analyze(step.fenBefore, { depth: ANALYSIS_DEPTH, movetime: 3000, multipv: 3, owner: 'explore' });
-      const after = await engine.analyze(step.fenAfter, { depth: ANALYSIS_DEPTH, movetime: 3000, owner: 'explore' });
+      const before: AnalysisResult = await engine.analyze(step.fenBefore, { ...analysisLimits(), multipv: 3, owner: 'explore' });
+      const after = await engine.analyze(step.fenAfter, { ...analysisLimits(), owner: 'explore' });
       if (my !== run.current) return;
       setComment(explainMove({ fenBefore: step.fenBefore, uci: step.uci, before, after }));
       const pv = after.lines[0]?.pv ?? [];
@@ -58,7 +58,7 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
   };
 
   const best = async () => {
-    const a = await getEngine().analyze(current, { depth: ANALYSIS_DEPTH, movetime: 3000, multipv: 3, owner: 'explore' });
+    const a = await getEngine().analyze(current, { ...analysisLimits(), multipv: 3, owner: 'explore' });
     const uci = a.lines[0]?.pv[0];
     if (uci) setShowBest({ uci, san: lineToSan(current, [uci])[0] });
   };

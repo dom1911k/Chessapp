@@ -78,6 +78,26 @@ export const THEMES: Record<Theme, ThemeInfo> = {
     puzzleThemes: ['endgame', 'pawnEndgame', 'rookEndgame'],
     lesson: 'In the endgame your king becomes a fighting piece — bring it toward the center.',
   },
+  trappedPiece: {
+    label: 'Trapped pieces',
+    puzzleThemes: ['trappedPiece'],
+    lesson: 'Before moving a piece deep into enemy territory, check its escape squares — a piece with nowhere to go can be won.',
+  },
+  capturingDefender: {
+    label: 'Removing the defender',
+    puzzleThemes: ['capturingDefender'],
+    lesson: 'Ask "what is this piece guarding?" Capturing a defender can leave the piece it protected hanging.',
+  },
+  deflection: {
+    label: 'Overloaded pieces',
+    puzzleThemes: ['deflection'],
+    lesson: 'A piece that has to guard two things at once is overloaded. Attack one of them and the other falls.',
+  },
+  promotion: {
+    label: 'Passed pawns',
+    puzzleThemes: ['promotion', 'advancedPawn'],
+    lesson: 'A passed pawn close to promotion is worth a lot. Count whether the enemy king or pieces can catch it.',
+  },
   material: {
     label: 'Calculation',
     puzzleThemes: ['advantage', 'crushing'],

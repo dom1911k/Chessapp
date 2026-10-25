@@ -6,16 +6,17 @@ import { gameOverInfo, START_FEN, tryMove, type GameResult, type MoveInput } fro
 import { other, type Color } from '../chess/pos';
 import { explainMove, explainTakeback, getHint, type CoachComment } from '../coach';
 import type { Hint } from '../coach/hints';
+import { botMoveNote, describeThreat, nullMoveFen, type ThreatInfo } from '../coach/threats';
 import { db } from '../db';
 import { CancelledError, getEngine, type AnalysisResult } from '../engine';
+import { analysisLimits } from '../engine/speed';
 import { useSettings } from '../settings';
+import { playSound } from '../sound';
 import { finishGame } from './finish';
 import type { SavedGame } from './types';
 
 export type Phase = 'loading' | 'setup' | 'userTurn' | 'analyzing' | 'botThinking' | 'paused' | 'over';
 
-export const ANALYSIS_DEPTH = 12;
-const ANALYSIS_TIME = 3000;
 
 interface PlayStore {
   game: SavedGame | null;
@@ -25,6 +26,10 @@ interface PlayStore {
   /** Short coach message (take-backs, try again…). */
   message: string | null;
   hint: Hint | null;
+  /** Answer to "What's my opponent threatening?". */
+  threat: ThreatInfo | null;
+  /** Note about a threat the bot's last move created. */
+  botNote: ThreatInfo | null;
   over: { result: GameResult; reason: string; gameId: number } | null;
   load(): Promise<void>;
   newGame(color: Color, elo: number): void;
@@ -33,6 +38,7 @@ interface PlayStore {
   tryAgain(): void;
   takeback(): void;
   requestHint(): Promise<void>;
+  requestThreat(): Promise<void>;
   resign(): Promise<void>;
   /** Start over: very short games are discarded, longer ones count as resigned. */
   abandon(): Promise<void>;
@@ -50,8 +56,9 @@ export function turnOf(fen: string): Color {
   return fen.split(' ')[1] as Color;
 }
 
-async function analyze(fen: string, multipv = 3, depth = ANALYSIS_DEPTH): Promise<AnalysisResult> {
-  return getEngine().analyze(fen, { depth, movetime: ANALYSIS_TIME, multipv, owner: 'play' });
+async function analyze(fen: string, multipv = 3, depth?: number): Promise<AnalysisResult> {
+  const l = analysisLimits();
+  return getEngine().analyze(fen, { depth: depth ?? l.depth, movetime: l.movetime, multipv, owner: 'play' });
 }
 
 function save(g: SavedGame) {
@@ -94,7 +101,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     set({ phase: 'analyzing' });
     try {
       const params = botParams(g.elo);
-      const depth = Math.max(ANALYSIS_DEPTH, params.depth);
+      const depth = Math.max(analysisLimits().depth, params.depth);
       const before = await analyze(ply.fenBefore, 3);
       const gameOver = !!gameOverInfo(ply.fenAfter);
       const after = gameOver ? null : await analyze(ply.fenAfter, params.multipv, depth);
@@ -130,6 +137,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       }
       const serious = comment.classification === 'mistake' || comment.classification === 'blunder';
       if (serious && useSettings.getState().pauseOnMistakes) {
+        playSound('error');
         set({ phase: 'paused', comment: { comment, ply: i } });
         return;
       }
@@ -148,7 +156,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     try {
       const params = botParams(g.elo);
       const started = Date.now();
-      const a = await analyze(fen, params.multipv, Math.max(ANALYSIS_DEPTH, params.depth));
+      const a = await analyze(fen, params.multipv, Math.max(analysisLimits().depth, params.depth));
       if (my !== token) return;
       const uci = chooseBotMove(fen, a, g.elo);
       await sleep(Math.max(0, 600 - (Date.now() - started)));
@@ -158,7 +166,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         gg.plies.push({ uci, san: r.move.san, color: r.move.color, fenBefore: fen, fenAfter: r.fen, isUser: false });
       });
       if (await checkOver(get().game!)) return;
-      set({ phase: 'userTurn' });
+      set({ phase: 'userTurn', botNote: useSettings.getState().botNotes ? botMoveNote(fen, r.fen, uci, g.userColor) : null });
       prefetch();
     } catch (e) {
       if (!(e instanceof CancelledError)) console.error(e);
@@ -188,6 +196,8 @@ export const usePlay = create<PlayStore>((set, get) => {
     comment: null,
     message: null,
     hint: null,
+    threat: null,
+    botNote: null,
     over: null,
 
     async load() {
@@ -229,7 +239,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         hintsUsed: 0,
         told: [],
       };
-      set({ game, over: null, comment: null, hint: null, message: null });
+      set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null });
       save(game);
       if (color === 'b') void botMove();
       else {
@@ -248,7 +258,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       update((g) => {
         g.plies.push({ uci: r.move.lan, san: r.move.san, color: r.move.color, fenBefore: fen, fenAfter: r.fen, isUser: true });
       });
-      set({ hint: null, message: null });
+      set({ hint: null, message: null, threat: null, botNote: null });
       void reviewUserMove(get().game!.plies.length - 1);
       return true;
     },
@@ -289,6 +299,8 @@ export const usePlay = create<PlayStore>((set, get) => {
         phase: 'userTurn',
         comment: null,
         hint: null,
+        threat: null,
+        botNote: null,
         message: explainTakeback(undone.comment, undone.fenBefore),
       });
       prefetch();
@@ -309,6 +321,20 @@ export const usePlay = create<PlayStore>((set, get) => {
             gg.hintsUsed++;
           });
         }
+      } catch {
+        /* cancelled */
+      }
+    },
+
+    async requestThreat() {
+      const g = get().game;
+      if (!g || get().phase !== 'userTurn') return;
+      const fen = currentFen(g);
+      const nf = nullMoveFen(fen);
+      try {
+        const a = nf ? await analyze(nf, 1, 10) : null;
+        if (currentFen(get().game) !== fen) return;
+        set({ threat: describeThreat(fen, a), hint: null, message: null });
       } catch {
         /* cancelled */
       }
@@ -335,7 +361,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     leaveGame() {
       token++;
       getEngine().cancelAll('play');
-      set({ game: null, phase: 'setup', over: null, comment: null, hint: null, message: null });
+      set({ game: null, phase: 'setup', over: null, comment: null, hint: null, message: null, threat: null, botNote: null });
     },
   };
 });

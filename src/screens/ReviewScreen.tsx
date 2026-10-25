@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Board } from '../components/Board';
 import { EvalGraph } from '../components/Charts';
-import { CoachBubble } from '../components/Coach';
+import { CoachBubble, FlagButton } from '../components/Coach';
 import { MoveList } from '../components/MoveList';
 import { Header, Spinner } from '../components/ui';
 import { formatScore } from '../lib/chess/evaluation';
@@ -79,6 +79,7 @@ export function ReviewScreen({ gameId, ply }: { gameId: number; ply?: number }) 
             >
               <p className="font-semibold">You played {p.san}.</p>
               {c.text.map((t, k) => <p key={k}>{t}</p>)}
+              {serious && <FlagButton fen={p.fenBefore} uci={p.uci} comment={c} />}
             </CoachBubble>
           ) : p ? (
             <CoachBubble>

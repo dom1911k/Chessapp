@@ -16,6 +16,10 @@ export type Theme =
   | 'kingSafety'
   | 'defense'
   | 'endgame'
+  | 'trappedPiece'
+  | 'capturingDefender'
+  | 'deflection'
+  | 'promotion'
   | 'material';
 
 export type Tone = 'good' | 'bad' | 'info';

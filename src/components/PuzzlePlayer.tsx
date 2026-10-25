@@ -7,7 +7,8 @@ import { classify, povScore, winPct } from '../lib/chess/evaluation';
 import { explainKeyMove, getHint } from '../lib/coach';
 import type { Hint } from '../lib/coach/hints';
 import { getEngine } from '../lib/engine';
-import { ANALYSIS_DEPTH } from '../lib/store/play';
+import { playSound } from '../lib/sound';
+import { analysisLimits } from '../lib/engine/speed';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
 import { themeLabel } from '../lib/puzzles/themes';
 
@@ -62,6 +63,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     setLast({ from: uci.slice(0, 2), to: uci.slice(2, 4) });
     setHint(null);
     if (nextIdx >= spec.solution.length) {
+      playSound('success');
       setState('solved');
       finish(true);
       return;
@@ -104,19 +106,21 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     setLast({ from: m.from, to: m.to });
     setFailed(true);
     setState('wrong');
+    playSound('error');
   };
 
   const checkAlternative = async (beforeFen: string, uci: string, afterFen: string) => {
     try {
       const e = getEngine();
-      const before = await e.analyze(beforeFen, { depth: ANALYSIS_DEPTH, movetime: 3000, multipv: 3, owner: 'puzzle' });
-      const after = await e.analyze(afterFen, { depth: ANALYSIS_DEPTH, movetime: 3000, owner: 'puzzle' });
+      const before = await e.analyze(beforeFen, { ...analysisLimits(), multipv: 3, owner: 'puzzle' });
+      const after = await e.analyze(afterFen, { ...analysisLimits(), owner: 'puzzle' });
       const s0 = before.lines[0]?.score;
       const s1 = after.lines[0]?.score;
       if (s0 && s1) {
         const cls = classify(winPct(povScore(s0, userColor)), winPct(povScore(s1, userColor)), before.bestMove === uci);
         if (cls === 'best' || cls === 'good') {
           setNote('That works too! It is just as good as the move I had in mind.');
+          playSound('success');
           setState('solved');
           finish(true);
           return;

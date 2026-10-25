@@ -1,7 +1,9 @@
 import { Chess, type Square } from 'chess.js';
-import { useMemo, useState, type CSSProperties } from 'react';
-import { Chessboard } from 'react-chessboard';
-import { isPromotion, type MoveInput } from '../lib/chess/game';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Chessboard, defaultPieces, type PieceRenderObject } from 'react-chessboard';
+import { isPromotion, tryMove, type MoveInput } from '../lib/chess/game';
+import { BOARD_THEMES, useSettings } from '../lib/settings';
+import { playSound } from '../lib/sound';
 import type { CoachArrow, CoachHighlight, Tone } from '../lib/coach/types';
 
 export const TONE_COLOR: Record<Tone, string> = {
@@ -25,17 +27,57 @@ interface Props {
   highlights?: CoachHighlight[];
   lastMove?: { from: string; to: string } | null;
   showCoordinates?: boolean;
+  /** Ask for a confirmation tap before passing the move on (setting "confirm moves"). */
+  confirm?: boolean;
+}
+
+const LARGE_PIECES: PieceRenderObject = Object.fromEntries(
+  Object.entries(defaultPieces).map(([k, render]) => [
+    k,
+    (props?: { fill?: string; square?: string; svgStyle?: CSSProperties }) =>
+      render({ ...props, svgStyle: { ...props?.svgStyle, transform: 'scale(1.16)', transformOrigin: '50% 60%' } }),
+  ]),
+);
+
+const pieceCount = (fen: string) => fen.split(' ')[0].replace(/[^a-zA-Z]/g, '').length;
+
+/** Plays a sound whenever the position changes by one move. */
+function useMoveSounds(fen: string, lastMove: { from: string; to: string } | null | undefined) {
+  const prev = useRef(fen);
+  useEffect(() => {
+    const before = prev.current;
+    prev.current = fen;
+    if (before === fen || !lastMove) return;
+    const c = new Chess(fen);
+    playSound(c.inCheck() ? 'check' : pieceCount(fen) < pieceCount(before) ? 'capture' : 'move');
+  }, [fen, lastMove]);
 }
 
 const PROMO = ['q', 'r', 'b', 'n'] as const;
 const PROMO_GLYPH: Record<string, [string, string]> = { q: ['♕', '♛'], r: ['♖', '♜'], b: ['♗', '♝'], n: ['♘', '♞'] };
 
-export function Board({ fen, orientation, movable, onMove, arrows = [], highlights = [], lastMove, showCoordinates = true }: Props) {
+export function Board({ fen: realFen, orientation, movable, onMove: realOnMove, arrows = [], highlights = [], lastMove: realLast, showCoordinates = true, confirm = false }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [promo, setPromo] = useState<{ from: string; to: string } | null>(null);
+  const [pending, setPending] = useState<{ move: MoveInput; fen: string; san: string } | null>(null);
+  const theme = useSettings((s) => BOARD_THEMES[s.boardTheme] ?? BOARD_THEMES.green);
+  const large = useSettings((s) => s.largePieces);
+  useEffect(() => setPending(null), [realFen]);
+  // With confirmation on, show the move on the board but only submit it after a tap on ✓.
+  const fen = pending ? pending.fen : realFen;
+  const lastMove = pending ? { from: pending.move.from, to: pending.move.to } : realLast;
+  useMoveSounds(fen, lastMove);
+  const onMove = (m: MoveInput): boolean => {
+    if (!realOnMove) return false;
+    if (!confirm) return realOnMove(m);
+    const r = tryMove(realFen, m);
+    if (!r) return false;
+    setPending({ move: m, fen: r.fen, san: r.move.san });
+    return true;
+  };
   const chess = useMemo(() => new Chess(fen), [fen]);
   const turn = chess.turn();
-  const canMove = movable === 'both' || movable === turn;
+  const canMove = !pending && (movable === 'both' || movable === turn);
 
   const targets = useMemo(() => {
     if (!selected) return [];
@@ -101,8 +143,9 @@ export function Board({ fen, orientation, movable, onMove, arrows = [], highligh
           arrows: arrows.map((a) => ({ startSquare: a.from, endSquare: a.to, color: TONE_COLOR[a.tone] })),
           squareStyles,
           animationDurationInMs: 180,
-          darkSquareStyle: { backgroundColor: '#7c9a6a' },
-          lightSquareStyle: { backgroundColor: '#eeeed2' },
+          darkSquareStyle: { backgroundColor: theme.dark },
+          lightSquareStyle: { backgroundColor: theme.light },
+          ...(large ? { pieces: LARGE_PIECES } : {}),
           boardStyle: { borderRadius: '6px', overflow: 'hidden' },
           dragActivationDistance: 6,
           canDragPiece: ({ square }) => !!square && ownPiece(square),
@@ -132,6 +175,15 @@ export function Board({ fen, orientation, movable, onMove, arrows = [], highligh
                 {PROMO_GLYPH[p][turn === 'w' ? 0 : 1]}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+      {pending && (
+        <div className="absolute inset-x-0 bottom-2 z-10 flex justify-center">
+          <div className="flex items-center gap-2 rounded-2xl bg-white/95 p-1.5 pl-4 shadow-xl ring-1 ring-stone-200 dark:bg-stone-800/95 dark:ring-stone-700">
+            <span className="font-semibold">Play {pending.san}?</span>
+            <button className="btn-primary !px-4 !py-2" onClick={() => { const m = pending.move; setPending(null); realOnMove?.(m); }}>✓</button>
+            <button className="btn-secondary !px-4 !py-2" onClick={() => setPending(null)}>✕</button>
           </div>
         </div>
       )}

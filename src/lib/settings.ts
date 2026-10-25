@@ -12,7 +12,26 @@ export interface Settings {
   showEvalBar: boolean;
   pauseOnMistakes: boolean;
   showCoordinates: boolean;
+  sound: boolean;
+  /** Point out threats created by the bot's moves. */
+  botNotes: boolean;
+  /** Ask for a confirmation tap before a move is played (prevents slips). */
+  confirmMoves: boolean;
+  boardTheme: BoardTheme;
+  largePieces: boolean;
+  reminderEnabled: boolean;
+  /** HH:MM, local time. */
+  reminderTime: string;
 }
+
+export type BoardTheme = 'green' | 'brown' | 'blue' | 'gray';
+
+export const BOARD_THEMES: Record<BoardTheme, { label: string; light: string; dark: string }> = {
+  green: { label: 'Green', light: '#eeeed2', dark: '#7c9a6a' },
+  brown: { label: 'Wood', light: '#f0d9b5', dark: '#b58863' },
+  blue: { label: 'Blue', light: '#dee3e6', dark: '#8ca2ad' },
+  gray: { label: 'Gray', light: '#e8e8e8', dark: '#a0a0a0' },
+};
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
@@ -22,6 +41,13 @@ export const DEFAULT_SETTINGS: Settings = {
   showEvalBar: false,
   pauseOnMistakes: true,
   showCoordinates: true,
+  sound: true,
+  botNotes: true,
+  confirmMoves: false,
+  boardTheme: 'green',
+  largePieces: false,
+  reminderEnabled: false,
+  reminderTime: '18:00',
 };
 
 const KEY = 'settings';

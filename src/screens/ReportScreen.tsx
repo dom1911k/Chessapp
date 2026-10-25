@@ -81,6 +81,14 @@ export function ReportScreen({ gameId }: { gameId: number }) {
           </div>
         )}
 
+        {s.pattern && (
+          <div className="card border-l-4 border-amber-500">
+            <div className="text-sm font-semibold text-amber-700 dark:text-amber-400">Pattern spotted</div>
+            <p className="text-[15px]">
+              {THEMES[s.pattern.theme].label} came up in <b>{s.pattern.count} of your last {s.pattern.of} games</b>. {THEMES[s.pattern.theme].lesson}
+            </p>
+          </div>
+        )}
         {s.lessonText ? (
           <CoachBubble
             actions={

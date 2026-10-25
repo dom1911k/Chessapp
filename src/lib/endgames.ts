@@ -13,6 +13,8 @@ export interface Drill {
   fens: string[];
   /** Tips shown when you are not making progress. */
   tips: string[];
+  /** False when the engine's evaluation is too unreliable for "you're not making progress" tips. */
+  engineTips?: boolean;
 }
 
 export const DRILLS: Drill[] = [
@@ -54,7 +56,8 @@ export const DRILLS: Drill[] = [
     title: 'Two bishops mate',
     group: 'Basic checkmates',
     icon: '♗',
-    description: 'King and two bishops against a lone king. (Advanced!)',
+    description: 'King and two bishops against a lone king. Advanced — the coach gives fewer tips here.',
+    engineTips: false,
     goal: 'mate',
     maxMoves: 40,
     goalText: 'Checkmate in under 40 moves',

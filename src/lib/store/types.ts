@@ -38,6 +38,8 @@ export interface GameSummary {
   biggestMistakePly: number | null;
   lessonTheme?: Theme;
   lessonText?: string;
+  /** A mistake type that keeps coming back across recent games. */
+  pattern?: { theme: Theme; count: number; of: number };
 }
 
 export interface GameRecord extends Omit<SavedGame, 'id'> {

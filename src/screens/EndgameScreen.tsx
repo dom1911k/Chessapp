@@ -11,6 +11,8 @@ import type { Hint } from '../lib/coach/hints';
 import { kvGet, kvSet, bumpActivity } from '../lib/db';
 import { drillById, type Drill } from '../lib/endgames';
 import { getEngine } from '../lib/engine';
+import { useSettings } from '../lib/settings';
+import { playSound } from '../lib/sound';
 
 type Status = 'playing' | 'thinking' | 'won' | 'lost';
 
@@ -24,6 +26,7 @@ const ENGINE = { depth: 16, movetime: 1500, owner: 'endgame' };
 
 export function EndgameScreen({ drillId }: { drillId: string }) {
   const drill = drillById(drillId)!;
+  const confirmMoves = useSettings((s) => s.confirmMoves);
   const [startFen, setStartFen] = useState(() => pickFen(drill));
   const me = startFen.split(' ')[1] as Color;
   const [history, setHistory] = useState<string[]>([startFen]);
@@ -50,6 +53,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
   }, [startFen, evaluate]);
 
   const finish = async (won: boolean, msg: string) => {
+    playSound(won ? 'success' : 'error');
     setStatus(won ? 'won' : 'lost');
     setTip(msg);
     if (won) {
@@ -123,6 +127,8 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
       const p = parseFen(after).board[hang[0].sq]!;
       return `Careful — your ${PIECE_NAME[p.type]} on ${sqName(hang[0].sq)} can be captured! Take the move back.`;
     }
+    // Some endings (two bishops) are misjudged by the small engine: no eval-based tips there.
+    if (drill.engineTips === false) return null;
     const cpA = scoreToCp(pa);
     const cpB = pb ? scoreToCp(pb) : null;
     if (cpB !== null && cpB > 300 && cpA < 100) return 'Oh no — that lets the win slip away. Take it back and try another idea.';
@@ -184,7 +190,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
           </span>
         </div>
         <div className="px-1.5">
-          <Board fen={fen} orientation={me === 'w' ? 'white' : 'black'} movable={movable} onMove={onMove} lastMove={last} arrows={hint?.arrows} highlights={hint?.highlights} />
+          <Board fen={fen} confirm={confirmMoves} orientation={me === 'w' ? 'white' : 'black'} movable={movable} onMove={onMove} lastMove={last} arrows={hint?.arrows} highlights={hint?.highlights} />
         </div>
         <div className="space-y-3 px-3">
           {status === 'won' || status === 'lost' ? (

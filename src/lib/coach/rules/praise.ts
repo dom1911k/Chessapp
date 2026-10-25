@@ -1,5 +1,5 @@
 // Short positive notes for good moves.
-import { applyUci } from '../../chess/pos';
+import { applyUci, materialBalance, VALUE } from '../../chess/pos';
 import { t } from '../templates';
 import type { Rule } from './rule';
 
@@ -47,6 +47,17 @@ export const praiseRules: Rule[] = [
       if (!m || (m.kind !== 'escape' && m.kind !== 'defend')) return null;
       if (m.piece === 'p') return null;
       return { text: t(m.kind === 'escape' ? 'praiseEscape' : 'praiseDefend', { piece: c.name(m.piece), sq: c.sq(m.sq) }, c.seed) };
+    },
+  },
+  {
+    id: 'praise-trade-ahead',
+    kind: 'praise',
+    theme: 'material',
+    detect(c) {
+      const cap = c.move.captured;
+      if (!cap || c.move.piece === 'p' || c.move.piece === 'k' || VALUE[cap] !== VALUE[c.move.piece]) return null;
+      if (materialBalance(c.boardBefore, c.mover) < 3) return null;
+      return { text: t('praiseTradeAhead', {}, c.seed) };
     },
   },
   {

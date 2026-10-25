@@ -72,6 +72,11 @@ export const TEMPLATES = {
     'This gives {opp} the chance to play {oppMove}.',
   ],
 
+  allowsTrap: [
+    'After {oppMove} your {piece} on {sq} is trapped — it has no safe square to escape to.',
+    'This lets your {piece} get trapped: after {oppMove} it has nowhere safe to go.',
+  ],
+
   // ---- The better idea ----
   missedMate: [
     'You had checkmate in {n}: {line}!',
@@ -94,6 +99,21 @@ export const TEMPLATES = {
   missedPin: ['{move} pins the {pinned} to the {behind}.', 'With {move} you could have pinned the {pinned}.'],
   missedSkewer: ['{move} is a skewer — the {front} has to move and the {behind} falls.'],
   missedDiscovered: ['{move} uncovers an attack from your {slider} on the {target}.'],
+  missedTrap: [
+    '{move} traps the {piece} on {sq} — it has nowhere safe to go.',
+    'With {move} the enemy {piece} on {sq} would be trapped.',
+  ],
+  missedDefender: [
+    '{move} removes the defender: that {captured} was guarding the {guarded}.',
+    'Capture the guard! {move} takes the {captured} that protects the {guarded}.',
+  ],
+  missedOverload: [
+    'The {piece} on {sq} is overloaded — it can\'t guard both the {a} and the {b}. {move} exploits that.',
+  ],
+  missedPromotion: [
+    'Push your pawn! After {move} it can\'t be stopped from becoming a queen.',
+    '{move} — your pawn is too fast to be caught.',
+  ],
   savePiece: [
     '{move} would have kept your {piece} on {sq} safe.',
     'Your {piece} on {sq} needed help — {move} was the way to save it.',
@@ -145,6 +165,9 @@ export const TEMPLATES = {
   praiseCastle: ['Castling — your king is safe and your rook joins the game.', 'Good, you castled. King safety first!'],
   praiseEscape: ['Good — you moved your {piece} out of danger.', 'You spotted the threat to your {piece}. Well done!'],
   praiseDefend: ['Good — you protected your {piece} on {sq}.'],
+  praiseTradeAhead: [
+    'Good trade — when you\'re ahead in material, swapping pieces makes your extra material count even more.',
+  ],
   praiseBest: ['That is the best move.', 'Excellent — the engine agrees.', 'Spot on!'],
   praiseGood: ['Good move.', 'Solid.', 'Nice, that works well.'],
 

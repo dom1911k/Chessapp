@@ -7,7 +7,7 @@ import { useNav } from '../lib/nav';
 import { useSettings } from '../lib/settings';
 import { currentFen, turnOf, usePlay } from '../lib/store/play';
 import { Board } from '../components/Board';
-import { CoachBubble } from '../components/Coach';
+import { CoachBubble, FlagButton } from '../components/Coach';
 import { Dialog, EvalBar, Header, Segmented, Spinner } from '../components/ui';
 import { MoveList } from '../components/MoveList';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
@@ -111,6 +111,11 @@ function GameView() {
     arrows.push(...s.hint.arrows);
     highlights.push(...s.hint.highlights);
   }
+  const note = s.threat ?? s.botNote;
+  if (note && s.phase === 'userTurn') {
+    arrows.push(...note.arrows);
+    highlights.push(...note.highlights);
+  }
   const safety = useMemo(
     () => (settings.safetyOverlay && myTurn ? safetyInfo(fen, g.userColor) : null),
     [settings.safetyOverlay, myTurn, fen, g.userColor],
@@ -180,6 +185,7 @@ function GameView() {
               highlights={highlights}
               lastMove={last ? { from: last.uci.slice(0, 2), to: last.uci.slice(2, 4) } : null}
               showCoordinates={settings.showCoordinates}
+              confirm={settings.confirmMoves}
             />
           </div>
         </div>
@@ -189,8 +195,9 @@ function GameView() {
         </div>
       </div>
       {!s.over && (
-        <div className="mx-auto grid w-full max-w-xl grid-cols-4 gap-2 border-t border-stone-200 bg-stone-100 px-3 py-2 dark:border-stone-800 dark:bg-stone-950">
+        <div className="mx-auto grid w-full max-w-xl grid-cols-5 gap-1 border-t border-stone-200 bg-stone-100 px-3 py-2 dark:border-stone-800 dark:bg-stone-950">
           <ActionButton label={s.hint ? `Hint ${s.hint.level}/3` : 'Hint'} icon="💡" disabled={!myTurn || s.hint?.level === 3} onClick={s.requestHint} />
+          <ActionButton label="Threats?" icon="🎯" disabled={!myTurn} onClick={s.requestThreat} />
           <ActionButton label="Take back" icon="↶" disabled={userPlies === 0 || !['userTurn', 'paused', 'botThinking'].includes(s.phase)} onClick={s.takeback} />
           <ActionButton label="Why not…?" icon="🔍" disabled={userPlies === 0} onClick={whyNot} />
           <ActionButton
@@ -295,11 +302,13 @@ function CoachPanel({ opening, safetyMessages }: { opening: { name: string; idea
         {c.text.map((t, i) => (
           <p key={i}>{t}</p>
         ))}
+        <Flag ply={s.comment.ply} />
       </CoachBubble>
     );
   }
 
   if (s.hint) return <CoachBubble mood="thinking"><p>{s.hint.text}</p></CoachBubble>;
+  if (s.threat) return <CoachBubble mood="thinking"><p>🎯 {s.threat.text}</p></CoachBubble>;
   if (s.message) return <CoachBubble><p>{s.message}</p></CoachBubble>;
 
   const items = [];
@@ -311,9 +320,17 @@ function CoachPanel({ opening, safetyMessages }: { opening: { name: string; idea
         {c.text.map((t, i) => (
           <p key={i}>{t}</p>
         ))}
+        {c.classification !== 'best' && c.classification !== 'good' && <Flag ply={s.comment.ply} />}
       </CoachBubble>,
     );
-  } else if (opening) {
+  }
+  if (s.botNote && s.phase === 'userTurn') {
+    items.push(
+      <CoachBubble key="bot" mood="concerned">
+        <p>🤖 {s.botNote.text}</p>
+      </CoachBubble>,
+    );
+  } else if (opening && !(s.comment && s.comment.ply >= g.plies.length - 2)) {
     items.push(
       <CoachBubble key="o">
         <p className="font-semibold">{opening.name}</p>
@@ -328,6 +345,13 @@ function CoachPanel({ opening, safetyMessages }: { opening: { name: string; idea
     );
   }
   return <>{items}</>;
+}
+
+function Flag({ ply }: { ply: number }) {
+  const g = usePlay((s) => s.game);
+  const p = g?.plies[ply];
+  if (!p?.comment) return null;
+  return <FlagButton fen={p.fenBefore} uci={p.uci} comment={p.comment} />;
 }
 
 export function resultFor(result: string, userColor: 'w' | 'b') {

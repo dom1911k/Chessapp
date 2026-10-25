@@ -2,7 +2,7 @@
 import { Chess } from 'chess.js';
 import {
   VALUE, applyUci, attackersOf, attacksFrom, directionsFor, hangingPieces, kingSquare,
-  materialBalance, other, parseFen, rankOf, fileOf, ray, see, sqIndex, type Color, type Piece,
+  materialBalance, other, parseFen, rankOf, fileOf, ray, see, sqIndex, sqName, type Color, type Piece,
   type PieceType,
 } from '../chess/pos';
 import { parseUci } from '../chess/game';
@@ -265,4 +265,35 @@ export function describeLine(fen: string, pv: string[], maxPlies = 8): LineInfo 
     }
   }
   return { san, matesIn, endsInBackRankMate: backRank, materialGain: gain, victim, plies };
+}
+
+/**
+ * Pieces of the side to move (worth 3+) that are attacked and have no safe square:
+ * every move either lands where it can be won, or there are no moves at all.
+ */
+export function trappedPieces(fen: string): { sq: number; piece: PieceType }[] {
+  const c = new Chess(fen);
+  const me = c.turn();
+  const { board } = parseFen(fen);
+  const out: { sq: number; piece: PieceType }[] = [];
+  for (let s = 0; s < 64; s++) {
+    const p = board[s];
+    if (!p || p.color !== me || p.type === 'k' || VALUE[p.type] < 3) continue;
+    if (see(board, s, other(me)) <= 0) continue; // not in danger where it stands
+    const moves = c.moves({ square: sqName(s) as never, verbose: true });
+    const safe = moves.some((m) => {
+      if (m.captured && VALUE[m.captured] >= VALUE[p.type]) return true;
+      const after = applyUci(board, m.lan);
+      return see(after, sqIndex(m.to), other(me)) === 0;
+    });
+    if (!safe) out.push({ sq: s, piece: p.type });
+  }
+  return out;
+}
+
+/** For a capture on `target`: other pieces that the captured piece was defending. */
+export function defendedBy(board: Board, defenderSq: number): number[] {
+  const d = board[defenderSq];
+  if (!d) return [];
+  return attacksFrom(board, defenderSq).filter((t) => board[t]?.color === d.color && board[t]!.type !== 'k');
 }

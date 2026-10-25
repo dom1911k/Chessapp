@@ -2,6 +2,8 @@
 import type { CoachContext } from '../context';
 import { applyUci, attackersOf, fileOf, hangingPieces, kingSquare, rankOf, see, sqIndex, VALUE } from '../../chess/pos';
 import { t } from '../templates';
+import { trappedPieces } from '../tactics';
+import { tryMove } from '../../chess/game';
 import type { Rule } from './rule';
 
 const victimText = (v: string | null, gain: number) => {
@@ -137,6 +139,24 @@ export const problemRules: Rule[] = [
       return {
         text: t('allowsDiscovered', { oppMove: c.refSan ?? '', slider: c.name(after[m.d.slider]?.type), target: c.name(after[m.d.target]?.type) }, c.seed),
         arrows: [{ from: c.sq(m.d.slider), to: c.sq(m.d.target), tone: 'bad' }],
+      };
+    },
+  },
+  {
+    id: 'allows-trap',
+    kind: 'problem',
+    theme: 'trappedPiece',
+    detect(c) {
+      const reply = c.refLine[0];
+      if (!reply || (c.refInfo()?.materialGain ?? 0) < 2) return null;
+      const r = tryMove(c.fenAfter, reply);
+      if (!r) return null;
+      const trapped = trappedPieces(r.fen)[0];
+      if (!trapped) return null;
+      return {
+        text: t('allowsTrap', { piece: c.name(trapped.piece), sq: c.sq(trapped.sq), oppMove: c.refSan ?? '' }, c.seed),
+        arrows: [{ from: reply.slice(0, 2), to: reply.slice(2, 4), tone: 'bad' }],
+        highlights: [{ sq: c.sq(trapped.sq), tone: 'bad' }],
       };
     },
   },

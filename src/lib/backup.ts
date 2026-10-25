@@ -25,11 +25,16 @@ export async function buildBackup(): Promise<Backup> {
 
 /** Saves the backup: share sheet on Android (save to Drive/Files/…), a download on the web. */
 export async function exportBackup(): Promise<string> {
-  const json = JSON.stringify(await buildBackup());
   const name = `chess-coach-backup-${today()}.json`;
+  await shareJsonFile(name, JSON.stringify(await buildBackup()), 'Chess Coach backup');
+  return name;
+}
+
+/** Hands a JSON file to the Android share sheet (or downloads it in a browser). */
+export async function shareJsonFile(name: string, json: string, title: string): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     const res = await Filesystem.writeFile({ path: name, data: json, directory: Directory.Cache, encoding: Encoding.UTF8 });
-    await Share.share({ title: 'Chess Coach backup', text: 'Chess Coach backup', url: res.uri, dialogTitle: 'Save your backup' });
+    await Share.share({ title, text: title, url: res.uri, dialogTitle: title });
   } else {
     const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
     const a = document.createElement('a');
@@ -38,7 +43,6 @@ export async function exportBackup(): Promise<string> {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  return name;
 }
 
 export function parseBackup(text: string): Backup {

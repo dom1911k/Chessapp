@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { flagExplanation } from '../lib/feedback';
+import type { CoachComment } from '../lib/coach/types';
 import { CLASS_LABEL, CLASS_SYMBOL, type Classification } from '../lib/chess/evaluation';
 
 export const CLASS_STYLE: Record<Classification, string> = {
@@ -73,5 +75,22 @@ export function CoachBubble({
         {actions && <div className="mt-3 flex flex-wrap gap-2">{actions}</div>}
       </div>
     </div>
+  );
+}
+
+/** Small "this explanation is wrong" link; saves the position for later review. */
+export function FlagButton({ fen, uci, comment }: { fen: string; uci: string; comment: CoachComment }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      className="mt-1 text-xs text-stone-400 underline-offset-2 hover:underline disabled:no-underline"
+      disabled={done}
+      onClick={() => {
+        void flagExplanation(fen, uci, comment);
+        setDone(true);
+      }}
+    >
+      {done ? 'Thanks — saved for review (Settings → Coach feedback)' : '👎 This explanation seems wrong'}
+    </button>
   );
 }
