@@ -36,7 +36,7 @@ export default defineConfig({
       },
       workbox: {
         // Everything — app, engine and puzzles — so it works fully offline.
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2,wasm,json}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2,wasm,json,bin}'],
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
         cleanupOutdatedCaches: true,
       },

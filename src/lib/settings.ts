@@ -7,6 +7,8 @@ import { DEFAULT_ELO } from './bot';
 export interface Settings {
   theme: 'system' | 'light' | 'dark';
   botElo: number;
+  /** Opponents play with Maia (human-like) or Stockfish (classic, with random slips). */
+  opponentEngine: 'maia' | 'stockfish';
   /** Chosen opponent, or 'custom' for the strength slider. */
   opponentId: string;
   colorPref: 'w' | 'b' | 'random';
@@ -96,6 +98,7 @@ export const BOARD_THEMES: Record<BoardTheme, { label: string; light: string; da
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   botElo: DEFAULT_ELO,
+  opponentEngine: 'maia',
   opponentId: 'tom',
   colorPref: 'w',
   safetyOverlay: false,

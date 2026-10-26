@@ -1,6 +1,7 @@
 // Play-vs-bot state machine with live coaching.
 import { create } from 'zustand';
 import { chooseBotMove, botParams } from '../bot';
+import { chooseMaiaMove, maiaLogits, maiaTemperature, vetoLimit } from '../maia';
 import { moveAccuracy, winPct, povScore, scoreToCp, type Score } from '../chess/evaluation';
 import { gameOverInfo, START_FEN, tryMove, type GameResult, type MoveInput } from '../chess/game';
 import { hangingPieces, other, parseFen, PIECE_NAME, VALUE, type Color, type PieceType } from '../chess/pos';
@@ -300,6 +301,23 @@ export const usePlay = create<PlayStore>((set, get) => {
       // Opponents play their favourite openings from a small book first.
       const book = g.startFen === START_FEN ? bookMove(g.opponentId, g.plies.map((p) => p.san)) : null;
       let uci = book;
+      // Human-like (Maia) or classic (Stockfish) opponent; Stockfish also covers any Maia failure.
+      if (!uci && useSettings.getState().opponentEngine === 'maia') {
+        try {
+          const fens = [g.startFen, ...g.plies.map((p) => p.fenAfter)];
+          // Strong opponents: Stockfish checks Maia's choice for blunders.
+          const [logits, a] = await Promise.all([
+            maiaLogits(fens, g.elo),
+            vetoLimit(g.elo) !== null ? analyze(fen, 8, Math.max(analysisLimits().depth, params.depth)) : Promise.resolve(null),
+          ]);
+          const turn = turnOf(fen);
+          const candidates = a ? new Map(a.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], scoreToCp(povScore(l.score, turn))])) : undefined;
+          uci = chooseMaiaMove(logits, maiaTemperature(g.elo, opponentById(g.opponentId)?.style), g.elo, candidates);
+        } catch (e) {
+          console.warn('Maia failed, using Stockfish', e);
+        }
+        if (my !== token) return;
+      }
       if (!uci) {
         const a = await analyze(fen, params.multipv, Math.max(analysisLimits().depth, params.depth));
         if (my !== token) return;

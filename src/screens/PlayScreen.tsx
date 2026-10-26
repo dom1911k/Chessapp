@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Check, Crosshair, EllipsisVertical, Flag, History, Lightbulb, Lock, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
+import { BookOpen, Bot, Brain, Check, Crosshair, EllipsisVertical, Flag, History, Lightbulb, Lock, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
@@ -128,6 +128,22 @@ function SetupView() {
                 { value: 'random', label: <><Shuffle size={15} /> Random</> },
               ]}
             />
+          </div>
+          <div>
+            <div className="mb-2 text-sm font-semibold text-stone-500">Opponent style</div>
+            <Segmented
+              value={settings.opponentEngine}
+              onChange={(v) => settings.set({ opponentEngine: v })}
+              options={[
+                { value: 'maia', label: <><Brain size={15} /> Human-like</> },
+                { value: 'stockfish', label: <><Bot size={15} /> Classic</> },
+              ]}
+            />
+            <p className="mt-1.5 px-1 text-xs text-stone-500">
+              {settings.opponentEngine === 'maia'
+                ? 'Plays like real people at that level (Maia AI, trained on millions of human games). Its mistakes are human mistakes.'
+                : 'A chess engine made weaker with random slips. Often easier for complete beginners — it sometimes gives pieces away.'}
+            </p>
           </div>
           <button className="btn-primary w-full !py-3 text-base" onClick={start}>
             Play {opp ? opp.name : 'the bot'}

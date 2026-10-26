@@ -74,6 +74,17 @@ export function SettingsScreen() {
         </div>
         <div className="card divide-y divide-stone-100 dark:divide-stone-800">
           <div className="pb-1 text-sm font-semibold text-stone-500">Coaching</div>
+          <div className="py-2">
+            <div className="mb-1.5 text-sm">Opponent style</div>
+            <Segmented
+              value={s.opponentEngine}
+              onChange={(v) => s.set({ opponentEngine: v })}
+              options={[
+                { value: 'maia', label: 'Human-like (Maia)' },
+                { value: 'stockfish', label: 'Classic' },
+              ]}
+            />
+          </div>
           <Toggle checked={s.checkBeforeMove} onChange={(v) => s.set({ checkBeforeMove: v })} label='Ask "are you sure?" before a risky move' />
           <Toggle checked={s.pauseOnMistakes} onChange={(v) => s.set({ pauseOnMistakes: v })} label="Pause and explain mistakes" />
           <Toggle checked={s.botNotes} onChange={(v) => s.set({ botNotes: v })} label="Point out threats from the bot's moves" />
@@ -85,7 +96,7 @@ export function SettingsScreen() {
         <BackupCard />
         <FeedbackCard />
         <p className="px-2 text-xs text-stone-500">
-          Chess Coach runs fully offline. Engine: Stockfish 19 (GPLv3). Puzzles: Lichess puzzle database (CC0).
+          Chess Coach runs fully offline. Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (GPLv3), running Leela Chess Zero networks. Puzzles: Lichess puzzle database (CC0).
         </p>
       </div>
     </div>
