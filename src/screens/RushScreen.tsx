@@ -98,7 +98,7 @@ export function RushScreen() {
           ) : null
         }
       />
-      <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto pb-4">
+      <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto pb-4 land:max-w-6xl">
         {phase === 'intro' && (
           <div className="space-y-4 p-4">
             <CoachBubble actions={<button className="btn-primary !px-6 !py-3 text-base" onClick={() => void start()}>Start</button>}>

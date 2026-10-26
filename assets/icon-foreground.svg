@@ -1,11 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
-  <!-- Adaptive-icon foreground: keep content inside the central 66x66 safe zone. -->
-  <g fill="#ffffff">
-    <circle cx="50" cy="38" r="8.5"/>
-    <path d="M43.5 47.5h13l-1.6 4.2c4.2 5.3 6.6 11.6 7.4 18.3h-24.6c.8-6.7 3.2-13 7.4-18.3z"/>
-    <rect x="34" y="71" width="32" height="7.5" rx="3"/>
+  <!-- Adaptive-icon foreground: keep content inside the central 66x66 safe zone. Knight after cburnett (CC BY-SA 3.0). -->
+  <defs>
+    <linearGradient id="ivory" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#fffaf0"/>
+      <stop offset="0.55" stop-color="#f3e2c0"/>
+      <stop offset="1" stop-color="#dcbd86"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6dc8a"/>
+      <stop offset="1" stop-color="#c9962f"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="1.6" stdDeviation="1.6" flood-color="#04261a" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <circle cx="54" cy="54" r="31" fill="none" stroke="url(#gold)" stroke-width="1.8"/>
+  <circle cx="54" cy="54" r="27.6" fill="none" stroke="#f6dc8a" stroke-opacity="0.25" stroke-width="0.8"/>
+  <g transform="translate(26 24) scale(1.26)" filter="url(#shadow)" stroke="#173a29" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="url(#ivory)"/>
+    <path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="url(#ivory)"/>
+    <path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" fill="#173a29"/>
+    <path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" fill="#173a29"/>
+    <path d="M 13.5,41.5 L 39.5,41.5" stroke="#d9ae4c" stroke-width="2.2"/>
   </g>
-  <path fill="#facc15" d="M68 24.5a8 8 0 1 1-4.6 14.6l-4.4 1.6 1.4-4.2A8 8 0 0 1 68 24.5z"/>
-  <rect x="66.9" y="27.3" width="2.4" height="6.4" rx="1.2" fill="#1d6641"/>
-  <circle cx="68.1" cy="36.4" r="1.4" fill="#1d6641"/>
 </svg>

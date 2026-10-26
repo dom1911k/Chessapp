@@ -18,7 +18,7 @@ export const principleRules: Rule[] = [
       const rights = c.input.fenBefore.split(' ')[2];
       if (!(c.mover === 'w' ? /[KQ]/ : /[kq]/).test(rights)) return null;
       if (c.move.captured || isInCheck(c.input.fenBefore)) return null;
-      return { text: t('kingWalk', {}, c.seed) };
+      return { text: t('kingWalk', {}, c.seed), highlights: [{ sq: c.move.to, tone: 'info' }] };
     },
   },
   {
@@ -27,7 +27,7 @@ export const principleRules: Rule[] = [
     theme: 'opening',
     detect(c) {
       if (!inOpening(6)(c) || c.move.piece !== 'q' || c.move.captured || c.undevelopedMinors() < 3) return null;
-      return { text: t('earlyQueen', {}, c.seed) };
+      return { text: t('earlyQueen', {}, c.seed), highlights: [{ sq: c.move.to, tone: 'info' }] };
     },
   },
   {
@@ -40,7 +40,7 @@ export const principleRules: Rule[] = [
       if (!c.ownPreviousMoves.some((u) => u.slice(2, 4) === c.move.from)) return null;
       // Moving a threatened piece again is fine.
       if (c.playedMotifs().some((m) => m.kind === 'escape')) return null;
-      return { text: t('samePieceTwice', { piece: c.name(c.move.piece) }, c.seed) };
+      return { text: t('samePieceTwice', { piece: c.name(c.move.piece) }, c.seed), highlights: [{ sq: c.move.to, tone: 'info' }] };
     },
   },
   {
@@ -62,7 +62,7 @@ export const principleRules: Rule[] = [
     detect(c) {
       if (!inOpening(10)(c) || c.move.piece !== 'n' || c.move.captured) return null;
       if (!['a', 'h'].includes(c.move.to[0])) return null;
-      return { text: t('knightRim', { sq: c.move.to }, c.seed) };
+      return { text: t('knightRim', { sq: c.move.to }, c.seed), highlights: [{ sq: c.move.to, tone: 'info' }] };
     },
   },
   {
@@ -77,7 +77,7 @@ export const principleRules: Rule[] = [
       if (!p || p.type !== 'k' || p.color !== c.mover) return null;
       const rights = c.input.fenBefore.split(' ')[2];
       if (!(c.mover === 'w' ? /[KQ]/ : /[kq]/).test(rights)) return null;
-      return { text: t('noCastle', {}, c.seed) };
+      return { text: t('noCastle', {}, c.seed), highlights: [{ sq: k, tone: 'info' }] };
     },
   },
 ];

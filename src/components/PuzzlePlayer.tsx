@@ -192,8 +192,8 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
   const done = state === 'solved' || state === 'failed';
 
   return (
-    <div className="space-y-3">
-      <div className="px-1.5">
+    <div className="board-split space-y-3">
+      <div className="board-cell px-1.5">
         <Board
           fen={fen}
           orientation={userColor === 'w' ? 'white' : 'black'}

@@ -13,6 +13,8 @@ export interface Settings {
   safetyOverlay: boolean;
   showEvalBar: boolean;
   pauseOnMistakes: boolean;
+  /** Ask "are you sure?" before a move that leaves a piece hanging or allows mate. */
+  checkBeforeMove: boolean;
   showCoordinates: boolean;
   sound: boolean;
   /** 0..1 */
@@ -58,6 +60,7 @@ export const DEFAULT_SETTINGS: Settings = {
   safetyOverlay: false,
   showEvalBar: false,
   pauseOnMistakes: true,
+  checkBeforeMove: true,
   showCoordinates: true,
   sound: true,
   soundVolume: 0.7,

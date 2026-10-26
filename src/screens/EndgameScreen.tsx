@@ -201,14 +201,14 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
   return (
     <div className="flex h-full flex-col">
       <Header title={drill.title} back />
-      <div className="mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4">
+      <div className="board-split mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4 land:max-w-6xl">
         <div className="flex items-center justify-between px-3 text-sm">
           <span className="font-semibold"><Target size={15} className="mr-1 inline -translate-y-px text-brand-600" />{drill.goalText}</span>
           <span className={myMoves >= drill.maxMoves - 3 ? 'font-bold text-red-600' : 'text-stone-500'}>
             Move {Math.min(myMoves + (movable ? 1 : 0), drill.maxMoves)}/{drill.maxMoves}
           </span>
         </div>
-        <div className="px-1.5">
+        <div className="board-cell px-1.5">
           <Board fen={fen} confirm={confirmMoves} orientation={me === 'w' ? 'white' : 'black'} movable={movable} onMove={onMove} lastMove={last} arrows={hint?.arrows} highlights={hint?.highlights} />
         </div>
         <div className="space-y-3 px-3">

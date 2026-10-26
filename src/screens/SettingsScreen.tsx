@@ -87,6 +87,7 @@ export function SettingsScreen() {
         </div>
         <div className="card divide-y divide-stone-100 dark:divide-stone-800">
           <div className="pb-1 text-sm font-semibold text-stone-500">Coaching</div>
+          <Toggle checked={s.checkBeforeMove} onChange={(v) => s.set({ checkBeforeMove: v })} label='Ask "are you sure?" before a risky move' />
           <Toggle checked={s.pauseOnMistakes} onChange={(v) => s.set({ pauseOnMistakes: v })} label="Pause and explain mistakes" />
           <Toggle checked={s.botNotes} onChange={(v) => s.set({ botNotes: v })} label="Point out threats from the bot's moves" />
           <Toggle checked={s.safetyOverlay} onChange={(v) => s.set({ safetyOverlay: v })} label="Safety overlay (hanging pieces & threats)" />

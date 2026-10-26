@@ -83,11 +83,11 @@ export function OpeningPracticeScreen({ index }: { index: number }) {
   return (
     <div className="flex h-full flex-col">
       <Header title={o.name} back />
-      <div className="mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4">
+      <div className="board-split mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4 land:max-w-6xl">
         <div className="px-3">
           <Segmented value={side} onChange={setSide} options={[{ value: 'w', label: 'Play White' }, { value: 'b', label: 'Play Black' }]} />
         </div>
-        <div className="px-1.5">
+        <div className="board-cell px-1.5">
           <Board fen={fen} orientation={side === 'w' ? 'white' : 'black'} movable={done ? null : side} onMove={onMove} lastMove={last} arrows={arrows} />
         </div>
         <div className="space-y-3 px-3">

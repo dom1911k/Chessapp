@@ -75,13 +75,13 @@ export function LessonScreen({ lessonId }: { lessonId: string }) {
   return (
     <div className="flex h-full flex-col">
       <Header title={lesson.title} back />
-      <div className="mx-auto mb-1 flex w-full max-w-xl gap-1 px-3">
+      <div className="mx-auto mb-1 flex w-full max-w-xl gap-1 px-3 land:max-w-6xl">
         {lesson.steps.map((_, k) => (
           <div key={k} className={`h-1.5 flex-1 rounded-full ${k < i || (k === i && state === 'done') ? 'bg-brand-500' : k === i ? 'bg-stone-400' : 'bg-stone-200 dark:bg-stone-800'}`} />
         ))}
       </div>
-      <div className="mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4">
-        <div className="px-1.5">
+      <div className="board-split mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4 land:max-w-6xl">
+        <div className="board-cell px-1.5">
           <Board
             fen={fen}
             orientation={turn === 'b' && !step.task ? 'white' : turn === 'w' ? 'white' : 'black'}

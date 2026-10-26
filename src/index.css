@@ -3,6 +3,8 @@
 @import '@fontsource-variable/fraunces';
 
 @custom-variant dark (&:where(.dark, .dark *));
+/* Tablets and other wide screens held sideways: board on the left, the rest on the right. */
+@custom-variant land (@media (orientation: landscape) and (min-width: 700px));
 
 @theme {
   /* Warm neutrals: ivory → espresso. Overriding "stone" restyles every screen at once. */
@@ -126,4 +128,25 @@ body {
 }
 .no-scrollbar {
   scrollbar-width: none;
+}
+
+/* Two-column layout for board screens in landscape. Mark the board's wrapper with `board-cell`. */
+@utility board-split {
+  @media (orientation: landscape) and (min-width: 700px) {
+    display: grid;
+    grid-template-columns: min(calc(100dvh - 7.5rem), 56vw) minmax(0, 1fr);
+    grid-template-rows: repeat(11, min-content) 1fr;
+    column-gap: 1.25rem;
+    padding-inline: 0.75rem;
+    align-content: start;
+    & > * {
+      grid-column: 2;
+      margin-top: 0 !important;
+      margin-bottom: 0.75rem;
+    }
+    & > .board-cell {
+      grid-column: 1;
+      grid-row: 1 / span 12;
+    }
+  }
 }

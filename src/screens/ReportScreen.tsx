@@ -94,11 +94,16 @@ export function ReportScreen({ gameId }: { gameId: number }) {
         {s.lessonText ? (
           <CoachBubble
             actions={
-              lessonPuzzleTheme && (
-                <button className="btn-primary" onClick={() => push({ name: 'puzzle', mode: { kind: 'theme', theme: lessonPuzzleTheme } })}>
-                  Practice: {THEME_SETS.find((t) => t.id === lessonPuzzleTheme)?.label}
+              <>
+                <button className="btn-primary" onClick={() => push({ name: 'practice', theme: s.lessonTheme! })}>
+                  Practise this (2 min)
                 </button>
-              )
+                {lessonPuzzleTheme && (
+                  <button className="btn-secondary" onClick={() => push({ name: 'puzzle', mode: { kind: 'theme', theme: lessonPuzzleTheme } })}>
+                    More {THEME_SETS.find((t) => t.id === lessonPuzzleTheme)?.label.toLowerCase()} puzzles
+                  </button>
+                )}
+              </>
             }
           >
             <p className="font-semibold">One lesson for next time</p>

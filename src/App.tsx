@@ -22,6 +22,7 @@ import { OpeningsScreen } from './screens/OpeningsScreen';
 import { RushScreen } from './screens/RushScreen';
 import { AchievementsScreen } from './components/Gamification';
 import { OpeningPracticeScreen } from './screens/OpeningPracticeScreen';
+import { PracticeScreen } from './screens/PracticeScreen';
 import { LessonScreen } from './screens/LessonScreen';
 import { UpdateDialog } from './components/UpdatePanel';
 import { CelebrationLayer } from './components/Celebrate';
@@ -78,6 +79,8 @@ function StackScreen({ screen }: { screen: Screen }) {
       return <OpeningPracticeScreen index={screen.index} />;
     case 'lesson':
       return <LessonScreen lessonId={screen.lessonId} />;
+    case 'practice':
+      return <PracticeScreen theme={screen.theme} />;
   }
 }
 
@@ -142,7 +145,7 @@ export function App() {
     return () => clearTimeout(t);
   }, []);
 
-  if (!loaded) return null;
+  if (!loaded) return <Splash />;
   const top = stack[stack.length - 1];
 
   return (
@@ -187,6 +190,16 @@ export function App() {
           <div className="rounded-full bg-stone-800 px-4 py-2 text-sm text-white shadow-lg">Press back again to exit — your game is saved</div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** The launch screen, matching the one in index.html, while settings load. */
+function Splash() {
+  return (
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-[18px] bg-[radial-gradient(circle_at_30%_20%,#3aa872,#1f7a4c_55%,#0f4a2f)]">
+      <img src="./icon.svg" alt="" width={112} height={112} className="rounded-[26px] shadow-[0_12px_32px_rgba(0,0,0,0.28)]" />
+      <div className="font-display text-[26px] font-semibold tracking-wide text-[#fff8ea]">Chess Coach</div>
     </div>
   );
 }

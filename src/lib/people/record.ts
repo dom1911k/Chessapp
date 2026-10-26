@@ -10,6 +10,8 @@ export interface OpponentRecord {
   /** Best result: 1★ win, 2★ win with ≤2 hints/take-backs, 3★ win with none. */
   stars: number;
   bestAccuracy: number;
+  /** Your result in the most recent game against them. */
+  last?: 'win' | 'loss' | 'draw';
 }
 
 const KEY = 'opponentStats';
@@ -36,6 +38,7 @@ export async function recordOpponentGame(g: GameRecord): Promise<{ stars: number
   const improved = stars > r.stars;
   r.stars = Math.max(r.stars, stars);
   r.bestAccuracy = Math.max(r.bestAccuracy, g.summary.accuracy);
+  r.last = g.userResult;
   all[g.opponentId] = r;
   await kvSet(KEY, all);
   return { stars, improved, firstWin };

@@ -1,5 +1,6 @@
 // Guided lessons: short steps, each with a position. Some steps ask you to play a move.
 import type { CoachArrow, CoachHighlight } from '../coach/types';
+import { MATE_PATTERNS } from './mates';
 
 export type Task =
   | { kind: 'moves'; solutions: string[] } // any of these UCI moves
@@ -264,4 +265,4 @@ export const LESSONS: Lesson[] = [
   },
 ];
 
-export const lessonById = (id: string) => LESSONS.find((l) => l.id === id);
+export const lessonById = (id: string) => LESSONS.find((l) => l.id === id) ?? MATE_PATTERNS.find((l) => l.id === id);

@@ -5,6 +5,16 @@ export type PlayStyle = 'balanced' | 'aggressive' | 'solid' | 'wild';
 
 export type ChatEvent =
   | 'greet'
+  /** Greeting when you won the last game against them. */
+  | 'greetRevenge'
+  /** Greeting when they won the last game. */
+  | 'greetRematch'
+  /** Your move gives check. */
+  | 'userCheck'
+  /** You take one of their pieces ({piece}). */
+  | 'userCapture'
+  /** Your move attacks one of their pieces ({piece}). */
+  | 'userThreat'
   | 'userGoodMove'
   | 'userBlunder'
   | 'botCapture'
@@ -50,6 +60,11 @@ export const OPPONENTS: Opponent[] = [
     bio: 'Lily is eight and LOVES moving her queen everywhere. She forgets her pieces can be taken sometimes — just like all of us did once!',
     lines: {
       greet: ["Hi! I'm Lily! I know how the horsey moves now 🐴", "Yay, a game! I'm gonna use my queen a LOT."],
+      greetRevenge: ["You beat me last time! This time I'm gonna win. I practised! 😤", "Rematch! I've been practising my horsey moves!"],
+      greetRematch: ["I won last time! Wanna play again? 😄", "Yay, you're back! I'm still the winner though!"],
+      userCheck: ["Eek! My king!", "Hey! Leave my king alone!"],
+      userCapture: ["Nooo, my {piece}! 😢", "Hey! That was my favourite {piece}!"],
+      userThreat: ["Wait, are you attacking my {piece}?", "Uh oh… my {piece} is scared."],
       userGoodMove: ['Whoa! How did you see that?', 'Hey, that was sneaky!'],
       userBlunder: ['Wait… can I take that? Really?? Yay!', 'Ooh, free piece! Thank youuu 😄'],
       botCapture: ['Gotcha!', 'Mine now! 😁', 'Chomp!'],
@@ -74,6 +89,11 @@ export const OPPONENTS: Opponent[] = [
     bio: 'Tom plays with his grandkids and at the park on sunny days. Patient, kind, and always ready with a little story.',
     lines: {
       greet: ["Ah, hello there! Let's have a nice, friendly game.", 'Pull up a chair, kiddo. No rush.'],
+      greetRevenge: ["Ah, you again! You got me last time — not today, kiddo.", "Back for more? I've been practising at the park."],
+      greetRematch: ["Back for another go? Good — that's the spirit!", "You'll get me this time, I can feel it."],
+      userCheck: ["Oh! Check, is it? Let me see…", "My, my — check. You're keeping me on my toes."],
+      userCapture: ["Ah, there goes my {piece}. Well taken.", "Oh dear, my {piece}! I didn't see that one."],
+      userThreat: ["Hmm, you're after my {piece}, aren't you?", "My {piece} is in trouble. Let me think…"],
       userGoodMove: ['Oh, very nice! My grandson does that too.', 'Well, look at you! I didn\'t see that one coming.'],
       userBlunder: ['Hmm, you sure about that one? Well… I\'ll take it, thank you.', 'Oh dear. I left a piece like that once — lost the whole game.'],
       botCapture: ["Don't mind if I do.", "I'll just pop that in my pocket."],
@@ -98,6 +118,11 @@ export const OPPONENTS: Opponent[] = [
     bio: 'Maya is a student who plays quick games on her phone between classes. Relaxed, funny, and a little chaotic.',
     lines: {
       greet: ['Hey! One quick game before my next class?', "Okay let's go. No pressure 😎"],
+      greetRevenge: ["You again! Okay, revenge time. I had coffee this time ☕", "Last time was a fluke. Probably."],
+      greetRematch: ["Back for more? Respect.", "Oh hey! Ready for round two?"],
+      userCheck: ["Check?! Rude.", "Okay okay, check. I see you."],
+      userCapture: ["My {piece}! Noooo.", "Wow, okay, bye {piece} 👋"],
+      userThreat: ["Wait, my {piece}… hold on.", "You're coming for my {piece}? Bold."],
       userGoodMove: ['Okay wait, that was actually smart.', 'Rude. But clever.'],
       userBlunder: ['Free piece?? Don\'t mind if I do 🍕', 'Ha! Thanks, I\'ll take that!'],
       botCapture: ['Snack time.', 'Yoink!'],
@@ -122,6 +147,11 @@ export const OPPONENTS: Opponent[] = [
     bio: 'Jonas plays at the café every Sunday and loves to brag about his attacks before they happen. Loud, cheerful, a bit too sure of himself.',
     lines: {
       greet: ['Ready to lose? Just kidding. Mostly.', 'Café rules: we play fast and we ATTACK!'],
+      greetRevenge: ["You beat me last time. That was a warm-up. Today's the real game!", "Rematch! The café champion never loses twice."],
+      greetRematch: ["Back for another lesson from the champ?", "Couldn't stay away, huh? I get it."],
+      userCheck: ["Check? Pfff. I meant to let that happen.", "Okay, check. No big deal. Totally fine."],
+      userCapture: ["Hey! My {piece}! That was… part of the plan.", "My {piece}?! Lucky shot."],
+      userThreat: ["You think you can scare my {piece}? …Okay, maybe a little.", "Attacking my {piece}? Cute."],
       userGoodMove: ['Hey, not bad! I was just about to do that.', 'Okay, okay, I see you.'],
       userBlunder: ['Ha! Saw that coming from a mile away.', 'Thank you very much!'],
       botCapture: ['Boom!', "That's mine now."],
@@ -146,6 +176,11 @@ export const OPPONENTS: Opponent[] = [
     bio: 'Priya plays at the local club and loves puzzles and patterns. Careful and friendly — she always counts twice before she takes anything.',
     lines: {
       greet: ["Hi! Let's play a careful game. Good luck!", "Hello! I've been doing puzzles all morning — let's see if it helps."],
+      greetRevenge: ["You won last time! I looked at the game afterwards — I know what I did wrong.", "Hello again! I've been doing extra puzzles since last time."],
+      greetRematch: ["Hi again! Let's see if you spotted your mistake from last time.", "Welcome back! Ready for another careful game?"],
+      userCheck: ["Check — good move. Let me count my options…", "Hmm, check. I didn't expect that."],
+      userCapture: ["Oh — I miscounted. There goes my {piece}.", "Nice, you won my {piece}. I should've checked twice."],
+      userThreat: ["My {piece} is attacked… let me think.", "Hmm, you're after my {piece}. Clever."],
       userGoodMove: ['Ooh, nice! That was the move I was scared of.', 'Clever! I like that.'],
       userBlunder: ['Hmm, I think that piece isn\'t protected… I counted twice!', "Oh! That one's free, I think. Sorry!"],
       botCapture: ['I counted — that one was safe to take.', 'Thank you!'],
@@ -170,6 +205,11 @@ export const OPPONENTS: Opponent[] = [
     bio: 'Marcus streams fast games online and never says no to a wild attack. He trash-talks a little, but always with a smile.',
     lines: {
       greet: ["Let's gooo! Hope your king likes fresh air.", "Buckle up, chat. We're attacking today."],
+      greetRevenge: ["Chat, they beat me last time. Today we get REVENGE.", "You again! I've been waiting for this rematch 🏹"],
+      greetRematch: ["They're back, chat! Let's give them another show.", "Round two! Hope your king's ready."],
+      userCheck: ["Whoa, check?! Okay chat, we're fine. We're FINE.", "Check on ME? Bold move."],
+      userCapture: ["Chat, they took my {piece}. Not cool.", "My {piece}! Okay, that hurt."],
+      userThreat: ["They're going after my {piece}, chat!", "Hmm, my {piece} is in danger. Spicy."],
       userGoodMove: ["Ooh, that's a good one, I'll admit it.", 'Okay chat, they found it.'],
       userBlunder: ['No way! Did that just happen?', 'Clip it! Free piece!'],
       botCapture: ['Taking that!', 'Easy.'],
@@ -194,6 +234,11 @@ export const OPPONENTS: Opponent[] = [
     bio: "Sofia plays weekend tournaments and doesn't talk much at the board. Cool, focused and quietly competitive.",
     lines: {
       greet: ['Good luck.', "Let's play."],
+      greetRevenge: ["You won last time. Not again.", "Rematch. Good."],
+      greetRematch: ["Again? Good.", "Let's play."],
+      userCheck: ["Hm. Check.", "Noted."],
+      userCapture: ["My {piece}. Hm.", "Careless of me."],
+      userThreat: ["I see it.", "Hm."],
       userGoodMove: ['Good move.', 'Hm. Nice.'],
       userBlunder: ['Thanks.', 'That was a mistake.'],
       botCapture: ['…', 'Taken.'],
@@ -218,6 +263,11 @@ export const OPPONENTS: Opponent[] = [
     bio: 'Viktor taught chess at a strict club for forty years. Gruff and demanding, but he respects anyone who tries hard.',
     lines: {
       greet: ['Good day. Sit up straight. We begin.', 'Knights out. Bishops out. Castle. Then we talk.'],
+      greetRevenge: ["You beat me last time. I have not forgotten. Begin.", "Last time you were lucky. Today we find out if it was skill."],
+      greetRematch: ["You return. Good — persistence is how players grow.", "Again? Did you study your mistakes?"],
+      userCheck: ["Check. Hm. Not bad.", "A check. I will deal with it."],
+      userCapture: ["My {piece}. A fair capture.", "Hm. I left my {piece} unguarded. Unacceptable."],
+      userThreat: ["You attack my {piece}. I see it.", "My {piece} is under fire. Correct play from you."],
       userGoodMove: ['Correct.', 'Good. My students rarely find that.'],
       userBlunder: ['In my club, that move would cost you a week of homework.', 'Careless. I will take it.'],
       botCapture: ['As expected.', 'A pawn is a pawn.'],
@@ -242,6 +292,11 @@ export const OPPONENTS: Opponent[] = [
     bio: 'Mei is the strongest player here — calm, kind and almost impossible to rattle. Beating her is the final goal.',
     lines: {
       greet: ["Welcome. Let's enjoy the game together.", 'Take your time. Every move is a chance to learn.'],
+      greetRevenge: ["Welcome back. You played beautifully last time — show me again.", "I enjoyed our last game. Let's play another."],
+      greetRematch: ["Welcome back. Every game teaches something new.", "Good to see you again. Take your time."],
+      userCheck: ["A good check.", "Check. Well played."],
+      userCapture: ["You won my {piece}. Well seen.", "My {piece}… nicely done."],
+      userThreat: ["You are pressing my {piece}. Good.", "I see the threat to my {piece}."],
       userGoodMove: ['Beautiful. You found the best move.', 'Very well seen.'],
       userBlunder: ['Breathe. Look at the whole board before you move.', 'A small slip — it happens to everyone.'],
       botCapture: ['Thank you.', "I'll take this one."],
@@ -266,7 +321,7 @@ export function nearestOpponent(elo: number): Opponent {
   return OPPONENTS.reduce((a, b) => (Math.abs(b.elo - elo) < Math.abs(a.elo - elo) ? b : a));
 }
 
-export function pickLine(o: Opponent, e: ChatEvent, seed = Math.random()): string {
+export function pickLine(o: Opponent, e: ChatEvent, seed = Math.random(), vars: Record<string, string> = {}): string {
   const l = o.lines[e];
-  return l[Math.floor(seed * l.length) % l.length];
+  return l[Math.floor(seed * l.length) % l.length].replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
 }

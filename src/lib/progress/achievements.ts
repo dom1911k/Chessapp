@@ -3,6 +3,7 @@ import { useCelebrate } from '../celebrate';
 import { db, kvGet, kvSet } from '../db';
 import { DRILLS } from '../endgames';
 import { LESSONS } from '../lessons/data';
+import { MATE_PATTERNS } from '../lessons/mates';
 import { OPPONENTS } from '../people';
 import { getOpponentRecords } from '../people/record';
 import { awardXp, getXp, levelFor, XP } from './xp';
@@ -20,6 +21,7 @@ export interface Stats {
   reviewsPassed: number;
   rushBest: number;
   lessonsDone: number;
+  matesDone: number;
   drillsDone: number;
   dailyDone: number;
   weeksMet: number;
@@ -64,6 +66,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'reviews-25', icon: 'repeat', title: 'It stuck!', description: 'Pass 25 reviews of old mistakes.', ...count(25, (s) => s.reviewsPassed) },
   { id: 'lesson-1', icon: 'cap', title: 'First lesson', description: 'Finish a lesson.', ...count(1, (s) => s.lessonsDone) },
   { id: 'lessons-all', icon: 'scroll', title: 'Scholar', description: 'Finish every lesson.', ...count(LESSONS.length, (s) => s.lessonsDone) },
+  { id: 'mates-5', icon: 'king', title: 'Mate hunter', description: 'Learn 5 checkmate patterns.', ...count(5, (s) => s.matesDone) },
+  { id: 'mates-all', icon: 'crown', title: 'Mate master', description: 'Learn all 10 checkmate patterns.', ...count(MATE_PATTERNS.length, (s) => s.matesDone) },
   { id: 'drill-1', icon: 'flag', title: 'Endgame explorer', description: 'Complete an endgame drill.', ...count(1, (s) => s.drillsDone) },
   { id: 'drills-all', icon: 'crown', title: 'Endgame expert', description: 'Complete every endgame drill.', ...count(DRILLS.length, (s) => s.drillsDone) },
   { id: 'daily-1', icon: 'calendar', title: 'Daily trainer', description: 'Finish a Daily training session.', ...count(1, (s) => s.dailyDone) },
@@ -98,7 +102,8 @@ export async function gatherStats(): Promise<Stats> {
     puzzlesSolved: attempts.filter((a) => a.success && a.source !== 'review').length,
     reviewsPassed: attempts.filter((a) => a.success && a.source === 'review').length,
     rushBest: await kvGet('rushBest', 0),
-    lessonsDone: lessons.length,
+    lessonsDone: lessons.filter((id) => LESSONS.some((l) => l.id === id)).length,
+    matesDone: lessons.filter((id) => MATE_PATTERNS.some((l) => l.id === id)).length,
     drillsDone: Object.values(drills).filter((d) => d.completed > 0).length,
     dailyDone: activity.filter((a) => a.dailyDone).length,
     weeksMet: (await weeksMet()).length,

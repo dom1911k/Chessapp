@@ -10,13 +10,14 @@ built into the app.
 
 | | |
 |---|---|
-| **Play** | Nine opponents with portraits and personalities, from Lily (~400) to Mei (~2000). They chat and react, play their favourite openings and their own style, and unlock one by one like a ladder (1–3 stars per opponent for winning with fewer hints). Coach Sam comments in a conversation under the board: mistakes with arrows and better ideas, hints, "Threats?", "Explain this position", "Why not this move?", a safety overlay and unlimited take-backs. |
-| **Learn** | A course of 11 chapters (lesson → practice puzzles → drill or game), 9 interactive lessons, endgame drills (basic mates, king-and-pawn, Lucena, Philidor, queen vs pawn) and an opening explorer where you can practise each opening's moves. |
+| **Play** | Nine opponents with portraits and personalities, from Lily (~400) to Mei (~2000). The weaker ones make real beginner mistakes. They react to your moves, remember your last game, play their favourite openings and unlock one by one like a ladder (1–3 stars per opponent for winning with fewer hints). Coach Sam talks in plain words (no chess notation) in a conversation under the board: mistakes with matching arrows and better ideas, an "are you sure?" check before risky moves, hints, "Threats?", "Explain this position", "Why not this move?", a safety overlay and unlimited take-backs. After each game you get a 2-minute practice plan (mini-lesson + 3 puzzles) for what went wrong. |
+| **Learn** | A course of 11 chapters (lesson → practice puzzles → drill or game), 9 interactive lessons, 10 checkmate patterns, endgame drills (basic mates, king-and-pawn, Lucena, Philidor, queen vs pawn) and an opening explorer where you can practise each opening's moves. |
 | **Puzzles** | ~20,000 Lichess puzzles (rated 600–1800), your own puzzle rating, 15 themed sets, and Puzzle Rush (3 minutes, 3 mistakes). |
 | **Daily** | A 10–15 minute session: reviews of positions you got wrong on a 1 → 3 → 7 → 14 → 30 day schedule, plus new puzzles on your weakest themes. Optional reminder. |
-| **Progress** | XP and levels, 33 achievements, a weekly goal (rest days never reset anything), weekly summary, rating chart, blunders per game, theme strengths and recurring mistake patterns. |
+| **Progress** | XP and levels, 35 achievements, a weekly goal (rest days never reset anything), weekly summary, rating chart, blunders per game, theme strengths and recurring mistake patterns. |
 | **Backup** | Export everything to one file and import it on a new phone (Settings → Backup). |
 | **Updates** | The app finds new versions on GitHub and installs them for you. |
+| **Tablets** | On tablets the app can rotate; sideways, the board sits on the left and the coach on the right. |
 
 ---
 

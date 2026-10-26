@@ -3,12 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
-    <meta name="theme-color" content="#1f2937" />
+    <meta name="theme-color" content="#1f7a4c" />
     <link rel="icon" href="./icon.svg" />
     <title>Chess Coach</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Shown until the app has started (the same screen is rendered by <Splash /> while settings load). -->
+      <div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(circle at 30% 20%,#3aa872,#1f7a4c 55%,#0f4a2f)">
+        <img src="./icon.svg" alt="" width="112" height="112" style="border-radius:26px;box-shadow:0 12px 32px rgba(0,0,0,.28)" />
+        <div style="font:600 26px Georgia,serif;color:#fff8ea;letter-spacing:.3px">Chess Coach</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

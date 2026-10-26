@@ -40,8 +40,8 @@ export function ReviewScreen({ gameId, ply }: { gameId: number; ply?: number }) 
   return (
     <div className="flex h-full flex-col">
       <Header title="Review" back />
-      <div className="mx-auto w-full max-w-xl flex-1 space-y-2 overflow-y-auto pb-3">
-        <div className="px-1.5">
+      <div className="board-split mx-auto w-full max-w-xl flex-1 space-y-2 overflow-y-auto pb-3 land:max-w-6xl">
+        <div className="board-cell px-1.5">
           <Board
             fen={fen}
             orientation={orientation}

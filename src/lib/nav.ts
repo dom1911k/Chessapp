@@ -1,6 +1,7 @@
 // Tiny navigation model: bottom tabs + a stack of pushed screens, plus a stack
 // of back handlers (dialogs) so the Android back button does the right thing.
 import { create } from 'zustand';
+import type { Theme } from './coach/types';
 
 export type Tab = 'play' | 'puzzles' | 'daily' | 'learn' | 'progress';
 
@@ -15,6 +16,7 @@ export type Screen =
   | { name: 'achievements' }
   | { name: 'openingPractice'; index: number }
   | { name: 'lesson'; lessonId: string }
+  | { name: 'practice'; theme: Theme }
   | { name: 'settings' }
   | { name: 'history' };
 
@@ -22,7 +24,9 @@ export type PuzzleMode =
   | { kind: 'rated' }
   | { kind: 'theme'; theme: string }
   | { kind: 'daily' }
-  | { kind: 'course'; theme: string; count: number; stepId: string; label: string };
+  | { kind: 'course'; theme: string; count: number; stepId: string; label: string }
+  /** A short, slightly easier set right after a game ("practise what went wrong"). */
+  | { kind: 'drill'; theme: string; count: number; label: string; doneKey: string };
 
 interface NavStore {
   tab: Tab;

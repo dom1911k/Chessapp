@@ -20,6 +20,7 @@ import { MoveList } from '../components/MoveList';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
 import type { FeedItem } from '../lib/store/types';
 import { shortWords } from '../lib/chess/words';
+import { THEMES } from '../lib/themes';
 
 export function PlayScreen() {
   const phase = usePlay((s) => s.phase);
@@ -149,7 +150,7 @@ function OpponentBar() {
           {thinking && <span className="flex items-center gap-1 text-xs text-stone-500"><Spinner className="!h-3 !w-3" /> thinking…</span>}
           {s.phase === 'analyzing' && <span className="flex items-center gap-1 text-xs text-stone-500"><Spinner className="!h-3 !w-3" /> coach is looking…</span>}
         </div>
-        {recentChat && (
+        {recentChat?.text && (
           <div key={recentChat.text + recentChat.ply} className="animate-pop mt-0.5 inline-block rounded-2xl rounded-tl-sm bg-white px-3 py-1.5 text-sm shadow-sm ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
             {recentChat.text}
           </div>
@@ -189,6 +190,10 @@ function GameView() {
   if (s.hint) {
     arrows.push(...s.hint.arrows);
     highlights.push(...s.hint.highlights);
+  }
+  if (s.precheck) {
+    arrows.push({ from: s.precheck.uci.slice(0, 2), to: s.precheck.uci.slice(2, 4), tone: 'info' });
+    if (s.precheck.revealed) highlights.push({ sq: s.precheck.check.sq, tone: 'bad' });
   }
   const note = s.threat ?? s.botNote;
   if (note && s.phase === 'userTurn') {
@@ -232,43 +237,47 @@ function GameView() {
           </IconButton>
         }
       />
-      <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">
-        <OpponentBar />
-        <div className="flex gap-1.5 px-1.5">
-          {settings.showEvalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
-          <div className="flex-1">
-            <Board
-              fen={fen}
-              orientation={orientation}
-              movable={myTurn ? g.userColor : null}
-              onMove={s.userMove}
-              arrows={arrows}
-              highlights={highlights}
-              lastMove={last ? { from: last.uci.slice(0, 2), to: last.uci.slice(2, 4) } : null}
-              showCoordinates={settings.showCoordinates}
-              confirm={settings.confirmMoves}
-            />
+      <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-4 land:px-3">
+        <div className="land:w-[min(calc(100dvh-12rem),56vw)] land:shrink-0">
+          <OpponentBar />
+          <div className="flex gap-1.5 px-1.5">
+            {settings.showEvalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
+            <div className="flex-1">
+              <Board
+                fen={fen}
+                orientation={orientation}
+                movable={myTurn ? g.userColor : null}
+                onMove={s.userMove}
+                arrows={arrows}
+                highlights={highlights}
+                lastMove={last ? { from: last.uci.slice(0, 2), to: last.uci.slice(2, 4) } : null}
+                showCoordinates={settings.showCoordinates}
+                confirm={settings.confirmMoves}
+              />
+            </div>
           </div>
         </div>
-        <MoveList plies={g.plies} startFen={g.startFen} />
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-3">
-          <CoachPanel safetyMessages={safety?.messages ?? []} />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <MoveList plies={g.plies} startFen={g.startFen} />
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-3">
+            <CoachPanel safetyMessages={safety?.messages ?? []} />
+          </div>
+          {!s.over && (
+            <div className="grid grid-cols-5 gap-1 border-t border-stone-200 bg-stone-100 px-3 py-2 dark:border-stone-800 dark:bg-stone-950 land:rounded-t-2xl land:border-x">
+              <ActionButton label={s.hint ? `Hint ${s.hint.level}/3` : 'Hint'} icon={<Lightbulb size={21} />} disabled={!myTurn || s.hint?.level === 3} onClick={s.requestHint} />
+              <ActionButton label="Threats?" icon={<Crosshair size={21} />} disabled={!myTurn} onClick={s.requestThreat} />
+              <ActionButton label="Take back" icon={<Undo2 size={21} />} disabled={userPlies === 0 || !['userTurn', 'paused', 'botThinking'].includes(s.phase)} onClick={s.takeback} />
+              <ActionButton label="Why not…?" icon={<ScanSearch size={21} />} disabled={userPlies === 0} onClick={whyNot} />
+              <ActionButton
+                label="Safety"
+                icon={<ShieldCheck size={21} />}
+                active={settings.safetyOverlay}
+                onClick={() => settings.set({ safetyOverlay: !settings.safetyOverlay })}
+              />
+            </div>
+          )}
         </div>
       </div>
-      {!s.over && (
-        <div className="mx-auto grid w-full max-w-xl grid-cols-5 gap-1 border-t border-stone-200 bg-stone-100 px-3 py-2 dark:border-stone-800 dark:bg-stone-950">
-          <ActionButton label={s.hint ? `Hint ${s.hint.level}/3` : 'Hint'} icon={<Lightbulb size={21} />} disabled={!myTurn || s.hint?.level === 3} onClick={s.requestHint} />
-          <ActionButton label="Threats?" icon={<Crosshair size={21} />} disabled={!myTurn} onClick={s.requestThreat} />
-          <ActionButton label="Take back" icon={<Undo2 size={21} />} disabled={userPlies === 0 || !['userTurn', 'paused', 'botThinking'].includes(s.phase)} onClick={s.takeback} />
-          <ActionButton label="Why not…?" icon={<ScanSearch size={21} />} disabled={userPlies === 0} onClick={whyNot} />
-          <ActionButton
-            label="Safety"
-            icon={<ShieldCheck size={21} />}
-            active={settings.safetyOverlay}
-            onClick={() => settings.set({ safetyOverlay: !settings.safetyOverlay })}
-          />
-        </div>
-      )}
       <Dialog open={menu} onClose={() => setMenu(false)} title="Game">
         <div className="space-y-2">
           <button
@@ -343,7 +352,7 @@ function CoachPanel({ safetyMessages }: { safetyMessages: string[] }) {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
-  }, [feed.length, s.phase, s.over]);
+  }, [feed.length, s.phase, s.over, s.precheck]);
 
   const paused = s.phase === 'paused';
   const rematch = () => s.newGame(g.userColor, g.elo, undefined, g.opponentId);
@@ -374,8 +383,13 @@ function CoachPanel({ safetyMessages }: { safetyMessages: string[] }) {
                   </>
                 ) : s.over ? (
                   <>
+                    {s.over.practice && (
+                      <button className="btn-primary" onClick={() => push({ name: 'practice', theme: s.over!.practice! })}>
+                        Practise: {THEMES[s.over.practice].label.toLowerCase()}
+                      </button>
+                    )}
                     {s.over.gameId > 0 && (
-                      <button className="btn-primary" onClick={() => push({ name: 'report', gameId: s.over!.gameId })}>See game report</button>
+                      <button className={s.over.practice ? 'btn-secondary' : 'btn-primary'} onClick={() => push({ name: 'report', gameId: s.over!.gameId })}>See game report</button>
                     )}
                     <button className="btn-secondary" onClick={rematch}>Rematch</button>
                     <button className="btn-ghost" onClick={s.leaveGame}>New opponent</button>
@@ -397,6 +411,23 @@ function CoachPanel({ safetyMessages }: { safetyMessages: string[] }) {
       {safetyMessages.length > 0 && settings.safetyOverlay && (
         <CoachBubble compact mood="concerned">
           <p><ShieldCheck size={15} className="mr-1 inline -translate-y-px text-brand-600" />{safetyMessages.join(' ')}</p>
+        </CoachBubble>
+      )}
+      {s.precheck && (
+        <CoachBubble
+          mood="concerned"
+          label="Coach Sam · before you move"
+          icon={<ShieldCheck size={12} />}
+          actions={
+            <>
+              <button className="btn-primary" onClick={s.dismissPrecheck}>Let me think again</button>
+              {!s.precheck.revealed && <button className="btn-secondary" onClick={s.revealPrecheck}>Show me why</button>}
+              <button className="btn-ghost" onClick={s.confirmPrecheck}>Play it anyway</button>
+            </>
+          }
+        >
+          <p>{s.precheck.check.ask}</p>
+          {s.precheck.revealed && <p className="font-semibold">{s.precheck.check.reveal}</p>}
         </CoachBubble>
       )}
       {s.phase === 'analyzing' && (

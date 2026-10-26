@@ -20,6 +20,7 @@ function motifIdea(c: CoachContext, m: Motif): RuleResult | null {
         theme: 'fork',
         text: t('missedFork', { move, doMove, t1: a, t2: b }, c.seed),
         arrows: [...bestArrow(c), ...m.fork.targets.map((s) => ({ from: c.bestUci!.slice(2, 4), to: c.sq(s), tone: 'info' as const }))],
+        highlights: m.fork.targets.map((s) => ({ sq: c.sq(s), tone: 'good' as const })),
       };
     }
     case 'pin':
@@ -27,18 +28,21 @@ function motifIdea(c: CoachContext, m: Motif): RuleResult | null {
         theme: 'pin',
         text: t('missedPin', { move, doMove, pinned: c.name(after[m.motif.first]?.type), behind: c.name(after[m.motif.behind]?.type) }, c.seed),
         arrows: bestArrow(c),
+        highlights: [{ sq: c.sq(m.motif.first), tone: 'good' }, { sq: c.sq(m.motif.behind), tone: 'info' }],
       };
     case 'skewer':
       return {
         theme: 'skewer',
         text: t('missedSkewer', { move, doMove, front: c.name(after[m.motif.first]?.type), behind: c.name(after[m.motif.behind]?.type) }, c.seed),
         arrows: bestArrow(c),
+        highlights: [{ sq: c.sq(m.motif.first), tone: 'good' }, { sq: c.sq(m.motif.behind), tone: 'info' }],
       };
     case 'discovered':
       return {
         theme: 'discoveredAttack',
         text: t('missedDiscovered', { move, doMove, slider: c.name(after[m.d.slider]?.type), target: c.name(after[m.d.target]?.type) }, c.seed),
         arrows: [...bestArrow(c), { from: c.sq(m.d.slider), to: c.sq(m.d.target), tone: 'info' }],
+        highlights: [{ sq: c.sq(m.d.target), tone: 'good' }],
       };
     default:
       return null;
@@ -101,6 +105,7 @@ export const ideaRules: Rule[] = [
       return {
         text: t(m.kind === 'freeCapture' ? 'missedFree' : 'missedWinningCapture', { move: c.bestGer, doMove: c.bestInf, piece: c.name(m.piece), sq: c.sq(m.sq) }, c.seed),
         arrows: bestArrow(c),
+        highlights: [{ sq: c.sq(m.sq), tone: 'good' }],
       };
     },
   },
@@ -134,6 +139,7 @@ export const ideaRules: Rule[] = [
       return {
         text: t('missedDefender', { move: c.bestGer, doMove: c.bestInf, captured: c.name(captured.type), guarded: c.name(guarded.type) }, c.seed),
         arrows: [...bestArrow(c), { from: c.sq(a), to: c.sq(b), tone: 'info' }],
+        highlights: [{ sq: c.sq(a), tone: 'good' }, { sq: c.sq(b), tone: 'info' }],
       };
     },
   },

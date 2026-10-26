@@ -8,11 +8,17 @@ import { nextPuzzle } from '../lib/puzzles/select';
 import { fromLichess, type PuzzleSpec } from '../lib/puzzles/spec';
 import { themeLabel } from '../lib/puzzles/themes';
 import { addCoursePuzzle, checkChapters } from '../lib/course';
-import { kvGet } from '../lib/db';
+import { kvGet, kvSet } from '../lib/db';
+import { useNav } from '../lib/nav';
+import { useCelebrate } from '../lib/celebrate';
+import { DRILLS_KEY } from './PracticeScreen';
 
 /** Endless rated or themed puzzle training. */
 export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
-  const theme = mode.kind === 'theme' || mode.kind === 'course' ? mode.theme : undefined;
+  const theme = mode.kind === 'theme' || mode.kind === 'course' || mode.kind === 'drill' ? mode.theme : undefined;
+  const drill = mode.kind === 'drill' ? mode : null;
+  const [drillSolved, setDrillSolved] = useState(0);
+  const pop = useNav((n) => n.pop);
   const course = mode.kind === 'course' ? mode : null;
   const [solvedInStep, setSolvedInStep] = useState<number | null>(null);
   useEffect(() => {
@@ -30,13 +36,13 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
     setOutcome(null);
     const r = await getRating();
     setRating(r.rating);
-    const p = await nextPuzzle(theme, r.rating);
+    const p = await nextPuzzle(theme, drill ? r.rating - 150 : r.rating);
     if (!p) setEmpty(true);
     else {
       setSpec(fromLichess(p));
       setN((x) => x + 1);
     }
-  }, [theme]);
+  }, [theme, drill]);
 
   useEffect(() => {
     void load();
@@ -50,6 +56,15 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
       setSolvedInStep(n);
       if (n === course.count) void checkChapters();
     }
+    if (drill && r.success) {
+      const k = drillSolved + 1;
+      setDrillSolved(k);
+      if (k === drill.count) {
+        const done = await kvGet<string[]>(DRILLS_KEY, []);
+        await kvSet(DRILLS_KEY, [...done.filter((d) => d !== drill.doneKey), drill.doneKey].slice(-30));
+        useCelebrate.getState().toast({ icon: 'target', title: 'Practice done!', text: `${drill.count} ${drill.label.toLowerCase()} puzzles solved.` });
+      }
+    }
     setOutcome(o);
     if (o.ratingAfter) setRating(o.ratingAfter);
     setStreak((s) => (r.success ? s + 1 : 0));
@@ -60,7 +75,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   return (
     <div className="flex h-full flex-col">
       <Header
-        title={course ? `${course.label}${solvedInStep !== null ? ` · ${Math.min(solvedInStep, course.count)}/${course.count}` : ''}` : theme ? themeLabel(theme) : 'Rated puzzles'}
+        title={drill ? `${drill.label} · ${Math.min(drillSolved, drill.count)}/${drill.count}` : course ? `${course.label}${solvedInStep !== null ? ` · ${Math.min(solvedInStep, course.count)}/${course.count}` : ''}` : theme ? themeLabel(theme) : 'Rated puzzles'}
         back
         right={
           <div className="pr-2 text-right text-sm leading-tight">
@@ -69,7 +84,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
           </div>
         }
       />
-      <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto pb-4">
+      <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto pb-4 land:max-w-6xl">
         {empty && <p className="p-6 text-center text-stone-500">You've done every puzzle in this set. Amazing!</p>}
         {!spec && !empty && (
           <div className="flex justify-center p-10">
@@ -81,8 +96,8 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
             key={spec.id + n}
             spec={spec}
             onFinish={onFinish}
-            onNext={load}
-            nextLabel={course && solvedInStep !== null && solvedInStep >= course.count ? 'Keep practising' : 'Next puzzle'}
+            onNext={drill && drillSolved >= drill.count ? pop : load}
+            nextLabel={drill && drillSolved >= drill.count ? 'Back to practice' : course && solvedInStep !== null && solvedInStep >= course.count ? 'Keep practising' : 'Next puzzle'}
             footer={
               <p className="text-sm font-semibold">
                 {delta !== null && (

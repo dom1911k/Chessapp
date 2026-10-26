@@ -106,8 +106,8 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
   return (
     <div className="flex h-full flex-col">
       <Header title={title ?? 'Explore'} back />
-      <div className="mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4">
-        <div className="px-1.5">
+      <div className="board-split mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4 land:max-w-6xl">
+        <div className="board-cell px-1.5">
           <Board
             fen={current}
             orientation={orientation}

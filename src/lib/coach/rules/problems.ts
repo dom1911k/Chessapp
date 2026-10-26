@@ -16,6 +16,8 @@ const victimText = (v: string | null, gain: number) => {
   return 'a pawn';
 };
 
+const replyArrow = (c: CoachContext) => ({ from: c.refLine[0].slice(0, 2), to: c.refLine[0].slice(2, 4), tone: 'bad' as const });
+
 export const problemRules: Rule[] = [
   {
     id: 'allows-mate',
@@ -27,6 +29,7 @@ export const problemRules: Rule[] = [
       const info = c.refInfo();
       const opp = c.refInf;
       const arrows = c.refLine[0] ? [{ from: c.refLine[0].slice(0, 2), to: c.refLine[0].slice(2, 4), tone: 'bad' as const }] : [];
+      const highlights = [{ sq: c.sq(kingSquare(c.boardAfter, c.mover)), tone: 'bad' as const }];
       if (info?.endsInBackRankMate)
         return {
           theme: 'backRankMate',
@@ -35,11 +38,13 @@ export const problemRules: Rule[] = [
               ? t('allowsBackRankMate', { oppMove: opp }, c.seed)
               : t('allowsBackRankMateLine', { line: c.line(c.fenAfter, c.refLine, info.plies) }, c.seed),
           arrows,
+          highlights,
         };
       return {
         theme: -s.value === 1 ? 'mateIn1' : -s.value === 2 ? 'mateIn2' : 'mate',
         text: t('allowsMate', { opp: c.oppName, line: c.line(c.fenAfter, c.refLine, -s.value * 2 - 1) }, c.seed),
         arrows,
+        highlights,
       };
     },
   },
@@ -96,6 +101,7 @@ export const problemRules: Rule[] = [
           { from: reply.slice(0, 2), to: reply.slice(2, 4), tone: 'bad' },
           ...f.fork.targets.map((s) => ({ from: reply.slice(2, 4), to: c.sq(s), tone: 'bad' as const })),
         ],
+        highlights: f.fork.targets.map((s) => ({ sq: c.sq(s), tone: 'bad' as const })),
       };
     },
   },
@@ -109,8 +115,8 @@ export const problemRules: Rule[] = [
       const after = applyReply(c);
       return {
         text: t('allowsPin', { oppMove: c.refInf, pinned: c.name(after[m.motif.first]?.type), behind: c.name(after[m.motif.behind]?.type) }, c.seed),
-        arrows: [{ from: c.sq(m.motif.pinner), to: c.sq(m.motif.behind), tone: 'bad' }],
-        highlights: [{ sq: c.sq(m.motif.first), tone: 'bad' }],
+        arrows: [replyArrow(c), { from: c.sq(m.motif.pinner), to: c.sq(m.motif.behind), tone: 'bad' }],
+        highlights: [{ sq: c.sq(m.motif.first), tone: 'bad' }, { sq: c.sq(m.motif.behind), tone: 'bad' }],
       };
     },
   },
@@ -124,7 +130,8 @@ export const problemRules: Rule[] = [
       const after = applyReply(c);
       return {
         text: t('allowsSkewer', { oppMove: c.refInf, front: c.name(after[m.motif.first]?.type), behind: c.name(after[m.motif.behind]?.type) }, c.seed),
-        arrows: [{ from: c.sq(m.motif.pinner), to: c.sq(m.motif.behind), tone: 'bad' }],
+        arrows: [replyArrow(c), { from: c.sq(m.motif.pinner), to: c.sq(m.motif.behind), tone: 'bad' }],
+        highlights: [{ sq: c.sq(m.motif.first), tone: 'bad' }, { sq: c.sq(m.motif.behind), tone: 'bad' }],
       };
     },
   },
@@ -138,7 +145,8 @@ export const problemRules: Rule[] = [
       const after = applyReply(c);
       return {
         text: t('allowsDiscovered', { oppMove: c.refInf, slider: c.name(after[m.d.slider]?.type), target: c.name(after[m.d.target]?.type) }, c.seed),
-        arrows: [{ from: c.sq(m.d.slider), to: c.sq(m.d.target), tone: 'bad' }],
+        arrows: [replyArrow(c), { from: c.sq(m.d.slider), to: c.sq(m.d.target), tone: 'bad' }],
+        highlights: [{ sq: c.sq(m.d.target), tone: 'bad' }],
       };
     },
   },
@@ -201,7 +209,7 @@ export const problemRules: Rule[] = [
         // Require that the reply line contains a check somewhere.
         if (!(c.refInfo()?.san ?? []).some((s) => s.includes('+'))) return null;
       }
-      return { text: t('weakensKing', { oppMove: c.refInf }, c.seed) };
+      return { text: t('weakensKing', { oppMove: c.refInf }, c.seed), arrows: [replyArrow(c)], highlights: [{ sq: c.sq(k), tone: 'bad' }] };
     },
   },
   {
@@ -219,7 +227,8 @@ export const problemRules: Rule[] = [
           victim: victimText(info.victim, info.materialGain),
           opp: c.oppName,
           oppMove: c.refInf,
-        }, c.seed).replace('you end up your queen down', 'you lose your queen'),
+        }, c.seed),
+        arrows: [replyArrow(c)],
         highlights: hang ? [{ sq: c.sq(hang.sq), tone: 'bad' }] : [],
       };
     },
