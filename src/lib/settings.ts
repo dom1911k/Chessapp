@@ -17,6 +17,9 @@ export interface Settings {
   sound: boolean;
   /** 0..1 */
   soundVolume: number;
+  /** Key of SOUND_PACKS. */
+  soundPack: string;
+  pieceStyle: 'classic' | 'wood';
   /** Point out threats created by the bot's moves. */
   botNotes: boolean;
   /** Ask for a confirmation tap before a move is played (prevents slips). */
@@ -28,11 +31,21 @@ export interface Settings {
   reminderTime: string;
 }
 
-export type BoardTheme = 'green' | 'brown' | 'blue' | 'gray';
+export type BoardTheme = 'walnut' | 'green' | 'brown' | 'blue' | 'gray';
 
-export const BOARD_THEMES: Record<BoardTheme, { label: string; light: string; dark: string }> = {
+const grain = (tint: string) =>
+  `repeating-linear-gradient(97deg, ${tint} 0 1px, transparent 1px 6px), repeating-linear-gradient(88deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 11px)`;
+
+export const BOARD_THEMES: Record<BoardTheme, { label: string; light: string; dark: string; lightBg?: string; darkBg?: string }> = {
+  walnut: {
+    label: 'Wood',
+    light: '#e6c495',
+    dark: '#b07848',
+    lightBg: `${grain('rgba(130,80,30,0.07)')}, linear-gradient(135deg, #ecca9c, #dfba88)`,
+    darkBg: `${grain('rgba(60,30,10,0.10)')}, linear-gradient(135deg, #b77d4b, #a66f3f)`,
+  },
   green: { label: 'Green', light: '#eeeed2', dark: '#7c9a6a' },
-  brown: { label: 'Wood', light: '#f0d9b5', dark: '#b58863' },
+  brown: { label: 'Classic', light: '#f0d9b5', dark: '#b58863' },
   blue: { label: 'Blue', light: '#dee3e6', dark: '#8ca2ad' },
   gray: { label: 'Gray', light: '#e8e8e8', dark: '#a0a0a0' },
 };
@@ -48,9 +61,11 @@ export const DEFAULT_SETTINGS: Settings = {
   showCoordinates: true,
   sound: true,
   soundVolume: 0.7,
+  soundPack: 'wood',
+  pieceStyle: 'wood',
   botNotes: true,
   confirmMoves: false,
-  boardTheme: 'green',
+  boardTheme: 'walnut',
   largePieces: false,
   reminderEnabled: false,
   reminderTime: '18:00',

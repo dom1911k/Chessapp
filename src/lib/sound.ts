@@ -20,7 +20,7 @@ function audio(): { c: AudioContext; out: GainNode } | null {
       comp.ratio.value = 3;
       const warm = ctx.createBiquadFilter();
       warm.type = 'lowpass';
-      warm.frequency.value = 3400;
+      warm.frequency.value = 8000;
       warm.Q.value = 0.4;
       master = ctx.createGain();
       master.connect(warm).connect(comp).connect(ctx.destination);
@@ -65,14 +65,76 @@ function contact(c: BaseAudioContext, out: AudioNode, t: number, amp: number, fr
   src.start(t);
 }
 
-/** A wooden piece set down on the board. `pitch` ~1, `weight` ~1 (heavier = more body). */
-export function tock(c: BaseAudioContext, out: AudioNode, t: number, pitch = 1, gain = 1, weight = 1) {
+/** A physical model of a piece landing on a board: damped modes + a contact click + warmth. */
+export interface SoundPack {
+  label: string;
+  description: string;
+  /** [frequency Hz, amplitude, decay seconds]; the first mode is the "body". */
+  modes: [number, number, number][];
+  contact: { amp: number; freq: number };
+  /** Low-pass cutoff — lower is softer/warmer. */
+  warmth: number;
+}
+
+export const SOUND_PACKS: Record<string, SoundPack> = {
+  wood: {
+    label: 'Soft wood',
+    description: 'Warm wooden pieces on a wooden board.',
+    modes: [[150, 0.55, 0.022], [480, 0.42, 0.018], [1150, 0.16, 0.011], [2050, 0.05, 0.007]],
+    contact: { amp: 0.18, freq: 2200 },
+    warmth: 3400,
+  },
+  felt: {
+    label: 'Felt',
+    description: 'Felted pieces on a soft board — the quietest, most muted option.',
+    modes: [[118, 0.7, 0.03], [330, 0.26, 0.016], [790, 0.05, 0.008]],
+    contact: { amp: 0.05, freq: 900 },
+    warmth: 1500,
+  },
+  deep: {
+    label: 'Heavy wood',
+    description: 'Weighted tournament pieces with a deep, round "thock".',
+    modes: [[105, 0.56, 0.036], [290, 0.38, 0.026], [740, 0.13, 0.014], [1500, 0.04, 0.007]],
+    contact: { amp: 0.12, freq: 1400 },
+    warmth: 2600,
+  },
+  clack: {
+    label: 'Club clack',
+    description: 'Crisp plastic club pieces on a hard board.',
+    modes: [[200, 0.34, 0.015], [700, 0.42, 0.014], [1650, 0.25, 0.009], [3100, 0.1, 0.005]],
+    contact: { amp: 0.35, freq: 3200 },
+    warmth: 6000,
+  },
+  marble: {
+    label: 'Marble',
+    description: 'Stone pieces with a short, bright ring.',
+    modes: [[420, 0.33, 0.03], [1350, 0.33, 0.04], [2900, 0.16, 0.03], [4700, 0.05, 0.02]],
+    contact: { amp: 0.22, freq: 4000 },
+    warmth: 7000,
+  },
+  minimal: {
+    label: 'Minimal',
+    description: 'A tiny, soft tick — barely there.',
+    modes: [[880, 0.34, 0.012], [1760, 0.06, 0.006]],
+    contact: { amp: 0, freq: 2000 },
+    warmth: 4000,
+  },
+};
+
+function currentPack(): SoundPack {
+  return SOUND_PACKS[useSettings.getState().soundPack] ?? SOUND_PACKS.wood;
+}
+
+/** A piece set down on the board. `pitch` ~1, `weight` ~1 (heavier = more body). */
+export function tockWith(c: BaseAudioContext, out: AudioNode, t: number, pitch = 1, gain = 1, weight = 1, pack = currentPack()) {
   const p = pitch * (0.97 + Math.random() * 0.06);
-  mode(c, out, t, 150 * p, 0.55 * gain * weight, 0.022 * weight);
-  mode(c, out, t, 480 * p, 0.42 * gain, 0.018);
-  mode(c, out, t, 1150 * p, 0.16 * gain, 0.011);
-  mode(c, out, t, 2050 * p, 0.05 * gain, 0.007);
-  contact(c, out, t, 0.18 * gain, 2200 * p);
+  const f = c.createBiquadFilter();
+  f.type = 'lowpass';
+  f.frequency.value = pack.warmth;
+  f.Q.value = 0.5;
+  f.connect(out);
+  pack.modes.forEach(([freq, amp, decay], i) => mode(c, f, t, freq * p, amp * gain * (i === 0 ? weight : 1), i === 0 ? decay * weight : decay));
+  if (pack.contact.amp) contact(c, f, t, pack.contact.amp * gain, pack.contact.freq * p);
 }
 
 /** A soft marimba note. */
@@ -84,7 +146,8 @@ export function marimba(c: BaseAudioContext, out: AudioNode, t: number, freq: nu
 }
 
 /** Schedules the named sound on any (live or offline) audio context. */
-export function renderSound(c: BaseAudioContext, out: AudioNode, name: SoundName, t: number) {
+export function renderSound(c: BaseAudioContext, out: AudioNode, name: SoundName, t: number, pack = currentPack()) {
+  const tock = (c: BaseAudioContext, out: AudioNode, t: number, pitch = 1, gain = 1, weight = 1) => tockWith(c, out, t, pitch, gain, weight, pack);
   switch (name) {
     case 'move':
       tock(c, out, t, 1, 0.9);
@@ -126,4 +189,16 @@ export function playSound(name: SoundName) {
   const a = audio();
   if (!a) return;
   renderSound(a.c, a.out, name, a.c.currentTime + 0.005);
+}
+
+/** Plays a short sample of a pack (move, move, capture, check) for the settings screen. */
+export function previewPack(id: string) {
+  const a = audio();
+  const pack = SOUND_PACKS[id];
+  if (!a || !pack) return;
+  const t = a.c.currentTime + 0.02;
+  renderSound(a.c, a.out, 'move', t, pack);
+  renderSound(a.c, a.out, 'move', t + 0.45, pack);
+  renderSound(a.c, a.out, 'capture', t + 0.9, pack);
+  renderSound(a.c, a.out, 'check', t + 1.45, pack);
 }

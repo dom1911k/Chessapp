@@ -31,13 +31,34 @@ interface Props {
   confirm?: boolean;
 }
 
-const LARGE_PIECES: PieceRenderObject = Object.fromEntries(
-  Object.entries(defaultPieces).map(([k, render]) => [
-    k,
-    (props?: { fill?: string; square?: string; svgStyle?: CSSProperties }) =>
-      render({ ...props, svgStyle: { ...props?.svgStyle, transform: 'scale(1.16)', transformOrigin: '50% 60%' } }),
-  ]),
-);
+const WOOD_FILL = { w: '#f3dcb2', b: '#2e1c0e' };
+
+/** Piece set: classic or wooden colours, optionally larger. Cached per combination. */
+const pieceCache = new Map<string, PieceRenderObject>();
+function pieceSet(style: 'classic' | 'wood', large: boolean): PieceRenderObject | undefined {
+  if (style === 'classic' && !large) return undefined;
+  const key = style + large;
+  let set = pieceCache.get(key);
+  if (!set) {
+    set = Object.fromEntries(
+      Object.entries(defaultPieces).map(([k, render]) => [
+        k,
+        (props?: { fill?: string; square?: string; svgStyle?: CSSProperties }) =>
+          render({
+            ...props,
+            fill: style === 'wood' ? WOOD_FILL[k[0] as 'w' | 'b'] : props?.fill,
+            svgStyle: {
+              ...props?.svgStyle,
+              ...(large ? { transform: 'scale(1.16)', transformOrigin: '50% 60%' } : {}),
+              ...(style === 'wood' ? { filter: 'drop-shadow(0 1.5px 1px rgba(40,20,5,0.35))' } : {}),
+            },
+          }),
+      ]),
+    );
+    pieceCache.set(key, set);
+  }
+  return set;
+}
 
 const pieceCount = (fen: string) => fen.split(' ')[0].replace(/[^a-zA-Z]/g, '').length;
 
@@ -64,6 +85,8 @@ export function Board({ fen: realFen, orientation, movable, onMove: realOnMove, 
   const [pending, setPending] = useState<{ move: MoveInput; fen: string; san: string } | null>(null);
   const theme = useSettings((s) => BOARD_THEMES[s.boardTheme] ?? BOARD_THEMES.green);
   const large = useSettings((s) => s.largePieces);
+  const pieceStyle = useSettings((s) => s.pieceStyle);
+  const pieces = pieceSet(pieceStyle, large);
   useEffect(() => setPending(null), [realFen]);
   // With confirmation on, show the move on the board but only submit it after a tap on ✓.
   const fen = pending ? pending.fen : realFen;
@@ -112,26 +135,43 @@ export function Board({ fen: realFen, orientation, movable, onMove: realOnMove, 
     setSelected(ownPiece(square) && selected !== square ? square : null);
   };
 
-  const squareStyles: Record<string, CSSProperties> = {};
+  // Highlights are layered over the square's own background so wood grain stays visible.
+  const base = (sq: string) => {
+    const light = (sq.charCodeAt(0) - 97 + Number(sq[1])) % 2 === 0;
+    const bg = light ? theme.lightBg : theme.darkBg;
+    const col = light ? theme.light : theme.dark;
+    return bg ?? `linear-gradient(${col}, ${col})`;
+  };
+  const tint = (c: string) => `linear-gradient(${c}, ${c})`;
+  const layers: Record<string, string[]> = {};
+  const add = (sq: string, layer: string) => (layers[sq] ??= []).push(layer);
+  const shadows: Record<string, string> = {};
   if (lastMove) {
-    squareStyles[lastMove.from] = { background: 'rgba(250, 204, 21, 0.35)' };
-    squareStyles[lastMove.to] = { background: 'rgba(250, 204, 21, 0.45)' };
+    add(lastMove.from, tint('rgba(250, 204, 21, 0.32)'));
+    add(lastMove.to, tint('rgba(250, 204, 21, 0.42)'));
   }
-  for (const h of highlights) squareStyles[h.sq] = { ...squareStyles[h.sq], boxShadow: `inset 0 0 0 4px ${TONE_COLOR[h.tone]}`, background: TONE_BG[h.tone] };
+  for (const h of highlights) {
+    add(h.sq, tint(TONE_BG[h.tone]));
+    shadows[h.sq] = `inset 0 0 0 4px ${TONE_COLOR[h.tone]}`;
+  }
   if (chess.inCheck()) {
     const k = chess.board().flat().find((p) => p?.type === 'k' && p.color === turn);
-    if (k) squareStyles[k.square] = { ...squareStyles[k.square], background: 'radial-gradient(circle, rgba(239,68,68,0.9) 0%, rgba(239,68,68,0.4) 55%, transparent 75%)' };
+    if (k) add(k.square, 'radial-gradient(circle, rgba(239,68,68,0.9) 0%, rgba(239,68,68,0.4) 55%, transparent 75%)');
   }
   if (selected) {
-    squareStyles[selected] = { ...squareStyles[selected], background: 'rgba(250, 204, 21, 0.6)' };
-    for (const m of targets) {
-      squareStyles[m.to] = {
-        ...squareStyles[m.to],
-        background: m.captured
+    add(selected, tint('rgba(250, 204, 21, 0.55)'));
+    for (const m of targets)
+      add(
+        m.to,
+        m.captured
           ? 'radial-gradient(circle, transparent 58%, rgba(0,0,0,0.28) 60%)'
           : 'radial-gradient(circle, rgba(0,0,0,0.25) 22%, transparent 24%)',
-      };
-    }
+      );
+  }
+  const squareStyles: Record<string, CSSProperties> = {};
+  for (const sq of new Set([...Object.keys(layers), ...Object.keys(shadows)])) {
+    squareStyles[sq] = { background: [...(layers[sq] ?? []).reverse(), base(sq)].join(', ') };
+    if (shadows[sq]) squareStyles[sq].boxShadow = shadows[sq];
   }
 
   return (
@@ -144,11 +184,11 @@ export function Board({ fen: realFen, orientation, movable, onMove: realOnMove, 
           allowDrawingArrows: false,
           arrows: arrows.map((a) => ({ startSquare: a.from, endSquare: a.to, color: TONE_COLOR[a.tone] })),
           squareStyles,
-          animationDurationInMs: 180,
-          darkSquareStyle: { backgroundColor: theme.dark },
-          lightSquareStyle: { backgroundColor: theme.light },
-          ...(large ? { pieces: LARGE_PIECES } : {}),
-          boardStyle: { borderRadius: '6px', overflow: 'hidden' },
+          animationDurationInMs: 260,
+          darkSquareStyle: theme.darkBg ? { background: theme.darkBg } : { backgroundColor: theme.dark },
+          lightSquareStyle: theme.lightBg ? { background: theme.lightBg } : { backgroundColor: theme.light },
+          ...(pieces ? { pieces } : {}),
+          boardStyle: { borderRadius: '6px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(40,20,5,0.25)' },
           dragActivationDistance: 6,
           canDragPiece: ({ square }) => !!square && ownPiece(square),
           onPieceDrag: ({ square }) => square && setSelected(square),

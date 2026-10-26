@@ -4,7 +4,7 @@ import { BackupCard } from '../components/BackupCard';
 import { UpdateCard } from '../components/UpdatePanel';
 import { FeedbackCard } from '../components/FeedbackCard';
 import { applyReminder, remindersSupported } from '../lib/reminders';
-import { playSound } from '../lib/sound';
+import { playSound, previewPack, SOUND_PACKS } from '../lib/sound';
 import { useState } from 'react';
 
 export function SettingsScreen() {
@@ -41,6 +41,15 @@ export function SettingsScreen() {
               </button>
             ))}
           </div>
+          <div className="mt-3 mb-1 text-sm font-semibold text-stone-500">Pieces</div>
+          <Segmented
+            value={s.pieceStyle}
+            onChange={(pieceStyle) => s.set({ pieceStyle })}
+            options={[
+              { value: 'wood', label: 'Wood' },
+              { value: 'classic', label: 'Classic' },
+            ]}
+          />
           <Toggle checked={s.largePieces} onChange={(v) => s.set({ largePieces: v })} label="Larger pieces" />
           <Toggle checked={s.showCoordinates} onChange={(v) => s.set({ showCoordinates: v })} label="Board coordinates" />
           <Toggle checked={s.sound} onChange={(v) => s.set({ sound: v })} label="Sound effects" />
@@ -58,6 +67,20 @@ export function SettingsScreen() {
                 className="flex-1 accent-brand-600"
               />
             </label>
+          )}
+          {s.sound && (
+            <div className="space-y-1.5 py-2">
+              <div className="text-sm font-semibold text-stone-500">Sound set</div>
+              {Object.entries(SOUND_PACKS).map(([id, pack]) => (
+                <div key={id} className={`flex items-center gap-2 rounded-xl p-2 ring-1 ${s.soundPack === id ? 'bg-brand-50 ring-brand-500 dark:bg-brand-700/20' : 'ring-stone-200 dark:ring-stone-700'}`}>
+                  <button className="flex-1 text-left" onClick={() => { s.set({ soundPack: id }); previewPack(id); }}>
+                    <span className="block text-sm font-semibold">{pack.label}{s.soundPack === id ? ' ✓' : ''}</span>
+                    <span className="block text-xs text-stone-500">{pack.description}</span>
+                  </button>
+                  <button className="btn-secondary !px-3 !py-1.5" aria-label={`Preview ${pack.label}`} onClick={() => previewPack(id)}>▶</button>
+                </div>
+              ))}
+            </div>
           )}
           <Toggle checked={s.confirmMoves} onChange={(v) => s.set({ confirmMoves: v })} label="Confirm each move (prevents slips)" />
         </div>
