@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Header } from '../components/ui';
 import { formatLine, START_FEN } from '../lib/chess/game';
 import { ECO } from '../lib/openings';
+import { useNav } from '../lib/nav';
 
 const PRINCIPLES = [
   ['Control the center', 'Pawns and pieces on e4, d4, e5 and d5 give you space and options.'],
@@ -13,6 +14,7 @@ const PRINCIPLES = [
 ];
 
 export function OpeningsScreen() {
+  const push = useNav((s) => s.push);
   const [q, setQ] = useState('');
   const groups = useMemo(() => {
     const list = ECO.filter((o) => !q || o.name.toLowerCase().includes(q.toLowerCase()));
@@ -56,6 +58,9 @@ export function OpeningsScreen() {
                   </div>
                   <div className="text-sm text-brand-700 dark:text-brand-500">{formatLine(START_FEN, o.moves.split(' '))}</div>
                   <div className="mt-1 text-sm text-stone-600 dark:text-stone-300">{o.idea}</div>
+                  <button className="btn-secondary mt-2 !py-1.5 text-xs" onClick={() => push({ name: 'openingPractice', index: ECO.indexOf(o) })}>
+                    ▶ Practise
+                  </button>
                 </div>
               ))}
             </div>

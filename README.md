@@ -10,11 +10,11 @@ built into the app.
 
 | | |
 |---|---|
-| **Play** | Nine opponents with their own portraits and personalities, from Lily (~400) to Mei (~2000) — they chat, react and play in their own style — or a custom-strength bot from ~400 to ~2000 Elo, unlimited take-backs, hints, "Threats?" (what is my opponent planning?), "Why not this move?", safety overlay, notes when the bot attacks something. Every move is rated Best / Good / Inaccuracy / Mistake / Blunder; on a mistake the coach pauses and explains. Optional move confirmation against slips. |
+| **Play** | Nine opponents with portraits and personalities, from Lily (~400) to Mei (~2000). They chat and react, play their favourite openings and their own style, and unlock one by one like a ladder (1–3 stars per opponent for winning with fewer hints). Coach Sam comments in a conversation under the board: mistakes with arrows and better ideas, hints, "Threats?", "Explain this position", "Why not this move?", a safety overlay and unlimited take-backs. |
+| **Learn** | A course of 11 chapters (lesson → practice puzzles → drill or game), 9 interactive lessons, endgame drills (basic mates, king-and-pawn, Lucena, Philidor, queen vs pawn) and an opening explorer where you can practise each opening's moves. |
 | **Puzzles** | ~20,000 Lichess puzzles (rated 600–1800), your own puzzle rating, 15 themed sets, and Puzzle Rush (3 minutes, 3 mistakes). |
-| **Daily** | A 10–15 minute session: reviews of positions you got wrong (from your games and puzzles) on a 1 → 3 → 7 → 14 → 30 day schedule, plus new puzzles on your weakest themes. Optional daily reminder. |
-| **Learn** | Six guided lessons (checkmate, free pieces, forks, pins, back rank, opening principles), endgame drills against the engine (basic mates, king-and-pawn, Lucena, Philidor, queen vs pawn) and opening names with their main ideas. |
-| **Progress** | Weekly summary, rating chart, streak, blunders per game, strongest/weakest themes, and recurring mistake patterns across games. |
+| **Daily** | A 10–15 minute session: reviews of positions you got wrong on a 1 → 3 → 7 → 14 → 30 day schedule, plus new puzzles on your weakest themes. Optional reminder. |
+| **Progress** | XP and levels, 33 achievements, a weekly goal (rest days never reset anything), weekly summary, rating chart, blunders per game, theme strengths and recurring mistake patterns. |
 | **Backup** | Export everything to one file and import it on a new phone (Settings → Backup). |
 | **Updates** | The app finds new versions on GitHub and installs them for you. |
 

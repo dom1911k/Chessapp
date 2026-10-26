@@ -13,6 +13,7 @@ export type Screen =
   | { name: 'openings' }
   | { name: 'rush' }
   | { name: 'achievements' }
+  | { name: 'openingPractice'; index: number }
   | { name: 'lesson'; lessonId: string }
   | { name: 'settings' }
   | { name: 'history' };
@@ -20,7 +21,8 @@ export type Screen =
 export type PuzzleMode =
   | { kind: 'rated' }
   | { kind: 'theme'; theme: string }
-  | { kind: 'daily' };
+  | { kind: 'daily' }
+  | { kind: 'course'; theme: string; count: number; stepId: string; label: string };
 
 interface NavStore {
   tab: Tab;

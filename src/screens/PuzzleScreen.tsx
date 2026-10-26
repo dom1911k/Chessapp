@@ -7,10 +7,17 @@ import { getRating } from '../lib/puzzles/rating';
 import { nextPuzzle } from '../lib/puzzles/select';
 import { fromLichess, type PuzzleSpec } from '../lib/puzzles/spec';
 import { themeLabel } from '../lib/puzzles/themes';
+import { addCoursePuzzle, checkChapters } from '../lib/course';
+import { kvGet } from '../lib/db';
 
 /** Endless rated or themed puzzle training. */
 export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
-  const theme = mode.kind === 'theme' ? mode.theme : undefined;
+  const theme = mode.kind === 'theme' || mode.kind === 'course' ? mode.theme : undefined;
+  const course = mode.kind === 'course' ? mode : null;
+  const [solvedInStep, setSolvedInStep] = useState<number | null>(null);
+  useEffect(() => {
+    if (course) void kvGet<Record<string, number>>('coursePuzzles', {}).then((p) => setSolvedInStep(p[course.stepId] ?? 0));
+  }, [course]);
   const [spec, setSpec] = useState<PuzzleSpec | null>(null);
   const [empty, setEmpty] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
@@ -38,6 +45,11 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   const onFinish = async (r: PuzzleResult) => {
     if (!spec) return;
     const o = await recordAttempt(spec, r.success, r.hintsUsed, theme ? 'theme' : 'rated');
+    if (course && r.success) {
+      const n = await addCoursePuzzle(course.stepId);
+      setSolvedInStep(n);
+      if (n === course.count) void checkChapters();
+    }
     setOutcome(o);
     if (o.ratingAfter) setRating(o.ratingAfter);
     setStreak((s) => (r.success ? s + 1 : 0));
@@ -48,7 +60,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   return (
     <div className="flex h-full flex-col">
       <Header
-        title={theme ? themeLabel(theme) : 'Rated puzzles'}
+        title={course ? `${course.label}${solvedInStep !== null ? ` · ${Math.min(solvedInStep, course.count)}/${course.count}` : ''}` : theme ? themeLabel(theme) : 'Rated puzzles'}
         back
         right={
           <div className="pr-2 text-right text-sm leading-tight">
@@ -70,6 +82,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
             spec={spec}
             onFinish={onFinish}
             onNext={load}
+            nextLabel={course && solvedInStep !== null && solvedInStep >= course.count ? 'Keep practising' : 'Next puzzle'}
             footer={
               <p className="text-sm font-semibold">
                 {delta !== null && (

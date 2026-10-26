@@ -7,6 +7,7 @@ import { useNav } from '../lib/nav';
 import { DRILL_KEY, type DrillProgress } from './EndgameScreen';
 import { SettingsButton } from './PlayScreen';
 import { LESSONS } from '../lib/lessons/data';
+import { CoursePath } from '../components/CoursePath';
 import { LESSONS_KEY } from './LessonScreen';
 
 export function LearnScreen() {
@@ -26,10 +27,11 @@ export function LearnScreen() {
       <Header title="Learn" right={<SettingsButton />} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-5 overflow-y-auto p-4">
         <CoachBubble>
-          <p>Start with the short lessons, then practise endgames against the engine until they feel easy!</p>
+          <p>Follow the course step by step — lesson, practice, then a game. Everything stays open to replay any time.</p>
         </CoachBubble>
+        <CoursePath />
         <section>
-          <h2 className="mb-2 px-1 text-sm font-semibold text-stone-500">Lessons</h2>
+          <h2 className="mb-2 px-1 text-sm font-semibold text-stone-500">All lessons</h2>
           <div className="grid grid-cols-2 gap-2.5">
             {LESSONS.map((l) => (
               <button key={l.id} className="card !p-3 text-left" onClick={() => push({ name: 'lesson', lessonId: l.id })}>

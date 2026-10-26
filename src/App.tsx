@@ -20,6 +20,7 @@ import { EndgameScreen } from './screens/EndgameScreen';
 import { OpeningsScreen } from './screens/OpeningsScreen';
 import { RushScreen } from './screens/RushScreen';
 import { AchievementsScreen } from './components/Gamification';
+import { OpeningPracticeScreen } from './screens/OpeningPracticeScreen';
 import { LessonScreen } from './screens/LessonScreen';
 import { UpdateDialog } from './components/UpdatePanel';
 import { CelebrationLayer } from './components/Celebrate';
@@ -72,6 +73,8 @@ function StackScreen({ screen }: { screen: Screen }) {
       return <RushScreen />;
     case 'achievements':
       return <AchievementsScreen />;
+    case 'openingPractice':
+      return <OpeningPracticeScreen index={screen.index} />;
     case 'lesson':
       return <LessonScreen lessonId={screen.lessonId} />;
   }

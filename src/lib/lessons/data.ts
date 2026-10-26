@@ -187,6 +187,81 @@ export const LESSONS: Lesson[] = [
       },
     ],
   },
+  {
+    id: 'defender',
+    title: 'Remove the defender',
+    icon: '🛡️',
+    summary: 'Take away the guard, then take what it guarded.',
+    steps: [
+      {
+        fen: '4k3/1p6/2n5/4r3/8/8/8/2R1R1K1 w - - 0 1',
+        text: 'The black rook on e5 looks safe because the **knight on c6 guards it**. But what if that guard disappears?',
+        arrows: [{ from: 'c6', to: 'e5', tone: 'info' }],
+      },
+      {
+        fen: '4k3/1p6/2n5/4r3/8/8/8/2R1R1K1 w - - 0 1',
+        text: 'Capture the defender!',
+        task: { kind: 'moves', solutions: ['c1c6'] },
+        hint: 'Which black piece is protecting the rook on e5?',
+        success: 'Rxc6! Black will take back with the pawn…',
+      },
+      {
+        fen: '4k3/8/2p5/4r3/8/8/8/4R1K1 w - - 0 2',
+        text: '…and now the rook on e5 has no defender. Take it!',
+        task: { kind: 'moves', solutions: ['e1e5'] },
+        success: 'You gave a rook for a knight, then won a rook back: a whole piece up. Always ask "what is that piece guarding?"',
+      },
+    ],
+  },
+  {
+    id: 'pawns',
+    title: 'Pawn endings',
+    icon: '♙',
+    summary: 'The square rule and the opposition.',
+    steps: [
+      {
+        fen: '8/8/8/P4k2/8/8/8/7K w - - 0 1',
+        text: 'The **square rule**: draw a square from your pawn to its promotion square (a5–d5–d8–a8 here). If the enemy king can\'t step into that square, it can\'t catch the pawn.',
+        highlights: [{ sq: 'a5', tone: 'info' }, { sq: 'd5', tone: 'info' }, { sq: 'd8', tone: 'info' }, { sq: 'a8', tone: 'info' }],
+      },
+      {
+        fen: '8/8/8/P4k2/8/8/8/7K w - - 0 1',
+        text: 'The black king is outside the square. Should you run? Make the move!',
+        task: { kind: 'moves', solutions: ['a5a6'] },
+        hint: 'Your king is far away — the pawn has to go on its own.',
+        success: 'Right! Each push shrinks the square, and the king is always one step too slow.',
+      },
+      {
+        fen: '8/8/4k3/8/4K3/8/4P3/8 w - - 0 1',
+        text: 'The **opposition**: the kings face each other with one square between them. Whoever has to move must give way. Here you can pass the move to Black with a little pawn step — find it!',
+        task: { kind: 'moves', solutions: ['e2e3'] },
+        hint: 'A pawn move that changes nothing — except whose turn it is.',
+        success: 'e3! Now Black must step aside, and your king walks forward. Spare pawn moves win many endings.',
+      },
+    ],
+  },
+  {
+    id: 'mate2',
+    title: 'Mate in two',
+    icon: '♛',
+    summary: 'Sometimes you give something to deliver checkmate.',
+    steps: [
+      {
+        fen: '2R2rk1/5p1b/3p1P1p/p5p1/P1R3P1/7P/1PP3K1/2r5 w - - 0 42',
+        text: 'Look for **forcing moves**: checks first. Here a rook sacrifice forces the king forward… Play the first move!',
+        task: { kind: 'moves', solutions: ['c8f8'] },
+        hint: 'Take the rook on f8 with check.',
+        success: 'Rxf8+! The king has to take back.',
+      },
+      {
+        fen: '5k2/5p1b/3p1P1p/p5p1/P1R3P1/7P/1PP3K1/2r5 w - - 0 43',
+        text: 'Now finish it: checkmate in one.',
+        task: { kind: 'mate' },
+        hint: 'Your other rook can reach the back rank.',
+        success: 'Rc8#! The king is trapped by its own pieces and your pawn on f6. Giving material to checkmate is always worth it.',
+      },
+    ],
+  },
 ];
 
 export const lessonById = (id: string) => LESSONS.find((l) => l.id === id);
