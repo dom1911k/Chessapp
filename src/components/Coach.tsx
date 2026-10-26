@@ -35,16 +35,19 @@ export function CoachBubble({
   mood = 'happy',
   badge,
   actions,
+  compact = false,
 }: {
   children: ReactNode;
   mood?: 'happy' | 'concerned' | 'thinking';
   badge?: Classification;
   actions?: ReactNode;
+  /** Older messages in a conversation: smaller and quieter. */
+  compact?: boolean;
 }) {
   return (
-    <div className="flex items-start gap-2.5 animate-pop">
-      <CoachAvatar mood={mood} />
-      <div className="card relative flex-1 !p-3 text-[15px] leading-snug">
+    <div className={`flex items-start gap-2.5 ${compact ? 'opacity-70' : 'animate-pop'}`}>
+      <CoachAvatar mood={mood} size={compact ? 32 : 44} />
+      <div className={`card relative flex-1 ${compact ? '!p-2 text-sm' : '!p-3 text-[15px]'} leading-snug`}>
         {badge && (
           <div className="mb-1">
             <ClassBadge c={badge} />

@@ -15,7 +15,11 @@ export type ChatEvent =
   | 'botWins'
   | 'botLoses'
   | 'draw'
-  | 'userResigned';
+  | 'userResigned'
+  /** After the game: no real mistakes. */
+  | 'summaryGood'
+  /** After the game: {move} is your biggest mistake. */
+  | 'summaryMistake';
 
 export interface Opponent {
   id: string;
@@ -57,6 +61,8 @@ export const OPPONENTS: Opponent[] = [
       botLoses: ['Aww. You\'re really good! Good game!', 'You win! Teach me that trick sometime?'],
       draw: ['A draw! That\'s like both winning, right?'],
       userResigned: ['Oh, you\'re giving up? Okay! Good game!'],
+      summaryGood: ["You played really well! I want to be as good as you."],
+      summaryMistake: ["I think {move} was a bit oopsie. But I make oopsies too! 😄"],
     },
   },
   {
@@ -79,6 +85,8 @@ export const OPPONENTS: Opponent[] = [
       botLoses: ['Well played! You\'ve earned that one.', 'Beaten fair and square. Bravo!'],
       draw: ['A draw — honours even! Lovely game.'],
       userResigned: ['Thank you for the game. Come back anytime.'],
+      summaryGood: ["A tidy game from you. I enjoyed that one."],
+      summaryMistake: ["If I may — {move} was where it slipped. Happens to the best of us."],
     },
   },
   {
@@ -101,6 +109,8 @@ export const OPPONENTS: Opponent[] = [
       botLoses: ['GG, you got me. Respect.', 'Okay you win. I blame the coffee.'],
       draw: ['A draw! Honestly I\'ll take it.'],
       userResigned: ['GG! Good luck next time!'],
+      summaryGood: ["Honestly? Clean game. I'm impressed."],
+      summaryMistake: ["Ngl, {move} is where it went sideways. Happens!"],
     },
   },
   {
@@ -123,6 +133,8 @@ export const OPPONENTS: Opponent[] = [
       botLoses: ['What?! Okay, rematch. Right now.', 'Fine, you got me. This time.'],
       draw: ['A draw? I\'ll call that a moral victory.'],
       userResigned: ['Smart move! GG.'],
+      summaryGood: ["Fine, fine, that was a strong game. Don't let it go to your head."],
+      summaryMistake: ["Pro tip from the café: {move} was not it."],
     },
   },
   {
@@ -145,6 +157,8 @@ export const OPPONENTS: Opponent[] = [
       botLoses: ['Well deserved. That was a clean game.', 'Very nice. You outplayed me.'],
       draw: ['A fair result, I think. Good game.'],
       userResigned: ['Thank you for the game. Resigning at the right time is a skill too.'],
+      summaryGood: ["Very few inaccuracies — that was a well-played game."],
+      summaryMistake: ["If you check the report: {move} was the critical moment."],
     },
   },
   {
@@ -167,6 +181,8 @@ export const OPPONENTS: Opponent[] = [
       botLoses: ['GG — you earned that. Rematch?', 'Wow. You beat the attack. Big respect.'],
       draw: ['A draw?! I wanted blood. Good game though.'],
       userResigned: ['GG! Come back stronger!'],
+      summaryGood: ["Clean game, chat. No blunders. Respect."],
+      summaryMistake: ["Chat, did you see {move}? That's where I smelled blood. 🏹"],
     },
   },
   {
@@ -189,6 +205,8 @@ export const OPPONENTS: Opponent[] = [
       botLoses: ['Well played.', 'GG. You deserved it.'],
       draw: ['Draw. Fair.'],
       userResigned: ['Good game.'],
+      summaryGood: ["Solid game."],
+      summaryMistake: ["{move}. That was the mistake."],
     },
   },
   {
@@ -211,6 +229,8 @@ export const OPPONENTS: Opponent[] = [
       botLoses: ['Well played. Truly.', 'You have earned my respect.'],
       draw: ['A draw. A correct result.'],
       userResigned: ['A wise decision. Thank you for the game.'],
+      summaryGood: ["A disciplined game. Acceptable. Quite good, even."],
+      summaryMistake: ["Study the move {move}. That is where the game was decided."],
     },
   },
   {
@@ -233,6 +253,8 @@ export const OPPONENTS: Opponent[] = [
       botLoses: ['Congratulations. You have truly grown.', 'Wonderful game. I am proud to have played it.'],
       draw: ['A draw against a strong opponent is a fine result.'],
       userResigned: ['Thank you. Rest, and come back stronger.'],
+      summaryGood: ["You played with a clear mind today. Well done."],
+      summaryMistake: ["Look again at {move} later — there is a lesson waiting there."],
     },
   },
 ];

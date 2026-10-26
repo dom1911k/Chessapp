@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
@@ -11,6 +11,8 @@ import { Board } from '../components/Board';
 import { CoachBubble, FlagButton, Portrait } from '../components/Coach';
 import { OPPONENTS, opponentById, type Mood } from '../lib/people';
 import { LevelBadge } from '../components/Gamification';
+import { getOpponentRecords, isUnlocked, type OpponentRecord } from '../lib/people/record';
+import { REPERTOIRES } from '../lib/people/openings';
 import { Dialog, EvalBar, Header, Segmented, Spinner } from '../components/ui';
 import { MoveList } from '../components/MoveList';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
@@ -28,7 +30,11 @@ function SetupView() {
   const newGame = usePlay((s) => s.newGame);
   const push = useNav((s) => s.push);
   const custom = settings.opponentId === 'custom';
-  const opp = custom ? null : (opponentById(settings.opponentId) ?? OPPONENTS[1]);
+  const [records, setRecords] = useState<Record<string, OpponentRecord>>({});
+  useEffect(() => void getOpponentRecords().then(setRecords), []);
+  const chosen = opponentById(settings.opponentId);
+  const opp = custom ? null : chosen && isUnlocked(chosen.id, records) ? chosen : OPPONENTS[1];
+  const rec = opp ? records[opp.id] : undefined;
   const start = () => {
     const color = settings.colorPref === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : settings.colorPref;
     newGame(color, opp ? opp.elo : settings.botElo, undefined, opp?.id);
@@ -40,17 +46,24 @@ function SetupView() {
         <div>
           <div className="mb-2 px-1 text-sm font-semibold text-stone-500">Choose your opponent</div>
           <div className="grid grid-cols-3 gap-2">
-            {OPPONENTS.map((o) => (
-              <button
-                key={o.id}
-                onClick={() => settings.set({ opponentId: o.id })}
-                className={`card flex flex-col items-center !p-2 transition ${settings.opponentId === o.id ? '!ring-2 !ring-brand-600' : ''}`}
-              >
-                <Portrait id={o.id} size={56} mood={settings.opponentId === o.id ? 'happy' : 'neutral'} />
-                <span className="mt-1 text-sm font-semibold leading-tight">{o.name}</span>
-                <span className="text-xs text-stone-500">{o.elo}</span>
-              </button>
-            ))}
+            {OPPONENTS.map((o, i) => {
+              const open = isUnlocked(o.id, records);
+              const stars = records[o.id]?.stars ?? 0;
+              return (
+                <button
+                  key={o.id}
+                  disabled={!open}
+                  onClick={() => settings.set({ opponentId: o.id })}
+                  className={`card relative flex flex-col items-center !p-2 transition ${opp?.id === o.id ? '!ring-2 !ring-brand-600' : ''}`}
+                >
+                  <Portrait id={o.id} size={56} mood={opp?.id === o.id ? 'happy' : 'neutral'} className={open ? '' : 'opacity-40 grayscale'} />
+                  {!open && <span className="absolute top-8 text-xl">🔒</span>}
+                  <span className="mt-1 text-sm font-semibold leading-tight">{o.name}</span>
+                  <span className="text-xs text-stone-500">{open ? o.elo : `Beat ${OPPONENTS[i - 1].name}`}</span>
+                  {open && <span className="text-xs leading-none tracking-tight">{'★'.repeat(stars)}<span className="text-stone-300 dark:text-stone-600">{'★'.repeat(3 - stars)}</span></span>}
+                </button>
+              );
+            })}
           </div>
           <button className={`mt-2 w-full rounded-xl px-3 py-2 text-left text-sm ${custom ? 'bg-brand-100 font-semibold text-brand-700 dark:bg-brand-700/30 dark:text-brand-100' : 'text-stone-500'}`} onClick={() => settings.set({ opponentId: 'custom' })}>
             ⚙️ Custom strength…
@@ -63,6 +76,12 @@ function SetupView() {
               <div className="font-bold">{opp.name} <span className="font-normal text-stone-500">· ~{opp.elo}</span></div>
               <div className="text-xs font-semibold text-brand-700 dark:text-brand-500">{opp.tagline}</div>
               <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">{opp.bio}</p>
+              {REPERTOIRES[opp.id] && <p className="mt-1 text-xs text-stone-500">📖 Favourite: {REPERTOIRES[opp.id].favourite}</p>}
+              {rec && rec.w + rec.l + rec.d > 0 && (
+                <p className="mt-0.5 text-xs text-stone-500">
+                  Your record: {rec.w}W · {rec.d}D · {rec.l}L{rec.stars < 3 && rec.w > 0 ? ' — win with fewer hints for more ★' : ''}
+                </p>
+              )}
             </div>
           </div>
         ) : (
@@ -211,7 +230,7 @@ function GameView() {
           </button>
         }
       />
-      <div className="mx-auto flex w-full max-w-xl flex-1 flex-col overflow-y-auto">
+      <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">
         <OpponentBar />
         <div className="flex gap-1.5 px-1.5">
           {settings.showEvalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
@@ -230,8 +249,8 @@ function GameView() {
           </div>
         </div>
         <MoveList plies={g.plies} startFen={g.startFen} />
-        <div className="space-y-3 px-3 pb-3">
-          <CoachPanel opening={opening && g.plies.length <= 12 ? opening : null} safetyMessages={safety?.messages ?? []} />
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-3">
+          <CoachPanel safetyMessages={safety?.messages ?? []} />
         </div>
       </div>
       {!s.over && (
@@ -292,106 +311,80 @@ function ActionButton({ label, icon, onClick, disabled, active }: { label: strin
   );
 }
 
-function CoachPanel({ opening, safetyMessages }: { opening: { name: string; idea: string } | null; safetyMessages: string[] }) {
+function CoachPanel({ safetyMessages }: { safetyMessages: string[] }) {
   const s = usePlay();
   const push = useNav((n) => n.push);
+  const settings = useSettings();
   const g = s.game!;
+  const feed = g.feed ?? [];
+  const [all, setAll] = useState(false);
+  const items = all ? feed : feed.slice(-8);
+  const end = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  }, [feed.length, s.phase, s.over]);
 
-  if (s.over) {
-    const { userResult } = resultFor(s.over.result, g.userColor);
-    const text =
-      userResult === 'win' ? 'You won! 🎉 Let\'s look at what went well.' : userResult === 'draw' ? `It's a draw (${s.over.reason}).` : s.over.reason === 'resignation' ? 'Game over. Every game teaches us something!' : 'Checkmate — the bot got you this time. Let\'s learn from it!';
-    return (
-      <CoachBubble
-        mood={userResult === 'loss' ? 'concerned' : 'happy'}
-        actions={
-          <>
-            {s.over.gameId > 0 && (
-              <button className="btn-primary" onClick={() => push({ name: 'report', gameId: s.over!.gameId })}>
-                See game report
-              </button>
+  const paused = s.phase === 'paused';
+  const rematch = () => s.newGame(g.userColor, g.elo, undefined, g.opponentId);
+  return (
+    <div className="space-y-2.5">
+      {feed.length > items.length && (
+        <button className="w-full text-center text-xs font-semibold text-stone-500" onClick={() => setAll(true)}>
+          Show {feed.length - items.length} earlier messages
+        </button>
+      )}
+      {items.map((it, k) => {
+        const latest = k === items.length - 1;
+        const p = it.ply >= 0 ? g.plies[it.ply] : undefined;
+        const showActions = latest && ((paused && it.kind === 'comment') || (s.over && it.kind === 'result'));
+        return (
+          <CoachBubble
+            key={it.id}
+            compact={!latest}
+            mood={it.mood ?? 'happy'}
+            badge={it.classification}
+            actions={
+              showActions ? (
+                paused ? (
+                  <>
+                    <button className="btn-primary" onClick={s.tryAgain}>Try again</button>
+                    <button className="btn-secondary" onClick={s.continueGame}>Continue</button>
+                  </>
+                ) : s.over ? (
+                  <>
+                    {s.over.gameId > 0 && (
+                      <button className="btn-primary" onClick={() => push({ name: 'report', gameId: s.over!.gameId })}>See game report</button>
+                    )}
+                    <button className="btn-secondary" onClick={rematch}>Rematch</button>
+                    <button className="btn-ghost" onClick={s.leaveGame}>New opponent</button>
+                  </>
+                ) : null
+              ) : undefined
+            }
+          >
+            {it.kind === 'comment' && p && <p className="text-xs font-semibold text-stone-500">{p.san}</p>}
+            {it.text.map((t, i) => (
+              <p key={i} className={it.kind === 'opening' && i === 0 ? 'font-semibold' : ''}>{t}</p>
+            ))}
+            {latest && it.kind === 'comment' && p?.comment && it.classification !== 'best' && it.classification !== 'good' && (
+              <FlagButton fen={p.fenBefore} uci={p.uci} comment={p.comment} />
             )}
-            <button className="btn-secondary" onClick={s.leaveGame}>
-              New game
-            </button>
-          </>
-        }
-      >
-        <p>{text}</p>
-      </CoachBubble>
-    );
-  }
-
-  if (s.phase === 'paused' && s.comment) {
-    const c = s.comment.comment;
-    return (
-      <CoachBubble
-        mood="concerned"
-        badge={c.classification}
-        actions={
-          <>
-            <button className="btn-primary" onClick={s.tryAgain}>
-              Try again
-            </button>
-            <button className="btn-secondary" onClick={s.continueGame}>
-              Continue
-            </button>
-          </>
-        }
-      >
-        {c.text.map((t, i) => (
-          <p key={i}>{t}</p>
-        ))}
-        <Flag ply={s.comment.ply} />
-      </CoachBubble>
-    );
-  }
-
-  if (s.hint) return <CoachBubble mood="thinking"><p>{s.hint.text}</p></CoachBubble>;
-  if (s.threat) return <CoachBubble mood="thinking"><p>🎯 {s.threat.text}</p></CoachBubble>;
-  if (s.message) return <CoachBubble><p>{s.message}</p></CoachBubble>;
-
-  const items = [];
-  if (safetyMessages.length) items.push(<CoachBubble key="safety" mood="concerned"><p>🛡️ {safetyMessages.join(' ')}</p></CoachBubble>);
-  if (s.comment && s.comment.ply >= g.plies.length - 2) {
-    const c = s.comment.comment;
-    items.push(
-      <CoachBubble key="c" badge={c.classification} mood={c.classification === 'blunder' || c.classification === 'mistake' ? 'concerned' : 'happy'}>
-        {c.text.map((t, i) => (
-          <p key={i}>{t}</p>
-        ))}
-        {c.classification !== 'best' && c.classification !== 'good' && <Flag ply={s.comment.ply} />}
-      </CoachBubble>,
-    );
-  }
-  if (s.botNote && s.phase === 'userTurn') {
-    items.push(
-      <CoachBubble key="bot" mood="concerned">
-        <p>🤖 {s.botNote.text}</p>
-      </CoachBubble>,
-    );
-  } else if (opening && !(s.comment && s.comment.ply >= g.plies.length - 2)) {
-    items.push(
-      <CoachBubble key="o">
-        <p className="font-semibold">{opening.name}</p>
-        <p>{opening.idea}</p>
-      </CoachBubble>,
-    );
-  } else if (g.plies.length === 0) {
-    items.push(
-      <CoachBubble key="start">
-        <p>{g.userColor === 'w' ? 'You have the white pieces. Tap a piece, then tap where it should go.' : 'You have black. The bot moves first.'}</p>
-      </CoachBubble>,
-    );
-  }
-  return <>{items}</>;
-}
-
-function Flag({ ply }: { ply: number }) {
-  const g = usePlay((s) => s.game);
-  const p = g?.plies[ply];
-  if (!p?.comment) return null;
-  return <FlagButton fen={p.fenBefore} uci={p.uci} comment={p.comment} />;
+          </CoachBubble>
+        );
+      })}
+      {safetyMessages.length > 0 && settings.safetyOverlay && (
+        <CoachBubble compact mood="concerned">
+          <p>🛡️ {safetyMessages.join(' ')}</p>
+        </CoachBubble>
+      )}
+      {s.phase === 'analyzing' && (
+        <div className="flex items-center gap-2 pl-12 text-sm text-stone-500">
+          <Spinner className="!h-3 !w-3" /> Coach Sam is looking at your move…
+        </div>
+      )}
+      <div ref={end} />
+    </div>
+  );
 }
 
 export function resultFor(result: string, userColor: 'w' | 'b') {

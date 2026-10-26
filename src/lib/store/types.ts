@@ -19,6 +19,17 @@ export interface PlyRecord {
   comment?: CoachComment;
 }
 
+/** One message from Coach Sam in the game's conversation. */
+export interface FeedItem {
+  id: number;
+  kind: 'comment' | 'hint' | 'threat' | 'note' | 'info' | 'result' | 'opening';
+  text: string[];
+  classification?: Classification;
+  mood?: 'happy' | 'concerned' | 'thinking';
+  /** Ply this message is about (for the "seems wrong" link and jumping in review). */
+  ply: number;
+}
+
 export interface SavedGame {
   id: 'play';
   userColor: Color;
@@ -32,6 +43,8 @@ export interface SavedGame {
   hintsUsed: number;
   /** Principle reminders already given this game. */
   told: string[];
+  /** Coach conversation so far. */
+  feed?: FeedItem[];
 }
 
 export interface GameSummary {

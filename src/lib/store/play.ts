@@ -12,9 +12,12 @@ import { CancelledError, getEngine, type AnalysisResult } from '../engine';
 import { analysisLimits } from '../engine/speed';
 import { useSettings } from '../settings';
 import { playSound } from '../sound';
-import { opponentById, pickLine, type ChatEvent, type Mood } from '../people';
+import { OPPONENTS, opponentById, pickLine, type ChatEvent, type Mood } from '../people';
+import { bookMove, REPERTOIRES } from '../people/openings';
+import { detectOpening } from '../openings';
+import { useCelebrate } from '../celebrate';
 import { finishGame } from './finish';
-import type { SavedGame } from './types';
+import type { FeedItem, SavedGame } from './types';
 
 export type Phase = 'loading' | 'setup' | 'userTurn' | 'analyzing' | 'botThinking' | 'paused' | 'over';
 
@@ -79,12 +82,41 @@ const CHAT_MOOD: Partial<Record<ChatEvent, Mood>> = {
 };
 
 export const usePlay = create<PlayStore>((set, get) => {
+  /** Adds a message to Coach Sam's conversation (saved with the game). */
+  let feedId = Date.now();
+  const post = (item: Omit<FeedItem, 'id' | 'ply'> & { ply?: number }) => {
+    const g = get().game;
+    if (!g) return;
+    update((gg) => {
+      gg.feed = [...(gg.feed ?? []), { ...item, id: feedId++, ply: item.ply ?? gg.plies.length - 1 }].slice(-80);
+    });
+  };
+
+  /** Announces the opening the first time its name appears. */
+  const announceOpening = () => {
+    const g = get().game!;
+    if (g.startFen !== START_FEN || g.plies.length > 16) return;
+    const o = detectOpening(g.plies.map((p) => p.san));
+    if (!o || g.told.includes(`opening:${o.name}`)) return;
+    update((gg) => void gg.told.push(`opening:${o.name}`));
+    post({ kind: 'opening', text: [`📖 ${o.name}`, o.idea] });
+  };
+
   /** Let the opponent say something (with probability `p`). */
   const say = (event: ChatEvent, p = 1) => {
     const g = get().game;
     const o = opponentById(g?.opponentId);
     if (!g || !o || Math.random() > p) return;
     set({ chat: { text: pickLine(o, event), mood: CHAT_MOOD[event] ?? 'neutral', ply: g.plies.length } });
+  };
+
+  /** After the game the opponent sums it up in their own voice. */
+  const sayLater = (text: string, mood: Mood, delay: number) => {
+    const g = get().game;
+    setTimeout(() => {
+      if (get().game !== g && get().game?.startedAt !== g?.startedAt) return;
+      set({ chat: { text, mood, ply: get().game?.plies.length ?? 0 } });
+    }, delay);
   };
 
   const update = (fn: (g: SavedGame) => void) => {
@@ -115,6 +147,21 @@ export const usePlay = create<PlayStore>((set, get) => {
     if (!botWon && result !== '1/2-1/2') setTimeout(() => playSound('win'), 350);
     const info = await finishGame(g, result, reason);
     set({ over: { result, reason, gameId: info.gameId, stars: info.stars, firstWin: info.firstWin } });
+    const userResult = result === '1/2-1/2' ? 'draw' : botWon ? 'loss' : 'win';
+    post({ kind: 'result', text: resultLines(userResult, reason, info.stars, opponentById(g.opponentId)?.name), mood: userResult === 'loss' ? 'concerned' : 'happy' });
+    // The opponent's take on the game.
+    const o = opponentById(g.opponentId);
+    const rec = await db.games.get(info.gameId);
+    if (o && rec) {
+      const big = rec.summary.biggestMistakePly !== null ? rec.plies[rec.summary.biggestMistakePly] : null;
+      const event = big ? 'summaryMistake' : 'summaryGood';
+      sayLater(pickLine(o, event).replace('{move}', big?.san ?? ''), big ? 'neutral' : 'happy', 2600);
+    }
+    if (info.firstWin && o) {
+      const next = OPPONENTS[OPPONENTS.findIndex((x) => x.id === o.id) + 1];
+      useCelebrate.getState().confetti();
+      useCelebrate.getState().toast({ icon: '🏆', title: `You beat ${o.name}!`, text: next ? `${next.name} wants to play you next.` : 'You beat the champion!' });
+    }
   };
 
   /** After the user's move at index `i`: analyse, classify, coach, then let the bot reply. */
@@ -155,6 +202,16 @@ export const usePlay = create<PlayStore>((set, get) => {
         };
         gg.told = [...new Set([...gg.told, ...comment.ruleIds.filter((r) => PRINCIPLE_IDS.has(r))])];
       });
+      const notable = comment.classification !== 'best' && comment.classification !== 'good' ? true : !comment.ruleIds.every((r) => r === 'praise-generic');
+      if (notable)
+        post({
+          kind: 'comment',
+          text: comment.text,
+          classification: comment.classification,
+          ply: i,
+          mood: comment.classification === 'mistake' || comment.classification === 'blunder' ? 'concerned' : 'happy',
+        });
+      announceOpening();
       if (await checkOver(get().game!)) {
         set({ comment: { comment, ply: i } });
         return;
@@ -182,10 +239,15 @@ export const usePlay = create<PlayStore>((set, get) => {
     try {
       const params = botParams(g.elo);
       const started = Date.now();
-      const a = await analyze(fen, params.multipv, Math.max(analysisLimits().depth, params.depth));
-      if (my !== token) return;
-      const uci = chooseBotMove(fen, a, g.elo, Math.random, opponentById(g.opponentId)?.style);
-      await sleep(Math.max(0, 600 - (Date.now() - started)));
+      // Opponents play their favourite openings from a small book first.
+      const book = g.startFen === START_FEN ? bookMove(g.opponentId, g.plies.map((p) => p.san)) : null;
+      let uci = book;
+      if (!uci) {
+        const a = await analyze(fen, params.multipv, Math.max(analysisLimits().depth, params.depth));
+        if (my !== token) return;
+        uci = chooseBotMove(fen, a, g.elo, Math.random, opponentById(g.opponentId)?.style);
+      }
+      await sleep(Math.max(0, (book ? 700 : 600) - (Date.now() - started)));
       if (my !== token || !uci) return;
       const r = tryMove(fen, uci)!;
       update((gg) => {
@@ -193,8 +255,11 @@ export const usePlay = create<PlayStore>((set, get) => {
       });
       if (r.move.san.includes('+')) say('botCheck', 0.5);
       else if (r.move.captured) say('botCapture', 0.3);
+      announceOpening();
       if (await checkOver(get().game!)) return;
-      set({ phase: 'userTurn', botNote: useSettings.getState().botNotes ? botMoveNote(fen, r.fen, uci, g.userColor) : null });
+      const note = useSettings.getState().botNotes ? botMoveNote(fen, r.fen, uci, g.userColor, opponentById(g.opponentId)?.name) : null;
+      set({ phase: 'userTurn', botNote: note });
+      if (note) post({ kind: 'note', text: [note.text], mood: 'concerned' });
       prefetch();
     } catch (e) {
       if (!(e instanceof CancelledError)) console.error(e);
@@ -282,6 +347,15 @@ export const usePlay = create<PlayStore>((set, get) => {
       set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null });
       save(game);
       say('greet');
+      const o = opponentById(opponentId);
+      post({
+        kind: 'info',
+        ply: -1,
+        text: [
+          o ? `You're playing ${o.name} (~${o.elo}). ${REPERTOIRES[o.id] ? `Watch out — ${o.name.split(' ').pop()} likes the ${REPERTOIRES[o.id].favourite}.` : 'Expect surprises!'}` : 'New game — good luck!',
+          color === 'w' ? 'You have the white pieces, so you move first. Tap a piece, then a square.' : 'You have black, so your opponent moves first.',
+        ],
+      });
       if (turnOf(startFen) !== color) void botMove();
       else {
         set({ phase: 'userTurn' });
@@ -317,6 +391,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         gg.plies.pop();
         gg.takebacks++;
       });
+      post({ kind: 'info', mood: 'thinking', text: [`Let's try that again. ${undone.comment?.classification === 'blunder' ? 'Before you move, check what each of your pieces is attacked by.' : 'Look for a safer or stronger move.'}`] });
       set({
         phase: 'userTurn',
         message: `Let's try that again. ${undone.comment?.classification === 'blunder' ? 'Before you move, check what each of your pieces is attacked by.' : 'Look for a safer or stronger move.'}`,
@@ -344,6 +419,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         botNote: null,
         message: explainTakeback(undone.comment, undone.fenBefore),
       });
+      post({ kind: 'info', text: ['↶ ' + explainTakeback(undone.comment, undone.fenBefore)] });
       say('takeback', 0.6);
       prefetch();
     },
@@ -359,6 +435,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         const h = getHint(fen, a.lines[0]?.pv ?? [], level);
         if (h) {
           set({ hint: h, message: null });
+          post({ kind: 'hint', mood: 'thinking', text: [`💡 ${h.text}`] });
           update((gg) => {
             gg.hintsUsed++;
           });
@@ -376,7 +453,9 @@ export const usePlay = create<PlayStore>((set, get) => {
       try {
         const a = nf ? await analyze(nf, 1, 10) : null;
         if (currentFen(get().game) !== fen) return;
-        set({ threat: describeThreat(fen, a), hint: null, message: null });
+        const th = describeThreat(fen, a);
+        set({ threat: th, hint: null, message: null });
+        post({ kind: 'threat', mood: 'thinking', text: [`🎯 ${th.text}`] });
       } catch {
         /* cancelled */
       }
@@ -417,3 +496,16 @@ function terminalScore(fen: string): Score {
 }
 
 export { other };
+
+/** Coach Sam's words at the end of a game. */
+export function resultLines(userResult: 'win' | 'loss' | 'draw', reason: string, stars: number, opponent?: string): string[] {
+  const who = opponent ?? 'the bot';
+  if (userResult === 'win')
+    return [
+      `You won against ${who}${reason === 'checkmate' ? ' by checkmate' : ''}! 🎉`,
+      stars === 3 ? '⭐⭐⭐ Three stars — no hints, no take-backs. Superb!' : stars === 2 ? '⭐⭐ Two stars. Win with no help at all for the third!' : '⭐ One star. Fewer hints and take-backs earn more stars.',
+    ];
+  if (userResult === 'draw') return [`A draw (${reason}). That's a solid result!`];
+  if (reason === 'resignation') return ['Game over. Every game teaches us something — let\'s look at the report together.'];
+  return [`${who} got you this time. Let's learn from it — the report shows the turning point.`];
+}

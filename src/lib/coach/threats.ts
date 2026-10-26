@@ -78,7 +78,9 @@ export function describeThreat(fen: string, analysis: AnalysisResult | null): Th
 }
 
 /** A short note when the bot's last move creates a threat against you (static, no engine). */
-export function botMoveNote(fenBefore: string, fenAfter: string, botUci: string, me: Color): ThreatInfo | null {
+export function botMoveNote(fenBefore: string, fenAfter: string, botUci: string, me: Color, who = 'the bot'): ThreatInfo | null {
+  const Who = who[0].toUpperCase() + who.slice(1);
+  const whose = who === 'the bot' ? "the bot's" : `${who}'s`;
   const c = new Chess(fenAfter);
   if (c.isGameOver()) return null;
   const to = botUci.slice(2, 4);
@@ -87,7 +89,7 @@ export function botMoveNote(fenBefore: string, fenAfter: string, botUci: string,
   const mates = mateThreats(fenAfter, bot);
   if (mates.length)
     return {
-      text: 'The bot threatens checkmate! Find a way to defend.',
+      text: `${Who} threatens checkmate! Find a way to defend.`,
       arrows: mates.slice(0, 1).map((u) => ({ from: u.slice(0, 2), to: u.slice(2, 4), tone: 'bad' as const })),
       highlights: [],
     };
@@ -101,8 +103,8 @@ export function botMoveNote(fenBefore: string, fenAfter: string, botUci: string,
     const piece = PIECE_NAME[after[h.sq]!.type];
     return {
       text: attackerFromMove
-        ? `The bot's ${PIECE_NAME[after[sqIndex(to)]!.type]} now attacks your ${piece} on ${sqName(h.sq)}. What will you do?`
-        : `After the bot's move, your ${piece} on ${sqName(h.sq)} is under attack. What will you do?`,
+        ? `${whose[0].toUpperCase() + whose.slice(1)} ${PIECE_NAME[after[sqIndex(to)]!.type]} now attacks your ${piece} on ${sqName(h.sq)}. What will you do?`
+        : `After ${whose} move, your ${piece} on ${sqName(h.sq)} is under attack. What will you do?`,
       arrows: attackersOf(after, h.sq, bot).slice(0, 2).map((a) => ({ from: sqName(a), to: sqName(h.sq), tone: 'bad' as const })),
       highlights: [{ sq: sqName(h.sq), tone: 'bad' }],
     };
