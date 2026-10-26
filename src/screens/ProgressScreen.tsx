@@ -8,6 +8,7 @@ import { themeStats, type ThemeStat } from '../lib/puzzles/select';
 import { themeLabel } from '../lib/puzzles/themes';
 import { bestStreak, currentStreak } from '../lib/stats';
 import { SettingsButton } from './PlayScreen';
+import { AchievementsPreview, LevelCard, WeeklyGoalCard } from '../components/Gamification';
 import { weeklySummary, type WeekStats } from '../lib/weekly';
 
 interface Data {
@@ -72,9 +73,12 @@ export function ProgressScreen() {
     <div className="flex h-full flex-col">
       <Header title="Progress" right={<SettingsButton />} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
+        <LevelCard />
+        <WeeklyGoalCard editable />
+        <AchievementsPreview />
         <div className="grid grid-cols-3 gap-2.5">
           <Stat label="Puzzle rating" value={d.rating} />
-          <Stat label="Day streak" value={`🔥 ${d.streak}`} sub={`best ${d.best}`} />
+          <Stat label="Days in a row" value={d.streak} sub={`longest ${d.best}`} />
           <Stat label="Games" value={d.games.w + d.games.d + d.games.l} sub={`${d.games.w}W ${d.games.d}D ${d.games.l}L`} />
         </div>
         <WeekCard week={d.week} />

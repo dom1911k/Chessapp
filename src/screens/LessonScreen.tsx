@@ -8,6 +8,7 @@ import { solvesTask, taskSolutions } from '../lib/lessons/check';
 import { lessonById } from '../lib/lessons/data';
 import { useNav } from '../lib/nav';
 import { playSound } from '../lib/sound';
+import { progress } from '../lib/progress';
 
 export const LESSONS_KEY = 'lessonsDone';
 
@@ -60,8 +61,10 @@ export function LessonScreen({ lessonId }: { lessonId: string }) {
   const next = async () => {
     if (!isLast) return setI(i + 1);
     const done = await kvGet<string[]>(LESSONS_KEY, []);
-    if (!done.includes(lesson.id)) await kvSet(LESSONS_KEY, [...done, lesson.id]);
+    const first = !done.includes(lesson.id);
+    if (first) await kvSet(LESSONS_KEY, [...done, lesson.id]);
     pop();
+    void progress({ kind: 'lesson', first });
   };
 
   // After two misses, show the answer as an arrow.

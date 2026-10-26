@@ -2,6 +2,8 @@ import { START_FEN, type GameResult } from '../chess/game';
 import { bumpActivity, db, kvSet } from '../db';
 import { detectOpening } from '../openings';
 import { recurringPattern, summarize } from '../report';
+import { recordOpponentGame } from '../people/record';
+import { progress } from '../progress';
 import { newCardDue, type Card } from '../srs';
 import type { GameRecord, SavedGame } from './types';
 
@@ -12,7 +14,14 @@ export function formatDate(t: number): string {
 }
 
 /** Store the finished game, turn its mistakes into review cards, and set the lesson focus. */
-export async function finishGame(g: SavedGame, result: GameResult, reason: string): Promise<number> {
+export interface FinishInfo {
+  gameId: number;
+  stars: number;
+  firstWin: boolean;
+  starsImproved: boolean;
+}
+
+export async function finishGame(g: SavedGame, result: GameResult, reason: string): Promise<FinishInfo> {
   const userResult =
     result === '1/2-1/2' ? 'draw' : (result === '1-0') === (g.userColor === 'w') ? 'win' : 'loss';
   const summary = summarize(g.plies);
@@ -59,8 +68,10 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     return id;
   });
   await bumpActivity('games');
+  const rec = await recordOpponentGame({ ...record, id: gameId });
+  await progress({ kind: 'game', result: userResult, accuracy: summary.accuracy });
   // A recurring pattern beats a one-game lesson for steering puzzle practice.
   const focus = summary.pattern?.theme ?? summary.lessonTheme;
   if (focus) await kvSet(FOCUS_KEY, { theme: focus, until: Date.now() + 7 * 864e5 });
-  return gameId;
+  return { gameId, stars: rec?.stars ?? 0, firstWin: rec?.firstWin ?? false, starsImproved: rec?.improved ?? false };
 }

@@ -33,7 +33,7 @@ interface PlayStore {
   botNote: ThreatInfo | null;
   /** The opponent's latest chat line. */
   chat: { text: string; mood: Mood; ply: number } | null;
-  over: { result: GameResult; reason: string; gameId: number } | null;
+  over: { result: GameResult; reason: string; gameId: number; stars?: number; firstWin?: boolean } | null;
   load(): Promise<void>;
   newGame(color: Color, elo: number, startFen?: string, opponentId?: string): void;
   userMove(m: MoveInput): boolean;
@@ -113,8 +113,8 @@ export const usePlay = create<PlayStore>((set, get) => {
     const botWon = result !== '1/2-1/2' && (result === '1-0') !== (g.userColor === 'w');
     say(reason === 'resignation' ? 'userResigned' : result === '1/2-1/2' ? 'draw' : botWon ? 'botWins' : 'botLoses');
     if (!botWon && result !== '1/2-1/2') setTimeout(() => playSound('win'), 350);
-    const gameId = await finishGame(g, result, reason);
-    set({ over: { result, reason, gameId } });
+    const info = await finishGame(g, result, reason);
+    set({ over: { result, reason, gameId: info.gameId, stars: info.stars, firstWin: info.firstWin } });
   };
 
   /** After the user's move at index `i`: analyse, classify, coach, then let the bot reply. */

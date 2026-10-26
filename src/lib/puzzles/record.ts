@@ -1,12 +1,14 @@
 import { bumpActivity, db } from '../db';
 import { newCardDue, reviewCard, type Card } from '../srs';
 import { applyResult } from './rating';
+import { progress } from '../progress';
 import type { PuzzleSource } from './types';
 import type { PuzzleSpec } from './spec';
 
 export interface AttemptOutcome {
   ratingBefore?: number;
   ratingAfter?: number;
+  xp?: number;
 }
 
 /**
@@ -33,6 +35,7 @@ export async function recordAttempt(spec: PuzzleSpec, success: boolean, hintsUse
     hintsUsed,
   });
   await bumpActivity(source === 'review' ? 'reviews' : 'puzzles');
+  out.xp = await progress({ kind: 'puzzle', success, clean, review: source === 'review' });
 
   const cardId = spec.cardId ?? `p:${spec.id}`;
   const existing = await db.cards.get(cardId);

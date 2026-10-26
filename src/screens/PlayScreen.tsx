@@ -10,6 +10,7 @@ import { currentFen, turnOf, usePlay } from '../lib/store/play';
 import { Board } from '../components/Board';
 import { CoachBubble, FlagButton, Portrait } from '../components/Coach';
 import { OPPONENTS, opponentById, type Mood } from '../lib/people';
+import { LevelBadge } from '../components/Gamification';
 import { Dialog, EvalBar, Header, Segmented, Spinner } from '../components/ui';
 import { MoveList } from '../components/MoveList';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
@@ -34,7 +35,7 @@ function SetupView() {
   };
   return (
     <div className="flex h-full flex-col">
-      <Header title="Play" right={<SettingsButton />} />
+      <Header title="Play" right={<><LevelBadge /><SettingsButton /></>} />
       <div className="mx-auto w-full max-w-md flex-1 space-y-4 overflow-y-auto p-4">
         <div>
           <div className="mb-2 px-1 text-sm font-semibold text-stone-500">Choose your opponent</div>

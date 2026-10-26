@@ -1,36 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { create } from 'zustand';
+import { useCelebrate } from '../lib/celebrate';
 import { playSound } from '../lib/sound';
-
-interface Toast {
-  id: number;
-  icon: string;
-  title: string;
-  text?: string;
-}
-
-interface CelebrateStore {
-  burst: number;
-  toasts: Toast[];
-  confetti(): void;
-  toast(t: Omit<Toast, 'id'>): void;
-  dismiss(id: number): void;
-}
-
-let nextId = 1;
-
-/** Global celebrations: confetti bursts and small reward toasts. */
-export const useCelebrate = create<CelebrateStore>((set, get) => ({
-  burst: 0,
-  toasts: [],
-  confetti: () => set({ burst: get().burst + 1 }),
-  toast: (t) => {
-    const id = nextId++;
-    set({ toasts: [...get().toasts, { ...t, id }].slice(-3) });
-    setTimeout(() => get().dismiss(id), 3500);
-  },
-  dismiss: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
-}));
 
 const COLORS = ['#2f9e63', '#facc15', '#f97316', '#3b82f6', '#ec4899', '#a855f7'];
 
@@ -105,3 +75,5 @@ export function CelebrationLayer() {
     </>
   );
 }
+
+export { useCelebrate };

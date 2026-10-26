@@ -11,6 +11,7 @@ export interface Activity {
   games: number;
   reviews: number;
   dailyDone?: boolean;
+  xp?: number;
 }
 
 export interface KV {

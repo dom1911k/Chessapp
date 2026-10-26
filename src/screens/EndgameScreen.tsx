@@ -12,6 +12,7 @@ import { kvGet, kvSet, bumpActivity } from '../lib/db';
 import { drillById, type Drill } from '../lib/endgames';
 import { getEngine } from '../lib/engine';
 import { useSettings } from '../lib/settings';
+import { progress } from '../lib/progress';
 import { playSound } from '../lib/sound';
 
 type Status = 'playing' | 'thinking' | 'won' | 'lost';
@@ -62,6 +63,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
       all[drill.id] = { completed: prev.completed + 1, bestMoves: prev.bestMoves === null ? myMoves : Math.min(prev.bestMoves, myMoves) };
       await kvSet(DRILL_KEY, all);
       await bumpActivity('puzzles');
+      await progress({ kind: 'drill', first: prev.completed === 0 });
     }
   };
 

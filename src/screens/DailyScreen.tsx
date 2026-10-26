@@ -5,12 +5,14 @@ import { Header, Spinner, useBackHandler } from '../components/ui';
 import { db, today } from '../lib/db';
 import { useNav } from '../lib/nav';
 import { recordAttempt } from '../lib/puzzles/record';
+import { progress } from '../lib/progress';
 import { weakestThemes } from '../lib/puzzles/select';
 import { themeLabel } from '../lib/puzzles/themes';
 import { formatDue } from '../lib/srs';
 import { currentStreak } from '../lib/stats';
 import { dueCount, MAX_REVIEWS, SESSION_SIZE, useDaily } from '../lib/store/daily';
 import { SettingsButton } from './PlayScreen';
+import { WeeklyGoalCard } from '../components/Gamification';
 
 export function DailyScreen() {
   const d = useDaily();
@@ -54,14 +56,8 @@ export function DailyScreen() {
     <div className="flex h-full flex-col">
       <Header title="Daily training" right={<SettingsButton />} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
-        <div className="card flex items-center gap-4">
-          <div className="text-4xl">🔥</div>
-          <div className="flex-1">
-            <div className="text-2xl font-bold">{info?.streak ?? 0} day{info?.streak === 1 ? '' : 's'}</div>
-            <div className="text-sm text-stone-500">training streak</div>
-          </div>
-          {info?.doneToday && <span className="chip bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">✓ Done today</span>}
-        </div>
+        <WeeklyGoalCard />
+        {info?.doneToday && <div className="px-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">✓ Today's session is done — anything more is a bonus.</div>}
         <CoachBubble
           actions={
             <button className="btn-primary !px-6 !py-3 text-base" onClick={start} disabled={d.building}>
@@ -99,7 +95,9 @@ function Session({ onExit }: { onExit: () => void }) {
       void (async () => {
         const day = today();
         const row = (await db.activity.get(day)) ?? { day, puzzles: 0, games: 0, reviews: 0 };
+        const first = !row.dailyDone;
         await db.activity.put({ ...row, dailyDone: true });
+        if (first) await progress({ kind: 'daily' });
       })();
     }
   }, [finished, d.items.length]);

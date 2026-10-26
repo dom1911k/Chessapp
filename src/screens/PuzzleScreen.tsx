@@ -71,12 +71,15 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
             onFinish={onFinish}
             onNext={load}
             footer={
-              delta !== null ? (
-                <p className={`text-sm font-semibold ${delta >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  Rating {delta >= 0 ? '+' : ''}
-                  {delta} → {outcome!.ratingAfter}
-                </p>
-              ) : null
+              <p className="text-sm font-semibold">
+                {delta !== null && (
+                  <span className={delta >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+                    Rating {delta >= 0 ? '+' : ''}
+                    {delta} → {outcome!.ratingAfter}
+                  </span>
+                )}
+                {outcome?.xp ? <span className="ml-2 text-amber-600">+{outcome.xp} XP</span> : null}
+              </p>
             }
           />
         )}

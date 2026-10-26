@@ -5,6 +5,7 @@ import { Header, Spinner } from '../components/ui';
 import { bumpActivity, kvGet, kvSet } from '../lib/db';
 import { nextPuzzle } from '../lib/puzzles/select';
 import { fromLichess, type PuzzleSpec } from '../lib/puzzles/spec';
+import { progress } from '../lib/progress';
 
 const DURATION = 180;
 const STRIKES = 3;
@@ -76,6 +77,7 @@ export function RushScreen() {
       setNewBest(true);
       await kvSet(BEST_KEY, score);
     }
+    if (score > 0) await progress({ kind: 'rush', solved: score });
   };
 
   const mm = String(Math.floor(Math.max(0, left) / 60));
