@@ -70,9 +70,9 @@ export async function awardXp(amount: number, quiet = false): Promise<number> {
   const c = useCelebrate.getState();
   if (la.level > lb.level) {
     c.confetti();
-    c.toast({ icon: '⭐', title: `Level ${la.level} — ${la.title}!`, text: 'Keep it up!' });
+    c.toast({ icon: 'star', title: `Level ${la.level} — ${la.title}!`, text: 'Keep it up!' });
   } else if (!quiet) {
-    c.toast({ icon: '✨', title: `+${amount} XP` });
+    c.toast({ icon: 'sparkles', title: `+${amount} XP` });
   }
   return after;
 }

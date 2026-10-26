@@ -6,6 +6,8 @@ import { opponentById } from '../lib/people';
 import { usePlay } from '../lib/store/play';
 import { Portrait } from './Coach';
 import { Dialog } from './ui';
+import { Medallion } from './Glyph';
+import { Check, ChevronRight, CircleCheck } from 'lucide-react';
 
 /** The learning path: chapters as a vertical journey, the current one expanded. */
 export function CoursePath() {
@@ -65,14 +67,14 @@ export function CoursePath() {
                   isDone ? 'bg-brand-500 text-white' : isOpen ? 'bg-amber-400 text-white' : 'bg-stone-300 text-stone-500 dark:bg-stone-700'
                 }`}
               >
-                {isDone ? '✓' : i + 1}
+                {isDone ? <Check size={12} strokeWidth={3} /> : i + 1}
               </span>
               <button
                 disabled={!isOpen}
                 onClick={() => setOpen(showSteps ? '' : ch.id)}
                 className={`card flex w-full items-center gap-3 !p-3 text-left ${isOpen ? '' : 'opacity-50'} ${i === current ? '!ring-2 !ring-amber-400' : ''}`}
               >
-                <span className="text-2xl">{isOpen ? ch.icon : '🔒'}</span>
+                <Medallion name={isOpen ? ch.icon : 'trap'} tint={isDone ? 'green' : 'gold'} muted={!isOpen} />
                 <span className="flex-1">
                   <span className="block font-semibold leading-tight">{ch.title}</span>
                   <span className="block text-xs text-stone-500">{isOpen ? ch.intro : 'Finish the chapter before to open this one.'}</span>
@@ -88,12 +90,12 @@ export function CoursePath() {
                       s.kind === 'puzzles' ? `${Math.min(st.puzzles[s.id] ?? 0, s.count)}/${s.count} solved` : s.kind === 'game' ? 'Play a full game (any result)' : s.kind === 'lesson' ? `${lessonById(s.lessonId)?.steps.length ?? ''} short steps` : 'Reach the goal once';
                     return (
                       <button key={s.id} onClick={() => openStep(s)} className="flex w-full items-center gap-3 rounded-xl bg-white/70 px-3 py-2 text-left ring-1 ring-stone-200 active:scale-[0.99] dark:bg-stone-900/70 dark:ring-stone-800">
-                        {o ? <Portrait id={o.id} size={28} /> : <span className="w-7 text-center text-lg">{s.kind === 'lesson' ? '🎓' : s.kind === 'puzzles' ? '🧩' : '🏁'}</span>}
+                        {o ? <Portrait id={o.id} size={28} /> : <Medallion name={s.kind === 'lesson' ? 'cap' : s.kind === 'puzzles' ? 'sparkles' : 'flag'} size={28} tint={done ? 'green' : 'stone'} />}
                         <span className="flex-1">
                           <span className="block text-sm font-semibold">{s.label}</span>
                           <span className="block text-xs text-stone-500">{sub}</span>
                         </span>
-                        <span className={done ? 'text-brand-600' : 'text-stone-300'}>{done ? '✓' : '›'}</span>
+                        <span className={done ? 'text-brand-600' : 'text-stone-300'}>{done ? <CircleCheck size={18} /> : <ChevronRight size={18} />}</span>
                       </button>
                     );
                   })}

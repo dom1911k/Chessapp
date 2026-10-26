@@ -3,6 +3,7 @@ import { flagExplanation } from '../lib/feedback';
 import { COACH, portrait, type Mood } from '../lib/people';
 import type { CoachComment } from '../lib/coach/types';
 import { CLASS_LABEL, CLASS_SYMBOL, type Classification } from '../lib/chess/evaluation';
+import { ThumbsDown } from 'lucide-react';
 
 export const CLASS_STYLE: Record<Classification, string> = {
   best: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200',
@@ -22,7 +23,17 @@ export function ClassBadge({ c }: { c: Classification }) {
 
 /** Round portrait of a person (coach or opponent) in a given mood. */
 export function Portrait({ id, mood = 'neutral', size = 44, className = '' }: { id: string; mood?: Mood; size?: number; className?: string }) {
-  return <img src={portrait(id, mood)} width={size} height={size} alt="" draggable={false} className={`shrink-0 rounded-full ${className}`} style={{ width: size, height: size }} />;
+  return (
+    <img
+      src={portrait(id, mood)}
+      width={size}
+      height={size}
+      alt=""
+      draggable={false}
+      className={`shrink-0 rounded-[30%] shadow-[0_2px_8px_rgba(60,35,15,0.18)] ring-1 ring-black/5 ${className}`}
+      style={{ width: size, height: size }}
+    />
+  );
 }
 
 /** The coach. */
@@ -36,6 +47,8 @@ export function CoachBubble({
   badge,
   actions,
   compact = false,
+  label,
+  icon,
 }: {
   children: ReactNode;
   mood?: 'happy' | 'concerned' | 'thinking';
@@ -43,11 +56,20 @@ export function CoachBubble({
   actions?: ReactNode;
   /** Older messages in a conversation: smaller and quieter. */
   compact?: boolean;
+  /** Small header, e.g. "Hint" or "Tip of the day" (defaults to the coach's name). */
+  label?: string;
+  icon?: ReactNode;
 }) {
   return (
-    <div className={`flex items-start gap-2.5 ${compact ? 'opacity-70' : 'animate-pop'}`}>
-      <CoachAvatar mood={mood} size={compact ? 32 : 44} />
-      <div className={`card relative flex-1 ${compact ? '!p-2 text-sm' : '!p-3 text-[15px]'} leading-snug`}>
+    <div className={`flex items-start gap-2.5 ${compact ? 'opacity-75' : 'animate-pop'}`}>
+      <CoachAvatar mood={mood} size={compact ? 32 : 42} />
+      <div className={`card relative flex-1 !rounded-[20px] !rounded-tl-md ${compact ? '!p-2.5 text-sm' : '!p-3.5 text-[15px]'} leading-snug`}>
+        {!compact && (
+          <div className="mb-1 flex items-center gap-1 text-[11px] font-bold tracking-[0.06em] text-brand-700 uppercase dark:text-brand-500">
+            {icon}
+            {label ?? 'Coach Sam'}
+          </div>
+        )}
         {badge && (
           <div className="mb-1">
             <ClassBadge c={badge} />
@@ -72,7 +94,7 @@ export function FlagButton({ fen, uci, comment }: { fen: string; uci: string; co
         setDone(true);
       }}
     >
-      {done ? 'Thanks — saved for review (Settings → Coach feedback)' : '👎 This explanation seems wrong'}
+      {done ? 'Thanks — saved for review (Settings → Coach feedback)' : <><ThumbsDown size={13} className="mr-1 inline -translate-y-px" />This explanation seems wrong</>}
     </button>
   );
 }

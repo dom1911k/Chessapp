@@ -6,6 +6,7 @@ import { FeedbackCard } from '../components/FeedbackCard';
 import { applyReminder, remindersSupported } from '../lib/reminders';
 import { playSound, previewPack, SOUND_PACKS } from '../lib/sound';
 import { useState } from 'react';
+import { Check } from 'lucide-react';
 
 export function SettingsScreen() {
   const s = useSettings();
@@ -74,7 +75,7 @@ export function SettingsScreen() {
               {Object.entries(SOUND_PACKS).map(([id, pack]) => (
                 <div key={id} className={`flex items-center gap-2 rounded-xl p-2 ring-1 ${s.soundPack === id ? 'bg-brand-50 ring-brand-500 dark:bg-brand-700/20' : 'ring-stone-200 dark:ring-stone-700'}`}>
                   <button className="flex-1 text-left" onClick={() => { s.set({ soundPack: id }); previewPack(id); }}>
-                    <span className="block text-sm font-semibold">{pack.label}{s.soundPack === id ? ' ✓' : ''}</span>
+                    <span className="block text-sm font-semibold">{pack.label}{s.soundPack === id ? <Check size={14} strokeWidth={3} className="ml-1 inline -translate-y-px text-brand-600" /> : null}</span>
                     <span className="block text-xs text-stone-500">{pack.description}</span>
                   </button>
                   <button className="btn-secondary !px-3 !py-1.5" aria-label={`Preview ${pack.label}`} onClick={() => previewPack(id)}>▶</button>
@@ -96,7 +97,7 @@ export function SettingsScreen() {
         <BackupCard />
         <FeedbackCard />
         <p className="px-2 text-xs text-stone-500">
-          Chess Coach runs fully offline. Engine: Stockfish 19 (GPLv3). Puzzles: Lichess puzzle database (CC0). Portraits: Avataaars by Pablo Stanley, via DiceBear.
+          Chess Coach runs fully offline. Engine: Stockfish 19 (GPLv3). Puzzles: Lichess puzzle database (CC0).
         </p>
       </div>
     </div>

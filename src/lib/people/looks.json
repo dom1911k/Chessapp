@@ -1,99 +1,12 @@
 {
- "coach": {
-  "top": "bun",
-  "hairColor": "a55728",
-  "skinColor": "edb98a",
-  "clothing": "blazerAndSweater",
-  "clothesColor": "25557c",
-  "accessories": "round",
-  "accessoriesColor": "262e33",
-  "backgroundColor": "b6e3d4"
- },
- "lily": {
-  "top": "bob",
-  "hairColor": "c93305",
-  "skinColor": "ffdbb4",
-  "clothing": "hoodie",
-  "clothesColor": "ffafb9",
-  "backgroundColor": "ffe3e8"
- },
- "tom": {
-  "top": "sides",
-  "hairColor": "e8e1e1",
-  "skinColor": "edb98a",
-  "clothing": "collarAndSweater",
-  "clothesColor": "a7ffc4",
-  "accessories": "prescription02",
-  "accessoriesColor": "3c4f5c",
-  "facialHair": "beardLight",
-  "facialHairColor": "e8e1e1",
-  "backgroundColor": "e6f0d6"
- },
- "maya": {
-  "top": "curly",
-  "hairColor": "2c1b18",
-  "skinColor": "ae5d29",
-  "clothing": "graphicShirt",
-  "clothingGraphic": "pizza",
-  "clothesColor": "ffffb1",
-  "backgroundColor": "fff1c7"
- },
- "jonas": {
-  "top": "shortFlat",
-  "hairColor": "d6b370",
-  "skinColor": "ffdbb4",
-  "clothing": "shirtCrewNeck",
-  "clothesColor": "5199e4",
-  "facialHair": "beardMedium",
-  "facialHairColor": "b58143",
-  "backgroundColor": "d6e8fa"
- },
- "priya": {
-  "top": "straight01",
-  "hairColor": "2c1b18",
-  "skinColor": "d08b5b",
-  "clothing": "collarAndSweater",
-  "clothesColor": "65c9ff",
-  "accessories": "round",
-  "accessoriesColor": "262e33",
-  "backgroundColor": "e0ecff"
- },
- "marcus": {
-  "top": "dreads01",
-  "hairColor": "2c1b18",
-  "skinColor": "614335",
-  "clothing": "hoodie",
-  "clothesColor": "ff5c5c",
-  "facialHair": "beardLight",
-  "facialHairColor": "2c1b18",
-  "backgroundColor": "ffd9cf"
- },
- "sofia": {
-  "top": "longButNotTooLong",
-  "hairColor": "724133",
-  "skinColor": "edb98a",
-  "clothing": "blazerAndShirt",
-  "clothesColor": "262e33",
-  "backgroundColor": "e9e3f7"
- },
- "viktor": {
-  "top": "theCaesar",
-  "hairColor": "929598",
-  "skinColor": "ffdbb4",
-  "clothing": "blazerAndShirt",
-  "clothesColor": "3c4f5c",
-  "facialHair": "moustacheFancy",
-  "facialHairColor": "929598",
-  "accessories": "prescription01",
-  "accessoriesColor": "262e33",
-  "backgroundColor": "e3e3e3"
- },
- "mei": {
-  "top": "straightAndStrand",
-  "hairColor": "2c1b18",
-  "skinColor": "ffdbb4",
-  "clothing": "collarAndSweater",
-  "clothesColor": "ff488e",
-  "backgroundColor": "f3e6d3"
- }
+  "coach":  { "skin": "#e8b892", "hair": "#4a3324", "hairStyle": "sidepart", "eyeColor": "#5b7a4a", "clothes": "#2f5d50", "top": "blazer", "shirt": "#f2ede4", "glasses": "round", "beard": "stubble", "bg": ["#e3f1e8", "#9fcdb5"] },
+  "lily":   { "skin": "#f8dccb", "hair": "#c75a2e", "hairStyle": "twobuns", "eyeColor": "#3f7f6a", "clothes": "#f28aa0", "top": "hoodie", "freckles": true, "bg": ["#fff0f2", "#ffb9c5"] },
+  "tom":    { "skin": "#efc6a4", "hair": "#d3cec8", "hairStyle": "bald", "eyeColor": "#5a6f86", "clothes": "#7a9a6a", "top": "sweater", "shirt": "#f3efe6", "glasses": "rect", "beard": "full", "beardColor": "#e2ddd6", "browColor": "#b8b2aa", "bg": ["#f0f5e6", "#c6dca6"] },
+  "maya":   { "skin": "#8f5a3a", "hair": "#2a1913", "hairStyle": "curly", "eyeColor": "#3d2416", "clothes": "#f2b83f", "top": "crew", "earrings": true, "bg": ["#fff6db", "#ffd27a"] },
+  "jonas":  { "skin": "#f1c9a6", "hair": "#c39553", "hairStyle": "spiky", "eyeColor": "#4f7fb0", "clothes": "#3f78c4", "top": "crew", "beard": "full", "beardColor": "#b98a4a", "bg": ["#e6f0fd", "#9fc3f3"] },
+  "priya":  { "skin": "#b87a55", "hair": "#1c1411", "hairStyle": "long", "eyeColor": "#3b2418", "clothes": "#5468d4", "top": "collar", "shirt": "#eef0fb", "glasses": "rect", "earrings": true, "bg": ["#eceeff", "#b4bcf6"] },
+  "marcus": { "skin": "#6b4229", "hair": "#1d140f", "hairStyle": "locs", "eyeColor": "#2a170d", "clothes": "#d9473b", "top": "hoodie", "beard": "full", "bg": ["#ffece4", "#ffad8f"] },
+  "sofia":  { "skin": "#edc19f", "hair": "#6a3720", "hairStyle": "bob", "eyeColor": "#5a3b25", "clothes": "#2b2b33", "top": "blazer", "shirt": "#f5f3ef", "earrings": true, "bg": ["#f2ecfb", "#c9b4ec"] },
+  "viktor": { "skin": "#f0cbae", "hair": "#a39d95", "hairStyle": "slick", "eyeColor": "#4d5a66", "clothes": "#3c4a5a", "top": "blazer", "shirt": "#f4f1eb", "glasses": "rect", "beard": "moustache", "beardColor": "#9a948c", "browColor": "#7f7a73", "browWeight": 4, "bg": ["#efefec", "#c3c0b9"] },
+  "mei":    { "skin": "#f4d4bb", "hair": "#1d1613", "hairStyle": "bun", "eyeColor": "#3a2618", "clothes": "#b8334f", "top": "collar", "shirt": "#fbeff1", "earrings": true, "bg": ["#fbf1e3", "#eac79a"] }
 }

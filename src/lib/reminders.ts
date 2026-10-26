@@ -20,7 +20,7 @@ export async function applyReminder(enabled: boolean, time: string): Promise<boo
       {
         id: ID,
         title: 'Chess Coach',
-        body: 'Your daily training is ready — 10 minutes keeps the streak alive! 🔥',
+        body: 'Your daily training is ready — a few minutes of chess today?',
         schedule: { on: { hour, minute }, allowWhileIdle: true },
       },
     ],

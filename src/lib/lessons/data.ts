@@ -29,7 +29,7 @@ export const LESSONS: Lesson[] = [
   {
     id: 'checkmate',
     title: 'Check, checkmate & stalemate',
-    icon: '♚',
+    icon: 'king',
     summary: 'How games are won — and how not to throw a win away.',
     steps: [
       {
@@ -60,7 +60,7 @@ export const LESSONS: Lesson[] = [
   {
     id: 'hanging',
     title: 'Free pieces',
-    icon: '🎁',
+    icon: 'gift',
     summary: 'Count attackers and defenders before you capture.',
     steps: [
       {
@@ -86,7 +86,7 @@ export const LESSONS: Lesson[] = [
   {
     id: 'forks',
     title: 'Forks',
-    icon: '🍴',
+    icon: 'fork',
     summary: 'Attack two things at once — your opponent can save only one.',
     steps: [
       {
@@ -114,7 +114,7 @@ export const LESSONS: Lesson[] = [
   {
     id: 'pins',
     title: 'Pins & skewers',
-    icon: '📌',
+    icon: 'pin',
     summary: 'Attack along a line through one piece to another.',
     steps: [
       {
@@ -136,7 +136,7 @@ export const LESSONS: Lesson[] = [
   {
     id: 'backrank',
     title: 'Back-rank mates',
-    icon: '🏰',
+    icon: 'castle',
     summary: 'A castled king can get trapped behind its own pawns.',
     steps: [
       {
@@ -157,7 +157,7 @@ export const LESSONS: Lesson[] = [
   {
     id: 'opening',
     title: 'Opening principles',
-    icon: '📖',
+    icon: 'book',
     summary: 'Center, development, castling — the three golden rules.',
     steps: [
       {
@@ -190,7 +190,7 @@ export const LESSONS: Lesson[] = [
   {
     id: 'defender',
     title: 'Remove the defender',
-    icon: '🛡️',
+    icon: 'shield',
     summary: 'Take away the guard, then take what it guarded.',
     steps: [
       {
@@ -216,7 +216,7 @@ export const LESSONS: Lesson[] = [
   {
     id: 'pawns',
     title: 'Pawn endings',
-    icon: '♙',
+    icon: 'pawn',
     summary: 'The square rule and the opposition.',
     steps: [
       {
@@ -243,7 +243,7 @@ export const LESSONS: Lesson[] = [
   {
     id: 'mate2',
     title: 'Mate in two',
-    icon: '♛',
+    icon: 'queen',
     summary: 'Sometimes you give something to deliver checkmate.',
     steps: [
       {

@@ -22,7 +22,7 @@ const game = (id: string, opponentId: string): CourseStep => ({ id, kind: 'game'
 
 export const CHAPTERS: Chapter[] = [
   {
-    id: 'c1', title: 'How games are won', icon: '♚', intro: 'Checkmate is the goal. Learn what it is — and how to avoid stalemate.',
+    id: 'c1', title: 'How games are won', icon: 'king', intro: 'Checkmate is the goal. Learn what it is — and how to avoid stalemate.',
     steps: [
       { id: 'c1-l', kind: 'lesson', lessonId: 'checkmate', label: 'Lesson: Check, checkmate & stalemate' },
       { id: 'c1-p', kind: 'puzzles', theme: 'mateIn1', count: 5, label: '5 mate-in-one puzzles' },
@@ -30,7 +30,7 @@ export const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    id: 'c2', title: 'Keep your pieces safe', icon: '🎁', intro: 'Most beginner games are decided by pieces left hanging. Spot them — yours and your opponent\'s.',
+    id: 'c2', title: 'Keep your pieces safe', icon: 'gift', intro: 'Most beginner games are decided by pieces left hanging. Spot them — yours and your opponent\'s.',
     steps: [
       { id: 'c2-l', kind: 'lesson', lessonId: 'hanging', label: 'Lesson: Free pieces' },
       { id: 'c2-p', kind: 'puzzles', theme: 'hangingPiece', count: 8, label: '8 free-piece puzzles' },
@@ -38,7 +38,7 @@ export const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    id: 'c3', title: 'Double attacks', icon: '🍴', intro: 'One move, two threats: the fork.',
+    id: 'c3', title: 'Double attacks', icon: 'fork', intro: 'One move, two threats: the fork.',
     steps: [
       { id: 'c3-l', kind: 'lesson', lessonId: 'forks', label: 'Lesson: Forks' },
       { id: 'c3-p', kind: 'puzzles', theme: 'fork', count: 8, label: '8 fork puzzles' },
@@ -46,7 +46,7 @@ export const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    id: 'c4', title: 'Pins & skewers', icon: '📌', intro: 'Pieces lined up on a file, rank or diagonal are vulnerable.',
+    id: 'c4', title: 'Pins & skewers', icon: 'pin', intro: 'Pieces lined up on a file, rank or diagonal are vulnerable.',
     steps: [
       { id: 'c4-l', kind: 'lesson', lessonId: 'pins', label: 'Lesson: Pins & skewers' },
       { id: 'c4-p', kind: 'puzzles', theme: 'pin', count: 5, label: '5 pin puzzles' },
@@ -54,7 +54,7 @@ export const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    id: 'c5', title: 'The back rank', icon: '🏰', intro: 'A king behind its own pawns can be mated on the back rank.',
+    id: 'c5', title: 'The back rank', icon: 'castle', intro: 'A king behind its own pawns can be mated on the back rank.',
     steps: [
       { id: 'c5-l', kind: 'lesson', lessonId: 'backrank', label: 'Lesson: Back-rank mates' },
       { id: 'c5-p', kind: 'puzzles', theme: 'backRankMate', count: 6, label: '6 back-rank puzzles' },
@@ -62,14 +62,14 @@ export const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    id: 'c6', title: 'Start well', icon: '📖', intro: 'Center, development, castling — the opening in three rules.',
+    id: 'c6', title: 'Start well', icon: 'book', intro: 'Center, development, castling — the opening in three rules.',
     steps: [
       { id: 'c6-l', kind: 'lesson', lessonId: 'opening', label: 'Lesson: Opening principles' },
       game('c6-g', 'jonas'),
     ],
   },
   {
-    id: 'c7', title: 'Remove the defender', icon: '🛡️', intro: 'Capture or chase away the piece that guards something valuable.',
+    id: 'c7', title: 'Remove the defender', icon: 'shield', intro: 'Capture or chase away the piece that guards something valuable.',
     steps: [
       { id: 'c7-l', kind: 'lesson', lessonId: 'defender', label: 'Lesson: Remove the defender' },
       { id: 'c7-p', kind: 'puzzles', theme: 'capturingDefender', count: 6, label: '6 puzzles' },
@@ -77,7 +77,7 @@ export const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    id: 'c8', title: 'Pawn endings', icon: '♙', intro: 'Few pieces, big ideas: the square rule and the opposition.',
+    id: 'c8', title: 'Pawn endings', icon: 'pawn', intro: 'Few pieces, big ideas: the square rule and the opposition.',
     steps: [
       { id: 'c8-l', kind: 'lesson', lessonId: 'pawns', label: 'Lesson: Pawn endings' },
       { id: 'c8-d1', kind: 'drill', drillId: 'kpk-front', label: 'Drill: King in front' },
@@ -86,7 +86,7 @@ export const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    id: 'c9', title: 'Mate in two', icon: '♛', intro: 'Forcing moves — checks, captures, threats — lead to mate.',
+    id: 'c9', title: 'Mate in two', icon: 'queen', intro: 'Forcing moves — checks, captures, threats — lead to mate.',
     steps: [
       { id: 'c9-l', kind: 'lesson', lessonId: 'mate2', label: 'Lesson: Mate in two' },
       { id: 'c9-p', kind: 'puzzles', theme: 'mateIn2', count: 6, label: '6 mate-in-two puzzles' },
@@ -94,7 +94,7 @@ export const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    id: 'c10', title: 'Rook endgames', icon: '♖', intro: 'The most common endgame of all.',
+    id: 'c10', title: 'Rook endgames', icon: 'rook', intro: 'The most common endgame of all.',
     steps: [
       { id: 'c10-d1', kind: 'drill', drillId: 'krk', label: 'Drill: Rook mate' },
       { id: 'c10-d2', kind: 'drill', drillId: 'lucena', label: 'Drill: Lucena' },
@@ -103,7 +103,7 @@ export const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    id: 'c11', title: 'The final test', icon: '🏆', intro: 'Everything together — against the strongest players.',
+    id: 'c11', title: 'The final test', icon: 'trophy', intro: 'Everything together — against the strongest players.',
     steps: [game('c11-g1', 'viktor'), game('c11-g2', 'mei')],
   },
 ];

@@ -102,7 +102,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     const o = detectOpening(g.plies.map((p) => p.san));
     if (!o || g.told.includes(`opening:${o.name}`)) return;
     update((gg) => void gg.told.push(`opening:${o.name}`));
-    post({ kind: 'opening', text: [`📖 ${o.name}`, o.idea] });
+    post({ kind: 'opening', text: [o.name, o.idea] });
   };
 
   /** Let the opponent say something (with probability `p`). */
@@ -163,7 +163,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     if (info.firstWin && o) {
       const next = OPPONENTS[OPPONENTS.findIndex((x) => x.id === o.id) + 1];
       useCelebrate.getState().confetti();
-      useCelebrate.getState().toast({ icon: '🏆', title: `You beat ${o.name}!`, text: next ? `${next.name} wants to play you next.` : 'You beat the champion!' });
+      useCelebrate.getState().toast({ icon: 'trophy', title: `You beat ${o.name}!`, text: next ? `${next.name} wants to play you next.` : 'You beat the champion!' });
     }
   };
 
@@ -422,7 +422,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         botNote: null,
         message: explainTakeback(undone.comment, undone.fenBefore),
       });
-      post({ kind: 'info', text: ['↶ ' + explainTakeback(undone.comment, undone.fenBefore)] });
+      post({ kind: 'takeback', text: [explainTakeback(undone.comment, undone.fenBefore)] });
       say('takeback', 0.6);
       prefetch();
     },
@@ -438,7 +438,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         const h = getHint(fen, a.lines[0]?.pv ?? [], level);
         if (h) {
           set({ hint: h, message: null });
-          post({ kind: 'hint', mood: 'thinking', text: [`💡 ${h.text}`] });
+          post({ kind: 'hint', mood: 'thinking', text: [h.text] });
           update((gg) => {
             gg.hintsUsed++;
           });
@@ -458,7 +458,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         if (currentFen(get().game) !== fen) return;
         const th = describeThreat(fen, a);
         set({ threat: th, hint: null, message: null });
-        post({ kind: 'threat', mood: 'thinking', text: [`🎯 ${th.text}`] });
+        post({ kind: 'threat', mood: 'thinking', text: [th.text] });
       } catch {
         /* cancelled */
       }
@@ -470,7 +470,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       const fen = currentFen(g);
       try {
         const a = await analyze(fen, 1);
-        post({ kind: 'info', mood: 'thinking', text: ['🧐 ' + explainPosition(fen, a, g.userColor).join(' ')] });
+        post({ kind: 'explain', mood: 'thinking', text: explainPosition(fen, a, g.userColor) });
       } catch {
         /* cancelled */
       }
@@ -518,7 +518,7 @@ export function resultLines(userResult: 'win' | 'loss' | 'draw', reason: string,
   if (userResult === 'win')
     return [
       `You won against ${who}${reason === 'checkmate' ? ' by checkmate' : ''}! 🎉`,
-      stars === 3 ? '⭐⭐⭐ Three stars — no hints, no take-backs. Superb!' : stars === 2 ? '⭐⭐ Two stars. Win with no help at all for the third!' : '⭐ One star. Fewer hints and take-backs earn more stars.',
+      stars === 3 ? 'Three stars — no hints, no take-backs. Superb!' : stars === 2 ? 'Two stars. Win with no help at all for the third!' : 'One star. Fewer hints and take-backs earn more stars.',
     ];
   if (userResult === 'draw') return [`A draw (${reason}). That's a solid result!`];
   if (reason === 'resignation') return ['Game over. Every game teaches us something — let\'s look at the report together.'];

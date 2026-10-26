@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { BookOpen, Bot, Lock, Sparkles, Star, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ScanSearch, Settings, ShieldCheck, Shuffle, SlidersHorizontal, Undo2 } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
@@ -14,9 +15,10 @@ import { LevelBadge } from '../components/Gamification';
 import { tipOfTheDay, type Tip } from '../lib/coach/tips';
 import { getOpponentRecords, isUnlocked, type OpponentRecord } from '../lib/people/record';
 import { REPERTOIRES } from '../lib/people/openings';
-import { Dialog, EvalBar, Header, Segmented, Spinner } from '../components/ui';
+import { Dialog, EvalBar, Header, IconButton, Segmented, Spinner } from '../components/ui';
 import { MoveList } from '../components/MoveList';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
+import type { FeedItem } from '../lib/store/types';
 
 export function PlayScreen() {
   const phase = usePlay((s) => s.phase);
@@ -59,16 +61,20 @@ function SetupView() {
                   className={`card relative flex flex-col items-center !p-2 transition ${opp?.id === o.id ? '!ring-2 !ring-brand-600' : ''}`}
                 >
                   <Portrait id={o.id} size={56} mood={opp?.id === o.id ? 'happy' : 'neutral'} className={open ? '' : 'opacity-40 grayscale'} />
-                  {!open && <span className="absolute top-8 text-xl">🔒</span>}
+                  {!open && (
+                    <span className="absolute top-9 flex h-7 w-7 items-center justify-center rounded-full bg-stone-900/75 text-white">
+                      <Lock size={14} />
+                    </span>
+                  )}
                   <span className="mt-1 text-sm font-semibold leading-tight">{o.name}</span>
                   <span className="text-xs text-stone-500">{open ? o.elo : `Beat ${OPPONENTS[i - 1].name}`}</span>
-                  {open && <span className="text-xs leading-none tracking-tight">{'★'.repeat(stars)}<span className="text-stone-300 dark:text-stone-600">{'★'.repeat(3 - stars)}</span></span>}
+                  {open && <Stars n={stars} />}
                 </button>
               );
             })}
           </div>
-          <button className={`mt-2 w-full rounded-xl px-3 py-2 text-left text-sm ${custom ? 'bg-brand-100 font-semibold text-brand-700 dark:bg-brand-700/30 dark:text-brand-100' : 'text-stone-500'}`} onClick={() => settings.set({ opponentId: 'custom' })}>
-            ⚙️ Custom strength…
+          <button className={`mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm ${custom ? 'bg-brand-100 font-semibold text-brand-700 dark:bg-brand-700/30 dark:text-brand-100' : 'text-stone-500'}`} onClick={() => settings.set({ opponentId: 'custom' })}>
+            <SlidersHorizontal size={16} /> Custom strength…
           </button>
         </div>
         {opp ? (
@@ -78,7 +84,7 @@ function SetupView() {
               <div className="font-bold">{opp.name} <span className="font-normal text-stone-500">· ~{opp.elo}</span></div>
               <div className="text-xs font-semibold text-brand-700 dark:text-brand-500">{opp.tagline}</div>
               <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">{opp.bio}</p>
-              {REPERTOIRES[opp.id] && <p className="mt-1 text-xs text-stone-500">📖 Favourite: {REPERTOIRES[opp.id].favourite}</p>}
+              {REPERTOIRES[opp.id] && <p className="mt-1 text-xs text-stone-500"><BookOpen size={13} className="inline -mt-0.5" /> Favourite: {REPERTOIRES[opp.id].favourite}</p>}
               {rec && rec.w + rec.l + rec.d > 0 && (
                 <p className="mt-0.5 text-xs text-stone-500">
                   Your record: {rec.w}W · {rec.d}D · {rec.l}L{rec.stars < 3 && rec.w > 0 ? ' — win with fewer hints for more ★' : ''}
@@ -104,9 +110,9 @@ function SetupView() {
               value={settings.colorPref}
               onChange={(v) => settings.set({ colorPref: v })}
               options={[
-                { value: 'w', label: '♔ White' },
-                { value: 'b', label: '♚ Black' },
-                { value: 'random', label: '🎲 Random' },
+                { value: 'w', label: <><span className="h-3.5 w-3.5 rounded-full bg-white ring-1 ring-stone-400" /> White</> },
+                { value: 'b', label: <><span className="h-3.5 w-3.5 rounded-full bg-stone-900 ring-1 ring-stone-600" /> Black</> },
+                { value: 'random', label: <><Shuffle size={15} /> Random</> },
               ]}
             />
           </div>
@@ -115,7 +121,7 @@ function SetupView() {
           </button>
         </div>
         <button className="btn-ghost w-full" onClick={() => push({ name: 'history' })}>
-          Past games
+          <History size={17} /> Past games
         </button>
       </div>
     </div>
@@ -134,7 +140,7 @@ function OpponentBar() {
   const thinking = s.phase === 'botThinking';
   return (
     <div className="flex items-start gap-2 px-3 pb-1.5">
-      {o ? <Portrait id={o.id} mood={mood} size={40} /> : <span className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-200 text-xl dark:bg-stone-800">🤖</span>}
+      {o ? <Portrait id={o.id} mood={mood} size={40} /> : <span className="flex h-10 w-10 items-center justify-center rounded-[30%] bg-stone-200 text-stone-600 dark:bg-stone-800"><Bot size={22} /></span>}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-sm">
           <span className="font-semibold">{o ? o.name : 'Bot'}</span>
@@ -155,12 +161,9 @@ function OpponentBar() {
 export function SettingsButton() {
   const push = useNav((s) => s.push);
   return (
-    <button className="btn-ghost !px-2" aria-label="Settings" onClick={() => push({ name: 'settings' })}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-      </svg>
-    </button>
+    <IconButton label="Settings" onClick={() => push({ name: 'settings' })}>
+      <Settings size={21} strokeWidth={1.9} />
+    </IconButton>
   );
 }
 
@@ -223,13 +226,9 @@ function GameView() {
       <Header
         title={opening ? opening.name : 'Play'}
         right={
-          <button className="btn-ghost !px-2" onClick={() => setMenu(true)} aria-label="Game menu">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="5" r="2" />
-              <circle cx="12" cy="12" r="2" />
-              <circle cx="12" cy="19" r="2" />
-            </svg>
-          </button>
+          <IconButton label="Game menu" onClick={() => setMenu(true)}>
+            <EllipsisVertical size={21} />
+          </IconButton>
         }
       />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">
@@ -257,13 +256,13 @@ function GameView() {
       </div>
       {!s.over && (
         <div className="mx-auto grid w-full max-w-xl grid-cols-5 gap-1 border-t border-stone-200 bg-stone-100 px-3 py-2 dark:border-stone-800 dark:bg-stone-950">
-          <ActionButton label={s.hint ? `Hint ${s.hint.level}/3` : 'Hint'} icon="💡" disabled={!myTurn || s.hint?.level === 3} onClick={s.requestHint} />
-          <ActionButton label="Threats?" icon="🎯" disabled={!myTurn} onClick={s.requestThreat} />
-          <ActionButton label="Take back" icon="↶" disabled={userPlies === 0 || !['userTurn', 'paused', 'botThinking'].includes(s.phase)} onClick={s.takeback} />
-          <ActionButton label="Why not…?" icon="🔍" disabled={userPlies === 0} onClick={whyNot} />
+          <ActionButton label={s.hint ? `Hint ${s.hint.level}/3` : 'Hint'} icon={<Lightbulb size={21} />} disabled={!myTurn || s.hint?.level === 3} onClick={s.requestHint} />
+          <ActionButton label="Threats?" icon={<Crosshair size={21} />} disabled={!myTurn} onClick={s.requestThreat} />
+          <ActionButton label="Take back" icon={<Undo2 size={21} />} disabled={userPlies === 0 || !['userTurn', 'paused', 'botThinking'].includes(s.phase)} onClick={s.takeback} />
+          <ActionButton label="Why not…?" icon={<ScanSearch size={21} />} disabled={userPlies === 0} onClick={whyNot} />
           <ActionButton
             label="Safety"
-            icon="🛡️"
+            icon={<ShieldCheck size={21} />}
             active={settings.safetyOverlay}
             onClick={() => settings.set({ safetyOverlay: !settings.safetyOverlay })}
           />
@@ -278,7 +277,7 @@ function GameView() {
               void s.requestExplain();
             }}
           >
-            🧐 Explain this position
+            <ScanSearch size={18} /> Explain this position
           </button>
           <button
             className="btn-secondary w-full"
@@ -287,7 +286,7 @@ function GameView() {
               void s.resign();
             }}
           >
-            🏳️ Resign
+            <Flag size={18} /> Resign
           </button>
           <button
             className="btn-secondary w-full"
@@ -307,7 +306,7 @@ function GameView() {
   );
 }
 
-function ActionButton({ label, icon, onClick, disabled, active }: { label: string; icon: string; onClick: () => void; disabled?: boolean; active?: boolean }) {
+function ActionButton({ label, icon, onClick, disabled, active }: { label: string; icon: ReactNode; onClick: () => void; disabled?: boolean; active?: boolean }) {
   return (
     <button
       disabled={disabled}
@@ -316,11 +315,21 @@ function ActionButton({ label, icon, onClick, disabled, active }: { label: strin
         active ? 'bg-brand-100 text-brand-700 dark:bg-brand-700/30 dark:text-brand-100' : 'text-stone-700 dark:text-stone-200'
       }`}
     >
-      <span className="text-lg leading-none">{icon}</span>
+      <span className="flex h-6 items-center">{icon}</span>
       {label}
     </button>
   );
 }
+
+const FEED_LABEL: Partial<Record<FeedItem['kind'], { label: string; icon: ReactNode }>> = {
+  opening: { label: 'Opening', icon: <BookOpen size={12} /> },
+  hint: { label: 'Hint', icon: <Lightbulb size={12} /> },
+  threat: { label: 'Threats', icon: <Crosshair size={12} /> },
+  takeback: { label: 'Take-back', icon: <Undo2 size={12} /> },
+  explain: { label: 'The position', icon: <ScanSearch size={12} /> },
+  note: { label: 'Watch out', icon: <ShieldCheck size={12} /> },
+  result: { label: 'Game over', icon: <Flag size={12} /> },
+};
 
 function CoachPanel({ safetyMessages }: { safetyMessages: string[] }) {
   const s = usePlay();
@@ -352,6 +361,7 @@ function CoachPanel({ safetyMessages }: { safetyMessages: string[] }) {
           <CoachBubble
             key={it.id}
             compact={!latest}
+            {...FEED_LABEL[it.kind]}
             mood={it.mood ?? 'happy'}
             badge={it.classification}
             actions={
@@ -375,7 +385,7 @@ function CoachPanel({ safetyMessages }: { safetyMessages: string[] }) {
           >
             {it.kind === 'comment' && p && <p className="text-xs font-semibold text-stone-500">{p.san}</p>}
             {it.text.map((t, i) => (
-              <p key={i} className={it.kind === 'opening' && i === 0 ? 'font-semibold' : ''}>{t}</p>
+              <p key={i} className={it.kind === 'opening' && i === 0 ? 'font-display text-[17px] font-semibold' : ''}>{t}</p>
             ))}
             {latest && it.kind === 'comment' && p?.comment && it.classification !== 'best' && it.classification !== 'good' && (
               <FlagButton fen={p.fenBefore} uci={p.uci} comment={p.comment} />
@@ -385,7 +395,7 @@ function CoachPanel({ safetyMessages }: { safetyMessages: string[] }) {
       })}
       {safetyMessages.length > 0 && settings.safetyOverlay && (
         <CoachBubble compact mood="concerned">
-          <p>🛡️ {safetyMessages.join(' ')}</p>
+          <p><ShieldCheck size={15} className="mr-1 inline -translate-y-px text-brand-600" />{safetyMessages.join(' ')}</p>
         </CoachBubble>
       )}
       {s.phase === 'analyzing' && (
@@ -408,9 +418,18 @@ function TipOfTheDay() {
   useEffect(() => void tipOfTheDay().then(setTip), []);
   if (!tip) return null;
   return (
-    <CoachBubble compact={false}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-500">{tip.personal ? 'Coach Sam · for you' : 'Coach Sam · tip of the day'}</p>
+    <CoachBubble label={tip.personal ? 'Coach Sam · just for you' : 'Coach Sam · tip of the day'} icon={<Sparkles size={12} />}>
       <p>{tip.text}</p>
     </CoachBubble>
+  );
+}
+
+export function Stars({ n, size = 12 }: { n: number; size?: number }) {
+  return (
+    <span className="mt-0.5 flex gap-0.5">
+      {[0, 1, 2].map((i) => (
+        <Star key={i} size={size} className={i < n ? 'fill-gold-400 text-gold-500' : 'text-stone-300 dark:text-stone-600'} />
+      ))}
+    </span>
   );
 }

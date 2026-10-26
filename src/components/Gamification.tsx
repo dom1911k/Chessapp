@@ -7,6 +7,8 @@ import { getXp, levelFor } from '../lib/progress/xp';
 import { useCelebrate } from '../lib/celebrate';
 import { Portrait } from './Coach';
 import { Header } from './ui';
+import { Check, ChevronRight, Star } from 'lucide-react';
+import { Medallion } from './Glyph';
 
 /** Re-reads data whenever celebrations fire (XP/achievements may have changed). */
 function useRefreshKey() {
@@ -22,8 +24,8 @@ export function LevelBadge() {
   if (xp === null) return null;
   const l = levelFor(xp);
   return (
-    <span className="chip bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" title={l.title}>
-      ⭐ Lv {l.level}
+    <span className="chip bg-gold-300/40 text-stone-800 ring-1 ring-gold-400/50 dark:bg-gold-500/20 dark:text-gold-300" title={l.title}>
+      <Star size={12} className="fill-gold-400 text-gold-500" /> Level {l.level}
     </span>
   );
 }
@@ -67,7 +69,7 @@ export function WeeklyGoalCard({ editable = false }: { editable?: boolean }) {
     <div className="card !p-3">
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-bold">{w.met ? '🌱 Weekly goal reached!' : 'Weekly goal'}</div>
+          <div className="font-bold">{w.met ? 'Weekly goal reached!' : 'Weekly goal'}</div>
           <div className="text-xs text-stone-500">
             {w.days} of {w.goal} training days this week · rest days never reset anything
           </div>
@@ -98,7 +100,7 @@ export function WeeklyGoalCard({ editable = false }: { editable?: boolean }) {
                   done ? 'bg-brand-500 text-white' : i === todayIdx ? 'ring-2 ring-brand-500 text-brand-700 dark:text-brand-500' : 'bg-stone-100 text-stone-400 dark:bg-stone-800'
                 }`}
               >
-                {done ? '✓' : d}
+                {done ? <Check size={12} strokeWidth={3} /> : d}
               </div>
             </div>
           );
@@ -115,12 +117,12 @@ export function AchievementsPreview() {
   useEffect(() => void unlockedAchievements().then((u) => setN(Object.keys(u).length)), [key]);
   return (
     <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'achievements' })}>
-      <span className="text-2xl">🏅</span>
+      <Medallion name="medal" tint="gold" />
       <span className="flex-1">
         <span className="block font-semibold">Achievements</span>
         <span className="block text-xs text-stone-500">{n} of {ACHIEVEMENTS.length} collected</span>
       </span>
-      <span className="text-stone-400">›</span>
+      <ChevronRight size={18} className="text-stone-400" />
     </button>
   );
 }
@@ -141,7 +143,7 @@ export function AchievementsScreen() {
           const prog = !got && stats && a.progress ? a.progress(stats) : null;
           return (
             <div key={a.id} className={`card flex flex-col items-center !p-2.5 text-center ${got ? '' : 'opacity-55'}`}>
-              {a.portrait ? <Portrait id={a.portrait} size={40} className={got ? '' : 'grayscale'} /> : <span className={`text-3xl ${got ? '' : 'grayscale'}`}>{a.icon}</span>}
+              {a.portrait ? <Portrait id={a.portrait} size={40} className={got ? '' : 'grayscale'} /> : <Medallion name={a.icon} tint="gold" size={40} muted={!got} />}
               <span className="mt-1 text-xs font-bold leading-tight">{a.title}</span>
               <span className="mt-0.5 text-[10px] leading-tight text-stone-500">{a.description}</span>
               {prog && prog[1] > 1 && <span className="mt-1 text-[10px] font-semibold text-brand-700 dark:text-brand-500">{prog[0]}/{prog[1]}</span>}

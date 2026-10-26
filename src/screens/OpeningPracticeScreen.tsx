@@ -99,7 +99,7 @@ export function OpeningPracticeScreen({ index }: { index: number }) {
                 </>
               }
             >
-              <p className="font-semibold">That's the {o.name}! ✅</p>
+              <p className="font-semibold">That's the {o.name}!</p>
               <p>{o.idea}</p>
             </CoachBubble>
           ) : (

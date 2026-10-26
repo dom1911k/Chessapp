@@ -48,7 +48,7 @@ function UpdateBody({ u, onClose }: { u: UpdateInfo; onClose: () => void }) {
 /** Dialog shown at start-up when the daily check finds a new version. */
 export function UpdateDialog({ update, onClose }: { update: UpdateInfo | null; onClose: () => void }) {
   return (
-    <Dialog open={!!update} onClose={onClose} title="Update available 🎉">
+    <Dialog open={!!update} onClose={onClose} title="Update available">
       {update && (
         <>
           <UpdateBody u={update} onClose={onClose} />
@@ -97,7 +97,7 @@ export function UpdateCard() {
           {state === 'checking' ? <Spinner /> : 'Check for updates'}
         </button>
       </div>
-      {state === 'none' && <p className="text-sm text-stone-500">You have the newest version. ✓</p>}
+      {state === 'none' && <p className="text-sm text-stone-500">You have the newest version.</p>}
       {state === 'error' && <p className="text-sm text-stone-500">Couldn't reach GitHub — are you online?</p>}
       {update && <UpdateBody u={update} onClose={() => setUpdate(null)} />}
     </div>

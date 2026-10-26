@@ -11,6 +11,7 @@ import { THEME_SETS } from '../lib/puzzles/themes';
 import { opponentById } from '../lib/people';
 import { formatDate } from '../lib/store/finish';
 import type { GameRecord } from '../lib/store/types';
+import { Pin } from 'lucide-react';
 
 const ORDER: Classification[] = ['best', 'good', 'inaccuracy', 'mistake', 'blunder'];
 
@@ -112,7 +113,7 @@ export function ReportScreen({ gameId }: { gameId: number }) {
 
         {cards > 0 && (
           <p className="px-1 text-sm text-stone-500">
-            📌 {cards} {cards === 1 ? 'position from this game was' : 'positions from this game were'} added to your Daily training.
+            <Pin size={14} className="mr-1 inline -translate-y-px" />{cards} {cards === 1 ? 'position from this game was' : 'positions from this game were'} added to your Daily training.
           </p>
         )}
         <button className="btn-primary w-full" onClick={() => push({ name: 'review', gameId, ply: 0 })}>

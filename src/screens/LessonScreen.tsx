@@ -9,6 +9,7 @@ import { lessonById } from '../lib/lessons/data';
 import { useNav } from '../lib/nav';
 import { playSound } from '../lib/sound';
 import { progress } from '../lib/progress';
+import { CircleCheck } from 'lucide-react';
 
 export const LESSONS_KEY = 'lessonsDone';
 
@@ -103,7 +104,7 @@ export function LessonScreen({ lessonId }: { lessonId: string }) {
             }
           >
             {state === 'done' && step.task ? (
-              <p>✅ <Rich text={step.success ?? 'Correct!'} /></p>
+              <p><CircleCheck size={16} className="mr-1 inline -translate-y-px text-brand-600" /><Rich text={step.success ?? 'Correct!'} /></p>
             ) : state === 'wrong' ? (
               <p>Not quite. {tries >= 2 ? 'The green arrow shows the answer.' : step.hint ?? 'Have another look.'}</p>
             ) : (

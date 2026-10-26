@@ -6,6 +6,7 @@ import { db } from '../lib/db';
 import { useNav } from '../lib/nav';
 import { formatDate } from '../lib/store/finish';
 import type { GameRecord } from '../lib/store/types';
+import { Medallion } from '../components/Glyph';
 
 export function HistoryScreen() {
   const [games, setGames] = useState<GameRecord[] | null>(null);
@@ -21,14 +22,14 @@ export function HistoryScreen() {
         {games?.map((g) => (
           <button key={g.id} className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'report', gameId: g.id! })}>
             <span className="relative">
-              {opponentById(g.opponentId) ? <Portrait id={g.opponentId!} size={40} /> : <span className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-200 text-xl dark:bg-stone-800">🤖</span>}
+              {opponentById(g.opponentId) ? <Portrait id={g.opponentId!} size={40} /> : <Medallion name="brain" size={40} tint="stone" />}
               <span className={`absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-white dark:ring-stone-900 ${g.userResult === 'win' ? 'bg-emerald-600' : g.userResult === 'loss' ? 'bg-red-500' : 'bg-stone-400'}`}>
                 {g.userResult === 'win' ? 'W' : g.userResult === 'loss' ? 'L' : 'D'}
               </span>
             </span>
             <span className="flex-1">
               <span className="block font-semibold">
-                {g.userColor === 'w' ? '♔' : '♚'} vs {opponentById(g.opponentId)?.name ?? 'Bot'} ~{g.elo}
+                {g.userColor === 'w' ? 'White' : 'Black'} vs {opponentById(g.opponentId)?.name ?? 'Bot'} ~{g.elo}
               </span>
               <span className="block text-xs text-stone-500">
                 {formatDate(g.endedAt)} · {g.reason}

@@ -43,6 +43,6 @@ export async function checkWeeklyGoal(): Promise<boolean> {
   await kvSet(MET_KEY, [...met, key]);
   const c = useCelebrate.getState();
   c.confetti();
-  c.toast({ icon: '🌱', title: 'Weekly goal reached!', text: `${w.goal} training days this week. Enjoy the rest days!` });
+  c.toast({ icon: 'sprout', title: 'Weekly goal reached!', text: `${w.goal} training days this week. Enjoy the rest days!` });
   return true;
 }

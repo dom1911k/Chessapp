@@ -10,7 +10,7 @@ export function FeedbackCard() {
       <div className="text-sm font-semibold text-stone-500">Coach feedback</div>
       <p className="text-sm text-stone-600 dark:text-stone-300">
         {n === 0
-          ? 'When an explanation looks wrong, tap "👎 This explanation seems wrong" under it. The positions are collected here.'
+          ? 'When an explanation looks wrong, tap "This explanation seems wrong" under it. The positions are collected here.'
           : `${n} flagged explanation${n === 1 ? '' : 's'}. Share the file so the coach rules can be improved.`}
       </p>
       {n > 0 && (

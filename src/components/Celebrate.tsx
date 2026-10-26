@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useCelebrate } from '../lib/celebrate';
 import { playSound } from '../lib/sound';
+import { Medallion } from './Glyph';
 
 const COLORS = ['#2f9e63', '#facc15', '#f97316', '#3b82f6', '#ec4899', '#a855f7'];
 
@@ -64,7 +65,7 @@ export function CelebrationLayer() {
       <div className="safe-top pointer-events-none fixed inset-x-0 top-2 z-[61] flex flex-col items-center gap-2 px-3">
         {toasts.map((t) => (
           <div key={t.id} className="animate-pop pointer-events-auto flex max-w-sm items-center gap-3 rounded-2xl bg-white px-4 py-2.5 shadow-lg ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
-            <span className="text-2xl">{t.icon}</span>
+            <Medallion name={t.icon} tint="gold" size={40} />
             <span>
               <span className="block text-sm font-bold">{t.title}</span>
               {t.text && <span className="block text-xs text-stone-500">{t.text}</span>}

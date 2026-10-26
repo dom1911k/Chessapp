@@ -22,7 +22,7 @@ export interface PlyRecord {
 /** One message from Coach Sam in the game's conversation. */
 export interface FeedItem {
   id: number;
-  kind: 'comment' | 'hint' | 'threat' | 'note' | 'info' | 'result' | 'opening';
+  kind: 'comment' | 'hint' | 'threat' | 'note' | 'info' | 'result' | 'opening' | 'takeback' | 'explain';
   text: string[];
   classification?: Classification;
   mood?: 'happy' | 'concerned' | 'thinking';

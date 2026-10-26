@@ -104,8 +104,8 @@ export function ProgressScreen() {
           <LineChart values={d.accuracy} color="#3b82f6" />
         </div>
         <div className="grid grid-cols-2 gap-2.5">
-          <ThemeList title="💪 Strongest themes" list={strong} />
-          <ThemeList title="🎯 Work on" list={weak} />
+          <ThemeList title="Strongest themes" list={strong} />
+          <ThemeList title="Work on" list={weak} />
         </div>
         <button className="btn-secondary w-full" onClick={() => push({ name: 'history' })}>
           All past games

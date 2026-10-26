@@ -9,6 +9,7 @@ import { formatLine, lineToSan, tryMove, type MoveInput } from '../lib/chess/gam
 import { explainMove, type CoachComment } from '../lib/coach';
 import { getEngine, type AnalysisResult } from '../lib/engine';
 import { analysisLimits } from '../lib/engine/speed';
+import { ScanSearch } from 'lucide-react';
 
 interface Step {
   uci: string;
@@ -172,7 +173,7 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
                   .catch(() => undefined)
               }
             >
-              🧐 Explain
+              <ScanSearch size={16} className="mr-1 inline" />Explain
             </button>
             <PlayFromHere fen={current} color={orientation === 'white' ? 'w' : 'b'} />
           </div>

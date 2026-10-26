@@ -102,7 +102,7 @@ export function RushScreen() {
         {phase === 'intro' && (
           <div className="space-y-4 p-4">
             <CoachBubble actions={<button className="btn-primary !px-6 !py-3 text-base" onClick={() => void start()}>Start</button>}>
-              <p className="font-semibold">⚡ Solve as many puzzles as you can in 3 minutes.</p>
+              <p className="font-semibold">Solve as many puzzles as you can in 3 minutes.</p>
               <p>They start easy and get harder. Three mistakes and the run is over. No hints — trust your eyes!</p>
               <p className="text-sm text-stone-500">Your best: {best}</p>
             </CoachBubble>
@@ -129,7 +129,7 @@ export function RushScreen() {
           <div className="space-y-4 p-4">
             <CoachBubble actions={<button className="btn-primary" onClick={() => void start()}>Try again</button>}>
               <p className="text-2xl font-bold">{score} solved</p>
-              <p>{newBest ? '🎉 New personal best!' : `Your best is ${best}.`}</p>
+              <p>{newBest ? 'New personal best!' : `Your best is ${best}.`}</p>
               <p className="text-sm text-stone-500">
                 {misses >= STRIKES ? 'Three mistakes ended the run. ' : "Time's up. "}
                 Speed comes from recognising patterns — the more puzzles you solve, the faster you get.

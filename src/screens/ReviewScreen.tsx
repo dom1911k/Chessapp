@@ -9,6 +9,7 @@ import { formatScore } from '../lib/chess/evaluation';
 import { db } from '../lib/db';
 import { useNav } from '../lib/nav';
 import type { GameRecord } from '../lib/store/types';
+import { TriangleAlert } from 'lucide-react';
 
 export function ReviewScreen({ gameId, ply }: { gameId: number; ply?: number }) {
   const [g, setG] = useState<GameRecord | null>(null);
@@ -56,7 +57,7 @@ export function ReviewScreen({ gameId, ply }: { gameId: number; ply?: number }) 
           <button className="btn-secondary !px-0" disabled={i < 0} onClick={() => setI(i - 1)}>◀</button>
           <button className="btn-secondary !px-0" disabled={i >= g.plies.length - 1} onClick={() => setI(i + 1)}>▶</button>
           <button className="btn-secondary !px-0" onClick={() => setI(g.plies.length - 1)}>⏭</button>
-          <button className="btn-secondary !px-0 text-xs" onClick={nextImportant} title="Next mistake">⚠️ Next</button>
+          <button className="btn-secondary !px-0 text-xs" onClick={nextImportant} title="Next mistake"><TriangleAlert size={15} className="mr-1 inline" />Next</button>
         </div>
         <div className="space-y-3 px-3">
           {p && p.isUser && c ? (
@@ -89,7 +90,7 @@ export function ReviewScreen({ gameId, ply }: { gameId: number; ply?: number }) 
               </p>
             </CoachBubble>
           ) : (
-            <CoachBubble><p>Step through the game with ▶, or jump to the next mistake with ⚠️.</p></CoachBubble>
+            <CoachBubble><p>Step through the game with the arrows, or jump straight to the next mistake.</p></CoachBubble>
           )}
           <EvalGraph plies={g.plies} current={i} onSelect={setI} />
           <PlayFromHere fen={fen} color={g.userColor} />

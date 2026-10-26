@@ -214,5 +214,5 @@ same key is installed over the old one. Don't change `appId` in `capacitor.confi
 - [Stockfish](https://stockfishchess.org) via [stockfish.js](https://github.com/nmrugg/stockfish.js) — GPLv3.
   Because the APK contains Stockfish, the app as a whole is distributed under the GPLv3; its full source is this repository.
 - Puzzles: [Lichess puzzle database](https://database.lichess.org/#puzzles) — CC0.
-- Character portraits: "Avataaars" by Pablo Stanley (free for personal and commercial use), generated with [DiceBear](https://www.dicebear.com) (MIT) — see `scripts/make-portraits.mjs`.
+- Character portraits: drawn by the project's own vector portrait renderer (`scripts/portrait/render.mjs`, designs in `src/lib/people/looks.json`).
 - [chess.js](https://github.com/jhlywa/chess.js) (BSD-2), [react-chessboard](https://github.com/Clariity/react-chessboard) (MIT), [Capacitor](https://capacitorjs.com) (MIT), [Dexie](https://dexie.org) (Apache-2.0).

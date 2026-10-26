@@ -65,7 +65,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
         right={
           <div className="pr-2 text-right text-sm leading-tight">
             <div className="font-bold">{rating ?? '…'}</div>
-            <div className="text-xs text-stone-500">{streak > 1 ? `🔥 ${streak} in a row` : 'your rating'}</div>
+            <div className="text-xs text-stone-500">{streak > 1 ? `${streak} in a row` : 'your rating'}</div>
           </div>
         }
       />

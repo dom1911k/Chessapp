@@ -1,6 +1,7 @@
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+import { CalendarCheck, ChartColumn, ChessKnight, GraduationCap, Puzzle, type LucideIcon } from 'lucide-react';
 import { requestPersistentStorage } from './lib/db';
 import { handleBack, useNav, type Screen, type Tab } from './lib/nav';
 import { useSettings } from './lib/settings';
@@ -28,12 +29,12 @@ import { autoCheck, type UpdateInfo } from './lib/update';
 import { calibrate } from './lib/engine/speed';
 import { applyReminder } from './lib/reminders';
 
-const TABS: { tab: Tab; label: string; icon: ReactNode }[] = [
-  { tab: 'play', label: 'Play', icon: <path d="M9 3h6l-1 3h2l-1.5 4H16l1 9H7l1-9h1.5L8 6h2z" /> },
-  { tab: 'puzzles', label: 'Puzzles', icon: <path d="M10 3a2 2 0 0 1 4 0v2h4v4h-2a2 2 0 0 0 0 4h2v6h-6v-2a2 2 0 0 0-4 0v2H4v-6h2a2 2 0 0 0 0-4H4V5h6z" /> },
-  { tab: 'daily', label: 'Daily', icon: <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16M9 15l2 2 4-4" /></> },
-  { tab: 'learn', label: 'Learn', icon: <path d="M4 6l8-3 8 3-8 3-8-3zm2 2v6c0 1.5 3 3 6 3s6-1.5 6-3V8M20 6v6" /> },
-  { tab: 'progress', label: 'Progress', icon: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /> },
+const TABS: { tab: Tab; label: string; icon: LucideIcon }[] = [
+  { tab: 'play', label: 'Play', icon: ChessKnight },
+  { tab: 'puzzles', label: 'Puzzles', icon: Puzzle },
+  { tab: 'daily', label: 'Daily', icon: CalendarCheck },
+  { tab: 'learn', label: 'Learn', icon: GraduationCap },
+  { tab: 'progress', label: 'Progress', icon: ChartColumn },
 ];
 
 function TabScreen({ tab }: { tab: Tab }) {
@@ -148,32 +149,34 @@ export function App() {
     <div className="flex h-full flex-col">
       <main className="relative min-h-0 flex-1">
         {/* Tabs stay mounted underneath pushed screens so their state survives. */}
-        <div className={top ? 'hidden' : 'h-full'}>
+        <div key={tab} className={top ? 'hidden' : 'animate-fade-in h-full'}>
           <TabScreen tab={tab} />
         </div>
         {top && (
-          <div key={stack.length} className="h-full overflow-hidden">
+          <div key={stack.length} className="animate-slide-in h-full overflow-hidden">
             <StackScreen screen={top} />
           </div>
         )}
       </main>
       {!top && (
-        <nav className="safe-bottom border-t border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
-          <div className="mx-auto flex max-w-xl">
-            {TABS.map((t) => (
-              <button
-                key={t.tab}
-                onClick={() => setTab(t.tab)}
-                className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold ${
-                  tab === t.tab ? 'text-brand-600 dark:text-brand-500' : 'text-stone-500'
-                }`}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
-                  {t.icon}
-                </svg>
-                {t.label}
-              </button>
-            ))}
+        <nav className="safe-bottom border-t border-stone-200/80 bg-[#fffdf9]/95 backdrop-blur-md dark:border-stone-800 dark:bg-stone-900/95">
+          <div className="mx-auto flex max-w-xl px-2 pt-1.5 pb-1">
+            {TABS.map((t) => {
+              const active = tab === t.tab;
+              const Icon = t.icon;
+              return (
+                <button key={t.tab} onClick={() => setTab(t.tab)} className="flex flex-1 flex-col items-center gap-0.5 py-1">
+                  <span
+                    className={`flex h-8 w-14 items-center justify-center rounded-full transition-colors duration-200 ${
+                      active ? 'bg-brand-100 text-brand-700 dark:bg-brand-700/30 dark:text-brand-100' : 'text-stone-500'
+                    }`}
+                  >
+                    <Icon size={22} strokeWidth={active ? 2.3 : 1.8} />
+                  </span>
+                  <span className={`text-[11px] font-semibold ${active ? 'text-stone-900 dark:text-stone-100' : 'text-stone-500'}`}>{t.label}</span>
+                </button>
+              );
+            })}
           </div>
         </nav>
       )}

@@ -7,6 +7,7 @@ import { getRating } from '../lib/puzzles/rating';
 import { themeStats, weakestThemes, type ThemeStat } from '../lib/puzzles/select';
 import { THEME_SETS } from '../lib/puzzles/themes';
 import { SettingsButton } from './PlayScreen';
+import { Medallion } from '../components/Glyph';
 
 export function PuzzlesScreen() {
   const push = useNav((s) => s.push);
@@ -41,7 +42,7 @@ export function PuzzlesScreen() {
           </button>
         </div>
         <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'rush' })}>
-          <span className="text-2xl">⚡</span>
+          <Medallion name="zap" tint="gold" />
           <span className="flex-1">
             <span className="block font-semibold">Puzzle Rush</span>
             <span className="block text-xs text-stone-500">3 minutes, 3 mistakes — how many can you solve?</span>
@@ -62,7 +63,7 @@ export function PuzzlesScreen() {
               return (
                 <button key={t.id} className="card !p-3 text-left active:scale-[0.98]" onClick={() => push({ name: 'puzzle', mode: { kind: 'theme', theme: t.id } })}>
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">{t.icon}</span>
+                    <Medallion name={t.icon} size={34} />
                     <span className="font-semibold leading-tight">{t.label}</span>
                   </div>
                   <div className="mt-1 text-xs text-stone-500">{t.description}</div>

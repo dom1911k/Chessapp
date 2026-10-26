@@ -12,6 +12,7 @@ import { playSound } from '../lib/sound';
 import { analysisLimits } from '../lib/engine/speed';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
 import { themeLabel } from '../lib/puzzles/themes';
+import { Lightbulb } from 'lucide-react';
 
 type State = 'intro' | 'solving' | 'wrong' | 'checking' | 'solved' | 'failed';
 
@@ -205,7 +206,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
       </div>
       {fast ? (
         <div className="px-3 text-center text-sm font-semibold text-stone-500">
-          {state === 'solving' ? `${userColor === 'w' ? 'White' : 'Black'} to move` : state === 'wrong' ? '✗ Missed' : state === 'solved' ? '✓ Solved' : '…'}
+          {state === 'solving' ? `${userColor === 'w' ? 'White' : 'Black'} to move` : state === 'wrong' ? 'Missed' : state === 'solved' ? 'Solved' : '…'}
         </div>
       ) : (
       <div className="space-y-3 px-3">
@@ -244,7 +245,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
               </>
             }
           >
-            <p className="font-semibold">{state === 'solved' ? (failed || hints ? 'Solved — with a little help.' : 'Correct! 🎉') : "Here's the solution."}</p>
+            <p className="font-semibold">{state === 'solved' ? (failed || hints ? 'Solved — with a little help.' : 'Correct!') : "Here's the solution."}</p>
             {note && <p>{note}</p>}
             {explanation.text.map((t, i) => <p key={i}>{t}</p>)}
             {spec.kind === 'mistake' && spec.explanation?.length ? (
@@ -256,7 +257,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
         <div className="flex flex-wrap items-center gap-2">
           {state === 'solving' && (
             <button className="btn-secondary" disabled={hint?.level === 3} onClick={askHint}>
-              💡 {hint ? `Hint ${hint.level}/3` : 'Hint'}
+              <Lightbulb size={16} className="mr-1 inline -translate-y-px" />{hint ? `Hint ${hint.level}/3` : 'Hint'}
             </button>
           )}
           {state === 'solving' && (

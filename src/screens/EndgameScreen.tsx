@@ -14,6 +14,7 @@ import { getEngine } from '../lib/engine';
 import { useSettings } from '../lib/settings';
 import { progress } from '../lib/progress';
 import { playSound } from '../lib/sound';
+import { Lightbulb, Target } from 'lucide-react';
 
 type Status = 'playing' | 'thinking' | 'won' | 'lost';
 
@@ -82,23 +83,23 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
   const afterUserMove = async (before: string, after: string, promoted: boolean, movesUsed: number) => {
     const my = ++run.current;
     const c = new Chess(after);
-    if (c.isCheckmate()) return finish(true, `Checkmate in ${movesUsed} moves! ${movesUsed <= drill.maxMoves ? 'Goal reached. 🎉' : ''}`);
+    if (c.isCheckmate()) return finish(true, `Checkmate in ${movesUsed} moves! ${movesUsed <= drill.maxMoves ? 'Goal reached.' : ''}`);
     const hold = drill.goal === 'hold';
     if (c.isStalemate() || c.isInsufficientMaterial() || c.isThreefoldRepetition())
       return hold
-        ? finish(true, 'Draw! You held the position. 🎉')
+        ? finish(true, 'Draw! You held the position.')
         : c.isStalemate()
           ? finish(false, 'Stalemate! The king had no legal move but was not in check — that\'s a draw. Always leave the king a square until you can give mate.')
           : finish(false, 'There isn\'t enough material left to checkmate — it\'s a draw.');
     // Won the pawn: the opponent has nothing but the king (a promoted pawn doesn't count as won).
     if (drill.goal === 'capture' && !parseFen(after).board.some((p) => p && p.color !== me && p.type !== 'k'))
-      return finish(true, `You won the pawn in ${movesUsed} moves! The rest is an easy queen mate. 🎉`);
+      return finish(true, `You won the pawn in ${movesUsed} moves! The rest is an easy queen mate.`);
     if (drill.goal === 'promote' && promoted) {
       setStatus('thinking');
       const a = await evaluate(after).catch(() => null);
       if (my !== run.current) return;
       const s = a?.lines[0] ? povScore(a.lines[0].score, me) : null;
-      if (!s || scoreToCp(s) > 300) return finish(true, `You promoted the pawn in ${movesUsed} moves! 🎉`);
+      if (!s || scoreToCp(s) > 300) return finish(true, `You promoted the pawn in ${movesUsed} moves!`);
       return finish(false, 'You promoted, but the new queen can be captured right away. Promote only when the square is safe!');
     }
     if (movesUsed >= drill.maxMoves && !hold) return finish(false, `That's ${drill.maxMoves} moves — the goal was ${drill.goalText.toLowerCase()}. Try again!`);
@@ -111,7 +112,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
       if (hold && sc) {
         const mine = scoreToCp(povScore(sc, me));
         if (mine < -350) return finish(false, 'That move loses — now the attacker can force a win. Take it back and try to keep your king (or rook) in the defensive spot.');
-        if (movesUsed >= drill.maxMoves) return finish(true, `You held the draw for ${drill.maxMoves} moves! 🎉`);
+        if (movesUsed >= drill.maxMoves) return finish(true, `You held the draw for ${drill.maxMoves} moves!`);
       }
       setTip(coachTip(before, after, sc));
       const reply = a.lines[0]?.pv[0] ?? a.bestMove;
@@ -123,7 +124,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
       setLast({ from: reply.slice(0, 2), to: reply.slice(2, 4) });
       const c2 = new Chess(rr.fen);
       if (c2.isCheckmate()) return finish(false, 'Checkmate — your opponent got through. Take back a move and try again!');
-      if (c2.isInsufficientMaterial() || c2.isStalemate()) return hold ? finish(true, 'Draw! You held the position. 🎉') : finish(false, 'Your opponent captured your last piece that could win — it\'s a draw.');
+      if (c2.isInsufficientMaterial() || c2.isStalemate()) return hold ? finish(true, 'Draw! You held the position.') : finish(false, 'Your opponent captured your last piece that could win — it\'s a draw.');
       if (drill.goal === 'promote' && !parseFen(rr.fen).board.some((p) => p?.type === 'p' && p.color === me))
         return finish(false, 'Your pawn was captured. Try again — keep it protected by your king!');
       setStatus('playing');
@@ -202,7 +203,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
       <Header title={drill.title} back />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4">
         <div className="flex items-center justify-between px-3 text-sm">
-          <span className="font-semibold">🎯 {drill.goalText}</span>
+          <span className="font-semibold"><Target size={15} className="mr-1 inline -translate-y-px text-brand-600" />{drill.goalText}</span>
           <span className={myMoves >= drill.maxMoves - 3 ? 'font-bold text-red-600' : 'text-stone-500'}>
             Move {Math.min(myMoves + (movable ? 1 : 0), drill.maxMoves)}/{drill.maxMoves}
           </span>
@@ -235,7 +236,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
           )}
           {(status === 'playing' || status === 'thinking') && (
             <div className="flex flex-wrap gap-2">
-              <button className="btn-secondary" disabled={status !== 'playing' || hint?.level === 3} onClick={askHint}>💡 Hint</button>
+              <button className="btn-secondary" disabled={status !== 'playing' || hint?.level === 3} onClick={askHint}><Lightbulb size={16} className="mr-1 inline" />Hint</button>
               <button className="btn-secondary" disabled={history.length < 2} onClick={takeback}>↶ Take back</button>
               <button className="btn-ghost" onClick={() => restart(false)}>Restart</button>
             </div>

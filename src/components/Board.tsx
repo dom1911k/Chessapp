@@ -5,6 +5,7 @@ import { isPromotion, tryMove, type MoveInput } from '../lib/chess/game';
 import { BOARD_THEMES, useSettings } from '../lib/settings';
 import { playSound } from '../lib/sound';
 import type { CoachArrow, CoachHighlight, Tone } from '../lib/coach/types';
+import { Check, X } from 'lucide-react';
 
 export const TONE_COLOR: Record<Tone, string> = {
   good: 'rgba(34, 160, 90, 0.85)',
@@ -224,8 +225,8 @@ export function Board({ fen: realFen, orientation, movable, onMove: realOnMove, 
         <div className="absolute inset-x-0 bottom-2 z-10 flex justify-center">
           <div className="flex items-center gap-2 rounded-2xl bg-white/95 p-1.5 pl-4 shadow-xl ring-1 ring-stone-200 dark:bg-stone-800/95 dark:ring-stone-700">
             <span className="font-semibold">Play {pending.san}?</span>
-            <button className="btn-primary !px-4 !py-2" onClick={() => { const m = pending.move; setPending(null); realOnMove?.(m); }}>✓</button>
-            <button className="btn-secondary !px-4 !py-2" onClick={() => setPending(null)}>✕</button>
+            <button className="btn-primary !px-4 !py-2" onClick={() => { const m = pending.move; setPending(null); realOnMove?.(m); }} aria-label="Confirm move"><Check size={20} /></button>
+            <button className="btn-secondary !px-4 !py-2" onClick={() => setPending(null)} aria-label="Cancel move"><X size={20} /></button>
           </div>
         </div>
       )}

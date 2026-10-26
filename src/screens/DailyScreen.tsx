@@ -57,7 +57,7 @@ export function DailyScreen() {
       <Header title="Daily training" right={<SettingsButton />} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
         <WeeklyGoalCard />
-        {info?.doneToday && <div className="px-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">✓ Today's session is done — anything more is a bonus.</div>}
+        {info?.doneToday && <div className="px-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">Today's session is done — anything more is a bonus.</div>}
         <CoachBubble
           actions={
             <button className="btn-primary !px-6 !py-3 text-base" onClick={start} disabled={d.building}>
@@ -118,7 +118,7 @@ function Session({ onExit }: { onExit: () => void }) {
         {finished ? (
           <div className="p-4">
             <CoachBubble actions={<button className="btn-primary" onClick={onExit}>Done</button>}>
-              <p className="font-semibold">Great work today! 🎉</p>
+              <p className="font-semibold">Great work today!</p>
               <p>You solved {solved} of {d.items.length}. The ones you missed will come back tomorrow.</p>
             </CoachBubble>
           </div>
