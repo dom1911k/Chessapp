@@ -2,6 +2,7 @@ import type { Classification, Score } from '../chess/evaluation';
 import type { GameResult } from '../chess/game';
 import type { Color } from '../chess/pos';
 import type { CoachComment, Theme } from '../coach/types';
+import type { Special, TacticCounts } from '../rewards/career';
 
 export interface PlyRecord {
   uci: string;
@@ -17,6 +18,10 @@ export interface PlyRecord {
   /** Win% lost by this move (mover POV). */
   wpLoss?: number;
   comment?: CoachComment;
+  /** A brilliant or great move by you. */
+  special?: Special;
+  /** Tactics in this (sound) move of yours. */
+  tactics?: TacticCounts;
 }
 
 /** One message from Coach Sam in the game's conversation. */
@@ -25,6 +30,8 @@ export interface FeedItem {
   kind: 'comment' | 'hint' | 'threat' | 'note' | 'info' | 'result' | 'opening' | 'takeback' | 'explain';
   text: string[];
   classification?: Classification;
+  /** Brilliant / great move badge. */
+  special?: Special;
   mood?: 'happy' | 'concerned' | 'thinking';
   /** Ply this message is about (for the "seems wrong" link and jumping in review). */
   ply: number;
@@ -45,6 +52,10 @@ export interface SavedGame {
   told: string[];
   /** Coach conversation so far. */
   feed?: FeedItem[];
+  /** Tactics you played this game. */
+  tactics?: TacticCounts;
+  /** Your lowest winning chance during the game (for comebacks). */
+  minWp?: number;
 }
 
 export interface GameSummary {

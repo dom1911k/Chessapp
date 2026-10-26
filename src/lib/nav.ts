@@ -17,6 +17,9 @@ export type Screen =
   | { name: 'openingPractice'; index: number }
   | { name: 'lesson'; lessonId: string }
   | { name: 'practice'; theme: Theme }
+  | { name: 'journey' }
+  | { name: 'skills' }
+  | { name: 'collection' }
   | { name: 'settings' }
   | { name: 'history' };
 

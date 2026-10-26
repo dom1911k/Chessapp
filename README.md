@@ -14,7 +14,8 @@ built into the app.
 | **Learn** | A course of 11 chapters (lesson → practice puzzles → drill or game), 9 interactive lessons, 10 checkmate patterns, endgame drills (basic mates, king-and-pawn, Lucena, Philidor, queen vs pawn) and an opening explorer where you can practise each opening's moves. |
 | **Puzzles** | ~20,000 Lichess puzzles (rated 600–1800), your own puzzle rating, 15 themed sets, and Puzzle Rush (3 minutes, 3 mistakes). |
 | **Daily** | A 10–15 minute session: reviews of positions you got wrong on a 1 → 3 → 7 → 14 → 30 day schedule, plus new puzzles on your weakest themes. Optional reminder. |
-| **Progress** | XP and levels, 35 achievements, a weekly goal (rest days never reset anything), weekly summary, rating chart, blunders per game, theme strengths and recurring mistake patterns. |
+| **Rewards** | A journey map from the park to the championship (your game rating, with 16 milestones), a skill tree (bronze → silver → gold), a collection of 40+ unlockable boards, piece sets, celebrations, move colours and sounds, 5 stars per opponent plus a special challenge each, and a results screen after every game. Brilliant (!!) and great (!) moves get their own animation. |
+| **Progress** | XP and levels, 58 achievements (incl. tactics you play in real games), career statistics, a weekly goal (rest days never reset anything), weekly summary, rating chart, blunders per game, theme strengths and recurring mistake patterns. |
 | **Backup** | Export everything to one file and import it on a new phone (Settings → Backup). |
 | **Updates** | The app finds new versions on GitHub and installs them for you. |
 | **Tablets** | On tablets the app can rotate; sideways, the board sits on the left and the coach on the right. |

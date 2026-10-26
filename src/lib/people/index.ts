@@ -15,6 +15,8 @@ export type ChatEvent =
   | 'userCapture'
   /** Your move attacks one of their pieces ({piece}). */
   | 'userThreat'
+  /** You found a brilliant or great move. */
+  | 'userBrilliant'
   | 'userGoodMove'
   | 'userBlunder'
   | 'botCapture'
@@ -65,6 +67,7 @@ export const OPPONENTS: Opponent[] = [
       userCheck: ["Eek! My king!", "Hey! Leave my king alone!"],
       userCapture: ["Nooo, my {piece}! 😢", "Hey! That was my favourite {piece}!"],
       userThreat: ["Wait, are you attacking my {piece}?", "Uh oh… my {piece} is scared."],
+      userBrilliant: ["WOW! How did you even see that?! 🤩", "That was like magic! ✨"],
       userGoodMove: ['Whoa! How did you see that?', 'Hey, that was sneaky!'],
       userBlunder: ['Wait… can I take that? Really?? Yay!', 'Ooh, free piece! Thank youuu 😄'],
       botCapture: ['Gotcha!', 'Mine now! 😁', 'Chomp!'],
@@ -94,6 +97,7 @@ export const OPPONENTS: Opponent[] = [
       userCheck: ["Oh! Check, is it? Let me see…", "My, my — check. You're keeping me on my toes."],
       userCapture: ["Ah, there goes my {piece}. Well taken.", "Oh dear, my {piece}! I didn't see that one."],
       userThreat: ["Hmm, you're after my {piece}, aren't you?", "My {piece} is in trouble. Let me think…"],
+      userBrilliant: ["Now THAT is a move. Forty years at the park and I've rarely seen better.", "Bravo! That one deserves a round of applause."],
       userGoodMove: ['Oh, very nice! My grandson does that too.', 'Well, look at you! I didn\'t see that one coming.'],
       userBlunder: ['Hmm, you sure about that one? Well… I\'ll take it, thank you.', 'Oh dear. I left a piece like that once — lost the whole game.'],
       botCapture: ["Don't mind if I do.", "I'll just pop that in my pocket."],
@@ -123,6 +127,7 @@ export const OPPONENTS: Opponent[] = [
       userCheck: ["Check?! Rude.", "Okay okay, check. I see you."],
       userCapture: ["My {piece}! Noooo.", "Wow, okay, bye {piece} 👋"],
       userThreat: ["Wait, my {piece}… hold on.", "You're coming for my {piece}? Bold."],
+      userBrilliant: ["Okay what. That was genius.", "I'm screenshotting that. Unreal. 😳"],
       userGoodMove: ['Okay wait, that was actually smart.', 'Rude. But clever.'],
       userBlunder: ['Free piece?? Don\'t mind if I do 🍕', 'Ha! Thanks, I\'ll take that!'],
       botCapture: ['Snack time.', 'Yoink!'],
@@ -152,6 +157,7 @@ export const OPPONENTS: Opponent[] = [
       userCheck: ["Check? Pfff. I meant to let that happen.", "Okay, check. No big deal. Totally fine."],
       userCapture: ["Hey! My {piece}! That was… part of the plan.", "My {piece}?! Lucky shot."],
       userThreat: ["You think you can scare my {piece}? …Okay, maybe a little.", "Attacking my {piece}? Cute."],
+      userBrilliant: ["Wait… that was actually brilliant. Don't tell anyone I said that.", "Hey! That's MY kind of move!"],
       userGoodMove: ['Hey, not bad! I was just about to do that.', 'Okay, okay, I see you.'],
       userBlunder: ['Ha! Saw that coming from a mile away.', 'Thank you very much!'],
       botCapture: ['Boom!', "That's mine now."],
@@ -181,6 +187,7 @@ export const OPPONENTS: Opponent[] = [
       userCheck: ["Check — good move. Let me count my options…", "Hmm, check. I didn't expect that."],
       userCapture: ["Oh — I miscounted. There goes my {piece}.", "Nice, you won my {piece}. I should've checked twice."],
       userThreat: ["My {piece} is attacked… let me think.", "Hmm, you're after my {piece}. Clever."],
+      userBrilliant: ["Oh, that's beautiful. I'm saving that position.", "I didn't even consider that move. Wonderful."],
       userGoodMove: ['Ooh, nice! That was the move I was scared of.', 'Clever! I like that.'],
       userBlunder: ['Hmm, I think that piece isn\'t protected… I counted twice!', "Oh! That one's free, I think. Sorry!"],
       botCapture: ['I counted — that one was safe to take.', 'Thank you!'],
@@ -210,6 +217,7 @@ export const OPPONENTS: Opponent[] = [
       userCheck: ["Whoa, check?! Okay chat, we're fine. We're FINE.", "Check on ME? Bold move."],
       userCapture: ["Chat, they took my {piece}. Not cool.", "My {piece}! Okay, that hurt."],
       userThreat: ["They're going after my {piece}, chat!", "Hmm, my {piece} is in danger. Spicy."],
+      userBrilliant: ["CHAT. Did you see that?! Brilliant!", "Okay that's going in the highlight reel. 🔥"],
       userGoodMove: ["Ooh, that's a good one, I'll admit it.", 'Okay chat, they found it.'],
       userBlunder: ['No way! Did that just happen?', 'Clip it! Free piece!'],
       botCapture: ['Taking that!', 'Easy.'],
@@ -239,6 +247,7 @@ export const OPPONENTS: Opponent[] = [
       userCheck: ["Hm. Check.", "Noted."],
       userCapture: ["My {piece}. Hm.", "Careless of me."],
       userThreat: ["I see it.", "Hm."],
+      userBrilliant: ["…Impressive.", "Hm. Very good."],
       userGoodMove: ['Good move.', 'Hm. Nice.'],
       userBlunder: ['Thanks.', 'That was a mistake.'],
       botCapture: ['…', 'Taken.'],
@@ -268,6 +277,7 @@ export const OPPONENTS: Opponent[] = [
       userCheck: ["Check. Hm. Not bad.", "A check. I will deal with it."],
       userCapture: ["My {piece}. A fair capture.", "Hm. I left my {piece} unguarded. Unacceptable."],
       userThreat: ["You attack my {piece}. I see it.", "My {piece} is under fire. Correct play from you."],
+      userBrilliant: ["Excellent. My students would study that move.", "That… was a master's move."],
       userGoodMove: ['Correct.', 'Good. My students rarely find that.'],
       userBlunder: ['In my club, that move would cost you a week of homework.', 'Careless. I will take it.'],
       botCapture: ['As expected.', 'A pawn is a pawn.'],
@@ -297,6 +307,7 @@ export const OPPONENTS: Opponent[] = [
       userCheck: ["A good check.", "Check. Well played."],
       userCapture: ["You won my {piece}. Well seen.", "My {piece}… nicely done."],
       userThreat: ["You are pressing my {piece}. Good.", "I see the threat to my {piece}."],
+      userBrilliant: ["Beautiful. That is chess at its best.", "A wonderful idea. Truly."],
       userGoodMove: ['Beautiful. You found the best move.', 'Very well seen.'],
       userBlunder: ['Breathe. Look at the whole board before you move.', 'A small slip — it happens to everyone.'],
       botCapture: ['Thank you.', "I'll take this one."],

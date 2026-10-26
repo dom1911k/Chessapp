@@ -6,7 +6,7 @@
 // Chimes (success, check) use a soft marimba voice — also wood.
 import { useSettings } from './settings';
 
-export type SoundName = 'move' | 'capture' | 'check' | 'castle' | 'success' | 'error' | 'notify' | 'win';
+export type SoundName = 'move' | 'capture' | 'check' | 'castle' | 'success' | 'error' | 'notify' | 'win' | 'brilliant' | 'reward';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -112,6 +112,20 @@ export const SOUND_PACKS: Record<string, SoundPack> = {
     contact: { amp: 0.22, freq: 4000 },
     warmth: 7000,
   },
+  bamboo: {
+    label: 'Bamboo',
+    description: 'Hollow, woody knocks — like bamboo pieces on a mat.',
+    modes: [[210, 0.4, 0.03], [620, 0.36, 0.028], [1480, 0.12, 0.012]],
+    contact: { amp: 0.1, freq: 1800 },
+    warmth: 3000,
+  },
+  crystal: {
+    label: 'Crystal',
+    description: 'Glass pieces with a soft, sparkling ring.',
+    modes: [[880, 0.2, 0.05], [1760, 0.22, 0.07], [2640, 0.12, 0.06], [3960, 0.06, 0.04]],
+    contact: { amp: 0.12, freq: 5000 },
+    warmth: 9000,
+  },
   minimal: {
     label: 'Minimal',
     description: 'A tiny, soft tick — barely there.',
@@ -175,6 +189,15 @@ export function renderSound(c: BaseAudioContext, out: AudioNode, name: SoundName
       break;
     case 'notify':
       marimba(c, out, t, 440, 0.2, 0.4);
+      break;
+    case 'brilliant':
+      // A bright, rising arpeggio with a soft shimmer on top.
+      [523.3, 659.3, 784, 1046.5].forEach((f, i) => marimba(c, out, t + i * 0.07, f, 0.2, i === 3 ? 0.8 : 0.35));
+      marimba(c, out, t + 0.3, 2093, 0.05, 0.9);
+      break;
+    case 'reward':
+      marimba(c, out, t, 784, 0.18, 0.3);
+      marimba(c, out, t + 0.08, 1174.7, 0.16, 0.5);
       break;
     case 'win':
       marimba(c, out, t, 523.3, 0.2);

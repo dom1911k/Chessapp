@@ -10,6 +10,7 @@ import { bestStreak, currentStreak } from '../lib/stats';
 import { SettingsButton } from './PlayScreen';
 import { AchievementsPreview, LevelCard, WeeklyGoalCard } from '../components/Gamification';
 import { weeklySummary, type WeekStats } from '../lib/weekly';
+import { CareerCard, RewardsCards } from '../components/RewardsCards';
 
 interface Data {
   rating: number;
@@ -74,8 +75,10 @@ export function ProgressScreen() {
       <Header title="Progress" right={<SettingsButton />} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
         <LevelCard />
+        <RewardsCards />
         <WeeklyGoalCard editable />
         <AchievementsPreview />
+        <CareerCard />
         <div className="grid grid-cols-3 gap-2.5">
           <Stat label="Puzzle rating" value={d.rating} />
           <Stat label="Days in a row" value={d.streak} sub={`longest ${d.best}`} />

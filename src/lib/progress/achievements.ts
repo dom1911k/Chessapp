@@ -5,7 +5,9 @@ import { DRILLS } from '../endgames';
 import { LESSONS } from '../lessons/data';
 import { MATE_PATTERNS } from '../lessons/mates';
 import { OPPONENTS } from '../people';
-import { getOpponentRecords } from '../people/record';
+import { getOpponentRecords, MAX_STARS, starsOf } from '../people/record';
+import { add, BEST_GAME, getCareer, maxOf, type TacticCounts } from '../rewards/career';
+import { skillStates } from '../rewards/skills';
 import { awardXp, getXp, levelFor, XP } from './xp';
 import { weeksMet } from './weekly';
 
@@ -16,7 +18,16 @@ export interface Stats {
   cleanWins: number;
   bestAccuracy: number;
   beaten: Set<string>;
-  threeStars: number;
+  fiveStars: number;
+  /** Tactics played in all your games (plus the current game while it's running). */
+  career: TacticCounts;
+  /** Most of each tactic in a single game. */
+  bestGame: TacticCounts;
+  comebacks: number;
+  spotlessWins: number;
+  challengesDone: number;
+  goldSkills: number;
+  collected: number;
   puzzlesSolved: number;
   reviewsPassed: number;
   rushBest: number;
@@ -57,7 +68,31 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: `Win a game against ${o.name} (~${o.elo}).`,
     check: (s: Stats) => s.beaten.has(o.id),
   })),
-  { id: 'stars-3', icon: 'star', title: 'Star collector', description: 'Earn 3 stars against 3 opponents.', ...count(3, (s) => s.threeStars) },
+  { id: 'stars-3', icon: 'star', title: 'Five-star friend', description: 'Collect all 5 stars with one opponent.', ...count(1, (s) => s.fiveStars) },
+  { id: 'challenge-1', icon: 'flag', title: 'Challenge accepted', description: "Complete an opponent's special challenge.", ...count(1, (s) => s.challengesDone) },
+  { id: 'challenge-5', icon: 'trophy', title: 'Challenge champion', description: 'Complete 5 special challenges.', ...count(5, (s) => s.challengesDone) },
+  // Tactics played in real games
+  { id: 'tac-fork-1', icon: 'fork', title: 'First fork', description: 'Play a fork in a game.', ...count(1, (s) => s.career.forks ?? 0) },
+  { id: 'tac-fork-10', icon: 'fork', title: 'Fork collector', description: 'Play 10 forks in your games.', ...count(10, (s) => s.career.forks ?? 0) },
+  { id: 'tac-fork-3game', icon: 'utensils', title: 'Fork festival', description: 'Play 3 forks in one game.', ...count(3, (s) => s.bestGame.forks ?? 0) },
+  { id: 'tac-royal', icon: 'crown', title: 'Royal fork', description: 'Fork the king and the queen at once.', ...count(1, (s) => s.career.royalForks ?? 0) },
+  { id: 'tac-pin-1', icon: 'pin', title: 'Pinned down', description: 'Pin a piece in a game.', ...count(1, (s) => s.career.pins ?? 0) },
+  { id: 'tac-pin-10', icon: 'pin', title: 'Pin master', description: 'Play 10 pins in your games.', ...count(10, (s) => s.career.pins ?? 0) },
+  { id: 'tac-skewer', icon: 'skewer', title: 'Skewered!', description: 'Play a skewer in a game.', ...count(1, (s) => s.career.skewers ?? 0) },
+  { id: 'tac-discovered', icon: 'eye', title: 'Now you see me', description: 'Play a discovered attack in a game.', ...count(1, (s) => s.career.discovered ?? 0) },
+  { id: 'tac-queens-10', icon: 'queen', title: 'Queen hunter', description: "Capture your opponent's queen 10 times.", ...count(10, (s) => s.career.queenCaptures ?? 0) },
+  { id: 'mate-10', icon: 'king', title: 'Mate collector', description: 'Checkmate your opponent 10 times.', ...count(10, (s) => s.career.checkmates ?? 0) },
+  { id: 'mate-backrank', icon: 'castle', title: 'Back-rank hero', description: 'Win with a back-rank mate.', ...count(1, (s) => s.career.backRankMates ?? 0) },
+  { id: 'mate-smothered', icon: 'knight', title: 'Smothered!', description: 'Win with a smothered mate.', ...count(1, (s) => s.career.smotheredMates ?? 0) },
+  { id: 'promo-1', icon: 'crown', title: 'A new queen', description: 'Promote a pawn in a game.', ...count(1, (s) => s.career.promotions ?? 0) },
+  { id: 'brill-1', icon: 'sparkles', title: 'Brilliant!', description: 'Play a brilliant move.', ...count(1, (s) => s.career.brilliant ?? 0) },
+  { id: 'brill-5', icon: 'gem', title: 'Genius at work', description: 'Play 5 brilliant moves.', ...count(5, (s) => s.career.brilliant ?? 0) },
+  { id: 'great-1', icon: 'zap', title: 'Great find', description: 'Find the only good move in a tricky position.', ...count(1, (s) => s.career.great ?? 0) },
+  { id: 'great-10', icon: 'zap', title: 'Sharp eye', description: 'Play 10 great moves.', ...count(10, (s) => s.career.great ?? 0) },
+  { id: 'comeback', icon: 'repeat', title: 'Comeback kid', description: 'Win a game after being clearly worse.', ...count(1, (s) => s.comebacks) },
+  { id: 'spotless', icon: 'shield', title: 'Spotless', description: 'Win without a single mistake or blunder.', ...count(1, (s) => s.spotlessWins) },
+  { id: 'skill-gold', icon: 'medal', title: 'Gold medal', description: 'Bring a skill to gold in the skill tree.', ...count(1, (s) => s.goldSkills) },
+  { id: 'collector-10', icon: 'palette', title: 'Collector', description: 'Unlock 10 items for your collection.', ...count(10, (s) => s.collected) },
   { id: 'puzzles-10', icon: 'sparkles', title: 'Puzzler', description: 'Solve 10 puzzles.', ...count(10, (s) => s.puzzlesSolved) },
   { id: 'puzzles-100', icon: 'brain', title: 'Pattern spotter', description: 'Solve 100 puzzles.', ...count(100, (s) => s.puzzlesSolved) },
   { id: 'puzzles-500', icon: 'gem', title: 'Puzzle master', description: 'Solve 500 puzzles.', ...count(500, (s) => s.puzzlesSolved) },
@@ -83,7 +118,7 @@ const KEY = 'achievements';
 
 export const unlockedAchievements = () => kvGet<Record<string, number>>(KEY, {});
 
-export async function gatherStats(): Promise<Stats> {
+export async function gatherStats(extra: TacticCounts = {}): Promise<Stats> {
   const games = await db.games.toArray();
   const attempts = await db.attempts.toArray();
   const records = await getOpponentRecords();
@@ -98,7 +133,14 @@ export async function gatherStats(): Promise<Stats> {
     cleanWins: games.filter((g) => g.userResult === 'win' && g.hintsUsed + g.takebacks === 0).length,
     bestAccuracy: Math.max(0, ...games.map((g) => g.summary.accuracy)),
     beaten: new Set(Object.entries(records).filter(([, r]) => r.w > 0).map(([id]) => id)),
-    threeStars: Object.values(records).filter((r) => r.stars >= 3).length,
+    fiveStars: Object.values(records).filter((r) => starsOf(r) >= MAX_STARS).length,
+    career: add(await getCareer(), extra),
+    bestGame: maxOf(await kvGet<TacticCounts>(BEST_GAME, {}), extra),
+    comebacks: games.filter((g) => g.userResult === 'win' && (g.minWp ?? 50) <= 20).length,
+    spotlessWins: games.filter((g) => g.userResult === 'win' && g.summary.counts.mistake + g.summary.counts.blunder === 0 && g.plies.filter((p) => p.isUser).length >= 10).length,
+    challengesDone: Object.values(records).filter((r) => r.challengeDone).length,
+    goldSkills: Object.values(await skillStates(extra)).filter((x) => x.tier === 3).length,
+    collected: await collectedCount(),
     puzzlesSolved: attempts.filter((a) => a.success && a.source !== 'review').length,
     reviewsPassed: attempts.filter((a) => a.success && a.source === 'review').length,
     rushBest: await kvGet('rushBest', 0),
@@ -113,8 +155,8 @@ export async function gatherStats(): Promise<Stats> {
 }
 
 /** Unlocks anything newly earned; celebrates and gives a little XP for each. */
-export async function checkAchievements(): Promise<Achievement[]> {
-  const stats = await gatherStats();
+export async function checkAchievements(extra: TacticCounts = {}): Promise<Achievement[]> {
+  const stats = await gatherStats(extra);
   const have = await unlockedAchievements();
   const fresh = ACHIEVEMENTS.filter((a) => !have[a.id] && a.check(stats));
   if (!fresh.length) return [];
@@ -125,4 +167,9 @@ export async function checkAchievements(): Promise<Achievement[]> {
   for (const a of fresh) c.toast({ icon: a.portrait ? 'trophy' : a.icon, title: `Achievement: ${a.title}`, text: a.description });
   await awardXp(XP.achievement * fresh.length, true);
   return fresh;
+}
+
+/** Unlocked (non-free) collection items — computed without importing the catalogue (avoids a cycle). */
+async function collectedCount(): Promise<number> {
+  return (await kvGet<string[]>('cosmeticsSeen', [])).length;
 }

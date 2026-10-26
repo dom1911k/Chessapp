@@ -17,13 +17,15 @@ import { CancelledError, getEngine, type AnalysisResult } from '../engine';
 import { analysisLimits } from '../engine/speed';
 import { useSettings } from '../settings';
 import { playSound } from '../sound';
-import { OPPONENTS, opponentById, pickLine, type ChatEvent, type Mood } from '../people';
+import { opponentById, pickLine, type ChatEvent, type Mood } from '../people';
 import { bookMove, REPERTOIRES } from '../people/openings';
 import { detectOpening } from '../openings';
 import { useCelebrate } from '../celebrate';
-import { finishGame } from './finish';
+import { finishGame, gameTactics, type GameRewards } from './finish';
 import type { FeedItem, SavedGame } from './types';
 import { cap, moveWords } from '../chess/words';
+import { specialMove, tacticsOfMove, TACTIC_KEYS, type Special, type TacticCounts, type TacticKey } from '../rewards/career';
+import { checkAchievements } from '../progress/achievements';
 
 export type Phase = 'loading' | 'setup' | 'userTurn' | 'analyzing' | 'botThinking' | 'paused' | 'over';
 
@@ -43,6 +45,11 @@ interface PlayStore {
   /** The opponent's latest chat line. */
   chat: { text: string; mood: Mood; ply: number } | null;
   over: { result: GameResult; reason: string; gameId: number; stars?: number; firstWin?: boolean; practice?: Theme } | null;
+  /** The results screen after a game (null once closed). */
+  rewards: GameRewards | null;
+  closeRewards(): void;
+  /** A short celebration on the board: brilliant / great move or a tactic like a fork. */
+  flash: { id: number; kind: Special | TacticKey; sq: string } | null;
   /** "Are you sure?" before a risky move. */
   precheck: { move: MoveInput; uci: string; check: PreCheck; revealed: boolean } | null;
   load(): Promise<void>;
@@ -86,6 +93,7 @@ function save(g: SavedGame) {
 }
 
 const CHAT_MOOD: Partial<Record<ChatEvent, Mood>> = {
+  userBrilliant: 'worried',
   greetRematch: 'happy',
   userCheck: 'worried',
   userCapture: 'worried',
@@ -177,10 +185,12 @@ export const usePlay = create<PlayStore>((set, get) => {
     const botWon = result !== '1/2-1/2' && (result === '1-0') !== (g.userColor === 'w');
     say(reason === 'resignation' ? 'userResigned' : result === '1/2-1/2' ? 'draw' : botWon ? 'botWins' : 'botLoses');
     if (!botWon && result !== '1/2-1/2') setTimeout(() => playSound('win'), 350);
+    // The results screen shows the rewards; keep the usual toasts quiet meanwhile.
+    useCelebrate.getState().setMuted(true);
     const info = await finishGame(g, result, reason);
     const rec = await db.games.get(info.gameId);
     const practice = rec?.summary.pattern?.theme ?? rec?.summary.lessonTheme;
-    set({ over: { result, reason, gameId: info.gameId, stars: info.stars, firstWin: info.firstWin, practice } });
+    set({ over: { result, reason, gameId: info.gameId, stars: info.stars, firstWin: info.firstWin, practice }, rewards: info.rewards });
     const userResult = result === '1/2-1/2' ? 'draw' : botWon ? 'loss' : 'win';
     const lines = resultLines(userResult, reason, info.stars, opponentById(g.opponentId)?.name);
     if (practice) lines.push(`${THEMES[practice].label} tripped you up this game. Want to practise it for 2 minutes?`);
@@ -191,11 +201,6 @@ export const usePlay = create<PlayStore>((set, get) => {
       const big = rec.summary.biggestMistakePly !== null ? rec.plies[rec.summary.biggestMistakePly] : null;
       const event = big ? 'summaryMistake' : 'summaryGood';
       sayLater(cap(pickLine(o, event).replace('{move}', big ? moveWords(big.fenBefore, big.uci, 'you', 'ger', false) : '')), big ? 'neutral' : 'happy', 2600);
-    }
-    if (info.firstWin && o) {
-      const next = OPPONENTS[OPPONENTS.findIndex((x) => x.id === o.id) + 1];
-      useCelebrate.getState().confetti();
-      useCelebrate.getState().toast({ icon: 'trophy', title: `You beat ${o.name}!`, text: next ? `${next.name} wants to play you next.` : 'You beat the champion!' });
     }
   };
 
@@ -222,6 +227,11 @@ export const usePlay = create<PlayStore>((set, get) => {
         startFen: g.startFen,
         suppress: g.told,
       });
+      // Tactics you played (sound moves only) and brilliant / great moves.
+      const sound = comment.classification === 'best' || comment.classification === 'good';
+      const tactics: TacticCounts = sound ? tacticsOfMove(ply.fenBefore, ply.uci) : {};
+      const special = specialMove(ply.fenBefore, ply.uci, before, after, comment.classification === 'best', g.plies[i - 1]?.uci) ?? undefined;
+      if (special) tactics[special] = 1;
       const bScore = before.lines[0]?.score;
       const aScore: Score | undefined = after?.lines[0]?.score ?? (gameOver ? terminalScore(ply.fenAfter) : undefined);
       const wpB = bScore ? winPct(povScore(bScore, ply.color)) : 50;
@@ -234,18 +244,31 @@ export const usePlay = create<PlayStore>((set, get) => {
           accuracy: moveAccuracy(wpB, wpA),
           wpLoss: Math.max(0, wpB - wpA),
           comment,
+          special,
+          tactics: Object.keys(tactics).length ? tactics : undefined,
         };
+        gg.minWp = Math.min(gg.minWp ?? 50, wpA);
         gg.told = [...new Set([...gg.told, ...comment.ruleIds.filter((r) => PRINCIPLE_IDS.has(r))])];
       });
-      const notable = comment.classification !== 'best' && comment.classification !== 'good' ? true : !comment.ruleIds.every((r) => r === 'praise-generic');
+      const notable = special || (comment.classification !== 'best' && comment.classification !== 'good' ? true : !comment.ruleIds.every((r) => r === 'praise-generic'));
       if (notable)
         post({
           kind: 'comment',
-          text: comment.text,
+          text: special ? [SPECIAL_TEXT[special], ...comment.text.filter((t) => !/best move|exactly right|Spot on/.test(t))] : comment.text,
+          special,
           classification: comment.classification,
           ply: i,
           mood: comment.classification === 'mistake' || comment.classification === 'blunder' ? 'concerned' : 'happy',
         });
+      const shown = special ?? (TACTIC_KEYS.find((k) => tactics[k] && FLASHY.has(k)) as TacticKey | undefined);
+      if (shown) {
+        set({ flash: { id: Date.now(), kind: shown, sq: ply.uci.slice(2, 4) } });
+        if (special) {
+          playSound('brilliant');
+          say('userBrilliant', 0.8);
+        }
+      }
+      if (Object.keys(tactics).length) void checkAchievements(gameTactics(get().game!));
       announceOpening();
       if (await checkOver(get().game!)) {
         set({ comment: { comment, ply: i } });
@@ -339,6 +362,13 @@ export const usePlay = create<PlayStore>((set, get) => {
     chat: null,
     over: null,
     precheck: null,
+    flash: null,
+    rewards: null,
+
+    closeRewards() {
+      set({ rewards: null });
+      useCelebrate.getState().setMuted(false);
+    },
 
     async load() {
       const saved = await db.current.get('play');
@@ -380,7 +410,8 @@ export const usePlay = create<PlayStore>((set, get) => {
         hintsUsed: 0,
         told: [],
       };
-      set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null });
+      set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null });
+      useCelebrate.getState().setMuted(false);
       save(game);
       const greetFor = game.startedAt;
       void getOpponentRecords().then((recs) => {
@@ -562,7 +593,8 @@ export const usePlay = create<PlayStore>((set, get) => {
     leaveGame() {
       token++;
       getEngine().cancelAll('play');
-      set({ game: null, phase: 'setup', over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null });
+      set({ game: null, phase: 'setup', over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null });
+      useCelebrate.getState().setMuted(false);
     },
   };
 });
@@ -583,9 +615,18 @@ export function resultLines(userResult: 'win' | 'loss' | 'draw', reason: string,
   if (userResult === 'win')
     return [
       `You won against ${who}${reason === 'checkmate' ? ' by checkmate' : ''}! 🎉`,
-      stars === 3 ? 'Three stars — no hints, no take-backs. Superb!' : stars === 2 ? 'Two stars. Win with no help at all for the third!' : 'One star. Fewer hints and take-backs earn more stars.',
+      ...(opponent ? [stars >= 5 ? `That's all 5 stars with ${who}!` : `Star ${stars} of 5 with ${who}. Five stars open ${who}'s special challenge.`] : []),
     ];
   if (userResult === 'draw') return [`A draw (${reason}). That's a solid result!`];
   if (reason === 'resignation') return ['Game over. Every game teaches us something — let\'s look at the report together.'];
   return [`${who} got you this time. Let's learn from it — the report shows the turning point.`];
 }
+
+const SPECIAL_TEXT: Record<Special, string> = {
+  brilliant: 'Brilliant move!! You gave something up on purpose — and it works. That takes real vision.',
+  great: 'Great move! It was the only good move here, and you found it.',
+};
+
+/** Tactics that get a little celebration on the board. */
+const FLASHY = new Set<TacticKey>(['royalForks', 'forks', 'skewers', 'discovered', 'pins', 'smotheredMates', 'backRankMates']);
+

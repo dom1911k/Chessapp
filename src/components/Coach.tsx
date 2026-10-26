@@ -45,6 +45,7 @@ export function CoachBubble({
   children,
   mood = 'happy',
   badge,
+  special,
   actions,
   compact = false,
   label,
@@ -53,6 +54,8 @@ export function CoachBubble({
   children: ReactNode;
   mood?: 'happy' | 'concerned' | 'thinking';
   badge?: Classification;
+  /** Brilliant (!!) / great (!) move. */
+  special?: 'brilliant' | 'great';
   actions?: ReactNode;
   /** Older messages in a conversation: smaller and quieter. */
   compact?: boolean;
@@ -70,10 +73,18 @@ export function CoachBubble({
             {label ?? 'Coach Sam'}
           </div>
         )}
-        {badge && (
+        {special ? (
           <div className="mb-1">
-            <ClassBadge c={badge} />
+            <span className={`chip text-white ${special === 'brilliant' ? 'bg-gradient-to-r from-teal-500 to-cyan-500' : 'bg-gradient-to-r from-blue-600 to-sky-500'}`}>
+              {special === 'brilliant' ? '!! Brilliant' : '! Great move'}
+            </span>
           </div>
+        ) : (
+          badge && (
+            <div className="mb-1">
+              <ClassBadge c={badge} />
+            </div>
+          )
         )}
         <div className="space-y-1">{children}</div>
         {actions && <div className="mt-3 flex flex-wrap gap-2">{actions}</div>}

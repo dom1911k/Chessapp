@@ -7,6 +7,7 @@ import { playSound } from '../lib/sound';
 import type { CoachArrow, CoachHighlight, Tone } from '../lib/coach/types';
 import { Check, X } from 'lucide-react';
 import { shortWords } from '../lib/chess/words';
+import { HIGHLIGHTS, PIECE_SETS } from '../lib/rewards/looks';
 
 export const TONE_COLOR: Record<Tone, string> = {
   good: 'rgba(34, 160, 90, 0.85)',
@@ -33,28 +34,29 @@ interface Props {
   confirm?: boolean;
 }
 
-const WOOD_FILL = { w: '#f3dcb2', b: '#2e1c0e' };
-
-/** Piece set: classic or wooden colours, optionally larger. Cached per combination. */
+/** Piece set (see PIECE_SETS), optionally larger. Cached per combination. */
 const pieceCache = new Map<string, PieceRenderObject>();
-function pieceSet(style: 'classic' | 'wood', large: boolean): PieceRenderObject | undefined {
-  if (style === 'classic' && !large) return undefined;
+function pieceSet(style: string, large: boolean): PieceRenderObject | undefined {
+  const set0 = PIECE_SETS[style] ?? PIECE_SETS.wood;
+  if (!set0.fill && !large) return undefined;
   const key = style + large;
   let set = pieceCache.get(key);
   if (!set) {
     set = Object.fromEntries(
       Object.entries(defaultPieces).map(([k, render]) => [
         k,
-        (props?: { fill?: string; square?: string; svgStyle?: CSSProperties }) =>
-          render({
+        (props?: { fill?: string; square?: string; svgStyle?: CSSProperties }) => {
+          const c = k[0] as 'w' | 'b';
+          return render({
             ...props,
-            fill: style === 'wood' ? WOOD_FILL[k[0] as 'w' | 'b'] : props?.fill,
+            fill: set0.fill?.[c] ?? props?.fill,
             svgStyle: {
               ...props?.svgStyle,
               ...(large ? { transform: 'scale(1.16)', transformOrigin: '50% 60%' } : {}),
-              ...(style === 'wood' ? { filter: 'drop-shadow(0 1.5px 1px rgba(40,20,5,0.35))' } : {}),
+              ...(set0.filter?.[c] ? { filter: set0.filter[c] } : {}),
             },
-          }),
+          });
+        },
       ]),
     );
     pieceCache.set(key, set);
@@ -89,6 +91,7 @@ export function Board({ fen: realFen, orientation, movable, onMove: realOnMove, 
   const large = useSettings((s) => s.largePieces);
   const pieceStyle = useSettings((s) => s.pieceStyle);
   const pieces = pieceSet(pieceStyle, large);
+  const hl = useSettings((s) => (HIGHLIGHTS[s.highlight] ?? HIGHLIGHTS.classic).color);
   useEffect(() => setPending(null), [realFen]);
   // With confirmation on, show the move on the board but only submit it after a tap on ✓.
   const fen = pending ? pending.fen : realFen;
@@ -149,8 +152,8 @@ export function Board({ fen: realFen, orientation, movable, onMove: realOnMove, 
   const add = (sq: string, layer: string) => (layers[sq] ??= []).push(layer);
   const shadows: Record<string, string> = {};
   if (lastMove) {
-    add(lastMove.from, tint('rgba(250, 204, 21, 0.32)'));
-    add(lastMove.to, tint('rgba(250, 204, 21, 0.42)'));
+    add(lastMove.from, tint(`rgba(${hl}, 0.32)`));
+    add(lastMove.to, tint(`rgba(${hl}, 0.42)`));
   }
   for (const h of highlights) {
     add(h.sq, tint(TONE_BG[h.tone]));

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Crosshair, EllipsisVertical, Flag, History, Lightbulb, Lock, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Undo2 } from 'lucide-react';
+import { BookOpen, Bot, Check, Crosshair, EllipsisVertical, Flag, History, Lightbulb, Lock, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
@@ -20,6 +20,12 @@ import { MoveList } from '../components/MoveList';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
 import type { FeedItem } from '../lib/store/types';
 import { shortWords } from '../lib/chess/words';
+import { MAX_STARS, starsOf } from '../lib/people/record';
+import { challengeFor } from '../lib/people/challenges';
+import { cosmeticById, type Cosmetic } from '../lib/rewards/cosmetics';
+import { CosmeticPreview } from '../components/CosmeticPreview';
+import { BoardFlash } from '../components/BoardFlash';
+import { RewardsOverlay } from '../components/RewardsOverlay';
 import { needsHomeScreenHint } from '../lib/pwa';
 import { THEMES } from '../lib/themes';
 
@@ -56,7 +62,7 @@ function SetupView() {
           <div className="grid grid-cols-3 gap-2">
             {OPPONENTS.map((o, i) => {
               const open = isUnlocked(o.id, records);
-              const stars = records[o.id]?.stars ?? 0;
+              const stars = starsOf(records[o.id]);
               return (
                 <button
                   key={o.id}
@@ -72,7 +78,7 @@ function SetupView() {
                   )}
                   <span className="mt-1 text-sm font-semibold leading-tight">{o.name}</span>
                   <span className="text-xs text-stone-500">{open ? o.elo : `Beat ${OPPONENTS[i - 1].name}`}</span>
-                  {open && <Stars n={stars} />}
+                  {open && <Stars n={stars} of={MAX_STARS} size={10} />}
                 </button>
               );
             })}
@@ -91,11 +97,14 @@ function SetupView() {
               {REPERTOIRES[opp.id] && <p className="mt-1 text-xs text-stone-500"><BookOpen size={13} className="inline -mt-0.5" /> Favourite: {REPERTOIRES[opp.id].favourite}</p>}
               {rec && rec.w + rec.l + rec.d > 0 && (
                 <p className="mt-0.5 text-xs text-stone-500">
-                  Your record: {rec.w}W · {rec.d}D · {rec.l}L{rec.stars < 3 && rec.w > 0 ? ' — win with fewer hints for more ★' : ''}
+                  Your record: {rec.w}W · {rec.d}D · {rec.l}L
                 </p>
               )}
             </div>
           </div>
+        ) : null}
+        {opp ? (
+          <ChallengeCard opponentId={opp.id} stars={starsOf(rec)} done={!!rec?.challengeDone} />
         ) : (
           <div className="card">
             <div className="mb-1 flex items-baseline justify-between">
@@ -244,7 +253,8 @@ function GameView() {
           <OpponentBar />
           <div className="flex gap-1.5 px-1.5">
             {settings.showEvalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
-            <div className="flex-1">
+            <div className="relative flex-1">
+              <BoardFlash flash={s.flash} orientation={orientation} />
               <Board
                 fen={fen}
                 orientation={orientation}
@@ -280,6 +290,21 @@ function GameView() {
           )}
         </div>
       </div>
+      {s.rewards && (
+        <RewardsOverlay
+          r={s.rewards}
+          onClose={s.closeRewards}
+          onReport={
+            s.over?.gameId
+              ? () => {
+                  const id = s.over!.gameId;
+                  s.closeRewards();
+                  push({ name: 'report', gameId: id });
+                }
+              : undefined
+          }
+        />
+      )}
       <Dialog open={menu} onClose={() => setMenu(false)} title="Game">
         <div className="space-y-2">
           <button
@@ -376,6 +401,7 @@ function CoachPanel({ safetyMessages }: { safetyMessages: string[] }) {
             {...FEED_LABEL[it.kind]}
             mood={it.mood ?? 'happy'}
             badge={it.classification}
+            special={it.special}
             actions={
               showActions ? (
                 paused ? (
@@ -458,10 +484,10 @@ function TipOfTheDay() {
   );
 }
 
-export function Stars({ n, size = 12 }: { n: number; size?: number }) {
+export function Stars({ n, size = 12, of = 3 }: { n: number; size?: number; of?: number }) {
   return (
     <span className="mt-0.5 flex gap-0.5">
-      {[0, 1, 2].map((i) => (
+      {Array.from({ length: of }, (_, i) => i).map((i) => (
         <Star key={i} size={size} className={i < n ? 'fill-gold-400 text-gold-500' : 'text-stone-300 dark:text-stone-600'} />
       ))}
     </span>
@@ -494,5 +520,45 @@ function HomeScreenHint() {
         offline, and your progress stays safe.
       </p>
     </CoachBubble>
+  );
+}
+
+/** The opponent's special challenge: opens with all 5 stars, rewards something unique. */
+function ChallengeCard({ opponentId, stars, done }: { opponentId: string; stars: number; done: boolean }) {
+  const ch = challengeFor(opponentId);
+  if (!ch) return null;
+  const open = stars >= MAX_STARS;
+  const rewards = ch.rewards.map((id) => cosmeticById(id)).filter((c): c is Cosmetic => !!c);
+  return (
+    <div className={`card relative overflow-hidden !p-3 ${open && !done ? 'ring-2 ring-gold-400' : ''}`}>
+      {open && !done && <span className="pointer-events-none absolute -top-8 -right-8 h-28 w-28 rounded-full bg-gold-300/40 blur-2xl" />}
+      <div className="relative flex items-center gap-3">
+        <div className="flex -space-x-3">
+          {rewards.map((c) => (
+            <div key={c.id} className={open ? '' : 'opacity-60 grayscale-[0.6]'}>
+              <CosmeticPreview c={c} size={44} />
+            </div>
+          ))}
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-gold-500 uppercase">
+            {done ? <Check size={12} strokeWidth={3} /> : open ? <Trophy size={12} /> : <Lock size={12} />} Special challenge
+          </div>
+          <div className="font-semibold leading-tight">{open ? ch.title : `${stars} of ${MAX_STARS} stars`}</div>
+          <div className="text-xs text-stone-500">
+            {done
+              ? `Done! You won: ${rewards.map((c) => c.name).join(' + ')}.`
+              : open
+                ? `${ch.description} Reward: ${rewards.map((c) => c.name).join(' + ')}.`
+                : `Each win earns a star. With all ${MAX_STARS}, a special challenge opens.`}
+          </div>
+        </div>
+      </div>
+      {!open && (
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800">
+          <div className="h-full rounded-full bg-gold-400" style={{ width: `${(stars / MAX_STARS) * 100}%` }} />
+        </div>
+      )}
+    </div>
   );
 }

@@ -3,7 +3,7 @@ import {
   ArrowRightLeft, Award, BookOpen, BrickWall, CalendarCheck, Castle, ChessBishop, ChessKing, ChessKnight, ChessPawn, ChessQueen,
   ChessRook, CloudLightning, Crosshair, Crown, Eye, Flag, Flame, Gem, Gift, GraduationCap, Library, Lock, Map, Medal, Microscope,
   Pin, Repeat, Route, ScrollText, Shield, Shuffle, Sparkles, Sprout, Square, Star, Swords, Target, Timer, TreeDeciduous, Trophy,
-  Utensils, Zap, Brain, type LucideIcon,
+  Utensils, Zap, Brain, Coffee, Palette, Volume2, type LucideIcon,
 } from 'lucide-react';
 
 export const GLYPHS: Record<string, LucideIcon> = {
@@ -14,6 +14,7 @@ export const GLYPHS: Record<string, LucideIcon> = {
   calendar: CalendarCheck, sprout: Sprout, tree: TreeDeciduous, map: Map, medal: Medal, award: Award, star: Star,
   microscope: Microscope, library: Library, sparkles: Sparkles, flame: Flame, lightning: CloudLightning, swords: Swords,
   crosshair: Crosshair,
+  coffee: Coffee, palette: Palette, volume: Volume2, utensils: Utensils,
 };
 
 export type Tint = 'green' | 'gold' | 'rose' | 'blue' | 'violet' | 'stone';

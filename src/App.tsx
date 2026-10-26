@@ -23,6 +23,10 @@ import { RushScreen } from './screens/RushScreen';
 import { AchievementsScreen } from './components/Gamification';
 import { OpeningPracticeScreen } from './screens/OpeningPracticeScreen';
 import { PracticeScreen } from './screens/PracticeScreen';
+import { JourneyScreen } from './screens/JourneyScreen';
+import { SkillTreeScreen } from './screens/SkillTreeScreen';
+import { CollectionScreen } from './screens/CollectionScreen';
+import { PieceDefs } from './components/PieceDefs';
 import { WebUpdateBanner } from './components/UpdatePanel';
 import { LessonScreen } from './screens/LessonScreen';
 import { UpdateDialog } from './components/UpdatePanel';
@@ -82,6 +86,12 @@ function StackScreen({ screen }: { screen: Screen }) {
       return <LessonScreen lessonId={screen.lessonId} />;
     case 'practice':
       return <PracticeScreen theme={screen.theme} />;
+    case 'journey':
+      return <JourneyScreen />;
+    case 'skills':
+      return <SkillTreeScreen />;
+    case 'collection':
+      return <CollectionScreen />;
   }
 }
 
@@ -185,6 +195,7 @@ export function App() {
         </nav>
       )}
       <UpdateDialog update={update} onClose={() => setUpdate(null)} />
+      <PieceDefs />
       <WebUpdateBanner />
       <CelebrationLayer />
       {toast && (
