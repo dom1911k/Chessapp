@@ -41,7 +41,7 @@ function lerp(points: [number, number][], x: number): number {
  * scripts/maia/calibrate.mts so neighbouring opponents are ~200 points apart.
  */
 export function maiaParams(elo: number): { rating: number; temperature: number } {
-  const temperature = lerp([[400, 2.6], [600, 1.9], [800, 1.45], [1000, 1.12], [1100, 1.0], [1200, 1.0], [1400, 0.8], [1600, 0.7], [1800, 0.6], [2000, 0.45]], elo);
+  const temperature = lerp([[400, 2.6], [600, 1.9], [800, 1.45], [1000, 1.12], [1100, 1.0], [1200, 1.0], [1400, 0.8], [1600, 0.7], [1800, 0.6], [2000, 0.5]], elo);
   if (elo < 1100) return { rating: 1100, temperature };
   const rating = MAIA_RATINGS.reduce((a, b) => (Math.abs(b - elo) < Math.abs(a - elo) ? b : a));
   return { rating, temperature };
@@ -67,12 +67,12 @@ export function sampleMove(logits: Map<string, number>, temperature: number, ran
  * this many centipawns compared with the best move may be played.
  */
 export function vetoLimit(elo: number): number | null {
-  return elo < 1500 ? null : lerp([[1500, 500], [1600, 400], [1800, 200], [2000, 80]], elo);
+  return elo < 1500 ? null : lerp([[1500, 500], [1600, 400], [1800, 200], [2000, 120]], elo);
 }
 
 /** How often the veto is used: even "only big blunders" is worth hundreds of rating points. */
 export function vetoChance(elo: number): number {
-  return lerp([[1400, 0], [1600, 0.25], [1800, 0.6], [2000, 1]], elo);
+  return lerp([[1400, 0], [1600, 0.2], [1800, 0.5], [2000, 0.8]], elo);
 }
 
 /**
