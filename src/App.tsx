@@ -23,6 +23,7 @@ import { RushScreen } from './screens/RushScreen';
 import { AchievementsScreen } from './components/Gamification';
 import { OpeningPracticeScreen } from './screens/OpeningPracticeScreen';
 import { PracticeScreen } from './screens/PracticeScreen';
+import { WebUpdateBanner } from './components/UpdatePanel';
 import { LessonScreen } from './screens/LessonScreen';
 import { UpdateDialog } from './components/UpdatePanel';
 import { CelebrationLayer } from './components/Celebrate';
@@ -150,7 +151,7 @@ export function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <main className="relative min-h-0 flex-1">
+      <main className={`relative min-h-0 flex-1 ${top ? 'safe-bottom' : ''}`}>
         {/* Tabs stay mounted underneath pushed screens so their state survives. */}
         <div key={tab} className={top ? 'hidden' : 'animate-fade-in h-full'}>
           <TabScreen tab={tab} />
@@ -184,6 +185,7 @@ export function App() {
         </nav>
       )}
       <UpdateDialog update={update} onClose={() => setUpdate(null)} />
+      <WebUpdateBanner />
       <CelebrationLayer />
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 bottom-20 flex justify-center">

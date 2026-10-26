@@ -46,7 +46,7 @@ export function compareVersions(a: string, b: string): number {
 export const updatesSupported = () => Capacitor.getPlatform() === 'android';
 
 export async function currentVersion(): Promise<string> {
-  if (!Capacitor.isNativePlatform()) return 'web';
+  if (!Capacitor.isNativePlatform()) return import.meta.env.VITE_APP_VERSION ?? 'web';
   return (await App.getInfo()).version;
 }
 

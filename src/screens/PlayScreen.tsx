@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Lock, Sparkles, Star, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ScanSearch, Settings, ShieldCheck, Shuffle, SlidersHorizontal, Undo2 } from 'lucide-react';
+import { BookOpen, Bot, Crosshair, EllipsisVertical, Flag, History, Lightbulb, Lock, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Undo2 } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
@@ -20,6 +20,7 @@ import { MoveList } from '../components/MoveList';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
 import type { FeedItem } from '../lib/store/types';
 import { shortWords } from '../lib/chess/words';
+import { needsHomeScreenHint } from '../lib/pwa';
 import { THEMES } from '../lib/themes';
 
 export function PlayScreen() {
@@ -48,6 +49,7 @@ function SetupView() {
     <div className="flex h-full flex-col">
       <Header title="Play" right={<><LevelBadge /><SettingsButton /></>} />
       <div className="mx-auto w-full max-w-md flex-1 space-y-4 overflow-y-auto p-4">
+        <HomeScreenHint />
         <TipOfTheDay />
         <div>
           <div className="mb-2 px-1 text-sm font-semibold text-stone-500">Choose your opponent</div>
@@ -463,5 +465,34 @@ export function Stars({ n, size = 12 }: { n: number; size?: number }) {
         <Star key={i} size={size} className={i < n ? 'fill-gold-400 text-gold-500' : 'text-stone-300 dark:text-stone-600'} />
       ))}
     </span>
+  );
+}
+
+/** iPhone Safari: how to install the app on the home screen (once dismissed, gone for good). */
+function HomeScreenHint() {
+  const [show, setShow] = useState(() => {
+    try {
+      return needsHomeScreenHint() && localStorage.getItem('homeHintDismissed') !== '1';
+    } catch {
+      return needsHomeScreenHint();
+    }
+  });
+  if (!show) return null;
+  const dismiss = () => {
+    try {
+      localStorage.setItem('homeHintDismissed', '1');
+    } catch {
+      /* ignore */
+    }
+    setShow(false);
+  };
+  return (
+    <CoachBubble label="Coach Sam · tip" icon={<Sparkles size={12} />} actions={<button className="btn-secondary" onClick={dismiss}>Got it</button>}>
+      <p className="font-semibold">Put me on your home screen!</p>
+      <p>
+        Tap the <Share size={15} className="mx-0.5 inline -translate-y-0.5" /> <b>Share</b> button in Safari, then <b>Add to Home Screen</b>. I'll open like a real app, work
+        offline, and your progress stays safe.
+      </p>
+    </CoachBubble>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { isWebApp, usePwa } from '../lib/pwa';
 import { checkForUpdate, currentVersion, installUpdate, skipVersion, updatesSupported, type UpdateInfo } from '../lib/update';
 import { Dialog, Spinner } from './ui';
 
@@ -75,6 +76,7 @@ export function UpdateCard() {
   useEffect(() => {
     void currentVersion().then(setVersion);
   }, []);
+  if (isWebApp) return <WebUpdateCard version={version} />;
   if (!updatesSupported()) return null;
   const check = async () => {
     setState('checking');
@@ -100,6 +102,44 @@ export function UpdateCard() {
       {state === 'none' && <p className="text-sm text-stone-500">You have the newest version.</p>}
       {state === 'error' && <p className="text-sm text-stone-500">Couldn't reach GitHub — are you online?</p>}
       {update && <UpdateBody u={update} onClose={() => setUpdate(null)} />}
+    </div>
+  );
+}
+
+/** Web app: updates download by themselves; this shows the version and lets you check now. */
+function WebUpdateCard({ version }: { version: string }) {
+  const { needRefresh, checking, check, apply } = usePwa();
+  return (
+    <div className="card space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-stone-500">App updates</div>
+          <div className="text-sm">Version {version}</div>
+        </div>
+        {needRefresh ? (
+          <button className="btn-primary" onClick={apply}>Update now</button>
+        ) : (
+          <button className="btn-secondary" onClick={() => void check()} disabled={checking}>
+            {checking ? <Spinner /> : 'Check for updates'}
+          </button>
+        )}
+      </div>
+      <p className="text-sm text-stone-500">New versions download automatically whenever the app is online.</p>
+    </div>
+  );
+}
+
+/** Small banner when a new web version is ready. */
+export function WebUpdateBanner() {
+  const { needRefresh, apply } = usePwa();
+  if (!needRefresh) return null;
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-4">
+      <div className="animate-pop pointer-events-auto flex items-center gap-3 rounded-2xl bg-white px-4 py-2.5 shadow-lg ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
+        <span className="text-sm font-semibold">A new version is ready</span>
+        <button className="btn-primary !min-h-9 !px-3 !py-1.5 text-sm" onClick={apply}>Update</button>
+        <button className="btn-ghost !min-h-9 !px-2 !py-1.5 text-sm" onClick={() => usePwa.setState({ needRefresh: false })}>Later</button>
+      </div>
     </div>
   );
 }

@@ -33,6 +33,26 @@ Before the first release exists, you need to do the one-time setup below (about 
 
 ---
 
+## 🍏 iPhone (web app)
+
+Chess Coach also runs as a web app, so it works on iPhones and iPads too:
+
+1. On the iPhone, open **https://dom1911k.github.io/Chessapp/** in **Safari**.
+2. Tap the **Share** button (square with an arrow), then **Add to Home Screen**, then **Add**.
+3. Open **Chess Coach** from the home screen. It runs full screen and works offline.
+
+Updates arrive by themselves: whenever a new version is released, the app downloads it
+the next time it is opened with internet and offers an **Update** button.
+Differences to the Android app: no daily reminder notifications (iPhones only allow those
+for web apps through an online push service). Always use the home-screen icon rather than a
+Safari tab, so iOS keeps the app's data; Settings → Backup works here too.
+
+**One-time setup (repository owner):** on GitHub open the repository → **Settings** → **Pages** →
+under *Build and deployment*, set **Source** to **GitHub Actions**. After that, every Android
+release also publishes the web app (or run *Actions → Web app → Run workflow* by hand).
+
+---
+
 ## 🛠️ One-time setup
 
 The app is built automatically by GitHub ("GitHub Actions"). Android only installs apps
