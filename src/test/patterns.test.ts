@@ -55,3 +55,15 @@ describe('threats', () => {
     expect(t.text).toMatch(/Ra1#.*checkmate/);
   });
 });
+
+import { explainPosition } from '../lib/coach/position';
+describe('explain position', () => {
+  it('mentions material, king safety and development', () => {
+    // White is a knight up, black king uncastled in the center after move 10.
+    const fen = 'r1bqk2r/pppp1ppp/2n5/2b1p3/2B1P3/2NP1N2/PPP2PPP/R2QK2R w KQkq - 0 10'.replace('2n5', '8');
+    const t = explainPosition(fen, { fen, depth: 10, bestMove: null, lines: [{ multipv: 1, depth: 10, score: { type: 'cp', value: 320 }, pv: ['e1g1'] }] }, 'w').join(' ');
+    expect(t).toMatch(/winning/);
+    expect(t).toMatch(/up a knight/);
+    expect(t).toMatch(/Your king is still in the center/);
+  });
+});

@@ -11,6 +11,7 @@ import { Board } from '../components/Board';
 import { CoachBubble, FlagButton, Portrait } from '../components/Coach';
 import { OPPONENTS, opponentById, type Mood } from '../lib/people';
 import { LevelBadge } from '../components/Gamification';
+import { tipOfTheDay, type Tip } from '../lib/coach/tips';
 import { getOpponentRecords, isUnlocked, type OpponentRecord } from '../lib/people/record';
 import { REPERTOIRES } from '../lib/people/openings';
 import { Dialog, EvalBar, Header, Segmented, Spinner } from '../components/ui';
@@ -43,6 +44,7 @@ function SetupView() {
     <div className="flex h-full flex-col">
       <Header title="Play" right={<><LevelBadge /><SettingsButton /></>} />
       <div className="mx-auto w-full max-w-md flex-1 space-y-4 overflow-y-auto p-4">
+        <TipOfTheDay />
         <div>
           <div className="mb-2 px-1 text-sm font-semibold text-stone-500">Choose your opponent</div>
           <div className="grid grid-cols-3 gap-2">
@@ -273,6 +275,15 @@ function GameView() {
             className="btn-secondary w-full"
             onClick={() => {
               setMenu(false);
+              void s.requestExplain();
+            }}
+          >
+            🧐 Explain this position
+          </button>
+          <button
+            className="btn-secondary w-full"
+            onClick={() => {
+              setMenu(false);
               void s.resign();
             }}
           >
@@ -390,4 +401,16 @@ function CoachPanel({ safetyMessages }: { safetyMessages: string[] }) {
 export function resultFor(result: string, userColor: 'w' | 'b') {
   const userResult = result === '1/2-1/2' ? 'draw' : (result === '1-0') === (userColor === 'w') ? 'win' : 'loss';
   return { userResult };
+}
+
+function TipOfTheDay() {
+  const [tip, setTip] = useState<Tip | null>(null);
+  useEffect(() => void tipOfTheDay().then(setTip), []);
+  if (!tip) return null;
+  return (
+    <CoachBubble compact={false}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-500">{tip.personal ? 'Coach Sam · for you' : 'Coach Sam · tip of the day'}</p>
+      <p>{tip.text}</p>
+    </CoachBubble>
+  );
 }

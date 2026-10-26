@@ -7,6 +7,7 @@ import { other, type Color } from '../chess/pos';
 import { explainMove, explainTakeback, getHint, type CoachComment } from '../coach';
 import type { Hint } from '../coach/hints';
 import { botMoveNote, describeThreat, nullMoveFen, type ThreatInfo } from '../coach/threats';
+import { explainPosition } from '../coach/position';
 import { db } from '../db';
 import { CancelledError, getEngine, type AnalysisResult } from '../engine';
 import { analysisLimits } from '../engine/speed';
@@ -45,6 +46,8 @@ interface PlayStore {
   takeback(): void;
   requestHint(): Promise<void>;
   requestThreat(): Promise<void>;
+  /** Coach Sam describes the current position in the conversation. */
+  requestExplain(): Promise<void>;
   resign(): Promise<void>;
   /** Start over: very short games are discarded, longer ones count as resigned. */
   abandon(): Promise<void>;
@@ -456,6 +459,18 @@ export const usePlay = create<PlayStore>((set, get) => {
         const th = describeThreat(fen, a);
         set({ threat: th, hint: null, message: null });
         post({ kind: 'threat', mood: 'thinking', text: [`🎯 ${th.text}`] });
+      } catch {
+        /* cancelled */
+      }
+    },
+
+    async requestExplain() {
+      const g = get().game;
+      if (!g || !['userTurn', 'paused', 'over'].includes(get().phase)) return;
+      const fen = currentFen(g);
+      try {
+        const a = await analyze(fen, 1);
+        post({ kind: 'info', mood: 'thinking', text: ['🧐 ' + explainPosition(fen, a, g.userColor).join(' ')] });
       } catch {
         /* cancelled */
       }

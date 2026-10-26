@@ -3,6 +3,7 @@ import { Board } from '../components/Board';
 import { CoachBubble } from '../components/Coach';
 import { Header, Spinner } from '../components/ui';
 import { PlayFromHere } from '../components/PlayFromHere';
+import { explainPosition } from '../lib/coach/position';
 import { formatScore } from '../lib/chess/evaluation';
 import { formatLine, lineToSan, tryMove, type MoveInput } from '../lib/chess/game';
 import { explainMove, type CoachComment } from '../lib/coach';
@@ -23,6 +24,7 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
   const [reply, setReply] = useState<{ line: string[]; fen: string; eval: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [showBest, setShowBest] = useState<{ san: string; uci: string } | null>(null);
+  const [explained, setExplained] = useState<string[] | null>(null);
   const run = useRef(0);
   const current = steps.length ? steps[steps.length - 1].fenAfter : fen;
 
@@ -33,6 +35,7 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
     if (!r) return false;
     const step = { uci: r.move.lan, san: r.move.san, fenBefore: current, fenAfter: r.fen };
     setSteps((s) => [...s, step]);
+    setExplained(null);
     setComment(null);
     setReply(null);
     setShowBest(null);
@@ -134,6 +137,11 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
               )}
             </CoachBubble>
           )}
+          {explained && (
+            <CoachBubble mood="thinking">
+              {explained.map((t, i) => <p key={i}>{t}</p>)}
+            </CoachBubble>
+          )}
           {showBest && !comment && (
             <CoachBubble>
               <p>The engine's choice here is {showBest.san}.</p>
@@ -153,6 +161,18 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
             </button>
             <button className="btn-secondary" disabled={busy} onClick={best}>
               Best move?
+            </button>
+            <button
+              className="btn-secondary"
+              disabled={busy}
+              onClick={() =>
+                void getEngine()
+                  .analyze(current, { ...analysisLimits(), owner: 'explore' })
+                  .then((a) => setExplained(explainPosition(current, a, orientation === 'white' ? 'w' : 'b')))
+                  .catch(() => undefined)
+              }
+            >
+              🧐 Explain
             </button>
             <PlayFromHere fen={current} color={orientation === 'white' ? 'w' : 'b'} />
           </div>
