@@ -1,5 +1,5 @@
 import { Chess, type Square } from 'chess.js';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Component, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Chessboard, defaultPieces, type PieceRenderObject } from 'react-chessboard';
 import { isPromotion, tryMove, type MoveInput } from '../lib/chess/game';
 import { BOARD_THEMES, useSettings } from '../lib/settings';
@@ -83,7 +83,36 @@ function useMoveSounds(fen: string, lastMove: { from: string; to: string } | nul
 const PROMO = ['q', 'r', 'b', 'n'] as const;
 const PROMO_GLYPH: Record<string, [string, string]> = { q: ['♕', '♛'], r: ['♖', '♜'], b: ['♗', '♝'], n: ['♘', '♞'] };
 
-export function Board({ fen: realFen, orientation, movable, onMove: realOnMove, arrows = [], highlights = [], lastMove: realLast, showCoordinates = true, confirm = false }: Props) {
+let boardCount = 0;
+
+export function Board(props: Props) {
+  // react-chessboard throws if it can't measure a square (e.g. a board hidden
+  // under another screen); redraw instead of taking the whole app down.
+  const [attempt, setAttempt] = useState(0);
+  return (
+    <BoardErrorBoundary key={attempt} onError={() => setAttempt((a) => a + 1)}>
+      <BoardInner {...props} animate={attempt < 2} />
+    </BoardErrorBoundary>
+  );
+}
+
+class BoardErrorBoundary extends Component<{ children: ReactNode; onError: () => void }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(e: unknown) {
+    console.warn('Board recovered from an error', e);
+    this.props.onError();
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove: realOnMove, arrows = [], highlights = [], lastMove: realLast, showCoordinates = true, confirm = false }: Props & { animate?: boolean }) {
+  // Each board needs its own id: the library looks squares up by id across the whole page.
+  const [boardId] = useState(() => `board${++boardCount}`);
   const [selected, setSelected] = useState<string | null>(null);
   const [promo, setPromo] = useState<{ from: string; to: string } | null>(null);
   const [pending, setPending] = useState<{ move: MoveInput; fen: string; label: string } | null>(null);
@@ -189,7 +218,8 @@ export function Board({ fen: realFen, orientation, movable, onMove: realOnMove, 
           allowDrawingArrows: false,
           arrows: arrows.map((a) => ({ startSquare: a.from, endSquare: a.to, color: TONE_COLOR[a.tone] })),
           squareStyles,
-          animationDurationInMs: 260,
+          id: boardId,
+          animationDurationInMs: animate ? 260 : 0,
           darkSquareStyle: theme.darkBg ? { background: theme.darkBg } : { backgroundColor: theme.dark },
           lightSquareStyle: theme.lightBg ? { background: theme.lightBg } : { backgroundColor: theme.light },
           ...(pieces ? { pieces } : {}),

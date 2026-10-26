@@ -3,6 +3,7 @@ import { useSettings } from '../lib/settings';
 import { useNav } from '../lib/nav';
 import { COSMETICS, isUnlocked, unlockContext } from '../lib/rewards/cosmetics';
 import { BackupCard } from '../components/BackupCard';
+import { ResetCard } from '../components/ResetCard';
 import { UpdateCard } from '../components/UpdatePanel';
 import { FeedbackCard } from '../components/FeedbackCard';
 import { applyReminder, remindersSupported } from '../lib/reminders';
@@ -94,6 +95,7 @@ export function SettingsScreen() {
         <ReminderCard />
         <UpdateCard />
         <BackupCard />
+        <ResetCard />
         <FeedbackCard />
         <p className="px-2 text-xs text-stone-500">
           Chess Coach runs fully offline. Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (GPLv3), running Leela Chess Zero networks. Puzzles: Lichess puzzle database (CC0).

@@ -73,3 +73,13 @@ export async function restoreBackup(b: Backup): Promise<void> {
   });
   await replaceSettings(b.settings ?? {});
 }
+
+/**
+ * Deletes all progress — games, puzzles, ratings, XP, achievements, journey,
+ * collection, course — and starts fresh. Settings (board, sound…) are kept.
+ */
+export async function resetProgress(): Promise<void> {
+  await db.transaction('rw', TABLES.map((t) => db.table(t)), async () => {
+    for (const t of TABLES) await db.table(t).clear();
+  });
+}

@@ -166,7 +166,9 @@ export const usePlay = create<PlayStore>((set, get) => {
     const copy: SavedGame = { ...g, plies: [...g.plies], told: [...g.told] };
     fn(copy);
     set({ game: copy });
-    save(copy);
+    // A finished game is stored in the history; never save it as "in progress" again
+    // (it would be finished — and rewarded — a second time on the next start).
+    if (get().phase !== 'over') save(copy);
   };
 
   const checkOver = async (g: SavedGame): Promise<boolean> => {
@@ -179,7 +181,8 @@ export const usePlay = create<PlayStore>((set, get) => {
 
   const endGame = async (result: GameResult, reason: string) => {
     const g = get().game;
-    if (!g) return;
+    // Only once per game, even if two paths notice the end at the same time.
+    if (!g || get().phase === 'over') return;
     token++;
     getEngine().cancelAll('play');
     set({ phase: 'over', hint: null });
@@ -189,6 +192,12 @@ export const usePlay = create<PlayStore>((set, get) => {
     // The results screen shows the rewards; keep the usual toasts quiet meanwhile.
     useCelebrate.getState().setMuted(true);
     const info = await finishGame(g, result, reason);
+    if (!info) {
+      // Already recorded (e.g. the app was closed right after the game ended).
+      useCelebrate.getState().setMuted(false);
+      get().leaveGame();
+      return;
+    }
     const rec = await db.games.get(info.gameId);
     const practice = rec?.summary.pattern?.theme ?? rec?.summary.lessonTheme;
     set({ over: { result, reason, gameId: info.gameId, stars: info.stars, firstWin: info.firstWin, practice }, rewards: info.rewards });

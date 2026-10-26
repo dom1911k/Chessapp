@@ -55,7 +55,12 @@ export interface GameRewards {
   skillsGained: { id: string; points: number }[];
 }
 
-export async function finishGame(g: SavedGame, result: GameResult, reason: string): Promise<FinishInfo> {
+export async function finishGame(g: SavedGame, result: GameResult, reason: string): Promise<FinishInfo | null> {
+  // Each game is recorded (and rewarded) exactly once.
+  if (await db.games.filter((r) => r.startedAt === g.startedAt).first()) {
+    await db.current.delete('play');
+    return null;
+  }
   const userResult =
     result === '1/2-1/2' ? 'draw' : (result === '1-0') === (g.userColor === 'w') ? 'win' : 'loss';
   const summary = summarize(g.plies);
