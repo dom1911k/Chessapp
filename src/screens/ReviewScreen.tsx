@@ -5,11 +5,11 @@ import { CoachBubble, FlagButton } from '../components/Coach';
 import { MoveList } from '../components/MoveList';
 import { PlayFromHere } from '../components/PlayFromHere';
 import { Header, Spinner } from '../components/ui';
-import { formatScore } from '../lib/chess/evaluation';
 import { db } from '../lib/db';
 import { useNav } from '../lib/nav';
 import type { GameRecord } from '../lib/store/types';
 import { TriangleAlert } from 'lucide-react';
+import { shortWords } from '../lib/chess/words';
 
 export function ReviewScreen({ gameId, ply }: { gameId: number; ply?: number }) {
   const [g, setG] = useState<GameRecord | null>(null);
@@ -69,7 +69,7 @@ export function ReviewScreen({ gameId, ply }: { gameId: number; ply?: number }) 
                   <>
                     {c.bestSan && (
                       <button className="btn-secondary" onClick={() => setShowBetter(!showBetter)}>
-                        {showBetter ? 'Show game move' : `Show better: ${c.bestSan}`}
+                        {showBetter ? 'Show game move' : 'Show the better move'}
                       </button>
                     )}
                     <button className="btn-secondary" onClick={() => push({ name: 'explore', fen: p.fenBefore, orientation, title: 'Explore position' })}>
@@ -79,14 +79,14 @@ export function ReviewScreen({ gameId, ply }: { gameId: number; ply?: number }) 
                 )
               }
             >
-              <p className="font-semibold">You played {p.san}.</p>
+              <p className="font-semibold">You played: {shortWords(p.fenBefore, p.uci)}.</p>
               {c.text.map((t, k) => <p key={k}>{t}</p>)}
               {serious && <FlagButton fen={p.fenBefore} uci={p.uci} comment={c} />}
             </CoachBubble>
           ) : p ? (
             <CoachBubble>
               <p>
-                The bot played {p.san}.{p.evalAfter ? <span className="text-stone-500"> Eval: {formatScore(p.evalAfter)}</span> : null}
+                Your opponent played: {shortWords(p.fenBefore, p.uci)}.
               </p>
             </CoachBubble>
           ) : (

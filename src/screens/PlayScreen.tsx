@@ -19,6 +19,7 @@ import { Dialog, EvalBar, Header, IconButton, Segmented, Spinner } from '../comp
 import { MoveList } from '../components/MoveList';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
 import type { FeedItem } from '../lib/store/types';
+import { shortWords } from '../lib/chess/words';
 
 export function PlayScreen() {
   const phase = usePlay((s) => s.phase);
@@ -383,7 +384,7 @@ function CoachPanel({ safetyMessages }: { safetyMessages: string[] }) {
               ) : undefined
             }
           >
-            {it.kind === 'comment' && p && <p className="text-xs font-semibold text-stone-500">{p.san}</p>}
+            {it.kind === 'comment' && p && <p className="text-xs font-semibold text-stone-500">You: {shortWords(p.fenBefore, p.uci)}</p>}
             {it.text.map((t, i) => (
               <p key={i} className={it.kind === 'opening' && i === 0 ? 'font-display text-[17px] font-semibold' : ''}>{t}</p>
             ))}

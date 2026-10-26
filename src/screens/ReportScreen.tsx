@@ -3,7 +3,6 @@ import { EvalGraph } from '../components/Charts';
 import { ClassBadge, CoachBubble } from '../components/Coach';
 import { Header, Spinner } from '../components/ui';
 import { CLASS_LABEL, type Classification } from '../lib/chess/evaluation';
-import { formatLine } from '../lib/chess/game';
 import { db } from '../lib/db';
 import { THEMES } from '../lib/themes';
 import { useNav } from '../lib/nav';
@@ -12,6 +11,7 @@ import { opponentById } from '../lib/people';
 import { formatDate } from '../lib/store/finish';
 import type { GameRecord } from '../lib/store/types';
 import { Pin } from 'lucide-react';
+import { shortWords } from '../lib/chess/words';
 
 const ORDER: Classification[] = ['best', 'good', 'inaccuracy', 'mistake', 'blunder'];
 
@@ -71,8 +71,8 @@ export function ReportScreen({ gameId }: { gameId: number }) {
               {big.classification && <ClassBadge c={big.classification} />}
             </div>
             <p className="font-semibold">
-              {formatLine(big.fenBefore, [big.san])}
-              {big.comment?.bestSan && <span className="font-normal text-stone-500"> — better was {big.comment.bestSan}</span>}
+              {shortWords(big.fenBefore, big.uci)}
+              {big.comment?.bestUci && <span className="font-normal text-stone-500"> — better: {shortWords(big.fenBefore, big.comment.bestUci).toLowerCase()}</span>}
             </p>
             {big.comment?.text.map((t, i) => (
               <p key={i} className="mt-1 text-[15px]">{t}</p>

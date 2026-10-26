@@ -35,7 +35,7 @@ describe('coach', () => {
   it('missed mate in one', async () => {
     const c = await coach('6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1', 'g1f1');
     expect(c.ruleIds).toContain('missed-mate');
-    expect(c.text.join(' ')).toMatch(/Ra8/);
+    expect(c.text.join(' ')).toMatch(/rook to a8/);
   }, 60000);
 
   it('bad trade: queen takes a defended pawn', async () => {

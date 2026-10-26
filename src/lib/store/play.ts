@@ -19,6 +19,7 @@ import { detectOpening } from '../openings';
 import { useCelebrate } from '../celebrate';
 import { finishGame } from './finish';
 import type { FeedItem, SavedGame } from './types';
+import { cap, moveWords } from '../chess/words';
 
 export type Phase = 'loading' | 'setup' | 'userTurn' | 'analyzing' | 'botThinking' | 'paused' | 'over';
 
@@ -158,7 +159,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     if (o && rec) {
       const big = rec.summary.biggestMistakePly !== null ? rec.plies[rec.summary.biggestMistakePly] : null;
       const event = big ? 'summaryMistake' : 'summaryGood';
-      sayLater(pickLine(o, event).replace('{move}', big?.san ?? ''), big ? 'neutral' : 'happy', 2600);
+      sayLater(cap(pickLine(o, event).replace('{move}', big ? moveWords(big.fenBefore, big.uci, 'you', 'ger', false) : '')), big ? 'neutral' : 'happy', 2600);
     }
     if (info.firstWin && o) {
       const next = OPPONENTS[OPPONENTS.findIndex((x) => x.id === o.id) + 1];

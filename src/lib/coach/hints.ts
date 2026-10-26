@@ -3,6 +3,7 @@ import { Chess } from 'chess.js';
 import { parseUci } from '../chess/game';
 import { hangingPieces, parseFen, PIECE_NAME, sqIndex } from '../chess/pos';
 import { describeLine, moveMotifs } from './tactics';
+import { cap, describeMove } from '../chess/words';
 import type { CoachArrow, CoachHighlight } from './types';
 
 export interface Hint {
@@ -17,18 +18,18 @@ export function getHint(fen: string, line: string[], level: 1 | 2 | 3): Hint | n
   const uci = line[0];
   if (!uci) return null;
   const c = new Chess(fen);
-  let san: string;
+  let said: string;
   let piece: string;
   try {
     const m = c.move(parseUci(uci));
-    san = m.san;
+    said = describeMove(m, 'you');
     piece = PIECE_NAME[m.piece];
   } catch {
     return null;
   }
   const from = uci.slice(0, 2);
   if (level === 3)
-    return { level, text: `The move is ${san}.`, arrows: [{ from, to: uci.slice(2, 4), tone: 'good' }], highlights: [] };
+    return { level, text: `${cap(said)}.`, arrows: [{ from, to: uci.slice(2, 4), tone: 'good' }], highlights: [] };
   if (level === 2)
     return { level, text: `Think about your ${piece} on ${from}.`, arrows: [], highlights: [{ sq: from, tone: 'info' }] };
   return { level, text: ideaHint(fen, uci, line), arrows: [], highlights: [] };

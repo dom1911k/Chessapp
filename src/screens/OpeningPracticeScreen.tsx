@@ -7,6 +7,7 @@ import { Chess } from 'chess.js';
 import { START_FEN, tryMove, type MoveInput } from '../lib/chess/game';
 import { ECO } from '../lib/openings';
 import { playSound } from '../lib/sound';
+import { shortWordsSan } from '../lib/chess/words';
 
 function sanMove(fen: string, san: string) {
   const c = new Chess(fen);
@@ -65,7 +66,7 @@ export function OpeningPracticeScreen({ index }: { index: number }) {
     if (!r || !expected) return false;
     if (r.move.san !== expected.san) {
       setMiss((x) => x + 1);
-      setNote(`That's playable, but in the ${o.name} the usual move here is different.${miss >= 1 ? ` It's ${expected.san} — see the arrow.` : ' Try again!'}`);
+      setNote(`That's playable, but in the ${o.name} the usual move here is different.${miss >= 1 ? ` It's ${shortWordsSan(fen, expected.san).toLowerCase()} — see the arrow.` : ' Try again!'}`);
       playSound('error');
       return false;
     }

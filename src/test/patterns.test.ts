@@ -19,7 +19,7 @@ describe('new patterns', () => {
     const after = line('4k3/1p6/2n5/4r3/8/8/8/2R1R2K b - - 1 1', ['e5e1']);
     const c = explainMove({ fenBefore: fen, uci: 'g1h1', before, after, classification: 'mistake' });
     expect(c.ruleIds).toContain('missed-defender');
-    expect(c.text.join(' ')).toMatch(/knight.*(guarding|protects) the rook/);
+    expect(c.text.join(' ')).toMatch(/knight.*only guard of their rook/);
   });
 
   it('praises trading when ahead', () => {
@@ -52,7 +52,7 @@ describe('threats', () => {
     // White to move; black threatens Ra1#.
     const nf = nullMoveFen('6k1/5ppp/8/8/r7/8/5PPP/6K1 w - - 0 1')!;
     const t = describeThreat('6k1/5ppp/8/8/r7/8/5PPP/6K1 w - - 0 1', { fen: nf, depth: 8, bestMove: 'a4a1', lines: [{ multipv: 1, depth: 8, score: { type: 'mate', value: -1 }, pv: ['a4a1'] }] });
-    expect(t.text).toMatch(/Ra1#.*checkmate/);
+    expect(t.text).toMatch(/rook to a1.*checkmate/);
   });
 });
 
@@ -64,6 +64,6 @@ describe('explain position', () => {
     const t = explainPosition(fen, { fen, depth: 10, bestMove: null, lines: [{ multipv: 1, depth: 10, score: { type: 'cp', value: 320 }, pv: ['e1g1'] }] }, 'w').join(' ');
     expect(t).toMatch(/winning/);
     expect(t).toMatch(/up a knight/);
-    expect(t).toMatch(/Your king is still in the center/);
+    expect(t).toMatch(/Your king is still in the middle/);
   });
 });

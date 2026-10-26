@@ -22,14 +22,14 @@ function materialText(b: Board, me: Color): string {
   const count = (c: Color, t: PieceType) => b.filter((p) => p?.color === c && p.type === t).length;
   const d = (t: PieceType) => count(me, t) - count(other(me), t);
   if (diff === 0) {
-    if (d('r') === 1 && d('n') + d('b') === -1) return "Material is equal in points, but you have a rook against a minor piece and a pawn — that's usually good for you.";
-    return 'Material is even.';
+    if (d('r') === 1 && d('n') + d('b') === -1) return "Points are even, but you have a rook against a smaller piece and a pawn — that's usually good for you.";
+    return "You both have the same amount of pieces.";
   }
   const up = diff > 0;
   const n = Math.abs(diff);
   const what =
-    n >= 9 && Math.abs(d('q')) >= 1 ? 'a queen' : n >= 5 && Math.abs(d('r')) >= 1 ? 'a rook' : n === 2 && Math.abs(d('r')) === 1 ? 'the exchange' : n >= 3 ? (Math.abs(d('n')) >= 1 ? 'a knight' : 'a bishop') : n === 1 ? 'a pawn' : `${n} pawns`;
-  return up ? `You are up ${what} (+${n}).` : `You are down ${what} (−${n}).`;
+    n >= 9 && Math.abs(d('q')) >= 1 ? 'a queen' : n >= 5 && Math.abs(d('r')) >= 1 ? 'a rook' : n === 2 && Math.abs(d('r')) === 1 ? 'a rook for a smaller piece' : n >= 3 ? (Math.abs(d('n')) >= 1 ? 'a knight' : 'a bishop') : n === 1 ? 'a pawn' : `${n} pawns`;
+  return up ? `You are up ${what} (+${n} points).` : `You are down ${what} (−${n} points).`;
 }
 
 function kingText(b: Board, color: Color, fullmove: number): string | null {
@@ -106,31 +106,31 @@ export function explainPosition(fen: string, analysis: AnalysisResult | null, me
 
   const myKing = kingText(board, me, fullmove);
   const theirKing = kingText(board, other(me), fullmove);
-  if (myKing === 'center') out.push('Your king is still in the center — castling would make it safer.');
-  else if (myKing === 'open') out.push('The pawns in front of your king are thin; be careful about attacks there.');
-  if (theirKing === 'center') out.push("Your opponent's king is still in the center. Opening lines toward it could pay off.");
-  else if (theirKing === 'open') out.push("Your opponent's king has few pawns in front of it — a target for your pieces.");
+  if (myKing === 'center') out.push('Your king is still in the middle — castling would make it safer.');
+  else if (myKing === 'open') out.push('Your king doesn\'t have many pawns in front of it. Watch out for attacks there.');
+  if (theirKing === 'center') out.push("Their king is still in the middle. Try to open things up and go after it!");
+  else if (theirKing === 'open') out.push("Their king doesn't have many pawns protecting it — a nice target.");
 
   if (fullmove <= 12) {
     const u = undeveloped(board, me);
     const t = undeveloped(board, other(me));
-    if (u >= 2) out.push(`You still have ${u} knights/bishops at home — bring them out.`);
-    else if (t >= 2 && u <= 1) out.push('You are ahead in development. Use that lead before your opponent catches up!');
+    if (u >= 2) out.push(`You still have ${u} knights and bishops at home — bring them out!`);
+    else if (t >= 2 && u <= 1) out.push('You\'ve brought out more pieces than them. Use that head start!');
   }
 
   const mineHang = hangingPieces(board, me)[0];
   const theirsHang = hangingPieces(board, other(me))[0];
-  if (mineHang) out.push(`Watch your ${PIECE_NAME[board[mineHang.sq]!.type]} on ${sqName(mineHang.sq)} — it can be won.`);
-  if (theirsHang && fen.split(' ')[1] === me) out.push('One of your opponent\'s pieces is loose. Can you win it?');
+  if (mineHang) out.push(`Watch your ${PIECE_NAME[board[mineHang.sq]!.type]} on ${sqName(mineHang.sq)} — they can take it.`);
+  if (theirsHang && fen.split(' ')[1] === me) out.push('One of their pieces isn\'t protected. Can you grab it?');
 
   const mp = pawnIssues(board, me);
   const tp = pawnIssues(board, other(me));
-  if (mp.isolated + mp.doubled >= 2) out.push(`Your pawn structure has weaknesses (${[mp.doubled ? `${mp.doubled} doubled` : '', mp.isolated ? `${mp.isolated} isolated` : ''].filter(Boolean).join(', ')}).`);
-  else if (tp.isolated + tp.doubled >= 2) out.push("Your opponent's pawns have weaknesses you can target later.");
+  if (mp.isolated + mp.doubled >= 2) out.push('Some of your pawns are weak — stacked on the same line or all alone. Keep an eye on them.');
+  else if (tp.isolated + tp.doubled >= 2) out.push("Some of their pawns are weak — you can go after them later.");
 
   if (!new Chess(fen).isGameOver()) {
     const la = leastActive(board, me, fullmove);
-    if (la) out.push(`Your least active piece is the ${la}. Improving it is often a good plan.`);
+    if (la) out.push(`Your ${la} isn't doing much. Find it a better square!`);
   }
   return out.slice(0, 6);
 }

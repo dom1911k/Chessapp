@@ -2,7 +2,7 @@
 // right now (a null move) and describe their best idea.
 import { Chess } from 'chess.js';
 import { povScore } from '../chess/evaluation';
-import { formatLine, lineToSan } from '../chess/game';
+import { lineWords, moveWords } from '../chess/words';
 import { applyUci, attackersOf, hangingPieces, other, parseFen, PIECE_NAME, sqIndex, sqName, type Color } from '../chess/pos';
 import type { AnalysisResult } from '../engine/types';
 import { describeLine, mateThreats, moveMotifs } from './tactics';
@@ -30,7 +30,7 @@ export function describeThreat(fen: string, analysis: AnalysisResult | null): Th
   const pv = analysis?.lines[0]?.pv ?? [];
   const uci = pv[0];
   if (!uci) return { text: "Your opponent has no real threat right now.", arrows: [], highlights: [] };
-  const san = lineToSan(nf, [uci])[0] ?? uci;
+  const want = moveWords(nf, uci, 'they', 'inf', false);
   const arrows: CoachArrow[] = [{ from: uci.slice(0, 2), to: uci.slice(2, 4), tone: 'bad' }];
   const info = describeLine(nf, pv);
   const s = analysis?.lines[0] ? povScore(analysis.lines[0].score, other(me)) : null;
@@ -41,7 +41,7 @@ export function describeThreat(fen: string, analysis: AnalysisResult | null): Th
   if (info.matesIn || (s?.type === 'mate' && s.value > 0 && s.value <= 3)) {
     const n = info.matesIn ?? (s as { value: number }).value;
     return {
-      text: n === 1 ? `Your opponent threatens ${san} — checkmate! You must stop it.` : `Danger: your opponent threatens a checkmate starting with ${san}.`,
+      text: n === 1 ? `They want to ${want} — that would be checkmate! You have to stop it.` : `Danger! They're setting up a checkmate, starting with: they ${want}.`,
       arrows,
       highlights: [],
     };
@@ -51,27 +51,27 @@ export function describeThreat(fen: string, analysis: AnalysisResult | null): Th
     for (const m of moveMotifs(nf, uci)) {
       if (m.kind === 'fork') {
         const [a, b] = m.fork.targets.map((t) => name(t));
-        return { text: `Your opponent threatens ${san}, forking your ${a} and ${b}.`, arrows: [...arrows, ...m.fork.targets.map((t) => ({ from: uci.slice(2, 4), to: sqName(t), tone: 'bad' as const }))], highlights: [] };
+        return { text: `They want to ${want} and attack your ${a} and ${b} at the same time.`, arrows: [...arrows, ...m.fork.targets.map((t) => ({ from: uci.slice(2, 4), to: sqName(t), tone: 'bad' as const }))], highlights: [] };
       }
       if (m.kind === 'freeCapture' || m.kind === 'winningCapture')
         return {
-          text: `Your ${PIECE_NAME[m.piece]} on ${sqName(m.sq)} is in danger — ${san} would win it${m.kind === 'freeCapture' ? ' for free' : ''}.`,
+          text: `Your ${PIECE_NAME[m.piece]} on ${sqName(m.sq)} is in danger — they could win it${m.kind === 'freeCapture' ? ' for free' : ''}.`,
           arrows,
           highlights: [{ sq: sqName(m.sq), tone: 'bad' }],
         };
-      if (m.kind === 'pin') return { text: `Your opponent threatens ${san}, pinning your ${name(m.motif.first)}.`, arrows, highlights: [] };
-      if (m.kind === 'skewer') return { text: `Your opponent threatens ${san}, a skewer against your ${name(m.motif.first)}.`, arrows, highlights: [] };
-      if (m.kind === 'discovered') return { text: `Watch out for ${san}: it uncovers an attack on your ${name(m.d.target)}.`, arrows, highlights: [] };
+      if (m.kind === 'pin') return { text: `They want to ${want} and pin your ${name(m.motif.first)}.`, arrows, highlights: [] };
+      if (m.kind === 'skewer') return { text: `They want to ${want} and attack your ${name(m.motif.first)} with something behind it.`, arrows, highlights: [] };
+      if (m.kind === 'discovered') return { text: `Watch out: they could ${want} and open up a hidden attack on your ${name(m.d.target)}.`, arrows, highlights: [] };
     }
-    const line = formatLine(nf, info.san.slice(0, Math.min(info.plies, 4)));
-    return { text: `Your opponent threatens ${line}, winning material.`, arrows, highlights: [] };
+    const line = lineWords(nf, pv, Math.min(info.plies, 3), 'they');
+    return { text: `They have a plan to win something: ${line}.`, arrows, highlights: [] };
   }
   // Nothing concrete: mention any of our pieces that are simply under attack.
   const attacked = hangingPieces(parseFen(fen).board, me)[0];
   if (attacked)
     return { text: `Your ${name(attacked.sq, before)} on ${sqName(attacked.sq)} is under attack.`, arrows, highlights: [{ sq: sqName(attacked.sq), tone: 'bad' }] };
   return {
-    text: `No direct threat right now — your opponent's best idea is ${san}. You're free to make your own plan!`,
+    text: `No real danger right now. Their best idea is to ${want} — but you're free to make your own plan!`,
     arrows: [{ ...arrows[0], tone: 'info' }],
     highlights: [],
   };

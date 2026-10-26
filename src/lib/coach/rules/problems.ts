@@ -8,7 +8,7 @@ import type { Rule } from './rule';
 
 const victimText = (v: string | null, gain: number) => {
   if (v === 'q') return 'your queen';
-  if (v === 'r' && gain <= 3) return 'the exchange';
+  if (v === 'r' && gain <= 3) return 'your rook for a smaller piece';
   if (v === 'r') return 'a rook';
   if (v === 'b') return 'a bishop';
   if (v === 'n') return 'a knight';
@@ -25,7 +25,7 @@ export const problemRules: Rule[] = [
       const s = c.scoreAfter();
       if (!s || s.type !== 'mate' || s.value >= 0 || -s.value > 5) return null;
       const info = c.refInfo();
-      const opp = c.refSan ?? '';
+      const opp = c.refInf;
       const arrows = c.refLine[0] ? [{ from: c.refLine[0].slice(0, 2), to: c.refLine[0].slice(2, 4), tone: 'bad' as const }] : [];
       if (info?.endsInBackRankMate)
         return {
@@ -72,7 +72,7 @@ export const problemRules: Rule[] = [
       if (!piece || piece.type === 'k' || see(c.boardAfter, c.to, c.opp) <= 0) return null;
       const attackerType = c.boardAfter[sqIndex(reply.slice(0, 2))]?.type;
       const defended = attackersOf(c.boardAfter, c.to, c.mover).length > 0;
-      const vars = { piece: c.name(piece.type), sq: c.move.to, opp: c.oppName, oppMove: c.refSan ?? '', attacker: c.name(attackerType) };
+      const vars = { piece: c.name(piece.type), sq: c.move.to, opp: c.oppName, oppMove: c.refInf, attacker: c.name(attackerType) };
       return {
         text: t(defended ? 'hangsMovedDefended' : 'hangsMovedFree', vars, c.seed),
         arrows: [{ from: reply.slice(0, 2), to: reply.slice(2, 4), tone: 'bad' }],
@@ -91,7 +91,7 @@ export const problemRules: Rule[] = [
       const after = applyReply(c);
       const [a, b] = f.fork.targets.map((s) => c.name(after[s]?.type)).sort(byKingFirst);
       return {
-        text: t('allowsFork', { oppMove: c.refSan ?? '', attacker: c.name(after[f.fork.attacker]?.type), t1: a, t2: b }, c.seed),
+        text: t('allowsFork', { oppMove: c.refInf, attacker: c.name(after[f.fork.attacker]?.type), t1: a, t2: b }, c.seed),
         arrows: [
           { from: reply.slice(0, 2), to: reply.slice(2, 4), tone: 'bad' },
           ...f.fork.targets.map((s) => ({ from: reply.slice(2, 4), to: c.sq(s), tone: 'bad' as const })),
@@ -108,7 +108,7 @@ export const problemRules: Rule[] = [
       if (!m || m.kind !== 'pin' || (c.refInfo()?.materialGain ?? 0) < 2) return null;
       const after = applyReply(c);
       return {
-        text: t('allowsPin', { oppMove: c.refSan ?? '', pinned: c.name(after[m.motif.first]?.type), behind: c.name(after[m.motif.behind]?.type) }, c.seed),
+        text: t('allowsPin', { oppMove: c.refInf, pinned: c.name(after[m.motif.first]?.type), behind: c.name(after[m.motif.behind]?.type) }, c.seed),
         arrows: [{ from: c.sq(m.motif.pinner), to: c.sq(m.motif.behind), tone: 'bad' }],
         highlights: [{ sq: c.sq(m.motif.first), tone: 'bad' }],
       };
@@ -123,7 +123,7 @@ export const problemRules: Rule[] = [
       if (!m || m.kind !== 'skewer' || (c.refInfo()?.materialGain ?? 0) < 2) return null;
       const after = applyReply(c);
       return {
-        text: t('allowsSkewer', { oppMove: c.refSan ?? '', front: c.name(after[m.motif.first]?.type), behind: c.name(after[m.motif.behind]?.type) }, c.seed),
+        text: t('allowsSkewer', { oppMove: c.refInf, front: c.name(after[m.motif.first]?.type), behind: c.name(after[m.motif.behind]?.type) }, c.seed),
         arrows: [{ from: c.sq(m.motif.pinner), to: c.sq(m.motif.behind), tone: 'bad' }],
       };
     },
@@ -137,7 +137,7 @@ export const problemRules: Rule[] = [
       if (!m || m.kind !== 'discovered' || (c.refInfo()?.materialGain ?? 0) < 2) return null;
       const after = applyReply(c);
       return {
-        text: t('allowsDiscovered', { oppMove: c.refSan ?? '', slider: c.name(after[m.d.slider]?.type), target: c.name(after[m.d.target]?.type) }, c.seed),
+        text: t('allowsDiscovered', { oppMove: c.refInf, slider: c.name(after[m.d.slider]?.type), target: c.name(after[m.d.target]?.type) }, c.seed),
         arrows: [{ from: c.sq(m.d.slider), to: c.sq(m.d.target), tone: 'bad' }],
       };
     },
@@ -154,7 +154,7 @@ export const problemRules: Rule[] = [
       const trapped = trappedPieces(r.fen)[0];
       if (!trapped) return null;
       return {
-        text: t('allowsTrap', { piece: c.name(trapped.piece), sq: c.sq(trapped.sq), oppMove: c.refSan ?? '' }, c.seed),
+        text: t('allowsTrap', { piece: c.name(trapped.piece), sq: c.sq(trapped.sq), oppMove: c.refInf }, c.seed),
         arrows: [{ from: reply.slice(0, 2), to: reply.slice(2, 4), tone: 'bad' }],
         highlights: [{ sq: c.sq(trapped.sq), tone: 'bad' }],
       };
@@ -173,7 +173,7 @@ export const problemRules: Rule[] = [
       if (see(c.boardAfter, target, c.opp) <= 0) return null;
       const info = c.refInfo();
       if (info && info.materialGain < 1) return null;
-      const vars = { piece: c.name(piece.type), sq: c.sq(target), moved: c.name(c.move.piece), oppMove: c.refSan ?? '' };
+      const vars = { piece: c.name(piece.type), sq: c.sq(target), moved: c.name(c.move.piece), oppMove: c.refInf };
       const wasHanging = see(c.boardBefore, target, c.opp) > 0;
       const wasDefender = attackersOf(c.boardBefore, target, c.mover).includes(c.from);
       const key = wasHanging ? 'ignoredThreat' : wasDefender ? 'removedDefender' : 'leavesHanging';
@@ -201,7 +201,7 @@ export const problemRules: Rule[] = [
         // Require that the reply line contains a check somewhere.
         if (!(c.refInfo()?.san ?? []).some((s) => s.includes('+'))) return null;
       }
-      return { text: t('weakensKing', { oppMove: c.refSan ?? '' }, c.seed) };
+      return { text: t('weakensKing', { oppMove: c.refInf }, c.seed) };
     },
   },
   {
@@ -218,7 +218,7 @@ export const problemRules: Rule[] = [
           line: c.line(c.fenAfter, c.refLine, Math.min(info.plies, 5)),
           victim: victimText(info.victim, info.materialGain),
           opp: c.oppName,
-          oppMove: c.refSan ?? '',
+          oppMove: c.refInf,
         }, c.seed).replace('you end up your queen down', 'you lose your queen'),
         highlights: hang ? [{ sq: c.sq(hang.sq), tone: 'bad' }] : [],
       };
@@ -231,7 +231,7 @@ export const problemRules: Rule[] = [
     detect(c) {
       if (!c.refLine.length) return null;
       return {
-        text: t('strongReply', { opp: c.oppName, line: c.line(c.fenAfter, c.refLine, 3), oppMove: c.refSan ?? '' }, c.seed),
+        text: t('strongReply', { opp: c.oppName, line: c.line(c.fenAfter, c.refLine, 3), oppMove: c.refInf }, c.seed),
         arrows: [{ from: c.refLine[0].slice(0, 2), to: c.refLine[0].slice(2, 4), tone: 'bad' }],
       };
     },

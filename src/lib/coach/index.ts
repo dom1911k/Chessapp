@@ -11,6 +11,7 @@ import type { Rule } from './rules/rule';
 import { t } from './templates';
 import type { CoachComment, Finding, FindingKind } from './types';
 import { describeLine, moveMotifs } from './tactics';
+import { cap, moveWords } from '../chess/words';
 
 export type { CoachInput } from './context';
 export * from './types';
@@ -67,7 +68,7 @@ export function explainMove(input: CoachInput): CoachComment {
     if (problem[0]?.rule === 'strong-reply' && idea[0] && idea[0].rule !== 'engine-prefers') problem = [];
     // …and once the problem is explained, the engine's preference only needs a short line.
     if (problem.length && idea[0]?.rule === 'engine-prefers' && ctx.bestSan)
-      idea = [{ ...idea[0], text: t('fallbackShort', { move: ctx.bestSan }, ctx.seed) }];
+      idea = [{ ...idea[0], text: t('fallbackShort', { move: ctx.bestGer }, ctx.seed) }];
     findings.push(...problem, ...idea);
     if (findings.length < 3) findings.push(...run(ctx, 'principle'));
   } else if (cls === 'inaccuracy') {
@@ -100,6 +101,7 @@ function dedupe(f: Finding[]): Finding[] {
 export function explainKeyMove(fen: string, uci: string, line: string[]): CoachComment {
   const c = new Chess(fen);
   const san = c.move(parseUci(uci)).san;
+  const said = cap(moveWords(fen, uci, 'you', 'ger', false));
   const info = describeLine(fen, line, 12);
   const motifs = moveMotifs(fen, uci);
   const ctx = new CoachContext({
@@ -116,9 +118,9 @@ export function explainKeyMove(fen: string, uci: string, line: string[]): CoachC
     text.push(
       info.matesIn === 1
         ? info.endsInBackRankMate
-          ? `${san} is a back-rank checkmate — the king is trapped behind its own pawns.`
-          : `${san} is checkmate!`
-        : `${san} starts a forced checkmate in ${info.matesIn}: ${ctx.line(fen, line, info.matesIn * 2 - 1)}.`,
+          ? `${said} is checkmate — their king is stuck behind its own pawns.`
+          : `${said} is checkmate!`
+        : `It's a checkmate in ${info.matesIn}: ${ctx.line(fen, line, info.matesIn * 2 - 1)}.`,
     );
   }
   for (const m of motifs) {
@@ -126,21 +128,21 @@ export function explainKeyMove(fen: string, uci: string, line: string[]): CoachC
     const r = motifIdea(ctx, m);
     if (r) {
       themes.push(r.theme!);
-      text.push(r.text.replace(/^Look for double attacks: /, ''));
+      text.push(cap(r.text.replace(/^Look for double attacks: /, '')));
       arrows.push(...(r.arrows ?? []).slice(1));
     } else if (m.kind === 'freeCapture' && !text.length) {
       themes.push('hangingPiece');
-      text.push(`${san} grabs the undefended ${ctx.name(m.piece)}.`);
+      text.push(`${said} grabs their unprotected ${ctx.name(m.piece)}.`);
     } else if (m.kind === 'winningCapture' && !text.length) {
-      text.push(`${san} wins the ${ctx.name(m.piece)}: it isn't defended well enough.`);
+      text.push(`${said} wins their ${ctx.name(m.piece)} — it isn't protected well enough.`);
     }
   }
   if (!text.length) {
     const gain = info.materialGain;
     text.push(
       gain >= 1
-        ? `${san} is the key move: after ${ctx.line(fen, line, 5)} you come out ahead in material.`
-        : `${san} is the key move. The idea: ${ctx.line(fen, line, 5)}.`,
+        ? `${said} is the key move: ${ctx.line(fen, line, 3)}, and you come out ahead.`
+        : `${said} is the key move. The idea: ${ctx.line(fen, line, 3)}.`,
     );
   }
   return { classification: 'best', text, themes: [...new Set(themes)], ruleIds: [], arrows, highlights: [], bestSan: san, bestUci: uci };

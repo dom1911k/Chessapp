@@ -1,6 +1,7 @@
 import { Chess, type Move } from 'chess.js';
 import { classify, povScore, winPct, type Classification, type Score } from '../chess/evaluation';
-import { formatLine, lineToSan, parseUci, START_FEN } from '../chess/game';
+import { lineToSan, parseUci, START_FEN } from '../chess/game';
+import { lineWords, moveWords } from '../chess/words';
 import { applyUci, other, parseFen, PIECE_NAME, sqIndex, sqName, type Color, type Piece, type PieceType } from '../chess/pos';
 import type { AnalysisResult } from '../engine/types';
 import { describeLine, moveMotifs, type LineInfo, type Motif } from './tactics';
@@ -145,8 +146,20 @@ export class CoachContext {
   san(fen: string, uci: string): string {
     return lineToSan(fen, [uci])[0] ?? uci;
   }
-  line(fen: string, pv: string[], plies = 4): string {
-    return formatLine(fen, lineToSan(fen, pv, plies));
+  /** A line in plain words, told from the mover's (the user's) point of view. */
+  line(fen: string, pv: string[], plies = 3): string {
+    return lineWords(fen, pv, Math.min(plies, 5), fen.split(' ')[1] === this.mover ? 'you' : 'they');
+  }
+  /** The better move in words: "moving your rook to e1" / "move your rook to e1". */
+  get bestGer(): string {
+    return this.bestUci ? moveWords(this.input.fenBefore, this.bestUci, 'you', 'ger') : '';
+  }
+  get bestInf(): string {
+    return this.bestUci ? moveWords(this.input.fenBefore, this.bestUci, 'you', 'inf') : '';
+  }
+  /** The opponent's reply in words, without a subject: "take your queen with their bishop". */
+  get refInf(): string {
+    return this.refLine[0] ? moveWords(this.fenAfter, this.refLine[0], 'they', 'inf') : '';
   }
   get bestSan(): string | undefined {
     return this.bestUci ? this.san(this.input.fenBefore, this.bestUci) : undefined;

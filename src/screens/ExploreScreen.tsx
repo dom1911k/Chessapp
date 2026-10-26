@@ -10,6 +10,7 @@ import { explainMove, type CoachComment } from '../lib/coach';
 import { getEngine, type AnalysisResult } from '../lib/engine';
 import { analysisLimits } from '../lib/engine/speed';
 import { ScanSearch } from 'lucide-react';
+import { shortWords } from '../lib/chess/words';
 
 interface Step {
   uci: string;
@@ -133,7 +134,7 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
               ))}
               {reply && (
                 <p className="pt-1 text-sm text-stone-500">
-                  Engine expects: {formatLine(reply.fen, lineToSan(reply.fen, reply.line, 5))} ({reply.eval})
+                  Their likely answer: {shortWords(reply.fen, reply.line[0]).toLowerCase()}.
                 </p>
               )}
             </CoachBubble>
@@ -145,7 +146,7 @@ export function ExploreScreen({ fen, orientation, title }: { fen: string; orient
           )}
           {showBest && !comment && (
             <CoachBubble>
-              <p>The engine's choice here is {showBest.san}.</p>
+              <p>The best move here: {shortWords(current, showBest.uci).toLowerCase()} (see the arrow).</p>
             </CoachBubble>
           )}
           <div className="flex flex-wrap gap-2">

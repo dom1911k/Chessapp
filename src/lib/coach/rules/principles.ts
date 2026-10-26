@@ -52,7 +52,7 @@ export const principleRules: Rule[] = [
       const f = fileOf(sqIndex(c.move.from));
       if (f >= 2 && f <= 5) return null;
       if (['b3', 'g3', 'b6', 'g6'].includes(c.move.to)) return null; // fianchetto is fine
-      return { text: t('flankPawn', { move: c.move.san }, c.seed) };
+      return { text: t('flankPawn', {}, c.seed) };
     },
   },
   {
