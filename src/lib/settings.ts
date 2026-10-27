@@ -14,6 +14,8 @@ export interface Settings {
   colorPref: 'w' | 'b' | 'random';
   safetyOverlay: boolean;
   showEvalBar: boolean;
+  /** Show the move list under the board while playing. */
+  showMoveList: boolean;
   pauseOnMistakes: boolean;
   /** Ask "are you sure?" before a move that leaves a piece hanging or allows mate. */
   checkBeforeMove: boolean;
@@ -103,6 +105,7 @@ export const DEFAULT_SETTINGS: Settings = {
   colorPref: 'w',
   safetyOverlay: false,
   showEvalBar: false,
+  showMoveList: false,
   pauseOnMistakes: true,
   checkBeforeMove: true,
   showCoordinates: true,

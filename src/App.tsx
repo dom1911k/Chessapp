@@ -156,6 +156,8 @@ export function App() {
     return () => clearTimeout(t);
   }, []);
 
+  // While playing, the board gets the whole screen (the game's back arrow returns to the menu).
+  const inGame = usePlay((s) => !!s.game && !s.away && s.phase !== 'setup' && s.phase !== 'loading');
   if (!loaded) return <Splash />;
   const top = stack[stack.length - 1];
 
@@ -172,7 +174,7 @@ export function App() {
           </div>
         )}
       </main>
-      {!top && (
+      {!top && !(inGame && tab === 'play') && (
         <nav className="safe-bottom border-t border-stone-200/80 bg-[#fffdf9]/95 backdrop-blur-md dark:border-stone-800 dark:bg-stone-900/95">
           <div className="mx-auto flex max-w-xl px-2 pt-1.5 pb-1">
             {TABS.map((t) => {

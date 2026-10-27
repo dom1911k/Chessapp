@@ -71,6 +71,9 @@ interface PlayStore {
   /** Start over: very short games are discarded, longer ones count as resigned. */
   abandon(): Promise<void>;
   leaveGame(): void;
+  /** Back to the menu while a game is running (the game stays saved). */
+  away: boolean;
+  setAway(away: boolean): void;
 }
 
 let token = 0;
@@ -391,6 +394,11 @@ export const usePlay = create<PlayStore>((set, get) => {
     precheck: null,
     flash: null,
     rewards: null,
+    away: false,
+
+    setAway(away) {
+      set({ away });
+    },
 
     closeRewards() {
       set({ rewards: null });
@@ -437,7 +445,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         hintsUsed: 0,
         told: [],
       };
-      set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null });
+      set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false });
       useCelebrate.getState().setMuted(false);
       save(game);
       const greetFor = game.startedAt;
@@ -620,7 +628,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     leaveGame() {
       token++;
       getEngine().cancelAll('play');
-      set({ game: null, phase: 'setup', over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null });
+      set({ game: null, phase: 'setup', over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false });
       useCelebrate.getState().setMuted(false);
     },
   };

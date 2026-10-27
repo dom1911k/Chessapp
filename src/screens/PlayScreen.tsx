@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Brain, Check, Crosshair, EllipsisVertical, Flag, History, Lightbulb, Lock, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
@@ -15,7 +15,7 @@ import { LevelBadge } from '../components/Gamification';
 import { tipOfTheDay, type Tip } from '../lib/coach/tips';
 import { getOpponentRecords, isUnlocked, type OpponentRecord } from '../lib/people/record';
 import { REPERTOIRES } from '../lib/people/openings';
-import { Dialog, EvalBar, Header, IconButton, Segmented, Spinner } from '../components/ui';
+import { Dialog, EvalBar, Header, IconButton, Segmented, Spinner, useBackHandler } from '../components/ui';
 import { MoveList } from '../components/MoveList';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
 import type { FeedItem } from '../lib/store/types';
@@ -32,8 +32,9 @@ import { THEMES } from '../lib/themes';
 export function PlayScreen() {
   const phase = usePlay((s) => s.phase);
   const game = usePlay((s) => s.game);
+  const away = usePlay((s) => s.away);
   if (phase === 'loading') return <div className="flex h-full items-center justify-center"><Spinner /></div>;
-  if (!game || phase === 'setup') return <SetupView />;
+  if (!game || phase === 'setup' || away) return <SetupView />;
   return <GameView />;
 }
 
@@ -47,14 +48,18 @@ function SetupView() {
   const chosen = opponentById(settings.opponentId);
   const opp = custom ? null : chosen && isUnlocked(chosen.id, records) ? chosen : OPPONENTS[1];
   const rec = opp ? records[opp.id] : undefined;
-  const start = () => {
+  const running = usePlay((s) => (s.game && s.phase !== 'over' && s.phase !== 'setup' ? s.game : null));
+  const start = async () => {
     const color = settings.colorPref === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : settings.colorPref;
+    // Starting over ends the game in progress (counts as resigned after a few moves).
+    if (running) await usePlay.getState().abandon();
     newGame(color, opp ? opp.elo : settings.botElo, undefined, opp?.id);
   };
   return (
     <div className="flex h-full flex-col">
       <Header title="Play" right={<><LevelBadge /><SettingsButton /></>} />
       <div className="mx-auto w-full max-w-md flex-1 space-y-4 overflow-y-auto p-4">
+        {running && <ResumeCard />}
         <HomeScreenHint />
         <TipOfTheDay />
         <div>
@@ -145,9 +150,10 @@ function SetupView() {
                 : 'A chess engine made weaker with random slips. Often easier for complete beginners — it sometimes gives pieces away.'}
             </p>
           </div>
-          <button className="btn-primary w-full !py-3 text-base" onClick={start}>
-            Play {opp ? opp.name : 'the bot'}
+          <button className="btn-primary w-full !py-3 text-base" onClick={() => void start()}>
+            {running ? 'Start a new game' : `Play ${opp ? opp.name : 'the bot'}`}
           </button>
+          {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
         </div>
         <button className="btn-ghost w-full" onClick={() => push({ name: 'history' })}>
           <History size={17} /> Past games
@@ -157,33 +163,22 @@ function SetupView() {
   );
 }
 
-/** Opponent row above the board: portrait (mood follows the game), name and chat bubble. */
-function OpponentBar() {
+/** On the menu while a game is running: jump back in. */
+function ResumeCard() {
   const s = usePlay();
   const g = s.game!;
   const o = opponentById(g.opponentId);
-  const lastEval = [...g.plies].reverse().find((p) => p.evalAfter)?.evalAfter;
-  const botCp = lastEval ? scoreToCp(povScore(lastEval, g.userColor === 'w' ? 'b' : 'w')) : 0;
-  const recentChat = s.chat && s.chat.ply >= g.plies.length - 1 ? s.chat : null;
-  const mood: Mood = recentChat ? recentChat.mood : botCp > 150 ? 'happy' : botCp < -150 ? 'worried' : 'neutral';
-  const thinking = s.phase === 'botThinking';
+  const moves = Math.ceil(g.plies.length / 2);
   return (
-    <div className="flex items-start gap-2 px-3 pb-1.5">
-      {o ? <Portrait id={o.id} mood={mood} size={40} /> : <span className="flex h-10 w-10 items-center justify-center rounded-[30%] bg-stone-200 text-stone-600 dark:bg-stone-800"><Bot size={22} /></span>}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold">{o ? o.name : 'Bot'}</span>
-          <span className="text-stone-500">~{g.elo}</span>
-          {thinking && <span className="flex items-center gap-1 text-xs text-stone-500"><Spinner className="!h-3 !w-3" /> thinking…</span>}
-          {s.phase === 'analyzing' && <span className="flex items-center gap-1 text-xs text-stone-500"><Spinner className="!h-3 !w-3" /> coach is looking…</span>}
-        </div>
-        {recentChat?.text && (
-          <div key={recentChat.text + recentChat.ply} className="animate-pop mt-0.5 inline-block rounded-2xl rounded-tl-sm bg-white px-3 py-1.5 text-sm shadow-sm ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
-            {recentChat.text}
-          </div>
-        )}
-      </div>
-    </div>
+    <button className="card flex w-full items-center gap-3 !p-3 text-left ring-2 ring-brand-500 active:scale-[0.99]" onClick={() => s.setAway(false)}>
+      {o ? <Portrait id={o.id} size={48} /> : <span className="flex h-12 w-12 items-center justify-center rounded-[30%] bg-stone-200 dark:bg-stone-800"><Bot size={24} /></span>}
+      <span className="flex-1">
+        <span className="block text-xs font-bold tracking-wider text-brand-700 uppercase dark:text-brand-500">Game in progress</span>
+        <span className="block font-semibold">vs {o ? o.name : 'the bot'}</span>
+        <span className="block text-xs text-stone-500">{moves ? `Move ${moves}` : 'Just started'} · tap to continue</span>
+      </span>
+      <span className="btn-primary !min-h-9 !px-4 !py-1.5">Continue</span>
+    </button>
   );
 }
 
@@ -196,16 +191,81 @@ export function SettingsButton() {
   );
 }
 
+/** Opponent's mood: their latest chat line, otherwise how the game is going for them. */
+function useOpponentMood(): Mood {
+  const s = usePlay();
+  const g = s.game!;
+  const lastEval = [...g.plies].reverse().find((p) => p.evalAfter)?.evalAfter;
+  const botCp = lastEval ? scoreToCp(povScore(lastEval, g.userColor === 'w' ? 'b' : 'w')) : 0;
+  const recent = s.chat && s.chat.ply >= g.plies.length - 1 ? s.chat : null;
+  return recent ? recent.mood : botCp > 150 ? 'happy' : botCp < -150 ? 'worried' : 'neutral';
+}
+
+/** Slim top row: back to menu, opponent, opening name, game menu. */
+function GameTopBar({ onMenu }: { onMenu: () => void }) {
+  const s = usePlay();
+  const g = s.game!;
+  const o = opponentById(g.opponentId);
+  const mood = useOpponentMood();
+  const opening = useMemo(() => (g.startFen === START_FEN ? detectOpening(g.plies.map((p) => p.san)) : null), [g.plies, g.startFen]);
+  const thinking = s.phase === 'botThinking';
+  return (
+    <header className="safe-top relative z-20">
+      <div className="mx-auto flex h-14 max-w-xl items-center gap-2 px-2 land:max-w-6xl">
+        <IconButton label="Back to menu" onClick={() => s.setAway(true)}>
+          <ChevronLeft size={24} strokeWidth={2.2} />
+        </IconButton>
+        <div className="relative">
+          {o ? (
+            <Portrait id={o.id} mood={mood} size={38} />
+          ) : (
+            <span className="flex h-[38px] w-[38px] items-center justify-center rounded-[30%] bg-stone-200 text-stone-600 dark:bg-stone-800"><Bot size={20} /></span>
+          )}
+          {thinking && (
+            <span className="absolute -right-1 -bottom-1 flex h-4 items-center gap-0.5 rounded-full bg-white px-1 shadow ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
+              {[0, 1, 2].map((i) => <span key={i} className="h-1 w-1 animate-bounce rounded-full bg-stone-500" style={{ animationDelay: `${i * 120}ms` }} />)}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate font-semibold">
+            {o ? o.name : 'Bot'} <span className="font-normal text-stone-400">{g.elo}</span>
+          </div>
+          <div className="truncate text-xs text-stone-500">{opening ? opening.name : thinking ? 'thinking…' : g.userColor === 'w' ? 'You play white' : 'You play black'}</div>
+        </div>
+        <IconButton label="Game menu" onClick={onMenu}>
+          <EllipsisVertical size={21} />
+        </IconButton>
+      </div>
+    </header>
+  );
+}
+
+/** The opponent's latest line as a small speech bubble over the board; fades by itself. */
+function ChatBubble() {
+  const s = usePlay();
+  const g = s.game!;
+  const chat = s.chat && s.chat.ply >= g.plies.length - 1 && s.chat.text ? s.chat : null;
+  if (!chat) return null;
+  return (
+    <div key={chat.text + chat.ply} className="animate-chat pointer-events-none absolute top-1.5 left-3 z-20 max-w-[78%]">
+      <div className="relative rounded-2xl rounded-tl-sm bg-white/95 px-3 py-1.5 text-[13px] leading-snug shadow-lg ring-1 ring-black/5 backdrop-blur dark:bg-stone-800/95 dark:ring-white/10">
+        {chat.text}
+      </div>
+    </div>
+  );
+}
+
 function GameView() {
   const s = usePlay();
   const settings = useSettings();
   const push = useNav((n) => n.push);
   const [menu, setMenu] = useState(false);
+  const [history, setHistory] = useState(false);
   const g = s.game!;
   const fen = currentFen(g);
   const orientation = g.userColor === 'w' ? 'white' : 'black';
   const last = g.plies[g.plies.length - 1];
-  const opening = useMemo(() => (g.startFen === START_FEN ? detectOpening(g.plies.map((p) => p.san)) : null), [g.plies, g.startFen]);
   const myTurn = s.phase === 'userTurn' && turnOf(fen) === g.userColor;
 
   const arrows: CoachArrow[] = [];
@@ -243,33 +303,39 @@ function GameView() {
   useEffect(() => {
     if (s.over) setMenu(false);
   }, [s.over]);
+  // Android back button: return to the menu (the game stays saved).
+  const setAway = s.setAway;
+  const goAway = useCallback(() => setAway(true), [setAway]);
+  useBackHandler(goAway);
 
   const whyNot = () => {
     const lastUser = [...g.plies].reverse().find((p) => p.isUser);
-    push({
-      name: 'explore',
-      fen: lastUser ? lastUser.fenBefore : fen,
-      orientation,
-      title: 'Why not this move?',
-    });
+    push({ name: 'explore', fen: lastUser ? lastUser.fenBefore : fen, orientation, title: 'Why not this move?' });
   };
+  const menuItem = (icon: ReactNode, label: string, onClick: () => void, extra?: ReactNode) => (
+    <button
+      className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left font-semibold active:bg-stone-100 dark:active:bg-stone-800"
+      onClick={() => {
+        setMenu(false);
+        onClick();
+      }}
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">{icon}</span>
+      <span className="flex-1">{label}</span>
+      {extra}
+    </button>
+  );
+  const onOff = (on: boolean) => <span className={`chip ${on ? 'bg-brand-100 text-brand-700 dark:bg-brand-700/30 dark:text-brand-100' : 'bg-stone-100 text-stone-500 dark:bg-stone-800'}`}>{on ? 'On' : 'Off'}</span>;
 
   return (
-    <div className="flex h-full flex-col">
-      <Header
-        title={opening ? opening.name : 'Play'}
-        right={
-          <IconButton label="Game menu" onClick={() => setMenu(true)}>
-            <EllipsisVertical size={21} />
-          </IconButton>
-        }
-      />
-      <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-4 land:px-3">
-        <div className="land:w-[min(calc(100dvh-12rem),56vw)] land:shrink-0">
-          <OpponentBar />
-          <div className="flex gap-1.5 px-1.5">
+    <div className="flex h-full flex-col bg-gradient-to-b from-stone-100 to-[#efe7da] dark:from-stone-950 dark:to-[#1d1712]">
+      <GameTopBar onMenu={() => setMenu(true)} />
+      <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-5 land:px-3">
+        <div className="land:w-[min(calc(100dvh-6rem),58vw)] land:shrink-0">
+          <div className="flex gap-1.5 px-2">
             {settings.showEvalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
             <div className="relative flex-1">
+              <ChatBubble />
               <BoardFlash flash={s.flash} orientation={orientation} />
               <Board
                 fen={fen}
@@ -284,24 +350,22 @@ function GameView() {
               />
             </div>
           </div>
+          {settings.showMoveList && <MoveList plies={g.plies} startFen={g.startFen} />}
         </div>
-        <div className="flex min-h-0 flex-1 flex-col">
-          <MoveList plies={g.plies} startFen={g.startFen} />
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-3">
-            <CoachPanel safetyMessages={safety?.messages ?? []} />
+        <div className="flex min-h-0 flex-1 flex-col land:pt-1">
+          {/* The coach sits just above the dock (Dr. Wolf style), close to the thumb; it scrolls if long. */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pt-3 pb-2">
+            <div className="mt-auto" />
+            <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => setHistory(true)} />
           </div>
           {!s.over && (
-            <div className="grid grid-cols-5 gap-1 border-t border-stone-200 bg-stone-100 px-3 py-2 dark:border-stone-800 dark:bg-stone-950 land:rounded-t-2xl land:border-x">
-              <ActionButton label={s.hint ? `Hint ${s.hint.level}/3` : 'Hint'} icon={<Lightbulb size={21} />} disabled={!myTurn || s.hint?.level === 3} onClick={s.requestHint} />
-              <ActionButton label="Threats?" icon={<Crosshair size={21} />} disabled={!myTurn} onClick={s.requestThreat} />
-              <ActionButton label="Take back" icon={<Undo2 size={21} />} disabled={userPlies === 0 || !['userTurn', 'paused', 'botThinking'].includes(s.phase)} onClick={s.takeback} />
-              <ActionButton label="Why not…?" icon={<ScanSearch size={21} />} disabled={userPlies === 0} onClick={whyNot} />
-              <ActionButton
-                label="Safety"
-                icon={<ShieldCheck size={21} />}
-                active={settings.safetyOverlay}
-                onClick={() => settings.set({ safetyOverlay: !settings.safetyOverlay })}
-              />
+            <div className="safe-bottom px-3 pb-2">
+              <div className="mx-auto grid max-w-md grid-cols-4 gap-1 rounded-[22px] bg-white/90 p-1.5 shadow-[0_6px_24px_rgba(60,35,15,0.12)] ring-1 ring-black/5 backdrop-blur dark:bg-stone-900/90 dark:ring-white/10">
+                <DockButton label={s.hint ? `Hint ${s.hint.level}/3` : 'Hint'} icon={<Lightbulb size={22} />} disabled={!myTurn || s.hint?.level === 3} onClick={s.requestHint} primary />
+                <DockButton label="Take back" icon={<Undo2 size={22} />} disabled={userPlies === 0 || !['userTurn', 'paused', 'botThinking'].includes(s.phase)} onClick={s.takeback} />
+                <DockButton label="Threats" icon={<Crosshair size={22} />} disabled={!myTurn} onClick={s.requestThreat} />
+                <DockButton label="More" icon={<EllipsisVertical size={22} />} onClick={() => setMenu(true)} />
+              </div>
             </div>
           )}
         </div>
@@ -321,51 +385,33 @@ function GameView() {
           }
         />
       )}
-      <Dialog open={menu} onClose={() => setMenu(false)} title="Game">
-        <div className="space-y-2">
-          <button
-            className="btn-secondary w-full"
-            onClick={() => {
-              setMenu(false);
-              void s.requestExplain();
-            }}
-          >
-            <ScanSearch size={18} /> Explain this position
-          </button>
-          <button
-            className="btn-secondary w-full"
-            onClick={() => {
-              setMenu(false);
-              void s.resign();
-            }}
-          >
-            <Flag size={18} /> Resign
-          </button>
-          <button
-            className="btn-secondary w-full"
-            onClick={() => {
-              setMenu(false);
-              void s.abandon();
-            }}
-          >
-            New game
-          </button>
-          <button className="btn-ghost w-full" onClick={() => setMenu(false)}>
-            Cancel
-          </button>
+      <Dialog open={menu} onClose={() => setMenu(false)}>
+        <div className="-mx-2 space-y-0.5">
+          {!s.over && menuItem(<ScanSearch size={19} />, 'Why not my move?', whyNot)}
+          {menuItem(<Sparkles size={19} />, 'Explain this position', () => void s.requestExplain())}
+          {menuItem(<MessagesSquare size={19} />, 'Conversation', () => setHistory(true))}
+          {menuItem(<ShieldCheck size={19} />, 'Safety overlay', () => settings.set({ safetyOverlay: !settings.safetyOverlay }), onOff(settings.safetyOverlay))}
+          {menuItem(<ListOrdered size={19} />, 'Move list', () => settings.set({ showMoveList: !settings.showMoveList }), onOff(settings.showMoveList))}
+          {!s.over && menuItem(<Flag size={19} />, 'Resign', () => void s.resign())}
+          {menuItem(<RotateCcw size={19} />, 'New game', () => void (s.over ? s.leaveGame() : s.abandon()))}
+        </div>
+      </Dialog>
+      <Dialog open={history} onClose={() => setHistory(false)} title="Conversation">
+        <div className="-mx-1 max-h-[62dvh] overflow-y-auto px-1">
+          <CoachHistory />
         </div>
       </Dialog>
     </div>
   );
 }
 
-function ActionButton({ label, icon, onClick, disabled, active }: { label: string; icon: ReactNode; onClick: () => void; disabled?: boolean; active?: boolean }) {
+function DockButton({ label, icon, onClick, disabled, primary }: { label: string; icon: ReactNode; onClick: () => void; disabled?: boolean; primary?: boolean }) {
   return (
     <button
       disabled={disabled}
       onClick={onClick}
-      className={`flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold transition active:scale-95 disabled:opacity-35 ${
-        active ? 'bg-brand-100 text-brand-700 dark:bg-brand-700/30 dark:text-brand-100' : 'text-stone-700 dark:text-stone-200'
+      className={`flex flex-col items-center gap-0.5 rounded-2xl py-1.5 text-[11px] font-semibold transition active:scale-95 disabled:opacity-30 ${
+        primary ? 'text-amber-600 dark:text-amber-400' : 'text-stone-700 dark:text-stone-200'
       }`}
     >
       <span className="flex h-6 items-center">{icon}</span>
@@ -384,101 +430,116 @@ const FEED_LABEL: Partial<Record<FeedItem['kind'], { label: string; icon: ReactN
   result: { label: 'Game over', icon: <Flag size={12} /> },
 };
 
-function CoachPanel({ safetyMessages }: { safetyMessages: string[] }) {
+/** One coach message (used for the current card and in the conversation sheet). */
+function FeedBubble({ it, compact, actions, flag }: { it: FeedItem; compact?: boolean; actions?: ReactNode; flag?: boolean }) {
+  const g = usePlay((s) => s.game)!;
+  const p = it.ply >= 0 ? g.plies[it.ply] : undefined;
+  return (
+    <CoachBubble compact={compact} {...FEED_LABEL[it.kind]} mood={it.mood ?? 'happy'} badge={it.classification} special={it.special} actions={actions}>
+      {it.kind === 'comment' && p && <p className="text-xs font-semibold text-stone-500">You: {shortWords(p.fenBefore, p.uci)}</p>}
+      {it.text.map((t, i) => (
+        <p key={i} className={it.kind === 'opening' && i === 0 ? 'font-display text-[17px] font-semibold' : ''}>{t}</p>
+      ))}
+      {flag && it.kind === 'comment' && p?.comment && it.classification !== 'best' && it.classification !== 'good' && <FlagButton fen={p.fenBefore} uci={p.uci} comment={p.comment} />}
+    </CoachBubble>
+  );
+}
+
+/** Coach Sam's current message only — the conversation so far is one tap away. */
+function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; onHistory: () => void }) {
   const s = usePlay();
   const push = useNav((n) => n.push);
   const settings = useSettings();
   const g = s.game!;
   const feed = g.feed ?? [];
-  const [all, setAll] = useState(false);
-  const items = all ? feed : feed.slice(-8);
-  const end = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
-  }, [feed.length, s.phase, s.over, s.precheck]);
-
+  const latest = feed[feed.length - 1];
   const paused = s.phase === 'paused';
   const rematch = () => s.newGame(g.userColor, g.elo, undefined, g.opponentId);
+  const earlier = feed.length - 1;
+
+  let card: ReactNode;
+  if (s.precheck) {
+    card = (
+      <CoachBubble
+        mood="concerned"
+        label="Before you move"
+        icon={<ShieldCheck size={12} />}
+        actions={
+          <>
+            <button className="btn-primary" onClick={s.dismissPrecheck}>Let me think again</button>
+            {!s.precheck.revealed && <button className="btn-secondary" onClick={s.revealPrecheck}>Show me why</button>}
+            <button className="btn-ghost" onClick={s.confirmPrecheck}>Play it anyway</button>
+          </>
+        }
+      >
+        <p>{s.precheck.check.ask}</p>
+        {s.precheck.revealed && <p className="font-semibold">{s.precheck.check.reveal}</p>}
+      </CoachBubble>
+    );
+  } else if (latest) {
+    const actions =
+      paused && latest.kind === 'comment' ? (
+        <>
+          <button className="btn-primary" onClick={s.tryAgain}>Try again</button>
+          <button className="btn-secondary" onClick={s.continueGame}>Continue</button>
+        </>
+      ) : s.over && latest.kind === 'result' ? (
+        <>
+          {s.over.practice && (
+            <button className="btn-primary" onClick={() => push({ name: 'practice', theme: s.over!.practice! })}>
+              Practise: {THEMES[s.over.practice].label.toLowerCase()}
+            </button>
+          )}
+          {s.over.gameId > 0 && (
+            <button className={s.over.practice ? 'btn-secondary' : 'btn-primary'} onClick={() => push({ name: 'report', gameId: s.over!.gameId })}>Game report</button>
+          )}
+          <button className="btn-secondary" onClick={rematch}>Rematch</button>
+          <button className="btn-ghost" onClick={s.leaveGame}>New opponent</button>
+        </>
+      ) : undefined;
+    card = <FeedBubble key={latest.id} it={latest} actions={actions} flag />;
+  }
+
+  return (
+    <div className="space-y-2">
+      {card}
+      {!s.precheck && safetyMessages.length > 0 && settings.safetyOverlay && (
+        <p className="flex items-start gap-1.5 px-1 text-[13px] text-stone-600 dark:text-stone-300">
+          <ShieldCheck size={15} className="mt-0.5 shrink-0 text-brand-600" />
+          {safetyMessages.join(' ')}
+        </p>
+      )}
+      <div className="flex items-center justify-between px-1 text-xs text-stone-500">
+        <span className="flex items-center gap-1.5">
+          {s.phase === 'analyzing' ? (
+            <>
+              <Spinner className="!h-3 !w-3" /> Coach Sam is looking at your move…
+            </>
+          ) : s.phase === 'userTurn' && !s.precheck ? (
+            'Your move'
+          ) : null}
+        </span>
+        {earlier > 0 && (
+          <button className="flex items-center gap-1 font-semibold text-stone-500 active:text-stone-800" onClick={onHistory}>
+            <MessagesSquare size={14} /> {earlier} earlier
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The whole conversation of this game (newest at the bottom). */
+function CoachHistory() {
+  const g = usePlay((s) => s.game)!;
+  const feed = g.feed ?? [];
+  const end = useRef<HTMLDivElement>(null);
+  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), []);
   return (
     <div className="space-y-2.5">
-      {feed.length > items.length && (
-        <button className="w-full text-center text-xs font-semibold text-stone-500" onClick={() => setAll(true)}>
-          Show {feed.length - items.length} earlier messages
-        </button>
-      )}
-      {items.map((it, k) => {
-        const latest = k === items.length - 1;
-        const p = it.ply >= 0 ? g.plies[it.ply] : undefined;
-        const showActions = latest && ((paused && it.kind === 'comment') || (s.over && it.kind === 'result'));
-        return (
-          <CoachBubble
-            key={it.id}
-            compact={!latest}
-            {...FEED_LABEL[it.kind]}
-            mood={it.mood ?? 'happy'}
-            badge={it.classification}
-            special={it.special}
-            actions={
-              showActions ? (
-                paused ? (
-                  <>
-                    <button className="btn-primary" onClick={s.tryAgain}>Try again</button>
-                    <button className="btn-secondary" onClick={s.continueGame}>Continue</button>
-                  </>
-                ) : s.over ? (
-                  <>
-                    {s.over.practice && (
-                      <button className="btn-primary" onClick={() => push({ name: 'practice', theme: s.over!.practice! })}>
-                        Practise: {THEMES[s.over.practice].label.toLowerCase()}
-                      </button>
-                    )}
-                    {s.over.gameId > 0 && (
-                      <button className={s.over.practice ? 'btn-secondary' : 'btn-primary'} onClick={() => push({ name: 'report', gameId: s.over!.gameId })}>See game report</button>
-                    )}
-                    <button className="btn-secondary" onClick={rematch}>Rematch</button>
-                    <button className="btn-ghost" onClick={s.leaveGame}>New opponent</button>
-                  </>
-                ) : null
-              ) : undefined
-            }
-          >
-            {it.kind === 'comment' && p && <p className="text-xs font-semibold text-stone-500">You: {shortWords(p.fenBefore, p.uci)}</p>}
-            {it.text.map((t, i) => (
-              <p key={i} className={it.kind === 'opening' && i === 0 ? 'font-display text-[17px] font-semibold' : ''}>{t}</p>
-            ))}
-            {latest && it.kind === 'comment' && p?.comment && it.classification !== 'best' && it.classification !== 'good' && (
-              <FlagButton fen={p.fenBefore} uci={p.uci} comment={p.comment} />
-            )}
-          </CoachBubble>
-        );
-      })}
-      {safetyMessages.length > 0 && settings.safetyOverlay && (
-        <CoachBubble compact mood="concerned">
-          <p><ShieldCheck size={15} className="mr-1 inline -translate-y-px text-brand-600" />{safetyMessages.join(' ')}</p>
-        </CoachBubble>
-      )}
-      {s.precheck && (
-        <CoachBubble
-          mood="concerned"
-          label="Coach Sam · before you move"
-          icon={<ShieldCheck size={12} />}
-          actions={
-            <>
-              <button className="btn-primary" onClick={s.dismissPrecheck}>Let me think again</button>
-              {!s.precheck.revealed && <button className="btn-secondary" onClick={s.revealPrecheck}>Show me why</button>}
-              <button className="btn-ghost" onClick={s.confirmPrecheck}>Play it anyway</button>
-            </>
-          }
-        >
-          <p>{s.precheck.check.ask}</p>
-          {s.precheck.revealed && <p className="font-semibold">{s.precheck.check.reveal}</p>}
-        </CoachBubble>
-      )}
-      {s.phase === 'analyzing' && (
-        <div className="flex items-center gap-2 pl-12 text-sm text-stone-500">
-          <Spinner className="!h-3 !w-3" /> Coach Sam is looking at your move…
-        </div>
-      )}
+      {feed.map((it, k) => (
+        <FeedBubble key={it.id} it={it} compact={k < feed.length - 1} />
+      ))}
       <div ref={end} />
     </div>
   );
