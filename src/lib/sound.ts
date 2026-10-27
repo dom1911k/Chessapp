@@ -6,7 +6,7 @@
 // Chimes (success, check) use a soft marimba voice — also wood.
 import { useSettings } from './settings';
 
-export type SoundName = 'move' | 'capture' | 'check' | 'castle' | 'success' | 'error' | 'notify' | 'win' | 'brilliant' | 'reward';
+export type SoundName = 'move' | 'capture' | 'check' | 'castle' | 'success' | 'error' | 'notify' | 'win' | 'brilliant' | 'reward' | 'type';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -198,6 +198,10 @@ export function renderSound(c: BaseAudioContext, out: AudioNode, name: SoundName
     case 'reward':
       marimba(c, out, t, 784, 0.18, 0.3);
       marimba(c, out, t + 0.08, 1174.7, 0.16, 0.5);
+      break;
+    case 'type':
+      // The coach "typing": a tiny, high, very quiet wooden tick.
+      tock(c, out, t, 2.4, 0.1, 0.4);
       break;
     case 'win':
       marimba(c, out, t, 523.3, 0.2);

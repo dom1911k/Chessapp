@@ -25,9 +25,11 @@ import { challengeFor } from '../lib/people/challenges';
 import { cosmeticById, type Cosmetic } from '../lib/rewards/cosmetics';
 import { CosmeticPreview } from '../components/CosmeticPreview';
 import { BoardFlash } from '../components/BoardFlash';
+import { Captured } from '../components/Captured';
 import { RewardsOverlay } from '../components/RewardsOverlay';
 import { needsHomeScreenHint } from '../lib/pwa';
 import { THEMES } from '../lib/themes';
+import { playSound } from '../lib/sound';
 
 export function PlayScreen() {
   const phase = usePlay((s) => s.phase);
@@ -233,6 +235,7 @@ function GameTopBar({ onMenu }: { onMenu: () => void }) {
           </div>
           <div className="truncate text-xs text-stone-500">{opening ? opening.name : thinking ? 'thinking…' : g.userColor === 'w' ? 'You play white' : 'You play black'}</div>
         </div>
+        <Captured fen={currentFen(g)} startFen={g.startFen} side={g.userColor === 'w' ? 'b' : 'w'} className="shrink-0" />
         <IconButton label="Game menu" onClick={onMenu}>
           <EllipsisVertical size={21} />
         </IconButton>
@@ -350,6 +353,9 @@ function GameView() {
               />
             </div>
           </div>
+          <div className="flex h-7 items-center px-3">
+            <Captured fen={fen} startFen={g.startFen} side={g.userColor} />
+          </div>
           {settings.showMoveList && <MoveList plies={g.plies} startFen={g.startFen} />}
         </div>
         <div className="flex min-h-0 flex-1 flex-col land:pt-1">
@@ -430,16 +436,60 @@ const FEED_LABEL: Partial<Record<FeedItem['kind'], { label: string; icon: ReactN
   result: { label: 'Game over', icon: <Flag size={12} /> },
 };
 
+// Messages already typed out (or already there when the game was opened) appear in full.
+const typed = new Set<string>();
+const typedGames = new Set<number>();
+
+/** Marks the messages a game already has as read, so only new ones are typed out. */
+function useTypedBaseline(startedAt: number, feed: FeedItem[]) {
+  if (typedGames.has(startedAt)) return;
+  typedGames.add(startedAt);
+  for (const it of feed) typed.add(`${startedAt}:${it.id}`);
+}
+
+/** Reveals a message word by word with a soft tick; tap to show it all. Returns words shown so far. */
+function useTypewriter(key: string, total: number, enabled: boolean) {
+  const [fresh] = useState(() => enabled && !typed.has(key) && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  const [shown, setShown] = useState(fresh ? 0 : total);
+  useEffect(() => {
+    typed.add(key);
+    if (!fresh) return;
+    let n = 0;
+    const t = setInterval(() => {
+      n++;
+      setShown(n);
+      if (n % 2 === 1) playSound('type');
+      if (n >= total) clearInterval(t);
+    }, 55);
+    return () => clearInterval(t);
+  }, [key, fresh, total]);
+  return { shown, skip: () => setShown(total) };
+}
+
 /** One coach message (used for the current card and in the conversation sheet). */
-function FeedBubble({ it, compact, actions, flag }: { it: FeedItem; compact?: boolean; actions?: ReactNode; flag?: boolean }) {
+function FeedBubble({ it, compact, actions, flag, type }: { it: FeedItem; compact?: boolean; actions?: ReactNode; flag?: boolean; type?: boolean }) {
   const g = usePlay((s) => s.game)!;
   const p = it.ply >= 0 ? g.plies[it.ply] : undefined;
+  const words = useMemo(() => it.text.map((t) => t.split(' ')), [it.text]);
+  const total = words.reduce((n, w) => n + w.length, 0);
+  const { shown, skip } = useTypewriter(`${g.startedAt}:${it.id}`, total, !!type);
+  let index = 0;
   return (
     <CoachBubble compact={compact} {...FEED_LABEL[it.kind]} mood={it.mood ?? 'happy'} badge={it.classification} special={it.special} actions={actions}>
       {it.kind === 'comment' && p && <p className="text-xs font-semibold text-stone-500">You: {shortWords(p.fenBefore, p.uci)}</p>}
-      {it.text.map((t, i) => (
-        <p key={i} className={it.kind === 'opening' && i === 0 ? 'font-display text-[17px] font-semibold' : ''}>{t}</p>
-      ))}
+      <div className="space-y-1" onClick={shown < total ? skip : undefined}>
+        {words.map((line, i) => (
+          <p key={i} className={it.kind === 'opening' && i === 0 ? 'font-display text-[17px] font-semibold' : ''}>
+            {/* Every word is laid out from the start (hidden ones invisible) so the card never jumps in size. */}
+            {line.map((w, j) => (
+              <span key={j} className={`transition-opacity duration-200 ${index++ < shown ? '' : 'opacity-0'}`}>
+                {j ? ' ' : ''}
+                {w}
+              </span>
+            ))}
+          </p>
+        ))}
+      </div>
       {flag && it.kind === 'comment' && p?.comment && it.classification !== 'best' && it.classification !== 'good' && <FlagButton fen={p.fenBefore} uci={p.uci} comment={p.comment} />}
     </CoachBubble>
   );
@@ -456,6 +506,7 @@ function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; on
   const paused = s.phase === 'paused';
   const rematch = () => s.newGame(g.userColor, g.elo, undefined, g.opponentId);
   const earlier = feed.length - 1;
+  useTypedBaseline(g.startedAt, feed);
 
   let card: ReactNode;
   if (s.precheck) {
@@ -497,7 +548,7 @@ function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; on
           <button className="btn-ghost" onClick={s.leaveGame}>New opponent</button>
         </>
       ) : undefined;
-    card = <FeedBubble key={latest.id} it={latest} actions={actions} flag />;
+    card = <FeedBubble key={latest.id} it={latest} actions={actions} flag type />;
   }
 
   return (
