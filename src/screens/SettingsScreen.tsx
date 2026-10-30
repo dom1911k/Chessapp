@@ -86,6 +86,22 @@ export function SettingsScreen() {
               ]}
             />
           </div>
+          <div className="py-2">
+            <div className="mb-1.5 text-sm">How chatty is Coach Sam?</div>
+            <Segmented
+              value={s.coachStyle}
+              onChange={(v) => s.set({ coachStyle: v })}
+              options={[
+                { value: 'gentle', label: 'Gentle' },
+                { value: 'detailed', label: 'Every move' },
+              ]}
+            />
+            <p className="mt-1.5 text-xs text-stone-500">
+              {s.coachStyle === 'gentle'
+                ? 'Sam only speaks up when a move really costs you, and cheers you on now and then. Full details are in the game report.'
+                : 'Sam comments on every move, including small slips and missed chances.'}
+            </p>
+          </div>
           <Toggle checked={s.checkBeforeMove} onChange={(v) => s.set({ checkBeforeMove: v })} label='Ask "are you sure?" before a risky move' />
           <Toggle checked={s.pauseOnMistakes} onChange={(v) => s.set({ pauseOnMistakes: v })} label="Pause and explain mistakes" />
           <Toggle checked={s.botNotes} onChange={(v) => s.set({ botNotes: v })} label="Point out threats from the bot's moves" />

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
+import { BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
@@ -396,6 +396,12 @@ function GameView() {
           {!s.over && menuItem(<ScanSearch size={19} />, 'Why not my move?', whyNot)}
           {menuItem(<Sparkles size={19} />, 'Explain this position', () => void s.requestExplain())}
           {menuItem(<MessagesSquare size={19} />, 'Conversation', () => setHistory(true))}
+          {menuItem(
+            <MessageCircleHeart size={19} />,
+            'Coach comments',
+            () => settings.set({ coachStyle: settings.coachStyle === 'gentle' ? 'detailed' : 'gentle' }),
+            <span className="chip bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300">{settings.coachStyle === 'gentle' ? 'Gentle' : 'Every move'}</span>,
+          )}
           {menuItem(<ShieldCheck size={19} />, 'Safety overlay', () => settings.set({ safetyOverlay: !settings.safetyOverlay }), onOff(settings.safetyOverlay))}
           {menuItem(<ListOrdered size={19} />, 'Move list', () => settings.set({ showMoveList: !settings.showMoveList }), onOff(settings.showMoveList))}
           {!s.over && menuItem(<Flag size={19} />, 'Resign', () => void s.resign())}
@@ -472,6 +478,7 @@ function FeedBubble({ it, compact, actions, flag, type }: { it: FeedItem; compac
   const p = it.ply >= 0 ? g.plies[it.ply] : undefined;
   const words = useMemo(() => it.text.map((t) => t.split(' ')), [it.text]);
   const total = words.reduce((n, w) => n + w.length, 0);
+  const gentle = useSettings((st) => st.coachStyle === 'gentle');
   const { shown, skip } = useTypewriter(`${g.startedAt}:${it.id}`, total, !!type);
   let index = 0;
   return (
@@ -490,7 +497,7 @@ function FeedBubble({ it, compact, actions, flag, type }: { it: FeedItem; compac
           </p>
         ))}
       </div>
-      {flag && it.kind === 'comment' && p?.comment && it.classification !== 'best' && it.classification !== 'good' && <FlagButton fen={p.fenBefore} uci={p.uci} comment={p.comment} />}
+      {flag && !gentle && it.kind === 'comment' && p?.comment && it.classification !== 'best' && it.classification !== 'good' && <FlagButton fen={p.fenBefore} uci={p.uci} comment={p.comment} />}
     </CoachBubble>
   );
 }

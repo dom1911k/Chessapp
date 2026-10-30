@@ -19,4 +19,5 @@ if (import.meta.env.DEV) {
   void import('./lib/store/play').then((m) => ((window as unknown as Record<string, unknown>).__play = m.usePlay));
   void import('./lib/db').then((m) => ((window as unknown as Record<string, unknown>).__db = m.db));
   void import('./lib/nav').then((m) => ((window as unknown as Record<string, unknown>).__nav = m.useNav));
+  void import('./lib/settings').then((m) => ((window as unknown as Record<string, unknown>).__settings = m.useSettings));
 }

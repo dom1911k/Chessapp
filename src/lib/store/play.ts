@@ -125,7 +125,7 @@ export const usePlay = create<PlayStore>((set, get) => {
   /** Announces the opening the first time its name appears. */
   const announceOpening = () => {
     const g = get().game!;
-    if (g.startFen !== START_FEN || g.plies.length > 16) return;
+    if (g.startFen !== START_FEN || g.plies.length > 16 || useSettings.getState().coachStyle === 'gentle') return;
     const o = detectOpening(g.plies.map((p) => p.san));
     if (!o || g.told.includes(`opening:${o.name}`)) return;
     update((gg) => void gg.told.push(`opening:${o.name}`));
@@ -263,16 +263,37 @@ export const usePlay = create<PlayStore>((set, get) => {
         gg.minWp = Math.min(gg.minWp ?? 50, wpA);
         gg.told = [...new Set([...gg.told, ...comment.ruleIds.filter((r) => PRINCIPLE_IDS.has(r))])];
       });
-      const notable = special || (comment.classification !== 'best' && comment.classification !== 'good' ? true : !comment.ruleIds.every((r) => r === 'praise-generic'));
-      if (notable)
+      const gentle = useSettings.getState().coachStyle === 'gentle';
+      const cls = comment.classification;
+      const loss = Math.max(0, wpB - wpA);
+      const slip = cls === 'mistake' || cls === 'blunder';
+      // Gentle coach: speak up only when a move really costs you (a big drop that leaves you worse off, or
+      // a huge one). Missed chances while you're doing fine and small slips stay for the game report.
+      // It also gives you some room: after pointing out a slip it stays quiet for a few moves unless it's huge.
+      const feed = get().game!.feed ?? [];
+      const lastOf = (ok: (c?: string) => boolean) => [...feed].reverse().find((f) => f.kind === 'comment' && ok(f.classification));
+      const lastSlip = lastOf((c) => c === 'mistake' || c === 'blunder');
+      const slipDue = !lastSlip || i - lastSlip.ply >= 6 || loss >= 40;
+      const hurts = slip && (gentle ? ((cls === 'blunder' && wpA < 40) || loss >= 35) && slipDue : true);
+      const lastPraise = lastOf((c) => c === 'best' || c === 'good');
+      const praiseDue = !gentle || !lastPraise || i - lastPraise.ply >= 6;
+      // Gentle praises real highlights (a tactic, a free piece, mate) and skips "nice move, but remember…" reminders.
+      const praiseWorthy = gentle
+        ? comment.ruleIds.some((r) => r.startsWith('praise-') && r !== 'praise-generic')
+        : !comment.ruleIds.every((r) => r === 'praise-generic');
+      const notable = special || (slip || cls === 'inaccuracy' ? (gentle ? hurts : true) : praiseWorthy && praiseDue);
+      if (notable) {
+        let text = special ? [SPECIAL_TEXT[special], ...comment.text.filter((t) => !/best move|exactly right|Spot on/.test(t))] : comment.text;
+        if (gentle && hurts) text = [pick(GENTLE_OPENERS), ...text.slice(0, 2).map((t, k) => (k ? t : cap(t.replace(/^(Oops|Ouch|Careful)\s*[!,—–-]*\s*/, ''))))];
         post({
           kind: 'comment',
-          text: special ? [SPECIAL_TEXT[special], ...comment.text.filter((t) => !/best move|exactly right|Spot on/.test(t))] : comment.text,
+          text,
           special,
-          classification: comment.classification,
+          classification: cls,
           ply: i,
-          mood: comment.classification === 'mistake' || comment.classification === 'blunder' ? 'concerned' : 'happy',
+          mood: hurts ? 'concerned' : 'happy',
         });
+      }
       const shown = special ?? (TACTIC_KEYS.find((k) => tactics[k] && FLASHY.has(k)) as TacticKey | undefined);
       if (shown) {
         set({ flash: { id: Date.now(), kind: shown, sq: ply.uci.slice(2, 4) } });
@@ -287,10 +308,10 @@ export const usePlay = create<PlayStore>((set, get) => {
         set({ comment: { comment, ply: i } });
         return;
       }
-      const serious = comment.classification === 'mistake' || comment.classification === 'blunder';
-      if (serious) say('userBlunder', 0.85);
+      const serious = hurts;
+      if (serious) say('userBlunder', gentle ? 0.5 : 0.85);
       else if (comment.ruleIds.some((r) => r === 'praise-tactic' || r === 'praise-mate' || r === 'praise-capture')) say('userGoodMove', 0.7);
-      if (serious && useSettings.getState().pauseOnMistakes) {
+      if (serious && useSettings.getState().pauseOnMistakes ) {
         playSound('error');
         set({ phase: 'paused', comment: { comment, ply: i } });
         return;
@@ -345,7 +366,14 @@ export const usePlay = create<PlayStore>((set, get) => {
       else if (r.move.captured) say('botCapture', 0.3);
       announceOpening();
       if (await checkOver(get().game!)) return;
-      const note = useSettings.getState().botNotes ? botMoveNote(fen, r.fen, uci, g.userColor, opponentById(g.opponentId)?.name) : null;
+      let note = useSettings.getState().botNotes ? botMoveNote(fen, r.fen, uci, g.userColor, opponentById(g.opponentId)?.name) : null;
+      // Gentle: checks speak for themselves and a threatened pawn isn't worth a message.
+      // Other warnings get a few moves' break, except a checkmate threat.
+      if (note && useSettings.getState().coachStyle === 'gentle') {
+        const lastNote = [...(g.feed ?? [])].reverse().find((f) => f.kind === 'note');
+        const recent = !!lastNote && g.plies.length - lastNote.ply <= 6;
+        if (note.level === 'check' || note.level === 'pawn' || (note.level !== 'mate' && recent)) note = null;
+      }
       set({ phase: 'userTurn', botNote: note });
       if (note) post({ kind: 'note', text: [note.text], mood: 'concerned' });
       prefetch();
@@ -665,3 +693,13 @@ const SPECIAL_TEXT: Record<Special, string> = {
 /** Tactics that get a little celebration on the board. */
 const FLASHY = new Set<TacticKey>(['royalForks', 'forks', 'skewers', 'discovered', 'pins', 'smotheredMates', 'backRankMates']);
 
+
+/** Gentle coach: a kind word before explaining a costly move. */
+const GENTLE_OPENERS = [
+  'No worries — this happens to everyone.',
+  "Ah, small slip! Let's look at it together.",
+  'Easy to miss, this one.',
+  "Don't worry, that's how we learn.",
+  'Ooh, tricky spot. Here is what happened:',
+];
+const pick = <T,>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)];

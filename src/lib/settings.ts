@@ -17,6 +17,8 @@ export interface Settings {
   /** Show the move list under the board while playing. */
   showMoveList: boolean;
   pauseOnMistakes: boolean;
+  /** Gentle: the coach speaks up only for moves that really hurt and praises now and then. Detailed: every comment. */
+  coachStyle: 'gentle' | 'detailed';
   /** Ask "are you sure?" before a move that leaves a piece hanging or allows mate. */
   checkBeforeMove: boolean;
   showCoordinates: boolean;
@@ -107,6 +109,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showEvalBar: false,
   showMoveList: false,
   pauseOnMistakes: true,
+  coachStyle: 'gentle',
   checkBeforeMove: true,
   showCoordinates: true,
   sound: true,

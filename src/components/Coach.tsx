@@ -4,6 +4,7 @@ import { COACH, portrait, type Mood } from '../lib/people';
 import type { CoachComment } from '../lib/coach/types';
 import { CLASS_LABEL, CLASS_SYMBOL, type Classification } from '../lib/chess/evaluation';
 import { ThumbsDown } from 'lucide-react';
+import { useSettings } from '../lib/settings';
 
 export const CLASS_STYLE: Record<Classification, string> = {
   best: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200',
@@ -13,10 +14,18 @@ export const CLASS_STYLE: Record<Classification, string> = {
   blunder: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200',
 };
 
+/** Friendlier words and no red for the gentle coach. */
+const GENTLE_LABEL: Record<Classification, string> = { best: 'Great', good: 'Nice', inaccuracy: 'Hmm', mistake: 'Careful', blunder: 'Oops' };
+const GENTLE_STYLE: Partial<Record<Classification, string>> = {
+  mistake: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200',
+  blunder: 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-200',
+};
+
 export function ClassBadge({ c }: { c: Classification }) {
+  const gentle = useSettings((s) => s.coachStyle === 'gentle');
   return (
-    <span className={`chip ${CLASS_STYLE[c]}`}>
-      {CLASS_SYMBOL[c]} {CLASS_LABEL[c]}
+    <span className={`chip ${(gentle && GENTLE_STYLE[c]) || CLASS_STYLE[c]}`}>
+      {gentle ? GENTLE_LABEL[c] : `${CLASS_SYMBOL[c]} ${CLASS_LABEL[c]}`}
     </span>
   );
 }

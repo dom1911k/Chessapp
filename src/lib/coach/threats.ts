@@ -12,6 +12,8 @@ export interface ThreatInfo {
   text: string;
   arrows: CoachArrow[];
   highlights: CoachHighlight[];
+  /** What the note is about (bot-move notes only), so a gentle coach can skip the small stuff. */
+  level?: 'check' | 'mate' | 'pawn' | 'piece';
 }
 
 /** FEN with the other side to move, or null if that's impossible (you're in check). */
@@ -84,7 +86,7 @@ export function botMoveNote(fenBefore: string, fenAfter: string, botUci: string,
   const c = new Chess(fenAfter);
   if (c.isGameOver()) return null;
   const to = botUci.slice(2, 4);
-  if (c.inCheck()) return { text: 'Check! Your king is attacked — you have to deal with that first.', arrows: [], highlights: [] };
+  if (c.inCheck()) return { text: 'Check! Your king is attacked — you have to deal with that first.', arrows: [], highlights: [], level: 'check' };
   const bot = other(me);
   const mates = mateThreats(fenAfter, bot);
   if (mates.length)
@@ -92,6 +94,7 @@ export function botMoveNote(fenBefore: string, fenAfter: string, botUci: string,
       text: `${Who} threatens checkmate! Find a way to defend.`,
       arrows: mates.slice(0, 1).map((u) => ({ from: u.slice(0, 2), to: u.slice(2, 4), tone: 'bad' as const })),
       highlights: [],
+      level: 'mate',
     };
   const before = parseFen(fenBefore).board;
   const after = parseFen(fenAfter).board;
@@ -107,6 +110,7 @@ export function botMoveNote(fenBefore: string, fenAfter: string, botUci: string,
         : `After ${whose} move, your ${piece} on ${sqName(h.sq)} is under attack. What will you do?`,
       arrows: attackersOf(after, h.sq, bot).slice(0, 2).map((a) => ({ from: sqName(a), to: sqName(h.sq), tone: 'bad' as const })),
       highlights: [{ sq: sqName(h.sq), tone: 'bad' }],
+      level: after[h.sq]!.type === 'p' ? 'pawn' : 'piece',
     };
   }
   return null;
