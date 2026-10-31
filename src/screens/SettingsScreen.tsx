@@ -4,6 +4,7 @@ import { useNav } from '../lib/nav';
 import { COSMETICS, isUnlocked, unlockContext } from '../lib/rewards/cosmetics';
 import { BackupCard } from '../components/BackupCard';
 import { ResetCard } from '../components/ResetCard';
+import { useRunFlag } from '../run/flag';
 import { UpdateCard } from '../components/UpdatePanel';
 import { FeedbackCard } from '../components/FeedbackCard';
 import { applyReminder, remindersSupported } from '../lib/reminders';
@@ -14,6 +15,7 @@ import { Check, ChevronRight, Palette } from 'lucide-react';
 export function SettingsScreen() {
   const s = useSettings();
   const push = useNav((n) => n.push);
+  const runMode = useRunFlag();
   const [unlockedSounds, setUnlockedSounds] = useState<string[]>(['wood', 'felt', 'deep', 'clack', 'marble', 'minimal']);
   useEffect(() => void unlockContext().then((ctx) => setUnlockedSounds(COSMETICS.filter((c) => c.kind === 'snd' && isUnlocked(c, ctx)).map((c) => c.key))), []);
   return (
@@ -116,6 +118,10 @@ export function SettingsScreen() {
         <BackupCard />
         <ResetCard />
         <FeedbackCard />
+        <div className="card">
+          <Toggle checked={runMode.enabled} onChange={runMode.set} label="Experimental: Run mode" />
+          <p className="mt-1 text-xs text-stone-500">A roguelike demo in its own tab. It never changes your rating, XP or reviews.</p>
+        </div>
         <p className="px-2 text-xs text-stone-500">
           Chess Coach runs fully offline. Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (GPLv3), running Leela Chess Zero networks. Puzzles: Lichess puzzle database (CC0).
         </p>

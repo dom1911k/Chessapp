@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import type { Theme } from './coach/types';
 
-export type Tab = 'play' | 'puzzles' | 'daily' | 'learn' | 'progress';
+export type Tab = 'play' | 'puzzles' | 'daily' | 'learn' | 'progress' | 'run';
 
 export type Screen =
   | { name: 'report'; gameId: number }

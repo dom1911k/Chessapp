@@ -1,7 +1,7 @@
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { useEffect, useState } from 'react';
-import { CalendarCheck, ChartColumn, ChessKnight, GraduationCap, Puzzle, type LucideIcon } from 'lucide-react';
+import { CalendarCheck, ChartColumn, ChessKnight, GraduationCap, Puzzle, Sparkles, type LucideIcon } from 'lucide-react';
 import { requestPersistentStorage } from './lib/db';
 import { handleBack, useNav, type Screen, type Tab } from './lib/nav';
 import { useSettings } from './lib/settings';
@@ -34,6 +34,8 @@ import { CelebrationLayer } from './components/Celebrate';
 import { autoCheck, type UpdateInfo } from './lib/update';
 import { calibrate } from './lib/engine/speed';
 import { applyReminder } from './lib/reminders';
+import { RunScreen } from './run/screens/RunScreen';
+import { useRunFlag } from './run/flag';
 
 const TABS: { tab: Tab; label: string; icon: LucideIcon }[] = [
   { tab: 'play', label: 'Play', icon: ChessKnight },
@@ -41,6 +43,8 @@ const TABS: { tab: Tab; label: string; icon: LucideIcon }[] = [
   { tab: 'daily', label: 'Daily', icon: CalendarCheck },
   { tab: 'learn', label: 'Learn', icon: GraduationCap },
   { tab: 'progress', label: 'Progress', icon: ChartColumn },
+  // Experimental Run mode (src/run), hidden by its toggle in Settings.
+  { tab: 'run', label: 'Run', icon: Sparkles },
 ];
 
 function TabScreen({ tab }: { tab: Tab }) {
@@ -55,6 +59,8 @@ function TabScreen({ tab }: { tab: Tab }) {
       return <LearnScreen />;
     case 'progress':
       return <ProgressScreen />;
+    case 'run':
+      return <RunScreen />;
   }
 }
 
@@ -138,6 +144,7 @@ function useAndroidBack() {
 export function App() {
   const { tab, stack, setTab } = useNav();
   const loaded = useSettings((s) => s.loaded);
+  const runMode = useRunFlag((s) => s.enabled);
   const toast = useAndroidBack();
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   useTheme();
@@ -160,13 +167,15 @@ export function App() {
   const inGame = usePlay((s) => !!s.game && !s.away && s.phase !== 'setup' && s.phase !== 'loading');
   if (!loaded) return <Splash />;
   const top = stack[stack.length - 1];
+  const tabs = runMode ? TABS : TABS.filter((t) => t.tab !== 'run');
+  const shownTab: Tab = tab === 'run' && !runMode ? 'play' : tab;
 
   return (
     <div className="flex h-full flex-col">
       <main className={`relative min-h-0 flex-1 ${top ? 'safe-bottom' : ''}`}>
         {/* Tabs stay mounted underneath pushed screens so their state survives. */}
-        <div key={tab} className={top ? 'hidden' : 'animate-fade-in h-full'}>
-          <TabScreen tab={tab} />
+        <div key={shownTab} className={top ? 'hidden' : 'animate-fade-in h-full'}>
+          <TabScreen tab={shownTab} />
         </div>
         {top && (
           <div key={stack.length} className="animate-slide-in h-full overflow-hidden">
@@ -177,8 +186,8 @@ export function App() {
       {!top && !(inGame && tab === 'play') && (
         <nav className="safe-bottom border-t border-stone-200/80 bg-[#fffdf9]/95 backdrop-blur-md dark:border-stone-800 dark:bg-stone-900/95">
           <div className="mx-auto flex max-w-xl px-2 pt-1.5 pb-1">
-            {TABS.map((t) => {
-              const active = tab === t.tab;
+            {tabs.map((t) => {
+              const active = shownTab === t.tab;
               const Icon = t.icon;
               return (
                 <button key={t.tab} onClick={() => setTab(t.tab)} className="flex flex-1 flex-col items-center gap-0.5 py-1">
