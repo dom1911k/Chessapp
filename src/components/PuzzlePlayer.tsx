@@ -8,7 +8,8 @@ import { classify, povScore, winPct } from '../lib/chess/evaluation';
 import { explainKeyMove, getHint } from '../lib/coach';
 import type { Hint } from '../lib/coach/hints';
 import { getEngine } from '../lib/engine';
-import { playSound } from '../lib/sound';
+import { playSound, playStep } from '../lib/sound';
+import { MoveMark, SolveBurst, type SquareMark } from './PuzzleFx';
 import { analysisLimits } from '../lib/engine/speed';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
 import { themeLabel } from '../lib/puzzles/themes';
@@ -19,6 +20,8 @@ type State = 'intro' | 'solving' | 'wrong' | 'checking' | 'solved' | 'failed';
 export interface PuzzleResult {
   success: boolean;
   hintsUsed: number;
+  /** Seconds from the first possible move to the last correct one. */
+  seconds: number;
 }
 
 interface Props {
@@ -30,9 +33,13 @@ interface Props {
   footer?: React.ReactNode;
   /** Puzzle Rush: no hints or explanations, a wrong move ends the puzzle, auto-advance. */
   fast?: boolean;
+  /** Puzzles solved in a row before this one: notes climb higher and the final burst gets bigger. */
+  combo?: number;
+  /** Extra layer over the board (streak banners…). */
+  overlay?: React.ReactNode;
 }
 
-export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle', footer, fast = false }: Props) {
+export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle', footer, fast = false, combo = 0, overlay }: Props) {
   const startFen = useMemo(() => (spec.setup ? tryMove(spec.fen, spec.setup)!.fen : spec.fen), [spec]);
   const userColor = startFen.split(' ')[1] as 'w' | 'b';
   const [fen, setFen] = useState(spec.setup ? spec.fen : startFen);
@@ -44,6 +51,20 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
   const [failed, setFailed] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const finished = useRef(false);
+  const [mark, setMark] = useState<SquareMark | null>(null);
+  const [burst, setBurst] = useState<{ id: number; sq: string } | null>(null);
+  const [shake, setShake] = useState(0);
+  const boardBox = useRef<HTMLDivElement>(null);
+  // A wrong move gives the board a little shake.
+  useEffect(() => {
+    if (!shake) return;
+    boardBox.current?.animate(
+      [{ transform: 'none' }, { transform: 'translateX(-9px) rotate(-0.6deg)' }, { transform: 'translateX(8px) rotate(0.5deg)' }, { transform: 'translateX(-5px)' }, { transform: 'translateX(3px)' }, { transform: 'none' }],
+      { duration: 450, easing: 'ease-out' },
+    );
+  }, [shake]);
+  const startedAt = useRef(spec.setup ? 0 : Date.now());
+  const correct = useRef(0);
   if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__puzzle = spec;
 
   useEffect(() => {
@@ -52,6 +73,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
       setFen(startFen);
       setLast({ from: spec.setup!.slice(0, 2), to: spec.setup!.slice(2, 4) });
       setState('solving');
+      startedAt.current = Date.now();
     }, fast ? 350 : 700);
     return () => clearTimeout(t);
   }, [spec, startFen]);
@@ -59,15 +81,22 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
   const finish = (success: boolean) => {
     if (finished.current) return;
     finished.current = true;
-    onFinish({ success: success && !failed, hintsUsed: hints });
+    onFinish({ success: success && !failed, hintsUsed: hints, seconds: Math.round((Date.now() - (startedAt.current || Date.now())) / 1000) });
+  };
+
+  const solvedFx = (sq: string) => {
+    setBurst({ id: Date.now(), sq });
+    playSound(combo >= 2 ? 'combo' : 'success');
   };
 
   const advance = (afterFen: string, uci: string, nextIdx: number) => {
     setFen(afterFen);
     setLast({ from: uci.slice(0, 2), to: uci.slice(2, 4) });
     setHint(null);
+    setMark({ id: Date.now(), sq: uci.slice(2, 4), ok: true });
+    playStep(correct.current++ + Math.min(combo, 6));
     if (nextIdx >= spec.solution.length) {
-      playSound('success');
+      solvedFx(uci.slice(2, 4));
       setState('solved');
       finish(true);
       if (fast) setTimeout(() => onNext?.(), 450);
@@ -112,10 +141,12 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     setFailed(true);
     setState('wrong');
     playSound('error');
+    setMark({ id: Date.now(), sq: m.to, ok: false });
+    setShake((n) => n + 1);
     if (fast) {
       if (!finished.current) {
         finished.current = true;
-        onFinish({ success: false, hintsUsed: 0 });
+        onFinish({ success: false, hintsUsed: 0, seconds: 0 });
       }
       setTimeout(() => onNext?.(), 700);
     }
@@ -132,7 +163,8 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
         const cls = classify(winPct(povScore(s0, userColor)), winPct(povScore(s1, userColor)), before.bestMove === uci);
         if (cls === 'best' || cls === 'good') {
           setNote('That works too! It is just as good as the move I had in mind.');
-          playSound('success');
+          setMark({ id: Date.now(), sq: uci.slice(2, 4), ok: true });
+          solvedFx(uci.slice(2, 4));
           setState('solved');
           finish(true);
           return;
@@ -194,6 +226,10 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
   return (
     <div className="board-split space-y-3">
       <div className="board-cell px-1.5">
+        <div ref={boardBox} className="relative">
+        {mark && <MoveMark key={mark.id} mark={mark} orientation={userColor === 'w' ? 'white' : 'black'} />}
+        {burst && <SolveBurst key={burst.id} id={burst.id} sq={burst.sq} power={combo + 1} orientation={userColor === 'w' ? 'white' : 'black'} />}
+        {overlay}
         <Board
           fen={fen}
           orientation={userColor === 'w' ? 'white' : 'black'}
@@ -203,6 +239,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
           arrows={done ? [] : (hint?.arrows ?? [])}
           highlights={hint?.highlights ?? []}
         />
+        </div>
       </div>
       {fast ? (
         <div className="px-3 text-center text-sm font-semibold text-stone-500">

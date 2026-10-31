@@ -230,3 +230,41 @@ body {
   100% { opacity: 0; transform: translateY(-3px); }
 }
 @utility animate-chat { animation: chat 4.5s ease-out forwards; }
+
+/* Versus intro */
+@keyframes vs-left { from { transform: translate(-60%, -30%); } to { transform: none; } }
+@keyframes vs-right { from { transform: translate(60%, 30%); } to { transform: none; } }
+@keyframes vs-flash { 0%, 30% { opacity: 0; } 40% { opacity: 1; } 100% { opacity: 0.35; } }
+@keyframes vs-in-left { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: none; } }
+@keyframes vs-in-right { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: none; } }
+@keyframes vs-stamp {
+  0%, 25% { opacity: 0; transform: scale(3) rotate(-8deg); }
+  40% { opacity: 1; transform: scale(0.9) rotate(2deg); }
+  50% { transform: scale(1.05) rotate(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes vs-line { 0%, 45% { opacity: 0; transform: translateY(8px) scale(0.95); } 60%, 100% { opacity: 1; transform: none; } }
+@utility animate-vs-left { animation: vs-left 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@utility animate-vs-right { animation: vs-right 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@utility animate-vs-flash { animation: vs-flash 1.2s ease-out both; }
+@utility animate-vs-in-left { animation: vs-in-left 0.5s 0.15s cubic-bezier(0.2, 0.8, 0.2, 1.2) both; }
+@utility animate-vs-in-right { animation: vs-in-right 0.5s 0.25s cubic-bezier(0.2, 0.8, 0.2, 1.2) both; }
+@utility animate-vs-stamp { animation: vs-stamp 0.9s ease-out both; }
+@utility animate-vs-line { animation: vs-line 1.4s ease-out both; }
+
+/* Puzzle effects */
+@keyframes mark {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  25% { opacity: 1; transform: translate(-50%, -50%) scale(1.3); }
+  40% { transform: translate(-50%, -50%) scale(1); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+@utility animate-mark { animation: mark 1.1s ease-out forwards; }
+@keyframes flame {
+  0%, 100% { transform: scale(1) rotate(-3deg); }
+  50% { transform: scale(1.15) rotate(3deg); }
+}
+@utility animate-flame { animation: flame 0.9s ease-in-out infinite; }
+@keyframes count-pop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+@utility animate-count-pop { animation: count-pop 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.4); }

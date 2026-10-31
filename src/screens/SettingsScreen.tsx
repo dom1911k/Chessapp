@@ -94,12 +94,15 @@ export function SettingsScreen() {
               options={[
                 { value: 'gentle', label: 'Gentle' },
                 { value: 'detailed', label: 'Every move' },
+                { value: 'off', label: 'Off' },
               ]}
             />
             <p className="mt-1.5 text-xs text-stone-500">
               {s.coachStyle === 'gentle'
                 ? 'Sam only speaks up when a move really costs you, and cheers you on now and then. Full details are in the game report.'
-                : 'Sam comments on every move, including small slips and missed chances.'}
+                : s.coachStyle === 'detailed'
+                  ? 'Sam comments on every move, including small slips and missed chances.'
+                  : 'Sam stays quiet while you play and you see the list of moves instead — tap a move to look back. Hints still work, and the game report has all the feedback.'}
             </p>
           </div>
           <Toggle checked={s.checkBeforeMove} onChange={(v) => s.set({ checkBeforeMove: v })} label='Ask "are you sure?" before a risky move' />

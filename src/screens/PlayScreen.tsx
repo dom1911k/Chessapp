@@ -11,12 +11,11 @@ import { currentFen, turnOf, usePlay } from '../lib/store/play';
 import { Board } from '../components/Board';
 import { CoachBubble, FlagButton, Portrait } from '../components/Coach';
 import { OPPONENTS, opponentById, type Mood } from '../lib/people';
-import { LevelBadge } from '../components/Gamification';
 import { tipOfTheDay, type Tip } from '../lib/coach/tips';
 import { getOpponentRecords, isUnlocked, type OpponentRecord } from '../lib/people/record';
-import { REPERTOIRES } from '../lib/people/openings';
-import { Dialog, EvalBar, Header, IconButton, Segmented, Spinner, useBackHandler } from '../components/ui';
+import { Dialog, EvalBar, IconButton, Segmented, Spinner, useBackHandler } from '../components/ui';
 import { MoveList } from '../components/MoveList';
+import { MoveHistory } from '../components/MoveHistory';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
 import type { FeedItem } from '../lib/store/types';
 import { shortWords } from '../lib/chess/words';
@@ -26,6 +25,9 @@ import { cosmeticById, type Cosmetic } from '../lib/rewards/cosmetics';
 import { CosmeticPreview } from '../components/CosmeticPreview';
 import { BoardFlash } from '../components/BoardFlash';
 import { Captured } from '../components/Captured';
+import { HomeHero } from '../components/HomeHero';
+import { VersusIntro } from '../components/VersusIntro';
+import { OpponentCarousel } from '../components/OpponentCarousel';
 import { RewardsOverlay } from '../components/RewardsOverlay';
 import { needsHomeScreenHint } from '../lib/pwa';
 import { THEMES } from '../lib/themes';
@@ -47,72 +49,38 @@ function SetupView() {
   const custom = settings.opponentId === 'custom';
   const [records, setRecords] = useState<Record<string, OpponentRecord>>({});
   useEffect(() => void getOpponentRecords().then(setRecords), []);
-  const chosen = opponentById(settings.opponentId);
-  const opp = custom ? null : chosen && isUnlocked(chosen.id, records) ? chosen : OPPONENTS[1];
+  const chosen = opponentById(settings.opponentId) ?? (custom ? undefined : OPPONENTS[1]);
+  const opp = custom ? null : chosen ?? null;
+  const locked = !!opp && !isUnlocked(opp.id, records);
+  const prevName = opp ? OPPONENTS[OPPONENTS.indexOf(opp) - 1]?.name : undefined;
   const rec = opp ? records[opp.id] : undefined;
   const running = usePlay((s) => (s.game && s.phase !== 'over' && s.phase !== 'setup' ? s.game : null));
   const start = async () => {
+    if (locked) return;
     const color = settings.colorPref === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : settings.colorPref;
     // Starting over ends the game in progress (counts as resigned after a few moves).
     if (running) await usePlay.getState().abandon();
     newGame(color, opp ? opp.elo : settings.botElo, undefined, opp?.id);
   };
   return (
-    <div className="flex h-full flex-col">
-      <Header title="Play" right={<><LevelBadge /><SettingsButton /></>} />
-      <div className="mx-auto w-full max-w-md flex-1 space-y-4 overflow-y-auto p-4">
+    <div className="flex h-full flex-col overflow-y-auto">
+      <HomeHero right={<SettingsButton />} />
+      <div className="mx-auto w-full max-w-md flex-1 space-y-4 p-4">
         {running && <ResumeCard />}
         <HomeScreenHint />
-        <TipOfTheDay />
         <div>
-          <div className="mb-2 px-1 text-sm font-semibold text-stone-500">Choose your opponent</div>
-          <div className="grid grid-cols-3 gap-2">
-            {OPPONENTS.map((o, i) => {
-              const open = isUnlocked(o.id, records);
-              const stars = starsOf(records[o.id]);
-              return (
-                <button
-                  key={o.id}
-                  disabled={!open}
-                  onClick={() => settings.set({ opponentId: o.id })}
-                  className={`card relative flex flex-col items-center !p-2 transition ${opp?.id === o.id ? '!ring-2 !ring-brand-600' : ''}`}
-                >
-                  <Portrait id={o.id} size={56} mood={opp?.id === o.id ? 'happy' : 'neutral'} className={open ? '' : 'opacity-40 grayscale'} />
-                  {!open && (
-                    <span className="absolute top-9 flex h-7 w-7 items-center justify-center rounded-full bg-stone-900/75 text-white">
-                      <Lock size={14} />
-                    </span>
-                  )}
-                  <span className="mt-1 text-sm font-semibold leading-tight">{o.name}</span>
-                  <span className="text-xs text-stone-500">{open ? o.elo : `Beat ${OPPONENTS[i - 1].name}`}</span>
-                  {open && <Stars n={stars} of={MAX_STARS} size={10} />}
-                </button>
-              );
-            })}
+          <div className="flex items-baseline justify-between px-1">
+            <span className="section-title">Choose your opponent</span>
+            <button className={`text-xs font-semibold ${custom ? 'text-brand-700 dark:text-brand-500' : 'text-stone-500'}`} onClick={() => settings.set({ opponentId: custom ? OPPONENTS[1].id : 'custom' })}>
+              <SlidersHorizontal size={13} className="mr-1 inline -translate-y-px" />
+              {custom ? 'Back to opponents' : 'Custom strength'}
+            </button>
           </div>
-          <button className={`mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm ${custom ? 'bg-brand-100 font-semibold text-brand-700 dark:bg-brand-700/30 dark:text-brand-100' : 'text-stone-500'}`} onClick={() => settings.set({ opponentId: 'custom' })}>
-            <SlidersHorizontal size={16} /> Custom strength…
-          </button>
+          {!custom && <OpponentCarousel records={records} selected={settings.opponentId} onSelect={(id) => settings.set({ opponentId: id })} />}
         </div>
-        {opp ? (
-          <div className="card flex gap-3">
-            <Portrait id={opp.id} size={64} />
-            <div>
-              <div className="font-bold">{opp.name} <span className="font-normal text-stone-500">· ~{opp.elo}</span></div>
-              <div className="text-xs font-semibold text-brand-700 dark:text-brand-500">{opp.tagline}</div>
-              <p className="mt-1 text-sm text-stone-600 dark:text-stone-300">{opp.bio}</p>
-              {REPERTOIRES[opp.id] && <p className="mt-1 text-xs text-stone-500"><BookOpen size={13} className="inline -mt-0.5" /> Favourite: {REPERTOIRES[opp.id].favourite}</p>}
-              {rec && rec.w + rec.l + rec.d > 0 && (
-                <p className="mt-0.5 text-xs text-stone-500">
-                  Your record: {rec.w}W · {rec.d}D · {rec.l}L
-                </p>
-              )}
-            </div>
-          </div>
-        ) : null}
-        {opp ? (
+        {opp && !locked ? (
           <ChallengeCard opponentId={opp.id} stars={starsOf(rec)} done={!!rec?.challengeDone} />
-        ) : (
+        ) : custom ? (
           <div className="card">
             <div className="mb-1 flex items-baseline justify-between">
               <span className="text-sm font-semibold text-stone-500">Bot strength</span>
@@ -122,7 +90,7 @@ function SetupView() {
             </div>
             <input type="range" min={MIN_ELO} max={MAX_ELO} step={50} value={settings.botElo} onChange={(e) => settings.set({ botElo: Number(e.target.value) })} className="w-full accent-brand-600" />
           </div>
-        )}
+        ) : null}
         <div className="card space-y-3">
           <div>
             <div className="mb-2 text-sm font-semibold text-stone-500">You play</div>
@@ -152,11 +120,12 @@ function SetupView() {
                 : 'A chess engine made weaker with random slips. Often easier for complete beginners — it sometimes gives pieces away.'}
             </p>
           </div>
-          <button className="btn-primary w-full !py-3 text-base" onClick={() => void start()}>
-            {running ? 'Start a new game' : `Play ${opp ? opp.name : 'the bot'}`}
+          <button className="btn-primary w-full !py-3 text-base" disabled={locked} onClick={() => void start()}>
+            {locked ? <><Lock size={16} /> Beat {prevName} first</> : running ? 'Start a new game' : `Play ${opp ? opp.name : 'the bot'}`}
           </button>
           {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
         </div>
+        <TipOfTheDay />
         <button className="btn-ghost w-full" onClick={() => push({ name: 'history' })}>
           <History size={17} /> Past games
         </button>
@@ -270,6 +239,16 @@ function GameView() {
   const orientation = g.userColor === 'w' ? 'white' : 'black';
   const last = g.plies[g.plies.length - 1];
   const myTurn = s.phase === 'userTurn' && turnOf(fen) === g.userColor;
+  // Looking back at an earlier position (index of the ply shown, -1 = start); null follows the game.
+  const [view, setView] = useState<number | null>(null);
+  useEffect(() => setView(null), [g.startedAt]);
+  const viewing = view !== null && view < g.plies.length - 1;
+  const viewPly = viewing && view! >= 0 ? g.plies[view!] : null;
+  const coachOff = settings.coachStyle === 'off';
+  const feed = g.feed ?? [];
+  const latestFeed = feed[feed.length - 1];
+  // With the coach off, only what you asked for (hints, threats, the result…) shows, and only while it's fresh.
+  const coachFresh = !!s.precheck || !!s.over || (!!latestFeed && latestFeed.ply >= g.plies.length - 1);
 
   const arrows: CoachArrow[] = [];
   const highlights: CoachHighlight[] = [];
@@ -341,29 +320,51 @@ function GameView() {
               <ChatBubble />
               <BoardFlash flash={s.flash} orientation={orientation} />
               <Board
-                fen={fen}
+                fen={viewing ? (viewPly ? viewPly.fenAfter : g.startFen) : fen}
                 orientation={orientation}
-                movable={myTurn ? g.userColor : null}
+                movable={myTurn && !viewing ? g.userColor : null}
                 onMove={s.userMove}
-                arrows={arrows}
-                highlights={highlights}
-                lastMove={last ? { from: last.uci.slice(0, 2), to: last.uci.slice(2, 4) } : null}
+                arrows={viewing ? [] : arrows}
+                highlights={viewing ? [] : highlights}
+                lastMove={viewing ? (viewPly ? { from: viewPly.uci.slice(0, 2), to: viewPly.uci.slice(2, 4) } : null) : last ? { from: last.uci.slice(0, 2), to: last.uci.slice(2, 4) } : null}
                 showCoordinates={settings.showCoordinates}
                 confirm={settings.confirmMoves}
               />
+              {viewing && (
+                <button
+                  onClick={() => setView(null)}
+                  className="animate-pop absolute bottom-2 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-stone-900/85 py-1.5 pr-1.5 pl-3.5 text-sm font-semibold whitespace-nowrap text-white shadow-lg backdrop-blur"
+                >
+                  {view! < 0 ? 'Start position' : `Move ${Math.floor((view! + (g.startFen.split(' ')[1] === 'b' ? 1 : 0)) / 2) + Number(g.startFen.split(' ')[5] ?? 1)}`}
+                  <span className="rounded-full bg-white px-2.5 py-0.5 text-stone-900">{myTurn ? 'Back to your move' : 'Back to game'}</span>
+                </button>
+              )}
             </div>
           </div>
           <div className="flex h-7 items-center px-3">
             <Captured fen={fen} startFen={g.startFen} side={g.userColor} />
           </div>
-          {settings.showMoveList && <MoveList plies={g.plies} startFen={g.startFen} />}
+          {settings.showMoveList && !coachOff && (
+            <MoveList plies={g.plies} startFen={g.startFen} current={viewing ? view! : undefined} onSelect={(i) => setView(i >= g.plies.length - 1 ? null : i)} />
+          )}
         </div>
         <div className="flex min-h-0 flex-1 flex-col land:pt-1">
           {/* The coach sits just above the dock (Dr. Wolf style), close to the thumb; it scrolls if long. */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pt-3 pb-2">
-            <div className="mt-auto" />
-            <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => setHistory(true)} />
-          </div>
+          {coachOff ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-1 pb-2">
+              <MoveHistory plies={g.plies} startFen={g.startFen} view={viewing ? view : null} onView={setView} />
+              {coachFresh && (
+                <div className="max-h-[45%] shrink-0 overflow-y-auto">
+                  <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => setHistory(true)} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pt-3 pb-2">
+              <div className="mt-auto" />
+              <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => setHistory(true)} />
+            </div>
+          )}
           {!s.over && (
             <div className="safe-bottom px-3 pb-2">
               <div className="mx-auto grid max-w-md grid-cols-4 gap-1 rounded-[22px] bg-white/90 p-1.5 shadow-[0_6px_24px_rgba(60,35,15,0.12)] ring-1 ring-black/5 backdrop-blur dark:bg-stone-900/90 dark:ring-white/10">
@@ -376,6 +377,7 @@ function GameView() {
           )}
         </div>
       </div>
+      {s.intro && <VersusIntro opponentId={g.opponentId} elo={g.elo} userColor={g.userColor} line={s.chat?.text} onDone={s.endIntro} />}
       {s.rewards && (
         <RewardsOverlay
           r={s.rewards}
@@ -399,8 +401,8 @@ function GameView() {
           {menuItem(
             <MessageCircleHeart size={19} />,
             'Coach comments',
-            () => settings.set({ coachStyle: settings.coachStyle === 'gentle' ? 'detailed' : 'gentle' }),
-            <span className="chip bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300">{settings.coachStyle === 'gentle' ? 'Gentle' : 'Every move'}</span>,
+            () => settings.set({ coachStyle: settings.coachStyle === 'gentle' ? 'detailed' : settings.coachStyle === 'detailed' ? 'off' : 'gentle' }),
+            <span className="chip bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300">{settings.coachStyle === 'gentle' ? 'Gentle' : settings.coachStyle === 'detailed' ? 'Every move' : 'Off · move list'}</span>,
           )}
           {menuItem(<ShieldCheck size={19} />, 'Safety overlay', () => settings.set({ safetyOverlay: !settings.safetyOverlay }), onOff(settings.safetyOverlay))}
           {menuItem(<ListOrdered size={19} />, 'Move list', () => settings.set({ showMoveList: !settings.showMoveList }), onOff(settings.showMoveList))}

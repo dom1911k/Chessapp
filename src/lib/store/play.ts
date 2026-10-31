@@ -74,6 +74,9 @@ interface PlayStore {
   /** Back to the menu while a game is running (the game stays saved). */
   away: boolean;
   setAway(away: boolean): void;
+  /** Set when a new game starts: the "versus" intro shows until endIntro(). */
+  intro: number | null;
+  endIntro(): void;
 }
 
 let token = 0;
@@ -125,7 +128,7 @@ export const usePlay = create<PlayStore>((set, get) => {
   /** Announces the opening the first time its name appears. */
   const announceOpening = () => {
     const g = get().game!;
-    if (g.startFen !== START_FEN || g.plies.length > 16 || useSettings.getState().coachStyle === 'gentle') return;
+    if (g.startFen !== START_FEN || g.plies.length > 16 || useSettings.getState().coachStyle !== 'detailed') return;
     const o = detectOpening(g.plies.map((p) => p.san));
     if (!o || g.told.includes(`opening:${o.name}`)) return;
     update((gg) => void gg.told.push(`opening:${o.name}`));
@@ -263,7 +266,9 @@ export const usePlay = create<PlayStore>((set, get) => {
         gg.minWp = Math.min(gg.minWp ?? 50, wpA);
         gg.told = [...new Set([...gg.told, ...comment.ruleIds.filter((r) => PRINCIPLE_IDS.has(r))])];
       });
-      const gentle = useSettings.getState().coachStyle === 'gentle';
+      const style = useSettings.getState().coachStyle;
+      const gentle = style === 'gentle';
+      const quiet = style === 'off';
       const cls = comment.classification;
       const loss = Math.max(0, wpB - wpA);
       const slip = cls === 'mistake' || cls === 'blunder';
@@ -282,7 +287,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         ? comment.ruleIds.some((r) => r.startsWith('praise-') && r !== 'praise-generic')
         : !comment.ruleIds.every((r) => r === 'praise-generic');
       const notable = special || (slip || cls === 'inaccuracy' ? (gentle ? hurts : true) : praiseWorthy && praiseDue);
-      if (notable) {
+      if (notable && !quiet) {
         let text = special ? [SPECIAL_TEXT[special], ...comment.text.filter((t) => !/best move|exactly right|Spot on/.test(t))] : comment.text;
         if (gentle && hurts) text = [pick(GENTLE_OPENERS), ...text.slice(0, 2).map((t, k) => (k ? t : cap(t.replace(/^(Oops|Ouch|Careful)\s*[!,—–-]*\s*/, ''))))];
         post({
@@ -369,6 +374,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       let note = useSettings.getState().botNotes ? botMoveNote(fen, r.fen, uci, g.userColor, opponentById(g.opponentId)?.name) : null;
       // Gentle: checks speak for themselves and a threatened pawn isn't worth a message.
       // Other warnings get a few moves' break, except a checkmate threat.
+      if (useSettings.getState().coachStyle === 'off') note = null;
       if (note && useSettings.getState().coachStyle === 'gentle') {
         const lastNote = [...(g.feed ?? [])].reverse().find((f) => f.kind === 'note');
         const recent = !!lastNote && g.plies.length - lastNote.ply <= 6;
@@ -423,6 +429,10 @@ export const usePlay = create<PlayStore>((set, get) => {
     flash: null,
     rewards: null,
     away: false,
+    intro: null,
+    endIntro() {
+      set({ intro: null });
+    },
 
     setAway(away) {
       set({ away });
@@ -473,7 +483,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         hintsUsed: 0,
         told: [],
       };
-      set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false });
+      set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: Date.now() });
       useCelebrate.getState().setMuted(false);
       save(game);
       const greetFor = game.startedAt;
@@ -656,7 +666,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     leaveGame() {
       token++;
       getEngine().cancelAll('play');
-      set({ game: null, phase: 'setup', over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false });
+      set({ game: null, phase: 'setup', over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: null });
       useCelebrate.getState().setMuted(false);
     },
   };

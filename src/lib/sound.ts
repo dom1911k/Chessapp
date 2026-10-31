@@ -6,7 +6,7 @@
 // Chimes (success, check) use a soft marimba voice — also wood.
 import { useSettings } from './settings';
 
-export type SoundName = 'move' | 'capture' | 'check' | 'castle' | 'success' | 'error' | 'notify' | 'win' | 'brilliant' | 'reward' | 'type';
+export type SoundName = 'move' | 'capture' | 'check' | 'castle' | 'success' | 'error' | 'notify' | 'win' | 'brilliant' | 'reward' | 'type' | 'versus' | 'combo';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -203,6 +203,17 @@ export function renderSound(c: BaseAudioContext, out: AudioNode, name: SoundName
       // The coach "typing": a tiny, high, very quiet wooden tick.
       tock(c, out, t, 2.4, 0.1, 0.4);
       break;
+    case 'versus':
+      // Two heavy pieces set down, then a low, bright chord.
+      tock(c, out, t, 0.8, 1, 1.4);
+      tock(c, out, t + 0.16, 0.7, 1, 1.6);
+      [261.6, 392, 523.3].forEach((f) => marimba(c, out, t + 0.34, f, 0.14, 0.9));
+      break;
+    case 'combo':
+      // A quick rising run that lands on a high chime.
+      [523.3, 659.3, 784, 1046.5, 1318.5].forEach((f, i) => marimba(c, out, t + i * 0.055, f, 0.16, i === 4 ? 0.9 : 0.25));
+      marimba(c, out, t + 0.3, 2093, 0.06, 1);
+      break;
     case 'win':
       marimba(c, out, t, 523.3, 0.2);
       marimba(c, out, t + 0.1, 659.3, 0.2);
@@ -228,4 +239,14 @@ export function previewPack(id: string) {
   renderSound(a.c, a.out, 'move', t + 0.45, pack);
   renderSound(a.c, a.out, 'capture', t + 0.9, pack);
   renderSound(a.c, a.out, 'check', t + 1.45, pack);
+}
+
+/** Pentatonic steps for a run of correct moves: each one a little higher. */
+const STEPS = [523.3, 587.3, 659.3, 784, 880, 1046.5, 1174.7, 1318.5, 1568, 1760];
+export function playStep(n: number) {
+  if (!useSettings.getState().sound) return;
+  const a = audio();
+  if (!a) return;
+  const t = a.c.currentTime + 0.005;
+  marimba(a.c, a.out, t + 0.03, STEPS[Math.min(n, STEPS.length - 1)], 0.18, 0.4);
 }

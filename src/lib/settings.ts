@@ -17,8 +17,9 @@ export interface Settings {
   /** Show the move list under the board while playing. */
   showMoveList: boolean;
   pauseOnMistakes: boolean;
-  /** Gentle: the coach speaks up only for moves that really hurt and praises now and then. Detailed: every comment. */
-  coachStyle: 'gentle' | 'detailed';
+  /** Gentle: the coach speaks up only for moves that really hurt and praises now and then. Detailed: every comment.
+   * Off: no comments during the game; a move list takes the coach's place (hints still work on request). */
+  coachStyle: 'gentle' | 'detailed' | 'off';
   /** Ask "are you sure?" before a move that leaves a piece hanging or allows mate. */
   checkBeforeMove: boolean;
   showCoordinates: boolean;
