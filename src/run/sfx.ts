@@ -1,12 +1,18 @@
-// Run mode's own sounds (Web Audio, no files) + haptics. Uses the app's synth voices read-only,
-// on a separate audio context, and respects the app's sound on/off and volume.
+// Run mode's own sounds (Web Audio, no files) + haptics + ambient music. Uses the app's synth
+// voices read-only, on a separate audio context; respects the app's sound on/off and volume,
+// times Run mode's own music/sound levels.
 import { marimba, tockWith } from '../lib/sound';
 import { useSettings } from '../lib/settings';
+import { useRunSettings } from './settings';
 
-export type RunSound = 'relic' | 'hit' | 'clear' | 'over' | 'slam' | 'chip' | 'coin' | 'card' | 'fail' | 'win';
+export type RunSound =
+  | 'relic' | 'hit' | 'clear' | 'over' | 'slam' | 'chip' | 'coin' | 'card' | 'fail' | 'win' | 'whoosh' | 'door'
+  | 'move' | 'capture' | 'check' | 'castle' | 'promote';
 
 let ctx: AudioContext | null = null;
-let out: GainNode | null = null;
+let sfxOut: GainNode | null = null;
+let musicOut: GainNode | null = null;
+let echo: GainNode | null = null;
 
 function audio() {
   try {
@@ -14,15 +20,39 @@ function audio() {
       ctx = new AudioContext();
       const comp = ctx.createDynamicsCompressor();
       comp.threshold.value = -16;
-      out = ctx.createGain();
-      out.connect(comp).connect(ctx.destination);
+      comp.connect(ctx.destination);
+      sfxOut = ctx.createGain();
+      musicOut = ctx.createGain();
+      sfxOut.connect(comp);
+      musicOut.connect(comp);
+      // A short stone-room echo for piece sounds.
+      echo = ctx.createGain();
+      const d = ctx.createDelay(1);
+      d.delayTime.value = 0.13;
+      const fb = ctx.createGain();
+      fb.gain.value = 0.3;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 1300;
+      echo.connect(d);
+      d.connect(lp).connect(fb).connect(d);
+      lp.connect(sfxOut);
+      echo.connect(sfxOut);
     }
     if (ctx.state === 'suspended') void ctx.resume();
-    out!.gain.value = useSettings.getState().soundVolume;
-    return { c: ctx, o: out! };
+    const app = useSettings.getState().soundVolume;
+    const rs = useRunSettings.getState();
+    sfxOut!.gain.value = app * rs.sfx;
+    musicOut!.gain.value = app * rs.music;
+    return { c: ctx, o: sfxOut!, e: echo!, m: musicOut! };
   } catch {
     return null;
   }
+}
+
+/** Re-apply volumes (after a settings change). */
+export function applyVolumes() {
+  if (ctx) audio();
 }
 
 function tone(c: AudioContext, o: AudioNode, t: number, f0: number, f1: number, dur: number, type: OscillatorType, gain: number) {
@@ -39,38 +69,96 @@ function tone(c: AudioContext, o: AudioNode, t: number, f0: number, f1: number, 
   osc.stop(t + dur + 0.05);
 }
 
-export function sfx(name: RunSound, n = 0) {
+/** Filtered noise burst (sweeping band-pass): crunches and whooshes. */
+function noise(c: AudioContext, o: AudioNode, t: number, dur: number, f0: number, f1: number, gain: number, q = 1.2) {
+  const len = Math.floor(c.sampleRate * dur);
+  const buf = c.createBuffer(1, len, c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  const f = c.createBiquadFilter();
+  f.type = 'bandpass';
+  f.Q.value = q;
+  f.frequency.setValueAtTime(f0, t);
+  f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(gain, t + Math.min(0.04, dur / 4));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f).connect(g).connect(o);
+  src.start(t);
+}
+
+/** Play a sound. For piece sounds, `opp` makes it a little lower (the opponent's move). */
+export function sfx(name: RunSound, n = 0, opp = false) {
+  // Sound must never break the game.
+  try {
+    playSfx(name, n, opp);
+  } catch (e) {
+    console.warn('run sfx', e);
+  }
+}
+
+function playSfx(name: RunSound, n: number, opp: boolean) {
   if (!useSettings.getState().sound) return;
   const a = audio();
   if (!a) return;
-  const { c, o } = a;
+  const { c, o, e } = a;
   const t = c.currentTime + 0.01;
+  const p = opp ? 0.86 : 1;
+  const stone = (at: number, pitch: number, weight = 1.7, gain = 1) => {
+    tockWith(c, o, at, 0.55 * pitch, gain, weight);
+    tockWith(c, e, at, 0.55 * pitch, gain * 0.45, weight);
+    tone(c, e, at, 130 * pitch, 70 * pitch, 0.14, 'sine', 0.22 * gain);
+  };
   switch (name) {
+    case 'move':
+      stone(t, p);
+      break;
+    case 'capture':
+      noise(c, o, t, 0.08, 1800 * p, 700 * p, 0.35, 2);
+      stone(t + 0.03, p * 0.9, 2.2, 1.1);
+      noise(c, e, t + 0.05, 0.45, 2200, 260, 0.12, 0.8);
+      marimba(c, e, t + 0.08, 155.6 * p, 0.1, 0.7);
+      marimba(c, e, t + 0.08, 164.8 * p, 0.08, 0.7);
+      break;
+    case 'check':
+      stone(t, p);
+      marimba(c, e, t + 0.06, 196 * p, 0.22, 1.8);
+      marimba(c, e, t + 0.06, 293.7 * p, 0.09, 1.4);
+      tone(c, e, t + 0.06, 784 * p, 776 * p, 1.2, 'sine', 0.03);
+      break;
+    case 'castle':
+      stone(t, p);
+      stone(t + 0.13, p * 0.94);
+      break;
+    case 'promote':
+      stone(t, p);
+      [392, 523.3, 659.3, 784].forEach((f, i) => marimba(c, e, t + 0.08 + i * 0.08, f * p, 0.16, i === 3 ? 1.2 : 0.4));
+      break;
     case 'relic':
-      // Glassy bell: two detuned high partials with a shimmer.
       [1568, 2349, 3136].forEach((f, i) => marimba(c, o, t + i * 0.035, f * (1 + n * 0.06), 0.12, 0.6));
       tone(c, o, t, 2600, 3400, 0.25, 'triangle', 0.03);
       break;
     case 'hit':
-      // A low, heavy thud plus a sour minor second.
       tockWith(c, o, t, 0.5, 1.2, 1.8);
       tone(c, o, t, 140, 60, 0.35, 'sine', 0.35);
-      marimba(c, o, t + 0.05, 233.1, 0.12, 0.5);
-      marimba(c, o, t + 0.05, 246.9, 0.12, 0.5);
+      marimba(c, e, t + 0.05, 233.1, 0.12, 0.5);
+      marimba(c, e, t + 0.05, 246.9, 0.12, 0.5);
       break;
     case 'clear':
-      [392, 523.3, 659.3, 784, 1046.5].forEach((f, i) => marimba(c, o, t + i * 0.06, f, 0.16, i === 4 ? 1 : 0.3));
+      [392, 523.3, 659.3, 784, 1046.5].forEach((f, i) => marimba(c, e, t + i * 0.06, f, 0.16, i === 4 ? 1 : 0.3));
       break;
     case 'fail':
-      [392, 349.2, 311.1].forEach((f, i) => marimba(c, o, t + i * 0.12, f, 0.16, 0.5));
+      [392, 349.2, 311.1].forEach((f, i) => marimba(c, e, t + i * 0.12, f, 0.16, 0.5));
       break;
     case 'over':
-      // Slow descending tritone + a deep drone.
-      [466.2, 329.6, 233.1, 164.8].forEach((f, i) => marimba(c, o, t + i * 0.22, f, 0.18, 0.9));
+      [466.2, 329.6, 233.1, 164.8].forEach((f, i) => marimba(c, e, t + i * 0.22, f, 0.18, 0.9));
       tone(c, o, t, 110, 55, 1.6, 'sawtooth', 0.04);
       break;
     case 'win':
-      [523.3, 659.3, 784, 1046.5, 1318.5, 1568].forEach((f, i) => marimba(c, o, t + i * 0.07, f, 0.17, i === 5 ? 1.2 : 0.35));
+      [523.3, 659.3, 784, 1046.5, 1318.5, 1568].forEach((f, i) => marimba(c, e, t + i * 0.07, f, 0.17, i === 5 ? 1.2 : 0.35));
       break;
     case 'slam':
       tockWith(c, o, t, 0.45, 1.3, 2.2);
@@ -85,6 +173,16 @@ export function sfx(name: RunSound, n = 0) {
       break;
     case 'card':
       tockWith(c, o, t, 1.8, 0.4, 0.5);
+      noise(c, o, t, 0.12, 3000, 1500, 0.05, 1);
+      break;
+    case 'whoosh':
+      noise(c, e, t, 0.45, 300, 2400, 0.12, 0.7);
+      break;
+    case 'door':
+      // Stone door grinding open, then a thud.
+      noise(c, o, t, 0.6, 160, 420, 0.18, 3);
+      tone(c, o, t, 55, 48, 0.6, 'sawtooth', 0.05);
+      stone(t + 0.55, 0.7, 2.4, 1);
       break;
   }
 }
@@ -97,81 +195,167 @@ export function buzz(ms: number | number[]) {
   }
 }
 
-// ---- Ambient music: a low drone with a slowly breathing filter and sparse marimba notes. ----
-const MUSIC_KEY = 'chesscoach.run.music';
-export const musicPref = () => {
-  try {
-    return localStorage.getItem(MUSIC_KEY) !== '0';
-  } catch {
-    return true;
-  }
-};
-export const setMusicPref = (on: boolean) => {
-  try {
-    localStorage.setItem(MUSIC_KEY, on ? '1' : '0');
-  } catch {
-    /* ignore */
-  }
-};
+// ---- Ambient music --------------------------------------------------------------------------
+// A slow minor progression of 8 chords × 8 s (≈64 s per cycle): a breathing drone on the root,
+// a soft pad on the chord, a recurring bell motif at the top of each cycle and sparse bell notes
+// in between, with small random variations each time round. In the rival's room a low heartbeat
+// joins in.
 
-let amb: { stop(): void } | null = null;
-const SCALE = [220, 261.6, 293.7, 329.6, 392, 440, 523.3, 587.3];
+type Chord = { root: number; tones: number[] };
+const A2 = 110, C3 = 130.8, D3 = 146.8, E3 = 164.8, F2 = 87.3, G2 = 98, D2 = 73.4, E2 = 82.4, Gs3 = 207.7, B2 = 123.5;
+const PROG: Chord[] = [
+  { root: A2, tones: [220, 261.6, 329.6] }, // Am
+  { root: F2, tones: [174.6, 220, 261.6] }, // F
+  { root: D2, tones: [146.8, 174.6, 220] }, // Dm
+  { root: E2, tones: [164.8, Gs3, 246.9] }, // E
+  { root: A2, tones: [220, 261.6, 329.6] }, // Am
+  { root: G2, tones: [196, 246.9, 293.7] }, // G
+  { root: F2, tones: [174.6, 220, 261.6] }, // F
+  { root: E2, tones: [164.8, Gs3, 246.9] }, // E
+];
+void [C3, D3, E3, B2];
+const BAR = 8;
+const MOTIF = [440, 523.3, 659.3, 587.3, 523.3, 493.9];
 
-export function ambient(on: boolean) {
-  if (!on || !useSettings.getState().sound) {
+export type MusicMode = 'calm' | 'tense';
+let amb: { stop(): void; mode(m: MusicMode): void } | null = null;
+
+export function ambient(on: boolean, mode: MusicMode = 'calm') {
+  try {
+    startAmbient(on, mode);
+  } catch (e) {
+    console.warn('run music', e);
+  }
+}
+
+function startAmbient(on: boolean, mode: MusicMode) {
+  if (!on || !useSettings.getState().sound || useRunSettings.getState().music <= 0) {
     amb?.stop();
     amb = null;
     return;
   }
-  if (amb) return;
+  if (amb) return amb.mode(mode);
   const a = audio();
   if (!a) return;
-  const { c, o } = a;
+  const { c, m: out } = a;
   const bus = c.createGain();
   bus.gain.setValueAtTime(0, c.currentTime);
-  bus.gain.linearRampToValueAtTime(0.05, c.currentTime + 3);
+  bus.gain.linearRampToValueAtTime(0.06, c.currentTime + 4);
+  bus.connect(out);
+  // Drone
   const lp = c.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.frequency.value = 380;
+  lp.frequency.value = 420;
   lp.Q.value = 3;
   const lfo = c.createOscillator();
   const lfoGain = c.createGain();
-  lfo.frequency.value = 0.06;
-  lfoGain.gain.value = 180;
+  lfo.frequency.value = 0.045;
+  lfoGain.gain.value = 200;
   lfo.connect(lfoGain).connect(lp.frequency);
-  lp.connect(bus).connect(o);
-  const oscs = [55, 55.35, 82.4].map((f, i) => {
+  lp.connect(bus);
+  const drone = [0, 1.006, 0.5].map((mul, i) => {
     const osc = c.createOscillator();
     osc.type = i === 2 ? 'sine' : 'sawtooth';
-    osc.frequency.value = f;
+    osc.frequency.value = A2 * mul;
     const g = c.createGain();
-    g.gain.value = i === 2 ? 0.5 : 0.35;
+    g.gain.value = i === 2 ? 0.55 : 0.3;
     osc.connect(g).connect(lp);
     osc.start();
-    return osc;
+    return { osc, mul: mul || 1 };
+  });
+  // Pad
+  const padLp = c.createBiquadFilter();
+  padLp.type = 'lowpass';
+  padLp.frequency.value = 900;
+  padLp.connect(bus);
+  const pad = [0, 1, 2].map(() => {
+    const osc = c.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = 220;
+    const g = c.createGain();
+    g.gain.value = 0;
+    osc.connect(g).connect(padLp);
+    osc.start();
+    return { osc, g };
   });
   lfo.start();
-  let timer: ReturnType<typeof setTimeout>;
-  const note = () => {
-    const t = c.currentTime + 0.02;
-    const f = SCALE[Math.floor(Math.random() * SCALE.length)];
-    marimba(c, bus, t, f, 0.5, 1.4);
-    if (Math.random() < 0.3) marimba(c, bus, t + 0.18, f * 1.5, 0.3, 1.2);
-    timer = setTimeout(note, 2200 + Math.random() * 2600);
+  // Heartbeat (tense mode)
+  const heart = c.createGain();
+  heart.gain.value = 0;
+  heart.connect(bus);
+  let mode0: MusicMode = mode;
+  let bar = 0;
+  let next = c.currentTime + 0.2;
+  const schedule = () => {
+    try {
+      scheduleBars();
+    } catch (e) {
+      console.warn('run music', e);
+    }
   };
-  timer = setTimeout(note, 1500);
+  const scheduleBars = () => {
+    if (next < c.currentTime) next = c.currentTime + 0.1;
+    while (next < c.currentTime + BAR + 1) {
+      const ch = PROG[bar % PROG.length];
+      const t = next;
+      for (const d of drone) d.osc.frequency.setTargetAtTime(ch.root * d.mul, t, 1.2);
+      pad.forEach((p, i) => {
+        p.osc.frequency.setTargetAtTime(ch.tones[i] * (Math.random() < 0.15 ? 2 : 1), t, 1.4);
+        p.g.gain.setTargetAtTime(0.0, Math.max(c.currentTime, t - 0.6), 0.5);
+        p.g.gain.setTargetAtTime(0.11 + Math.random() * 0.05, t + 0.2, 1.6);
+      });
+      if (bar % PROG.length === 0) {
+        // The motif, a little different each cycle.
+        const start = Math.random() < 0.5 ? 0 : 2;
+        MOTIF.slice(start, start + 4).forEach((f, i) => marimba(c, bus, t + 1 + i * 0.9, f, 0.45, 2.2));
+      } else {
+        const notes = 1 + Math.floor(Math.random() * 3);
+        for (let k = 0; k < notes; k++) {
+          const f = ch.tones[Math.floor(Math.random() * 3)] * (Math.random() < 0.6 ? 2 : 4);
+          marimba(c, bus, t + 1 + Math.random() * (BAR - 2), f, 0.32, 1.8);
+        }
+      }
+      // Heartbeat: two low thumps per beat, every 1.2 s.
+      if (mode0 === 'tense')
+        for (let b = 0; b < BAR - 0.3; b += 1.2) {
+          tone(c, heart, t + b, 62, 42, 0.18, 'sine', 0.9);
+          tone(c, heart, t + b + 0.24, 58, 40, 0.16, 'sine', 0.6);
+        }
+      next += BAR;
+      bar++;
+    }
+  };
+  schedule();
+  const timer = setInterval(schedule, 2000);
+  const setMode = (m: MusicMode) => {
+    mode0 = m;
+    heart.gain.setTargetAtTime(m === 'tense' ? 0.5 : 0, c.currentTime, 0.8);
+    lp.frequency.setTargetAtTime(m === 'tense' ? 560 : 420, c.currentTime, 1);
+  };
+  setMode(mode);
   amb = {
+    mode: setMode,
     stop() {
-      clearTimeout(timer);
+      clearInterval(timer);
       const t = c.currentTime;
       bus.gain.cancelScheduledValues(t);
       bus.gain.setValueAtTime(bus.gain.value, t);
-      bus.gain.linearRampToValueAtTime(0, t + 0.8);
+      bus.gain.linearRampToValueAtTime(0, t + 1);
       setTimeout(() => {
-        oscs.forEach((x) => x.stop());
+        drone.forEach((d) => d.osc.stop());
+        pad.forEach((p) => p.osc.stop());
         lfo.stop();
         bus.disconnect();
-      }, 900);
+      }, 1100);
     },
   };
+}
+
+/** The sound for a move from its SAN. */
+export function moveSound(san: string): RunSound {
+  if (san.includes('=')) return 'promote';
+  if (san.includes('+') || san.includes('#')) return 'check';
+  if (san.startsWith('O-O')) return 'castle';
+  if (san.includes('x')) return 'capture';
+  return 'move';
 }

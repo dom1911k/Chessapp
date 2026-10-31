@@ -25,6 +25,8 @@ export interface MapNode {
   drill?: string;
   elite?: boolean;
   event?: EventKind;
+  /** Indices of the nodes in the next layer this one leads to (all, if missing). */
+  next?: number[];
 }
 
 /** A relic (or the rival's rule) firing during a room; shown in the tally. */
@@ -181,6 +183,13 @@ export interface Run {
   finalScore?: number;
   /** Puzzles already used this run (avoid repeats). */
   usedPuzzles: string[];
+  /** Meta snapshot taken when the run started (boosts and what is still locked). */
+  meta?: { boosts: Partial<Record<'purse' | 'candle' | 'pocket' | 'reroll' | 'satchel', number>>; lockedRelics: RelicId[] };
+  /** The free shop reroll (Second Look) has been used at this campfire. */
+  rerollUsed?: boolean;
+  /** Embers earned (set when the run ends). */
+  embers?: number;
+  abandoned?: boolean;
   /** Moves played with Engine's Eye showing ("Room: Nf3"), for the debrief. */
   eyeMoves?: string[];
 }

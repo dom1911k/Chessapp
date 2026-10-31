@@ -1,5 +1,6 @@
 /* Run mode look: occult tarot on green/purple felt, CRT scanlines, gold glow. Scoped to .run-root. */
-.run-root {
+.run-root,
+.run-portal {
   --felt-1: #10261d;
   --felt-2: #1d1033;
   --gold: #f2c75c;
@@ -282,3 +283,34 @@
 @media (prefers-reduced-motion: reduce) {
   .run-candle, .run-coin, .run-vs-l, .run-vs-r, .run-boss-glow, .run-smoke { animation-duration: 0.01s !important; }
 }
+
+/* ---- v3 ---- */
+@keyframes run-march { to { stroke-dashoffset: -18; } }
+.run-march { animation: run-march 0.9s linear infinite; }
+@keyframes run-node { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.run-node-open > span:first-child { animation: run-node 1.6s ease-in-out infinite; }
+/* CRT strength */
+.run-crt.crt-0 { display: none; }
+.run-crt.crt-2 {
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.3) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 90% at 50% 45%, transparent 45%, rgba(0, 0, 0, 0.75) 100%);
+  animation: run-crt-flick 6s steps(1) infinite;
+}
+@keyframes run-crt-flick { 0%, 96%, 100% { opacity: 1; } 97% { opacity: 0.85; } 98% { opacity: 1; } 99% { opacity: 0.9; } }
+/* Reduced motion (setting) */
+.run-calm *, .run-calm *::before, .run-calm *::after { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; transition-duration: 0.01s !important; }
+.run-range { accent-color: #e0a93a; width: 100%; }
+.run-door-l, .run-door-r {
+  background:
+    repeating-linear-gradient(0deg, #1b0f22 0 2px, transparent 2px 22px),
+    repeating-linear-gradient(90deg, #1b0f22 0 2px, transparent 2px 40px),
+    linear-gradient(90deg, #2a1c40, #3a2a56);
+  box-shadow: inset 0 0 0 3px #e0a93a, inset 0 0 40px rgba(0, 0, 0, 0.7);
+}
+.run-door-l { animation: run-door-l 0.85s cubic-bezier(0.6, 0, 0.3, 1) 0.15s both; }
+.run-door-r { animation: run-door-r 0.85s cubic-bezier(0.6, 0, 0.3, 1) 0.15s both; }
+@keyframes run-door-l { to { transform: translateX(-102%); } }
+@keyframes run-door-r { to { transform: translateX(102%); } }
+
+.run-portal { color: var(--ink); font-family: 'Fraunces Variable', Georgia, serif; }

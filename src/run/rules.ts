@@ -56,9 +56,21 @@ export interface Pools {
   vault: number;
 }
 
-/** One act: an opening room, three forks of two options (one event guaranteed), then the boss. */
-export function buildMap(rand: Rand, pools: Pools): MapNode[][] {
+/** What a run may not offer yet (locked in the Sanctum). */
+export interface Locks {
+  rooms?: RoomKind[];
+  events?: EventKind[];
+}
+
+/**
+ * One act drawn as a map: an opening row, three rows of three, then the rival. Each node leads
+ * to one or two nodes of the next row (neighbours), so the choices form real paths. At least
+ * two events and a few elites are spread over the middle rows.
+ */
+export function buildMap(rand: Rand, pools: Pools, locks: Locks = {}): MapNode[][] {
   const mod = (): ModifierId => pickOne<ModifierId>(['steady', 'steady', 'gilded', 'focused'], rand);
+  const kinds = (['puzzle', 'convert', 'hold', 'ward', 'vault', 'duel'] as RoomKind[]).filter((k) => !locks.rooms?.includes(k));
+  const events = (['shrine', 'gambler', 'merchant', 'altar'] as EventKind[]).filter((k) => !locks.events?.includes(k));
   const room = (kind: RoomKind, layer: number): MapNode => ({
     kind,
     modifier: mod(),
@@ -66,24 +78,42 @@ export function buildMap(rand: Rand, pools: Pools): MapNode[][] {
     pos: kind === 'puzzle' ? undefined : Math.floor(rand() * Math.max(1, pools[kind as keyof Pools] ?? 1)),
     elite: layer >= 2 && rand() < T.elite.chance ? true : undefined,
   });
-  const event = (): MapNode => ({ kind: 'event', modifier: 'steady', event: pickOne<EventKind>(['shrine', 'gambler', 'merchant', 'altar'], rand) });
-  const kinds: RoomKind[] = ['puzzle', 'convert', 'hold', 'ward', 'vault', 'duel'];
-  const used = new Set<RoomKind>();
-  const fork = (layer: number): MapNode[] => {
-    // Prefer kinds not seen yet, so a run shows variety.
-    const fresh = kinds.filter((k) => !used.has(k));
-    const two = sample(fresh.length >= 2 ? fresh : kinds, 2, rand);
-    two.forEach((k) => used.add(k));
-    return two.map((k) => room(k, layer));
-  };
-  const first = room(pickOne<RoomKind>(['puzzle', 'duel'], rand), 0);
-  used.add(first.kind as RoomKind);
-  const layers = [[first], fork(1), fork(2), fork(3)];
-  if (rand() < T.events.chance) layers[1][1] = event();
-  const evLayer = 2 + Math.floor(rand() * 2);
-  layers[evLayer][Math.floor(rand() * 2)] = event();
-  layers.push([{ kind: 'boss', modifier: 'rival', pos: Math.floor(rand() * pools.boss) }]);
+  const event = (): MapNode => ({ kind: 'event', modifier: 'steady', event: pickOne(events, rand) });
+  const row = (layer: number, from: RoomKind[]) => sample(from.length >= 3 ? from : [...from, ...kinds], 3, rand).map((k) => room(k, layer));
+  const layers: MapNode[][] = [row(0, kinds.filter((k) => k !== 'vault')), row(1, kinds), row(2, kinds), row(3, kinds)];
+  // Events: one somewhere in row 1–2, one in row 3 (never two in the same row).
+  if (events.length) {
+    layers[1 + Math.floor(rand() * 2)][Math.floor(rand() * 3)] = event();
+    layers[3][Math.floor(rand() * 3)] = event();
+  }
+  // Paths: straight ahead, sometimes also diagonally; every node is reachable.
+  for (let l = 0; l < layers.length - 1; l++) {
+    const cur = layers[l];
+    const nxt = layers[l + 1];
+    cur.forEach((n, i) => {
+      const out = new Set<number>([i]);
+      if (rand() < 0.55) {
+        const j = i + (rand() < 0.5 ? -1 : 1);
+        if (j >= 0 && j < nxt.length) out.add(j);
+      }
+      n.next = [...out].sort();
+    });
+    nxt.forEach((_, j) => {
+      if (!cur.some((n) => n.next!.includes(j))) cur[Math.min(j, cur.length - 1)].next!.push(j);
+    });
+  }
+  const boss: MapNode = { kind: 'boss', modifier: 'rival', pos: Math.floor(rand() * pools.boss) };
+  layers[3].forEach((n) => (n.next = [0]));
+  layers.push([boss]);
   return layers;
+}
+
+/** Which nodes of the current row can be chosen (those the last choice leads to). */
+export function reachable(r: Pick<Run, 'layers' | 'path' | 'layer'>): number[] {
+  const row = r.layers[r.layer] ?? [];
+  if (r.layer === 0) return row.map((_, i) => i);
+  const prev = r.layers[r.layer - 1][r.path[r.layer - 1] ?? 0];
+  return prev?.next ?? row.map((_, i) => i);
 }
 
 /** Your-POV centipawns, mates mapped to ±10000. */
@@ -172,9 +202,15 @@ export function roomScore(room: RoomState) {
   return { chips, mult, score: Math.round(chips * mult), gold, clean, target, beatTarget };
 }
 
-export function maxConsumables(relics: RelicId[]) {
-  return T.consumables.maxHeld - (relics.includes('spendthrift') ? T.relics.spendthriftCarryPenalty : 0);
+export function maxConsumables(relics: RelicId[], pocket = 0) {
+  return T.consumables.maxHeld + pocket - (relics.includes('spendthrift') ? T.relics.spendthriftCarryPenalty : 0);
 }
+/** Card slots for a run (relics and the Deep Pockets boost). */
+export const cardSlots = (r: Pick<Run, 'relics' | 'meta'>) => maxConsumables(r.relics, r.meta?.boosts.pocket ?? 0);
+/** Max Composure for a run (Spare Candle boost). */
+export const maxComposure = (r: Pick<Run, 'meta'>) => T.composure.max + (r.meta?.boosts.candle ?? 0);
+/** Relics a run can't be offered: owned ones and those still locked. */
+export const unofferable = (r: Pick<Run, 'relics' | 'meta'>) => [...r.relics, ...(r.meta?.lockedRelics ?? [])];
 export function price(id: ConsumableId, relics: RelicId[]) {
   const p = T.consumables.price[id];
   return relics.includes('spendthrift') ? Math.max(1, Math.round(p * T.relics.spendthriftPriceFactor)) : p;

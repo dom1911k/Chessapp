@@ -1,77 +1,35 @@
-// Run mode's own board: pixel-art pieces on a dithered felt-and-stone board.
-// Same interaction as the app's board (tap or drag, promotion picker); normal chess rules.
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot } from 'react-dom/client';
-import { Chessboard, defaultPieces, type PieceRenderObject } from 'react-chessboard';
+// Run mode's own board: hand-drawn pixel pieces on bevelled stone tiles, pixel highlights
+// (corner brackets, dots, check aura), gold frame. Same interaction as the app's board
+// (tap or drag, promotion picker); normal chess rules.
+import { useMemo, useState, useEffect, type CSSProperties } from 'react';
+import { Chessboard, type PieceRenderObject } from 'react-chessboard';
 import { Chess, type Square } from 'chess.js';
 import { isPromotion, type MoveInput } from '../../lib/chess/game';
 import type { CoachArrow, CoachHighlight } from '../../lib/coach/types';
-import { cached, spriteFromPieceSvg, textureTile } from './pixelize';
-import { usePromise } from './sprites';
+import { BOARD_THEMES, overlaySprite, pieceSprite, squareVariant, tileSprite, type BoardTheme, type OverlayKind } from './board';
+import { useRunSettings } from '../settings';
 
-const KEYS = ['wP', 'wN', 'wB', 'wR', 'wQ', 'wK', 'bP', 'bN', 'bB', 'bR', 'bQ', 'bK'] as const;
-const WHITE = ['#5c4a2e', '#b39a62', '#e9d6a2', '#fff6dc'];
-const BLACK = ['#0a0612', '#22133a', '#4a2c78', '#8e68d0'];
-const PX = 22;
+const TYPES = ['P', 'N', 'B', 'R', 'Q', 'K'] as const;
+const TONE: Record<string, string> = { good: 'rgba(94, 229, 154, 0.9)', bad: 'rgba(255, 90, 106, 0.9)', info: 'rgba(111, 211, 255, 0.9)' };
+const PROMO = ['q', 'r', 'b', 'n'] as const;
+const FILES = 'abcdefgh';
 
-/** The library's piece SVGs, as markup (rendered once, off-screen). */
-function pieceMarkup(): Record<string, string> {
-  const out: Record<string, string> = {};
-  const host = document.createElement('div');
-  const root = createRoot(host);
-  for (const k of KEYS) {
-    flushSync(() => root.render(defaultPieces[k]({ fill: k[0] === 'w' ? '#ffffff' : '#000000' })));
-    out[k] = host.innerHTML;
-  }
-  root.unmount();
+export const useBoardTheme = (): BoardTheme => {
+  const id = useRunSettings((s) => s.board);
+  return BOARD_THEMES[id] ?? BOARD_THEMES.crypt;
+};
+
+function piecesFor(theme: BoardTheme): PieceRenderObject {
+  const out: PieceRenderObject = {};
+  for (const c of ['w', 'b'] as const)
+    for (const t of TYPES) {
+      const url = pieceSprite(theme, c, t);
+      out[`${c}${t}`] = () => (
+        <img src={url} alt="" draggable={false} style={{ width: '100%', height: '100%', imageRendering: 'pixelated', filter: 'drop-shadow(0 2px 0 rgba(0,0,0,.5))' }} />
+      );
+    }
   return out;
 }
-
-let piecesPromise: Promise<Record<string, string>> | null = null;
-function pixelPieces(): Promise<Record<string, string>> {
-  piecesPromise ??= (async () => {
-    // Outside React's render/commit (flushSync is not allowed there).
-    await new Promise((r) => setTimeout(r, 0));
-    const svgs = pieceMarkup();
-    const urls = await Promise.all(
-      KEYS.map((k) => (k[0] === 'w' ? spriteFromPieceSvg(k, svgs[k], PX, WHITE, '#1b0f22') : spriteFromPieceSvg(k, svgs[k], PX, BLACK, '#d9a441', '#f2c75c'))),
-    );
-    return Object.fromEntries(KEYS.map((k, i) => [k, urls[i]]));
-  })();
-  return piecesPromise;
-}
-
-function usePixelPieces(): PieceRenderObject | undefined {
-  const [urls, setUrls] = useState<Record<string, string> | null>(null);
-  useEffect(() => {
-    let alive = true;
-    void pixelPieces().then((u) => alive && setUrls(u));
-    return () => {
-      alive = false;
-    };
-  }, []);
-  return useMemo(() => {
-    if (!urls) return undefined;
-    return Object.fromEntries(
-      KEYS.map((k) => [
-        k,
-        () => (
-          <img
-            src={urls[k]}
-            alt=""
-            draggable={false}
-            style={{ width: '100%', height: '100%', imageRendering: 'pixelated', filter: 'drop-shadow(0 2px 0 rgba(0,0,0,.45))' }}
-          />
-        ),
-      ]),
-    ) as PieceRenderObject;
-  }, [urls]);
-}
-
-const TONE: Record<string, string> = { good: 'rgba(94, 229, 154, 0.9)', bad: 'rgba(226, 71, 90, 0.9)', info: 'rgba(79, 179, 255, 0.9)' };
-const TONE_BG: Record<string, string> = { good: 'rgba(94, 229, 154, 0.35)', bad: 'rgba(226, 71, 90, 0.42)', info: 'rgba(79, 179, 255, 0.3)' };
-const PROMO = ['q', 'r', 'b', 'n'] as const;
 
 interface Props {
   fen: string;
@@ -82,20 +40,20 @@ interface Props {
   highlights?: CoachHighlight[];
   lastMove?: { from: string; to: string } | null;
   showCoordinates?: boolean;
-  /** Small, non-interactive (debrief). */
+  /** Small, non-interactive (debrief, shrine). */
   mini?: boolean;
+  /** Dim the board (looking back at an earlier position). */
+  dimmed?: boolean;
 }
 
 let boardCount = 0;
 
-export function RunBoard({ fen, orientation, movable, onMove, arrows = [], highlights = [], lastMove, showCoordinates = true, mini = false }: Props) {
+export function RunBoard({ fen, orientation, movable, onMove, arrows = [], highlights = [], lastMove, showCoordinates = true, mini = false, dimmed = false }: Props) {
   const [id] = useState(() => `runboard${++boardCount}`);
   const [selected, setSelected] = useState<string | null>(null);
   const [promo, setPromo] = useState<{ from: string; to: string } | null>(null);
-  const pieces = usePixelPieces();
-  const light = usePromise(() => textureTile('light', 8, ['#3a2c52', '#43345f', '#4c3c6c', '#56457a'], 7), 'light', 'tx:light');
-  const dark = usePromise(() => textureTile('dark', 8, ['#13291f', '#183226', '#1d3b2d', '#234535'], 3), 'dark', 'tx:dark');
-  const piecesReady = !!pieces || !!cached('pc:wK:22');
+  const theme = useBoardTheme();
+  const pieces = useMemo(() => piecesFor(theme), [theme]);
 
   const chess = useMemo(() => new Chess(fen), [fen]);
   useEffect(() => setSelected(null), [fen]);
@@ -123,42 +81,41 @@ export function RunBoard({ fen, orientation, movable, onMove, arrows = [], highl
     setSelected(own(square) && selected !== square ? square : null);
   };
 
-  const tile = (url: string | null, fallback: string): CSSProperties =>
-    url ? { backgroundImage: `url(${url})`, backgroundSize: mini ? '16px 16px' : '32px 32px', imageRendering: 'pixelated' } : { backgroundColor: fallback };
-  const layers: Record<string, string[]> = {};
-  const add = (sq: string, l: string) => (layers[sq] ??= []).push(l);
-  const shadows: Record<string, string> = {};
-  const tint = (c: string) => `linear-gradient(${c}, ${c})`;
+  // Every square gets its own tile (variants) plus pixel overlays.
+  const over: Record<string, OverlayKind[]> = {};
+  const add = (sq: string, k: OverlayKind) => (over[sq] ??= []).push(k);
   if (lastMove) {
-    add(lastMove.from, tint('rgba(242, 199, 92, 0.22)'));
-    add(lastMove.to, tint('rgba(242, 199, 92, 0.34)'));
+    add(lastMove.from, 'last');
+    add(lastMove.to, 'last');
   }
-  for (const h of highlights) {
-    add(h.sq, tint(TONE_BG[h.tone]));
-    shadows[h.sq] = `inset 0 0 0 3px ${TONE[h.tone]}`;
-  }
+  for (const h of highlights) add(h.sq, h.tone);
   if (chess.inCheck()) {
     const k = chess.board().flat().find((p) => p?.type === 'k' && p.color === turn);
-    if (k) add(k.square, 'radial-gradient(circle, rgba(255,60,80,0.95) 0%, rgba(255,60,80,0.45) 50%, transparent 72%)');
+    if (k) add(k.square, 'check');
   }
   if (selected) {
-    add(selected, tint('rgba(255, 231, 163, 0.45)'));
-    for (const m of targets)
-      add(m.to, m.captured ? 'radial-gradient(circle, transparent 56%, rgba(255,231,163,0.55) 58%, rgba(255,231,163,0.55) 66%, transparent 68%)' : 'conic-gradient(from 45deg at 50% 50%, rgba(255,231,163,.8) 0 25%, transparent 0 50%, rgba(255,231,163,.8) 0 75%, transparent 0) 50% 50% / 22% 22% no-repeat');
+    add(selected, 'sel');
+    for (const m of targets) add(m.to, m.captured ? 'cap' : 'move');
   }
-  const baseBg = (isLight: boolean) => {
-    const url = isLight ? light : dark;
-    return url ? `url(${url}) 0 0 / ${mini ? 16 : 32}px ${mini ? 16 : 32}px` : isLight ? '#43345f' : '#183226';
-  };
   const squareStyles: Record<string, CSSProperties> = {};
-  for (const sq of new Set([...Object.keys(layers), ...Object.keys(shadows)])) {
-    const isLight = (sq.charCodeAt(0) - 97 + Number(sq[1])) % 2 === 0;
-    squareStyles[sq] = { background: [...(layers[sq] ?? []).reverse(), baseBg(isLight)].join(', '), imageRendering: 'pixelated' };
-    if (shadows[sq]) squareStyles[sq].boxShadow = shadows[sq];
-  }
+  for (let f = 0; f < 8; f++)
+    for (let r = 1; r <= 8; r++) {
+      const sq = FILES[f] + r;
+      const light = (f + r) % 2 === 0;
+      const layers = (over[sq] ?? []).slice().reverse().map((k) => `url(${overlaySprite(k)}) 0 0 / 100% 100%`);
+      squareStyles[sq] = { background: [...layers, `url(${tileSprite(theme, light, squareVariant(sq))}) 0 0 / 100% 100%`].join(', '), imageRendering: 'pixelated' };
+    }
 
+  const [f0, f1] = theme.frame;
   return (
-    <div className="relative w-full touch-none select-none" style={{ padding: mini ? 2 : 4, background: 'linear-gradient(180deg,#e0a93a,#8a5a1c)', borderRadius: 4, boxShadow: '0 0 0 2px #1b0f22, 0 0 24px rgba(242,199,92,.25), 0 8px 18px rgba(0,0,0,.6)' }}>
+    <div
+      className="relative w-full touch-none select-none"
+      style={{ padding: mini ? 2 : 5, background: `linear-gradient(180deg, ${f0}, ${f1})`, boxShadow: '0 0 0 2px #1b0f22, 0 0 24px rgba(242,199,92,.2), 0 8px 18px rgba(0,0,0,.6)', filter: dimmed ? 'saturate(.55) brightness(.85)' : undefined }}
+    >
+      {!mini &&
+        ['left-0 top-0', 'right-0 top-0', 'left-0 bottom-0', 'right-0 bottom-0'].map((p) => (
+          <span key={p} className={`pointer-events-none absolute z-10 ${p}`} style={{ width: 8, height: 8, background: f0, boxShadow: '0 0 0 2px #1b0f22, inset 0 0 0 2px ' + f1 }} />
+        ))}
       <div style={{ boxShadow: 'inset 0 0 0 2px #1b0f22' }}>
         <Chessboard
           options={{
@@ -169,13 +126,12 @@ export function RunBoard({ fen, orientation, movable, onMove, arrows = [], highl
             allowDrawingArrows: false,
             arrows: arrows.map((a) => ({ startSquare: a.from, endSquare: a.to, color: TONE[a.tone] })),
             squareStyles,
-            animationDurationInMs: mini ? 0 : 220,
-            lightSquareStyle: tile(light, '#43345f'),
-            darkSquareStyle: tile(dark, '#183226'),
-            lightSquareNotationStyle: { color: '#c9a6ff', fontFamily: 'monospace', fontWeight: 700, fontSize: 10, opacity: 0.8 },
-            darkSquareNotationStyle: { color: '#7fd1a5', fontFamily: 'monospace', fontWeight: 700, fontSize: 10, opacity: 0.8 },
-            ...(pieces ? { pieces } : {}),
-            boardStyle: { opacity: piecesReady ? 1 : 0.0 },
+            animationDurationInMs: mini ? 0 : 200,
+            lightSquareStyle: { backgroundColor: theme.light[1] },
+            darkSquareStyle: { backgroundColor: theme.dark[1] },
+            lightSquareNotationStyle: { color: theme.coord[0], fontFamily: 'ui-monospace, monospace', fontWeight: 800, fontSize: 9, opacity: 0.85 },
+            darkSquareNotationStyle: { color: theme.coord[1], fontFamily: 'ui-monospace, monospace', fontWeight: 800, fontSize: 9, opacity: 0.85 },
+            pieces,
             dragActivationDistance: 6,
             canDragPiece: ({ square }) => !mini && !!square && own(square),
             onPieceDrag: ({ square }) => square && setSelected(square),
@@ -185,30 +141,40 @@ export function RunBoard({ fen, orientation, movable, onMove, arrows = [], highl
         />
       </div>
       {promo && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/55" onClick={() => setPromo(null)}>
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/55" onClick={() => setPromo(null)}>
           <div className="run-panel flex gap-2 p-3">
-            {PROMO.map((p) => {
-              const k = `${turn}${p.toUpperCase()}`;
-              const url = cached(`pc:${k}:${PX}`);
-              return (
-                <button
-                  key={p}
-                  className="h-14 w-14 rounded-lg bg-black/40 ring-1 ring-[var(--gold-dim)]"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const m = { ...promo, promotion: p };
-                    setPromo(null);
-                    setSelected(null);
-                    onMove?.(m);
-                  }}
-                >
-                  {url ? <img src={url} alt={p} style={{ imageRendering: 'pixelated', width: '100%' }} /> : p.toUpperCase()}
-                </button>
-              );
-            })}
+            {PROMO.map((p) => (
+              <button
+                key={p}
+                className="h-14 w-14 bg-black/40"
+                style={{ boxShadow: '0 0 0 2px #1b0f22, inset 0 0 0 1px var(--gold-dim)' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const m = { ...promo, promotion: p };
+                  setPromo(null);
+                  setSelected(null);
+                  onMove?.(m);
+                }}
+              >
+                <img src={pieceSprite(theme, turn, p.toUpperCase() as 'Q')} alt={p} style={{ imageRendering: 'pixelated', width: '100%' }} />
+              </button>
+            ))}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** A captured-piece row (pixel sprites), cheapest first. */
+export function PixelCaptured({ pieces, color, lead }: { pieces: string[]; color: 'w' | 'b'; lead: number }) {
+  const theme = useBoardTheme();
+  return (
+    <div className="flex h-5 items-center">
+      {pieces.map((k, i) => (
+        <img key={i} src={pieceSprite(theme, color, k.toUpperCase() as 'P')} alt={k} className="pixelated" style={{ width: 20, height: 20, marginLeft: i && pieces[i - 1] === k ? -9 : i ? -3 : 0 }} />
+      ))}
+      {lead > 0 && <span className="run-sans ml-1 text-[11px] font-black text-[var(--gold-2)]">+{lead}</span>}
     </div>
   );
 }

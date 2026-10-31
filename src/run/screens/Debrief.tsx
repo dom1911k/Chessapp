@@ -2,7 +2,9 @@
 // explanation), Engine's Eye moves, and a one-tap "fun?" rating for playtests.
 import { useEffect, useMemo, useState } from 'react';
 import { RunBoard } from '../pixel/RunBoard';
-import { PixelPortrait } from '../pixel/sprites';
+import { PixelPortrait, Sprite } from '../pixel/sprites';
+import { EMBER } from '../pixel/pixelize';
+import { PixelText } from './PixelText';
 import { explainMove } from '../../lib/coach';
 import { CLASS_LABEL } from '../../lib/chess/evaluation';
 import { parseUci } from '../../lib/chess/game';
@@ -14,7 +16,7 @@ import type { Moment } from '../types';
 import { sfx, buzz } from '../sfx';
 import { PixelNum } from './bits';
 
-export function Debrief({ onShake }: { onShake: () => void }) {
+export function Debrief({ onShake, onSanctum }: { onShake: () => void; onSanctum: () => void }) {
   const s = useRun();
   const run = s.run!;
   const won = run.ended === 'won';
@@ -47,8 +49,8 @@ export function Debrief({ onShake }: { onShake: () => void }) {
     <div className="h-full overflow-y-auto px-4 pt-6 pb-8">
       <div className="text-center">
         <div className="run-label">{won ? 'The rival falls' : 'The run ends'} · {minutes} min</div>
-        <div className="run-title mt-1 text-4xl font-black" style={{ color: won ? 'var(--gold-2)' : 'var(--blood)' }}>
-          {won ? 'Victory' : 'Defeat'}
+        <div className="mt-2 flex justify-center">
+          <PixelText text={won ? 'Victory' : run.abandoned ? 'Abandoned' : 'Defeat'} size={6} color={won ? '#ffe7a3' : '#ff5a6a'} />
         </div>
       </div>
 
@@ -73,6 +75,13 @@ export function Debrief({ onShake }: { onShake: () => void }) {
         <div className="mt-2 flex flex-col items-center border-t border-[var(--gold-dim)]/40 pt-3">
           <span className="run-label">Final score</span>
           {shown > rows.length ? <PixelNum className="run-slam" value={run.finalScore ?? 0} size={8} /> : <div className="h-10" />}
+          {shown > rows.length && run.embers ? (
+            <div className="run-fadeup mt-3 flex items-center gap-2" style={{ animationDelay: '0.4s' }}>
+              <Sprite name="flame" size={26} px={12} pal={EMBER} />
+              <PixelNum value={`+${run.embers}`} size={3.5} color="#ffb454" />
+              <span className="run-sans text-xs text-[var(--ink-dim)]">Embers for the Sanctum</span>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -95,7 +104,7 @@ export function Debrief({ onShake }: { onShake: () => void }) {
         </div>
       )}
 
-      <FunRating />
+      <FunRating onSanctum={onSanctum} />
     </div>
   );
 }
@@ -146,7 +155,7 @@ function MomentCard({ m }: { m: Moment }) {
   );
 }
 
-function FunRating() {
+function FunRating({ onSanctum }: { onSanctum: () => void }) {
   const s = useRun();
   const run = s.run!;
   const [fun, setFun] = useState(0);
@@ -195,9 +204,14 @@ function FunRating() {
       ) : (
         <div className="run-sans text-sm text-[var(--ink-dim)]">Thanks! Saved for the playtest log.</div>
       )}
-      <button className={`run-btn mt-3 w-full ${saved ? '' : 'ghost'}`} onClick={() => void s.newRun()}>
-        New run
-      </button>
+      <div className="mt-3 flex gap-2">
+        <button className="run-btn ghost flex flex-1 items-center justify-center gap-1.5" onClick={onSanctum}>
+          <Sprite name="flame" size={16} px={12} pal={EMBER} /> Sanctum
+        </button>
+        <button className={`run-btn flex-1 ${saved ? '' : 'ghost'}`} onClick={() => void s.newRun()}>
+          New run
+        </button>
+      </div>
     </div>
   );
 }

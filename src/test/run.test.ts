@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildMap, composureCost, judge, moveFires, roomScore, price, maxConsumables, relicOffer } from '../run/rules';
+import { embersFor } from '../run/meta';
+import { reachable, buildMap, composureCost, judge, moveFires, roomScore, price, maxConsumables, relicOffer } from '../run/rules';
 import { RELICS } from '../run/content';
 import positions from '../run/data/positions.json';
 import { TUNING as T } from '../run/tuning';
@@ -15,15 +16,28 @@ const mv = (over: Partial<UserMove>): UserMove => ({
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 describe('run rules', () => {
-  it('builds one act: opening room, three forks of two (with an event), boss', () => {
-    for (let i = 0; i < 30; i++) {
-      const m = buildMap(Math.random, { convert: 10, hold: 10, boss: 10, ward: 10, duel: 10, vault: 10 });
-      expect(m.map((l) => l.length)).toEqual([1, 2, 2, 2, 1]);
-      expect(['puzzle', 'duel']).toContain(m[0][0].kind);
+  it('builds one act as a map: rows of three with branching paths, events, the rival', () => {
+    for (let i = 0; i < 40; i++) {
+      const m = buildMap(Math.random, { convert: 10, hold: 10, boss: 10, ward: 10, duel: 10, vault: 10 }, { rooms: ['vault'] });
+      expect(m.map((l) => l.length)).toEqual([3, 3, 3, 3, 1]);
       expect(m[4][0].kind).toBe('boss');
-      expect([...m[2], ...m[3]].some((n) => n.kind === 'event')).toBe(true);
-      expect(new Set(m[1].map((n) => n.kind)).size).toBe(2);
+      expect(m.flat().filter((n) => n.kind === 'event').length).toBe(2);
+      expect(m.flat().some((n) => n.kind === 'vault')).toBe(false);
+      // Every node has a way forward and every node after the first row can be reached.
+      for (let l = 0; l < 4; l++) {
+        for (const n of m[l]) expect(n.next!.length).toBeGreaterThan(0);
+        for (let j = 0; j < m[l + 1].length; j++) expect(m[l].some((n) => n.next!.includes(j))).toBe(true);
+      }
+      const r = { layers: m, path: [1], layer: 1 };
+      expect(reachable(r)).toEqual(m[0][1].next);
     }
+  });
+
+  it('Embers: something for every run, more for progress and a win', () => {
+    const base = { results: [], finalScore: 0, ended: 'lost', cursed: false } as unknown as Parameters<typeof embersFor>[0];
+    expect(embersFor(base)).toBe(3);
+    const good = { ...base, results: [{ won: true }, { won: true }, { won: true }], finalScore: 3000, ended: 'won' } as unknown as Parameters<typeof embersFor>[0];
+    expect(embersFor(good)).toBe(3 + 6 + 5 + 6);
   });
 
   it('charges Composure by class and modifier', () => {

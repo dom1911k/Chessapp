@@ -20,11 +20,12 @@ import { TUNING as T } from './tuning';
 import positions from './data/positions.json';
 import { archiveRun, loadCurrent, saveCurrent } from './db';
 import {
-  buildMap, composureCost, consumableOffer, endFires, judge, maxConsumables, moveFires, povCp, price, relicOffer, relicPrice, restPrice,
+  buildMap, cardSlots, composureCost, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, price, relicOffer, relicPrice, restPrice,
   roomScore, sample, shopOffers, sound, type CostCtx,
 } from './rules';
 import { sfx, buzz } from './sfx';
 import { ROOM_NAME, bossMod } from './content';
+import { embersFor, lockedEvents, lockedRelics, lockedRooms, useMeta } from './meta';
 import type { BossMod } from './tuning';
 import type { ConsumableId, MapNode, PuzzleProgress, RelicId, RoomKind, RoomState, Run, UserMove } from './types';
 
@@ -101,6 +102,10 @@ interface RunStore {
   buy(id: ConsumableId): void;
   rest(): void;
   leaveCamp(): void;
+  /** Second Look boost: a fresh shop, once per campfire. */
+  rerollShop(): void;
+  /** Give up the run (Embers still count) and go to the debrief. */
+  abandonRun(): void;
   // events
   shrinePick(uci: string): void;
   gamble(): Promise<void>;
@@ -142,7 +147,7 @@ function addRelic(r: Run, id: RelicId) {
   if (r.relics.includes(id)) return;
   r.relics.push(id);
   if (id === 'glass') r.composure = Math.max(1, r.composure - T.relics.glassComposure);
-  while (r.consumables.length > maxConsumables(r.relics)) r.consumables.pop();
+  while (r.consumables.length > cardSlots(r)) r.consumables.pop();
 }
 
 export const useRun = create<RunStore>((set, get) => {
@@ -456,6 +461,7 @@ export const useRun = create<RunStore>((set, get) => {
     r.phase = 'camp';
     r.shopStock = consumableOffer(shopOffers(r.relics), Math.random);
     r.restBought = false;
+    r.rerollUsed = false;
   };
 
   const finishRun = (r: Run, won: boolean) => {
@@ -465,6 +471,8 @@ export const useRun = create<RunStore>((set, get) => {
     r.finalScore = r.results.reduce((s, x) => s + x.score, 0) + (won ? r.composure * T.score.composureLeftChips : 0);
     r.room = null;
     r.event = null;
+    r.embers = embersFor(r);
+    useMeta.getState().finish(r, r.embers);
     void archiveRun(clone(r));
   };
 
@@ -513,7 +521,9 @@ export const useRun = create<RunStore>((set, get) => {
     async newRun() {
       token++;
       getEngine().cancelAll('run');
-      const [{ rating }, records] = await Promise.all([getRating(), getOpponentRecords()]);
+      const [{ rating }, records, meta] = await Promise.all([getRating(), getOpponentRecords(), useMeta.getState().load()]);
+      const boosts = meta.boosts;
+      const locked = lockedRelics(meta);
       const unlocked = OPPONENTS.filter((o) => isUnlocked(o.id, records));
       const boss = unlocked.find((o) => starsOf(records[o.id]) === 0) ?? unlocked[unlocked.length - 1] ?? OPPONENTS[0];
       const r: Run = {
@@ -523,19 +533,20 @@ export const useRun = create<RunStore>((set, get) => {
         rating: Math.round(rating),
         bossId: boss.id,
         phase: 'start',
-        layers: buildMap(Math.random, poolSizes()),
+        layers: buildMap(Math.random, poolSizes(), { rooms: lockedRooms(meta), events: lockedEvents(meta) }),
         path: [],
         layer: 0,
-        composure: T.composure.start,
-        gold: T.gold.start,
+        composure: T.composure.start + (boosts.candle ?? 0),
+        gold: T.gold.start + 2 * (boosts.purse ?? 0),
         relics: [],
-        consumables: [],
+        consumables: boosts.satchel ? consumableOffer(1, Math.random) : [],
+        meta: { boosts: { ...boosts }, lockedRelics: locked },
         curses: [],
         room: null,
         event: null,
         results: [],
         moments: [],
-        offer: { type: 'relic', ids: relicOffer([], 3, Math.random), free: true, title: 'Choose your first relic' },
+        offer: { type: 'relic', ids: relicOffer(locked, 3, Math.random), free: true, title: 'Choose your first relic' },
         shopStock: [],
         restBought: false,
         cursed: false,
@@ -564,6 +575,7 @@ export const useRun = create<RunStore>((set, get) => {
     },
 
     chooseNode(i) {
+      if (!reachable(run()).includes(i)) return;
       patch((r) => {
         r.path[r.layer] = i;
         r.phase = 'intro';
@@ -585,9 +597,9 @@ export const useRun = create<RunStore>((set, get) => {
               const others = new Chess(fen).moves({ verbose: true }).map((m) => m.lan).filter((u) => !accept.includes(u));
               x.event = { kind: 'shrine', fen, answer: accept, choices: sample([accept[0], ...sample(others, 2, Math.random)], 3, Math.random) };
             } else if (ev === 'merchant') {
-              x.event = { kind: 'merchant', stock: relicOffer(x.relics, T.events.merchantStock, Math.random).map((id) => ({ id, price: relicPrice(id, x.relics) })) };
+              x.event = { kind: 'merchant', stock: relicOffer(unofferable(x), T.events.merchantStock, Math.random).map((id) => ({ id, price: relicPrice(id, x.relics) })) };
             } else if (ev === 'altar') {
-              x.event = { kind: 'altar', ids: relicOffer(x.relics, 3, Math.random, T.relics.rarity, 'rare') };
+              x.event = { kind: 'altar', ids: relicOffer(unofferable(x), 3, Math.random, T.relics.rarity, 'rare') };
             } else x.event = { kind: 'gambler' };
           });
           return;
@@ -741,8 +753,8 @@ export const useRun = create<RunStore>((set, get) => {
       patch((x) => {
         const R = x.room!;
         x.consumables.splice(x.consumables.indexOf('rewind'), 1);
-        x.composure = Math.min(T.composure.max, x.composure + last.composureLost);
-        if (last.insured && x.consumables.length < maxConsumables(x.relics)) x.consumables.push('insurance');
+        x.composure = Math.min(maxComposure(x), x.composure + last.composureLost);
+        if (last.insured && x.consumables.length < cardSlots(x)) x.consumables.push('insurance');
         R.moves.pop();
         R.fires = R.fires.filter((f) => f.at !== idx);
         const mi = x.moments.findIndex((m) => m.move.fenBefore === last.fenBefore && m.move.uci === last.uci);
@@ -783,7 +795,7 @@ export const useRun = create<RunStore>((set, get) => {
         const failCost = R.gamble ? T.events.gambleStake : T.composure.failRoom;
         const fail = R.status === 'failed' && R.node.kind !== 'boss' && !broke ? failCost : 0;
         const calm = R.fires.reduce((s, f) => s + (f.composure ?? 0), 0);
-        r.composure = Math.max(0, Math.min(T.composure.max, r.composure - fail + (broke ? 0 : calm)));
+        r.composure = Math.max(0, Math.min(maxComposure(r), r.composure - fail + (broke ? 0 : calm)));
         r.gold += sc.gold;
         r.results.push({
           layer: R.layer, kind: R.node.kind as RoomKind, modifier: R.node.modifier, elite: R.node.elite, gamble: R.gamble, won: R.status === 'won',
@@ -809,7 +821,7 @@ export const useRun = create<RunStore>((set, get) => {
         r.event = null;
         r.layer++;
         if (reward === 'relic' || reward === 'elite') {
-          const ids = relicOffer(r.relics, 3, Math.random, reward === 'elite' ? T.relics.eliteRarity : T.relics.rarity);
+          const ids = relicOffer(unofferable(r), 3, Math.random, reward === 'elite' ? T.relics.eliteRarity : T.relics.rarity);
           if (ids.length) {
             r.offer = { type: 'relic', ids, free: true, title: reward === 'elite' ? 'Elite spoils: choose a relic' : 'Spoils: choose a relic' };
             r.phase = 'reward';
@@ -828,7 +840,7 @@ export const useRun = create<RunStore>((set, get) => {
     pickReward(id) {
       patch((r) => {
         if (id && r.offer?.type === 'relic') addRelic(r, id as RelicId);
-        if (id && r.offer?.type === 'consumable' && r.consumables.length < maxConsumables(r.relics)) r.consumables.push(id as ConsumableId);
+        if (id && r.offer?.type === 'consumable' && r.consumables.length < cardSlots(r)) r.consumables.push(id as ConsumableId);
         r.offer = null;
         nextAfterReward(r);
       });
@@ -848,7 +860,7 @@ export const useRun = create<RunStore>((set, get) => {
     buy(id) {
       const r = run();
       const p = price(id, r.relics);
-      if (r.gold < p || r.consumables.length >= maxConsumables(r.relics) || !r.shopStock.includes(id)) return;
+      if (r.gold < p || r.consumables.length >= cardSlots(r) || !r.shopStock.includes(id)) return;
       patch((x) => {
         x.gold -= p;
         x.consumables.push(id);
@@ -861,13 +873,35 @@ export const useRun = create<RunStore>((set, get) => {
     rest() {
       const r = run();
       const p = restPrice(r.relics);
-      if (r.gold < p || r.restBought || r.composure >= T.composure.max) return;
+      if (r.gold < p || r.restBought || r.composure >= maxComposure(r)) return;
       patch((x) => {
         x.gold -= p;
-        x.composure = Math.min(T.composure.max, x.composure + T.shop.restComposure);
+        x.composure = Math.min(maxComposure(x), x.composure + T.shop.restComposure);
         x.restBought = true;
       });
       sfx('coin');
+    },
+
+    rerollShop() {
+      const r = run();
+      if (!r.meta?.boosts.reroll || r.rerollUsed || r.phase !== 'camp') return;
+      patch((x) => {
+        x.shopStock = consumableOffer(shopOffers(x.relics), Math.random);
+        x.rerollUsed = true;
+      });
+      sfx('card');
+    },
+
+    abandonRun() {
+      if (!get().run || get().run!.ended) return;
+      token++;
+      getEngine().cancelAll('run');
+      patch((r) => {
+        r.abandoned = true;
+        finishRun(r, false);
+      });
+      set({ cur: null, aids: { ...NO_AIDS }, answer: null, busy: false });
+      sfx('over');
     },
 
     leaveCamp() {
@@ -939,7 +973,7 @@ export const useRun = create<RunStore>((set, get) => {
           // Sam's blessing: a relic pick.
           x.event = null;
           x.layer++;
-          const ids = relicOffer(x.relics, 3, Math.random);
+          const ids = relicOffer(unofferable(x), 3, Math.random);
           if (ids.length) {
             x.offer = { type: 'relic', ids, free: true, title: "Sam's blessing: choose a relic" };
             x.phase = 'reward';
@@ -964,7 +998,7 @@ export const useRun = create<RunStore>((set, get) => {
       gold: (n) => patch((r) => void (r.gold += n)),
       relic: (id) => patch((r) => addRelic(r, id)),
       consumable: (id) => patch((r) => void r.consumables.push(id)),
-      composure: (n) => patch((r) => void (r.composure = Math.max(0, Math.min(T.composure.max, n)))),
+      composure: (n) => patch((r) => void (r.composure = Math.max(0, Math.min(maxComposure(r), n)))),
     },
   };
 });

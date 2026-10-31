@@ -5,55 +5,69 @@ import { Chess } from 'chess.js';
 import { opponentById } from '../../lib/people';
 import { uciToSan } from '../../lib/chess/game';
 import { CONSUMABLES, EVENTS, MODIFIERS, RELICS, ROOM_NAME, ROOM_SPRITE, bossMod, bossModText, objective } from '../content';
-import { maxConsumables, price, restPrice } from '../rules';
+import { cardSlots, maxComposure, price, restPrice } from '../rules';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
 import type { ConsumableId, MapNode, RelicId, RoomKind } from '../types';
-import { PixelPortrait, Sprite, usePromise } from '../pixel/sprites';
-import { BLOOD, EMBER, GOLD, JADE, SPIRIT, textureTile, type SpritePalette } from '../pixel/pixelize';
+import { PixelPortrait, Sprite } from '../pixel/sprites';
+import { BLOOD, EMBER, GOLD, JADE, SPIRIT, type SpritePalette } from '../pixel/pixelize';
 import { RunBoard } from '../pixel/RunBoard';
-import { ambient, musicPref, setMusicPref, sfx } from '../sfx';
+import { ambient, sfx } from '../sfx';
+import { useRunSettings } from '../settings';
+import { useMeta } from '../meta';
+import { MapView } from './MapView';
+import { HistoryScreen, SanctumScreen, SettingsSheet } from './Sanctum';
+import { PixelText } from './PixelText';
 import { Composure, PixelNum, TarotCard } from './bits';
 import { Debrief } from './Debrief';
 import { DevPanel } from './DevPanel';
 import { RoomView } from './RoomView';
-import { Fire, Tutorial, tutorialSeen } from './scenes';
+import { Fire, Transition, Tutorial, tutorialSeen } from './scenes';
 import { TallyView } from './TallyView';
 import { useLongPress } from './useLongPress';
 import './run.css';
 
 export function RunScreen() {
   const s = useRun();
+  const rs = useRunSettings();
   const [dev, setDev] = useState(false);
   const [tut, setTut] = useState(false);
-  const [music, setMusic] = useState(musicPref);
+  const [settings, setSettings] = useState(false);
+  const [view, setView] = useState<'main' | 'sanctum' | 'history'>('main');
   const shaker = useRef<HTMLDivElement>(null);
   useEffect(() => void s.load(), [s]);
-  // Ambient music while the tab is open (and the app's sound is on).
-  useEffect(() => {
-    ambient(music);
-    const vis = () => ambient(music && document.visibilityState === 'visible');
-    document.addEventListener('visibilitychange', vis);
-    return () => {
-      document.removeEventListener('visibilitychange', vis);
-      ambient(false);
-    };
-  }, [music]);
+  useEffect(() => void useMeta.getState().load(), []);
   const run = s.run;
+  const tense = run?.phase === 'room' && run.room?.node.kind === 'boss';
+  // Ambient music while the tab is open (and the app's sound is on); tense in the rival's room.
+  useEffect(() => {
+    const on = rs.music > 0;
+    ambient(on, tense ? 'tense' : 'calm');
+    const vis = () => ambient(on && document.visibilityState === 'visible', tense ? 'tense' : 'calm');
+    document.addEventListener('visibilitychange', vis);
+    return () => document.removeEventListener('visibilitychange', vis);
+  }, [rs.music, tense]);
+  useEffect(() => () => ambient(false), []);
   // First run: explain the basics once.
   useEffect(() => {
     if (run?.phase === 'start' && !tutorialSeen()) setTut(true);
   }, [run?.phase]);
+  // Pixel transition between screens (a stone door when entering a room).
+  const key = run ? `${run.phase}:${run.layer}:${view}` : `home:${view}`;
+  const prevKey = useRef(key);
+  const [trans, setTrans] = useState<{ id: number; kind: 'wipe' | 'door' } | null>(null);
+  useEffect(() => {
+    if (prevKey.current === key) return;
+    const door = key.startsWith('room:') && prevKey.current.startsWith('intro:');
+    prevKey.current = key;
+    if (!rs.reduceMotion) setTrans({ id: Date.now(), kind: door ? 'door' : 'wipe' });
+  }, [key, rs.reduceMotion]);
   const inRoom = run?.phase === 'room' && !!run.room;
   const openDev = () => setDev(true);
-  const toggleMusic = () => {
-    setMusicPref(!music);
-    setMusic(!music);
-  };
-  const tools: Tools = { onDev: openDev, onHelp: () => setTut(true), music, onMusic: toggleMusic };
+  const tools: Tools = { onDev: openDev, onHelp: () => setTut(true), onSettings: () => setSettings(true) };
   // Screen shake without remounting anything.
   const shake = () => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (rs.reduceMotion || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     shaker.current?.animate(
       [
         { transform: 'translate(0,0)' },
@@ -69,38 +83,48 @@ export function RunScreen() {
 
   let body;
   if (!s.loaded) body = null;
-  else if (!run) body = <Home {...tools} />;
+  else if (view === 'sanctum') body = <SanctumScreen onBack={() => setView('main')} />;
+  else if (view === 'history') body = <HistoryScreen onBack={() => setView('main')} />;
+  else if (!run) body = <Home tools={tools} onSanctum={() => setView('sanctum')} onHistory={() => setView('history')} />;
   else if (run.phase === 'start') body = <Pick title="Choose your first relic" tools={tools} />;
   else if (run.phase === 'reward') body = <Pick title={run.offer?.title ?? 'Spoils'} tools={tools} skip />;
-  else if (run.phase === 'map') body = <MapView tools={tools} />;
+  else if (run.phase === 'map') body = <MapView top={<TopBar tools={tools} />} />;
   else if (run.phase === 'intro') body = <Intro />;
-  else if (inRoom) body = <RoomView onDev={openDev} />;
+  else if (inRoom) body = <RoomView onDev={openDev} onSettings={() => setSettings(true)} />;
   else if (run.phase === 'event') body = <EventView tools={tools} />;
   else if (run.phase === 'tally') body = <TallyView onShake={shake} />;
   else if (run.phase === 'curse') body = <Curse />;
   else if (run.phase === 'camp') body = <Camp tools={tools} />;
-  else if (run.phase === 'debrief') body = <Debrief onShake={shake} />;
+  else if (run.phase === 'debrief') body = <Debrief onShake={shake} onSanctum={() => setView('sanctum')} />;
 
   // In a room (and its tally/debrief) the run takes the whole screen, over the tab bar.
-  const full = inRoom || run?.phase === 'tally' || run?.phase === 'debrief';
-  const view = (
-    <div className={`run-root ${full ? 'fixed inset-0 z-40' : 'relative h-full'} overflow-hidden`}>
-      <div ref={shaker} className={`h-full ${inRoom ? '' : 'safe-top'} ${full ? 'safe-bottom' : ''}`}>
+  const full = view === 'main' && (inRoom || run?.phase === 'tally' || run?.phase === 'debrief');
+  const viewEl = (
+    <div className={`run-root ${full ? 'fixed inset-0 z-40' : 'relative h-full'} overflow-hidden ${rs.reduceMotion ? 'run-calm' : ''}`}>
+      <div ref={shaker} className={`h-full ${inRoom && view === 'main' ? '' : 'safe-top'} ${full ? 'safe-bottom' : ''}`}>
         {body}
       </div>
-      <div className="run-crt" />
-      {tut && <Tutorial onClose={() => setTut(false)} />}
-      {dev && <DevPanel onClose={() => setDev(false)} />}
+      <div className={`run-crt crt-${rs.crt}`} />
+      {trans && <Transition key={trans.id} kind={trans.kind} />}
+      {/* Overlays go above the whole app (and its tab bar). */}
+      {(tut || settings || dev) &&
+        createPortal(
+          <div className={`run-portal ${rs.reduceMotion ? 'run-calm' : ''}`}>
+            {tut && <Tutorial onClose={() => setTut(false)} />}
+            {settings && <SettingsSheet onClose={() => setSettings(false)} />}
+            {dev && <DevPanel onClose={() => setDev(false)} />}
+          </div>,
+          document.body,
+        )}
     </div>
   );
-  return full ? createPortal(view, document.body) : view;
+  return full ? createPortal(viewEl, document.body) : viewEl;
 }
 
 interface Tools {
   onDev: () => void;
   onHelp: () => void;
-  music: boolean;
-  onMusic: () => void;
+  onSettings: () => void;
 }
 
 function Logo({ onDev }: { onDev: () => void }) {
@@ -108,7 +132,7 @@ function Logo({ onDev }: { onDev: () => void }) {
   return (
     <div {...lp} className="select-none text-center">
       <div className="run-label">Experimental · Act I</div>
-      <div className="run-title text-4xl font-black tracking-wide">The Gambit</div>
+      <PixelText text="The Gambit" size={5} className="mx-auto mt-1" />
     </div>
   );
 }
@@ -121,13 +145,14 @@ function IconBtn({ sprite, label, onClick, pal = GOLD }: { sprite: string; label
   );
 }
 
-function Home(tools: Tools) {
+function Home({ tools, onSanctum, onHistory }: { tools: Tools; onSanctum: () => void; onHistory: () => void }) {
   const s = useRun();
+  const embers = useMeta((m) => m.embers);
   return (
     <div className="flex h-full flex-col items-center px-6 pt-6 pb-6 text-center">
       <div className="flex w-full justify-end gap-2">
         <IconBtn sprite="help" label="How it works" onClick={tools.onHelp} />
-        <IconBtn sprite={tools.music ? 'music' : 'mute'} label="Music" onClick={tools.onMusic} />
+        <IconBtn sprite="gear" label="Settings" onClick={tools.onSettings} />
       </div>
       <Logo onDev={tools.onDev} />
       <div className="relative mt-6 flex items-end justify-center gap-3">
@@ -135,13 +160,22 @@ function Home(tools: Tools) {
         <Fire w={22} h={26} scale={4} logs />
         <PixelPortrait id="viktor" size={84} boss className="run-boss-glow" />
       </div>
-      <p className="run-sans mt-6 max-w-xs text-sm leading-relaxed text-[var(--ink-dim)]">
+      <p className="run-sans mt-5 max-w-xs text-sm leading-relaxed text-[var(--ink-dim)]">
         Short rooms, strange events and a rival at the end. Mistakes snuff out your candles; good moves earn chips. Relics multiply. Normal chess, always.
       </p>
-      <p className="run-sans mt-2 max-w-xs text-xs text-[var(--ink-dim)]/80">Pause any time — your run waits for you. Nothing here affects your rating, XP or reviews.</p>
-      <button className="run-btn mt-auto w-full max-w-xs text-lg" onClick={() => void s.newRun()}>
-        Begin a run
-      </button>
+      <div className="mt-auto flex w-full max-w-xs flex-col gap-2">
+        <button className="run-btn w-full text-lg" onClick={() => void s.newRun()}>
+          Begin a run
+        </button>
+        <div className="flex gap-2">
+          <button className="run-btn ghost flex flex-1 items-center justify-center gap-1.5" onClick={onSanctum}>
+            <Sprite name="flame" size={18} px={12} pal={EMBER} /> Sanctum <span className="text-[#ffb454]">{embers}</span>
+          </button>
+          <button className="run-btn ghost flex flex-1 items-center justify-center gap-1.5" onClick={onHistory}>
+            <Sprite name="scroll" size={18} px={12} /> History
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -164,7 +198,7 @@ function TopBar({ tools }: { tools: Tools }) {
           </div>
         </div>
         <IconBtn sprite="help" label="How it works" onClick={tools.onHelp} />
-        <IconBtn sprite={tools.music ? 'music' : 'mute'} label="Music" onClick={tools.onMusic} />
+        <IconBtn sprite="gear" label="Settings" onClick={tools.onSettings} />
       </div>
     </div>
   );
@@ -187,7 +221,7 @@ function Inventory() {
           </span>
         ))}
       </div>
-      <div className="run-label mt-2 mb-1">Cards ({run.consumables.length}/{maxConsumables(run.relics)})</div>
+      <div className="run-label mt-2 mb-1">Cards ({run.consumables.length}/{cardSlots(run)})</div>
       <div className="flex flex-wrap gap-1.5">
         {run.consumables.length === 0 && <span className="run-sans text-xs text-[var(--ink-dim)]">none</span>}
         {run.consumables.map((id, i) => (
@@ -207,7 +241,7 @@ function Pick({ title, tools, skip }: { title: string; tools: Tools; skip?: bool
   const run = s.run!;
   const offer = run.offer!;
   const [sel, setSel] = useState<string | null>(null);
-  const full = offer.type === 'consumable' && run.consumables.length >= maxConsumables(run.relics);
+  const full = offer.type === 'consumable' && run.consumables.length >= cardSlots(run);
   const choose = () => (run.phase === 'start' ? s.pickStartRelic(sel as RelicId) : s.pickReward(sel));
   return (
     <div className="flex h-full flex-col pb-5">
@@ -218,7 +252,9 @@ function Pick({ title, tools, skip }: { title: string; tools: Tools; skip?: bool
       ) : (
         <TopBar tools={tools} />
       )}
-      <div className="run-title mt-6 text-center text-2xl font-bold">{title}</div>
+      <div className="mt-6 flex justify-center px-4">
+        <PixelText text={title} size={2.5} maxWidth={340} />
+      </div>
       {full && <div className="run-sans mt-1 text-center text-xs text-[var(--blood)]">Your hands are full — skip, or use a card first.</div>}
       <div className="mt-6 flex justify-center gap-2 px-2">
         {offer.ids.map((id, i) => (
@@ -254,117 +290,8 @@ function Pick({ title, tools, skip }: { title: string; tools: Tools; skip?: bool
   );
 }
 
-function nodeTitle(n: MapNode, bossName?: string) {
-  if (n.kind === 'boss') return bossName ?? 'The Rival';
-  if (n.kind === 'event') return EVENTS[n.event!].name;
-  return ROOM_NAME[n.kind];
-}
-function nodeBlurb(n: MapNode, bossId: string) {
-  switch (n.kind) {
-    case 'puzzle':
-      return `${T.rooms.puzzle.count} puzzles`;
-    case 'convert':
-      return n.goal === 'keep' ? 'Winning: keep it' : 'Winning: cash in';
-    case 'hold':
-      return 'Worse: survive';
-    case 'ward':
-      return 'Find the defence';
-    case 'vault':
-      return 'Won endgame';
-    case 'duel':
-      return 'From the book';
-    case 'event':
-      return EVENTS[n.event!].blurb;
-    case 'boss':
-      return bossMod(bossId).name;
-  }
-}
 const nodeSprite = (n: MapNode) => (n.kind === 'event' ? EVENTS[n.event!].sprite : ROOM_SPRITE[n.kind]);
 const nodePal = (n: MapNode) => (n.elite ? BLOOD : n.kind === 'event' ? SPIRIT : GOLD);
-
-function MapView({ tools }: { tools: Tools }) {
-  const s = useRun();
-  const run = s.run!;
-  const boss = opponentById(run.bossId);
-  const wall = usePromise(() => textureTile('wall', 16, ['#120b1e', '#1a1129', '#211634', '#2a1c40'], 11, true), 'wall', 'tx:wall');
-  return (
-    <div className="flex h-full flex-col pb-4">
-      <TopBar tools={tools} />
-      <div className="run-dungeon relative mx-3 mt-2 flex-1 overflow-y-auto" style={{ backgroundImage: wall ? `url(${wall})` : undefined, boxShadow: 'inset 0 0 0 2px #1b0f22, inset 0 0 40px rgba(0,0,0,.8)' }}>
-        <div className="flex flex-col-reverse items-center py-3">
-          {run.layers.map((layer, li) => {
-            const current = li === run.layer;
-            const past = li < run.layer;
-            const fog = li > run.layer + 1 && layer[0].kind !== 'boss';
-            return (
-              <div key={li} className="relative flex w-full flex-col items-center">
-                <div className="relative flex w-full items-center justify-center gap-2 px-2">
-                  {current && (
-                    <>
-                      <span className="absolute bottom-1 left-0">
-                        <Fire w={6} h={11} scale={3} />
-                      </span>
-                      <span className="absolute right-0 bottom-1">
-                        <Fire w={6} h={11} scale={3} />
-                      </span>
-                    </>
-                  )}
-                  {layer.map((node, ni) => {
-                    const chosen = run.path[li] === ni;
-                    const res = past && chosen ? run.results.find((r) => r.layer === li) : undefined;
-                    const isBoss = node.kind === 'boss';
-                    const danger = isBoss || node.elite;
-                    return (
-                      <button
-                        key={ni}
-                        disabled={!current}
-                        onClick={() => (s.chooseNode(ni), sfx('card'))}
-                        className={`relative flex items-center gap-2 p-1.5 text-left ${current ? 'run-deal' : ''} ${past && !chosen ? 'opacity-25' : ''}`}
-                        style={{
-                          width: layer.length > 1 ? 146 : 176,
-                          minHeight: 70,
-                          animationDelay: `${ni * 100}ms`,
-                          background: isBoss ? 'linear-gradient(#3c0c1c,#1f0812)' : node.kind === 'event' ? 'linear-gradient(#1f3a4a,#10202a)' : 'linear-gradient(#2a1846,#16101f)',
-                          boxShadow: `0 0 0 2px #1b0f22, inset 0 0 0 2px ${danger ? '#a8203a' : current ? 'var(--gold)' : 'var(--gold-dim)'}${current ? ', 0 0 18px rgba(242,199,92,.35)' : ''}`,
-                        }}
-                      >
-                        {isBoss && boss ? <PixelPortrait id={boss.id} size={48} px={32} boss className="run-boss-glow" /> : <Sprite name={nodeSprite(node)} size={40} px={16} pal={nodePal(node)} />}
-                        <span className="min-w-0">
-                          <span className="run-title block text-[14px] leading-tight font-bold">{nodeTitle(node, boss?.name)}</span>
-                          <span className="run-sans block text-[10px] leading-tight text-[var(--ink-dim)]">{nodeBlurb(node, run.bossId)}</span>
-                          {node.kind !== 'event' && node.kind !== 'boss' && (
-                            <span className="run-sans block text-[10px] font-bold" style={{ color: node.elite ? '#ff8c9a' : 'var(--gold)' }}>
-                              {node.elite ? '☠ Elite · ' : ''}
-                              {MODIFIERS[node.modifier].name}
-                            </span>
-                          )}
-                          {res && <span className={`run-sans block text-[10px] font-bold ${res.won ? 'text-[#5ee59a]' : 'text-[var(--blood)]'}`}>{res.won ? `✓ ${res.score}` : '✕ failed'}</span>}
-                          {past && chosen && !res && <span className="run-sans block text-[10px] font-bold text-[#6fd3ff]">visited</span>}
-                        </span>
-                        {fog && <span className="run-fog absolute inset-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-                {li > 0 && (
-                  <div className="my-1 flex flex-col items-center gap-[3px]">
-                    {[0, 1, 2].map((k) => (
-                      <span key={k} className="h-[3px] w-[3px]" style={{ background: li <= run.layer ? 'var(--gold)' : 'rgba(242,199,92,.3)' }} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      <div className="mt-2">
-        <Inventory />
-      </div>
-      <div className="run-sans mt-1 px-4 text-center text-xs text-[var(--ink-dim)]">{run.layers[run.layer]?.length > 1 ? 'Choose your path.' : 'Tap the room to enter.'}</div>
-    </div>
-  );
-}
 
 function Intro() {
   const s = useRun();
@@ -384,7 +311,7 @@ function Intro() {
       {boss ? (
         <>
           <PixelPortrait id={boss.id} size={128} boss className="run-slam run-boss-glow mt-4" />
-          <div className="run-title mt-3 text-3xl font-black">{title}</div>
+          <PixelText text={title ?? ''} size={4} color="#ff8c9a" className="mt-3" />
           <div className="run-sans text-sm text-[var(--ink-dim)]">
             {boss.tagline} · plays like ~{elo}
           </div>
@@ -394,7 +321,7 @@ function Intro() {
           <div className="run-slam mt-6">
             <Sprite name={nodeSprite(node)} size={104} px={20} pal={nodePal(node)} />
           </div>
-          <div className="run-title mt-2 text-3xl font-black">{title}</div>
+          <PixelText text={title ?? ''} size={4} className="mt-3" maxWidth={330} />
         </>
       )}
       <div className="run-panel run-fadeup mt-6 w-full max-w-sm p-4 text-left">
@@ -431,7 +358,7 @@ function EventView({ tools }: { tools: Tools }) {
       <TopBar tools={tools} />
       <div className="mt-3 flex flex-col items-center px-5 text-center">
         <Sprite name={meta.sprite} size={72} px={18} pal={SPIRIT} className="run-slam" />
-        <div className="run-title mt-1 text-3xl font-black">{meta.name}</div>
+        <PixelText text={meta.name} size={3.5} className="mt-2" maxWidth={330} />
       </div>
       <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-4">
         {ev.kind === 'shrine' && <Shrine />}
@@ -555,7 +482,7 @@ function Curse() {
   return (
     <div className="flex h-full flex-col items-center px-6 pt-10 pb-6 text-center">
       <div className="run-label">Before the rival</div>
-      <div className="run-title mt-1 text-3xl font-black">A Deal Is Offered</div>
+      <PixelText text="A deal is offered" size={3} color="#ff8c9a" className="mt-2" maxWidth={330} />
       <div className="tarot relic run-deal mt-8" style={{ width: 170, height: 260, boxShadow: '0 0 0 1px #e2475a, 0 0 40px rgba(226,71,90,.45)' }}>
         <div className="tarot-inner justify-center gap-3 px-3">
           <div className="numeral text-sm text-[var(--blood)]!">XV</div>
@@ -584,7 +511,7 @@ function Curse() {
 function Camp({ tools }: { tools: Tools }) {
   const s = useRun();
   const run = s.run!;
-  const full = run.consumables.length >= maxConsumables(run.relics);
+  const full = run.consumables.length >= cardSlots(run);
   const rp = restPrice(run.relics);
   const bossNext = run.layer === run.layers.length - 1;
   return (
@@ -596,7 +523,7 @@ function Camp({ tools }: { tools: Tools }) {
           <Fire w={24} h={26} scale={3} logs />
           <Sprite name="bag" size={44} px={16} pal={JADE} />
         </div>
-        <div className="run-title text-2xl font-bold">The Campfire</div>
+        <PixelText text="The Campfire" size={3} className="mt-1" />
         <div className="run-sans text-xs text-[var(--ink-dim)]">{bossNext ? 'The rival waits beyond the fire.' : 'Rest a moment. Buy a card or two.'}</div>
       </div>
       <div className="mt-3 flex justify-center gap-2 overflow-x-auto px-2">
@@ -622,9 +549,16 @@ function Camp({ tools }: { tools: Tools }) {
         })}
         {run.shopStock.length === 0 && <div className="run-sans py-10 text-sm text-[var(--ink-dim)]">Sold out.</div>}
       </div>
-      {full && <div className="run-sans mt-2 text-center text-xs text-[var(--ink-dim)]">Hands full ({maxConsumables(run.relics)} cards max).</div>}
+      {full && <div className="run-sans mt-2 text-center text-xs text-[var(--ink-dim)]">Hands full ({cardSlots(run)} cards max).</div>}
+      {run.meta?.boosts.reroll ? (
+        <div className="mt-2 px-4">
+          <button className="run-btn ghost w-full py-2! text-sm" disabled={run.rerollUsed} onClick={() => s.rerollShop()}>
+            {run.rerollUsed ? 'Shop rerolled' : 'Second Look: reroll the shop (free)'}
+          </button>
+        </div>
+      ) : null}
       <div className="mt-3 px-4">
-        <button className="run-btn ghost w-full" disabled={run.restBought || run.gold < rp || run.composure >= T.composure.max} onClick={() => s.rest()}>
+        <button className="run-btn ghost w-full" disabled={run.restBought || run.gold < rp || run.composure >= maxComposure(run)} onClick={() => s.rest()}>
           Rest: +{T.shop.restComposure} candle · {rp}g{run.restBought ? ' (done)' : ''}
         </button>
       </div>

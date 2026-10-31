@@ -7,11 +7,14 @@ import { useSettings } from '../../lib/settings';
 import type { CoachArrow } from '../../lib/coach/types';
 import type { Classification } from '../../lib/chess/evaluation';
 import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, bossMod, bossModText } from '../content';
-import { chipTarget, fmtCp, gaugeLines, maxConsumables, progress, roomScore } from '../rules';
+import { chipTarget, fmtCp, gaugeLines, cardSlots, progress, roomScore } from '../rules';
 import { arrowOf, bossOf, lensMarks, liveEval, useRun } from '../store';
 import { TUNING as T } from '../tuning';
 import type { ConsumableId, RelicId, RoomKind } from '../types';
-import { RunBoard } from '../pixel/RunBoard';
+import { PixelCaptured, RunBoard } from '../pixel/RunBoard';
+import { material } from '../../lib/chess/material';
+import { moveSound, sfx } from '../sfx';
+import { PixelText } from './PixelText';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { BLOOD, EMBER, GOLD } from '../pixel/pixelize';
 import { Composure, PixelNum } from './bits';
@@ -20,7 +23,7 @@ import { useLongPress } from './useLongPress';
 
 const CLS_COLOR: Record<Classification, string> = { best: '#5ee59a', good: '#9fd8b5', inaccuracy: '#ffd36b', mistake: '#ffb454', blunder: '#e2475a' };
 
-export function RoomView({ onDev }: { onDev: () => void }) {
+export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings: () => void }) {
   const s = useRun();
   const run = s.run!;
   const room = run.room!;
@@ -32,6 +35,15 @@ export function RoomView({ onDev }: { onDev: () => void }) {
   const isBoss = room.node.kind === 'boss';
   const [vs, setVs] = useState(isBoss && room.moves.length === 0 && room.plies.length === 0);
   const lp = useLongPress(onDev);
+  const [view, setView] = useState<number | null>(null);
+  // Piece sounds for every move on the board (yours and the opponent's).
+  const plyCount = room.plies.length;
+  const lastSan = room.plies[plyCount - 1]?.san;
+  const lastBy = room.plies[plyCount - 1]?.by;
+  useEffect(() => {
+    if (lastSan) sfx(moveSound(lastSan), 0, lastBy === 'opp');
+    setView(null);
+  }, [plyCount, lastSan, lastBy]);
   const boss = isBoss ? opponentById(room.oppId) : undefined;
   const mod = isBoss ? bossMod(run.bossId) : undefined;
 
@@ -52,6 +64,8 @@ export function RoomView({ onDev }: { onDev: () => void }) {
   }, [lastFx, boss]);
 
   const live = roomScore(room);
+  const viewing = view !== null ? room.moves[view] : null;
+  const mat = material(room.fen, room.startFen);
   const target = chipTarget(room);
   const me = room.me;
   const lastPly = room.plies[room.plies.length - 1];
@@ -83,7 +97,7 @@ export function RoomView({ onDev }: { onDev: () => void }) {
               <div className="run-label truncate">
                 {isBoss ? mod?.name : room.node.elite ? 'Elite · ' + MODIFIERS[room.node.modifier].name : MODIFIERS[room.node.modifier].name} · {room.layer + 1}/{run.layers.length}
               </div>
-              <div className="run-title truncate text-xl font-bold">{room.gamble ? 'The Gamble' : ROOM_NAME[room.node.kind as RoomKind]}</div>
+              <PixelText text={room.gamble ? 'The Gamble' : ROOM_NAME[room.node.kind as RoomKind]} size={2.5} className="mt-0.5" />
             </div>
           </div>
           <div className="flex flex-col items-end gap-0.5">
@@ -91,6 +105,9 @@ export function RoomView({ onDev }: { onDev: () => void }) {
             <div className="flex items-center gap-1">
               <Sprite name="coin" size={16} px={10} stroke={5} />
               <PixelNum value={run.gold} size={3} />
+              <button onClick={onSettings} aria-label="Settings" className="ml-1">
+                <Sprite name="gear" size={20} px={12} />
+              </button>
             </div>
           </div>
         </div>
@@ -132,16 +149,25 @@ export function RoomView({ onDev }: { onDev: () => void }) {
       <div className="relative mt-1 flex gap-1.5 px-1.5">
         {showGauge && <EvalGauge cp={ev} {...gaugeLines(room, bossOf(run))} thinking={s.busy} />}
         <div className="relative min-w-0 flex-1">
+          <PixelCaptured pieces={mat.lost[me === 'w' ? 'b' : 'w']} color={me === 'w' ? 'b' : 'w'} lead={me === 'w' ? mat.diff : -mat.diff} />
           <RunBoard
-            fen={room.fen}
+            fen={viewing ? viewing.fenAfter : room.fen}
             orientation={me === 'w' ? 'white' : 'black'}
-            movable={playing && !s.busy && !s.aids.verdict && !room.puzzle?.lost ? me : null}
+            movable={!viewing && playing && !s.busy && !s.aids.verdict && !room.puzzle?.lost ? me : null}
             onMove={(m) => s.userMove(toUci(m))}
-            arrows={arrows}
-            highlights={highlights}
-            lastMove={lastPly ? { from: lastPly.uci.slice(0, 2), to: lastPly.uci.slice(2, 4) } : null}
+            arrows={viewing ? [] : arrows}
+            highlights={viewing ? [] : highlights}
+            lastMove={viewing ? { from: viewing.uci.slice(0, 2), to: viewing.uci.slice(2, 4) } : lastPly ? { from: lastPly.uci.slice(0, 2), to: lastPly.uci.slice(2, 4) } : null}
             showCoordinates={showCoords}
+            dimmed={!!viewing}
           />
+          <PixelCaptured pieces={mat.lost[me]} color={me} lead={me === 'w' ? -mat.diff : mat.diff} />
+          {viewing && (
+            <button onClick={() => setView(null)} className="run-panel run-fadeup absolute inset-x-6 top-1/2 z-30 -translate-y-1/2 p-2 text-center">
+              <div className="run-label">Looking back · your move {view! + 1}: {viewing.san}</div>
+              <div className="run-sans text-sm font-bold text-[var(--gold-2)]">Tap to return to the game</div>
+            </button>
+          )}
           {used && <UsedCard key={used.id} item={used.item} />}
           {s.aids.verdict && <VerdictPanel />}
           {!playing && <EndBanner canRewind={canRewind} />}
@@ -151,19 +177,27 @@ export function RoomView({ onDev }: { onDev: () => void }) {
 
       {/* Move recap */}
       <div className="mt-1.5 flex min-h-6 items-center gap-1 overflow-hidden px-3">
-        {room.moves.slice(-7).map((m, i) => (
-          <span key={room.moves.length - 7 + i} className="run-fadeup run-sans flex items-center gap-1 rounded bg-black/35 px-1.5 py-0.5 text-[11px] font-bold whitespace-nowrap" style={{ boxShadow: `inset 0 -2px 0 ${CLS_COLOR[m.cls]}` }}>
-            <span className="h-1.5 w-1.5" style={{ background: CLS_COLOR[m.cls] }} />
-            {m.san}
-          </span>
-        ))}
+        {room.moves.slice(-7).map((m, i) => {
+          const idx = Math.max(0, room.moves.length - 7) + i;
+          return (
+            <button
+              key={idx}
+              onClick={() => setView(view === idx || idx === room.moves.length - 1 && !room.puzzle ? null : idx)}
+              className="run-fadeup run-sans flex items-center gap-1 bg-black/35 px-1.5 py-0.5 text-[11px] font-bold whitespace-nowrap"
+              style={{ boxShadow: `inset 0 -2px 0 ${CLS_COLOR[m.cls]}${view === idx ? ', 0 0 0 1px var(--gold-2)' : ''}` }}
+            >
+              <span className="h-1.5 w-1.5" style={{ background: CLS_COLOR[m.cls] }} />
+              {m.san}
+            </button>
+          );
+        })}
         {room.moves.length === 0 && <span className="run-sans text-[11px] text-[var(--ink-dim)]">{me === 'w' ? 'You play White.' : 'You play Black.'} Your moves will show here.</span>}
       </div>
 
       {/* Cards */}
       <div className="mt-auto px-3 pb-3">
         <div className="run-label mb-1.5 flex justify-between">
-          <span>Cards ({run.consumables.length}/{maxConsumables(run.relics)})</span>
+          <span>Cards ({run.consumables.length}/{cardSlots(run)})</span>
           {run.curses.length > 0 && <span className="text-[var(--blood)]!">Brittle: mistakes −1 more</span>}
         </div>
         <div className="flex gap-2">

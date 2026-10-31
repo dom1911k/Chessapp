@@ -41,6 +41,8 @@ export const SPRITES: Record<string, string> = {
   cross: '<path d="M12 12l24 24M36 12L12 36"/>',
   music: '<path d="M18 36V10l20-4v26"/><circle cx="14" cy="36" r="4.5"/><circle cx="34" cy="32" r="4.5"/>',
   mute: '<path d="M8 18h8l10-8v28l-10-8H8z"/><path d="M32 18l10 12M42 18L32 30"/>',
+  gear: '<circle cx="24" cy="24" r="7"/><path d="M24 5v6M24 37v6M5 24h6M37 24h6M10.5 10.5l4.2 4.2M33.3 33.3l4.2 4.2M37.5 10.5l-4.2 4.2M14.7 33.3l-4.2 4.2"/><circle cx="24" cy="24" r="13"/>',
+  scroll: '<path d="M12 8h22a4 4 0 0 1 4 4v26a4 4 0 0 1-4 4H14"/><path d="M12 8a4 4 0 0 0-4 4v4h8v-4a4 4 0 0 0-4-4zM16 42a4 4 0 0 1-4-4v-4h8"/><path d="M20 16h12M20 22h12M20 28h8"/>',
   help: '<circle cx="24" cy="24" r="18"/><path d="M18 19a6 6 0 1 1 9 5c-2 1-3 3-3 5"/><circle cx="24" cy="34" r="1"/>',
 };
 

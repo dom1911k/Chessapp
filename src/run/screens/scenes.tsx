@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { opponentById } from '../../lib/people';
 import { bossMod, bossModText } from '../content';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
-import { BLOOD, GOLD, cached } from '../pixel/pixelize';
+import { BLOOD, GOLD } from '../pixel/pixelize';
+import { BOARD_THEMES, pieceSprite } from '../pixel/board';
+import { useRunSettings } from '../settings';
 import { sfx, buzz } from '../sfx';
 import { PixelNum } from './bits';
 
@@ -84,7 +86,7 @@ export function CoinRain({ n }: { n: number }) {
 export function VsIntro({ bossId, cursed, onDone }: { bossId: string; cursed: boolean; onDone: () => void }) {
   const boss = opponentById(bossId);
   const mod = bossMod(bossId);
-  const king = cached('pc:wK:22');
+  const king = pieceSprite(BOARD_THEMES[useRunSettings.getState().board] ?? BOARD_THEMES.crypt, 'w', 'K');
   useEffect(() => {
     sfx('slam');
     buzz([30, 30, 60]);
@@ -179,4 +181,52 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
       </div>
     </div>
   );
+}
+
+
+/**
+ * Pixel transition: the screen starts covered in dark blocks that clear in a scattered order
+ * (a dither dissolve). `door` plays two stone halves sliding apart instead (entering a room).
+ */
+export function Transition({ kind }: { kind: 'wipe' | 'door' }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (kind === 'door') {
+      sfx('door');
+      const t = setTimeout(() => setDone(true), 900);
+      return () => clearTimeout(t);
+    }
+    const c = ref.current!;
+    const B = 14;
+    const w = Math.ceil(window.innerWidth / B);
+    const h = Math.ceil(window.innerHeight / B);
+    c.width = w;
+    c.height = h;
+    const g = c.getContext('2d')!;
+    const order = Array.from({ length: w * h }, (_, i) => i).sort(() => Math.random() - 0.5);
+    g.fillStyle = '#0d0814';
+    g.fillRect(0, 0, w, h);
+    const t0 = performance.now();
+    const dur = 380;
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / dur);
+      const upto = Math.floor(order.length * k);
+      for (let i = 0; i < upto; i++) g.clearRect(order[i] % w, Math.floor(order[i] / w), 1, 1);
+      if (k < 1) raf = requestAnimationFrame(step);
+      else setDone(true);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [kind]);
+  if (done) return null;
+  if (kind === 'door')
+    return (
+      <div className="pointer-events-none fixed inset-0 z-[64] overflow-hidden">
+        <div className="run-door-l absolute inset-y-0 left-0 w-1/2" />
+        <div className="run-door-r absolute inset-y-0 right-0 w-1/2" />
+      </div>
+    );
+  return <canvas ref={ref} className="pixelated pointer-events-none fixed inset-0 z-[64] h-full w-full" />;
 }
