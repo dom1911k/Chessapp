@@ -1,26 +1,34 @@
-// Names, texts and glyphs for relics, consumables, rooms and modifiers.
-import { TUNING as T } from './tuning';
-import type { ConsumableId, ConvertGoal, ModifierId, RelicId, RoomKind } from './types';
+// Names, texts and glyphs for relics, consumables, rooms, events and modifiers.
+import { TUNING as T, type BossMod } from './tuning';
+import type { ConsumableId, EventKind, MapNode, ModifierId, Rarity, RelicId, RoomKind } from './types';
 
 export interface CardInfo {
   name: string;
   text: string;
   /** Roman numeral shown on the tarot card. */
   numeral: string;
-  /** Glyph key (see screens/Glyphs). */
+  /** Sprite key (see screens/sprites). */
   glyph: string;
+  rarity?: Rarity;
 }
 
 const R = T.relics;
 export const RELICS: Record<RelicId, CardInfo> = {
-  calm: { name: 'Calm Mind', numeral: 'I', glyph: 'moon', text: `Finish a room with no inaccuracy or worse: +${T.relics.calmComposure} Composure.` },
-  bloodhound: { name: 'Bloodhound', numeral: 'II', glyph: 'fang', text: `+${R.bloodhoundGold} gold whenever you win an undefended piece.` },
-  forkmaster: { name: 'Forkmaster', numeral: 'III', glyph: 'fork', text: `+${R.forkMult} mult for every fork you play.` },
-  ironwall: { name: 'Iron Wall', numeral: 'IV', glyph: 'tower', text: `Hold rooms: +${R.ironWallMult} mult for every good move.` },
-  pins: { name: 'Pin Collector', numeral: 'V', glyph: 'pin', text: `+${R.pinMult} mult for every pin you play.` },
-  clean: { name: 'Clean Hands', numeral: 'VI', glyph: 'star', text: `+${R.cleanHandsMult} mult for every best move.` },
-  spendthrift: { name: 'Spendthrift', numeral: 'VII', glyph: 'coin', text: `Shop prices halved, but you carry ${R.spendthriftCarryPenalty} fewer consumable.` },
-  bloomer: { name: 'Late Bloomer', numeral: 'VIII', glyph: 'sprout', text: `+${R.lateBloomerPerRoom} mult per room already cleared.` },
+  calm: { name: 'Calm Mind', numeral: 'I', glyph: 'moon', rarity: 'common', text: `Finish a room with no inaccuracy or worse: +${R.calmComposure} Composure.` },
+  clean: { name: 'Clean Hands', numeral: 'VI', glyph: 'star', rarity: 'common', text: `+${R.cleanHandsMult} mult for every best move.` },
+  scholar: { name: 'Scholar', numeral: 'IX', glyph: 'book', rarity: 'common', text: `+${R.scholarGold} gold for every puzzle you solve.` },
+  patience: { name: 'Patience', numeral: 'XIV', glyph: 'hourglass', rarity: 'common', text: `+${R.patienceMult} mult for every quiet good move (no capture, no check).` },
+  lucky: { name: 'Lucky Coin', numeral: 'X', glyph: 'clover', rarity: 'common', text: `The campfire shows ${R.luckyExtraOffer} more card; resting costs ${R.luckyRestDiscount} less.` },
+  bloomer: { name: 'Late Bloomer', numeral: 'VIII', glyph: 'sprout', rarity: 'common', text: `+${R.lateBloomerPerRoom} mult per room already cleared.` },
+  bloodhound: { name: 'Bloodhound', numeral: 'II', glyph: 'fang', rarity: 'uncommon', text: `+${R.bloodhoundGold} gold whenever you win an undefended piece.` },
+  forkmaster: { name: 'Forkmaster', numeral: 'III', glyph: 'fork', rarity: 'uncommon', text: `+${R.forkMult} mult for every fork you play.` },
+  pins: { name: 'Pin Collector', numeral: 'V', glyph: 'pin', rarity: 'uncommon', text: `+${R.pinMult} mult for every pin you play.` },
+  ironwall: { name: 'Iron Wall', numeral: 'IV', glyph: 'tower', rarity: 'uncommon', text: `Siege rooms: +${R.ironWallMult} mult for every good move.` },
+  hunter: { name: 'Hunter', numeral: 'XI', glyph: 'bow', rarity: 'uncommon', text: `+${R.hunterMult} mult for every good capture.` },
+  spendthrift: { name: 'Spendthrift', numeral: 'VII', glyph: 'coin', rarity: 'uncommon', text: `Shop prices halved, but you carry ${R.spendthriftCarryPenalty} fewer card.` },
+  executioner: { name: 'Executioner', numeral: 'XIII', glyph: 'axe', rarity: 'rare', text: `+${R.executionerMult} mult when you finish a room with checkmate.` },
+  secondwind: { name: 'Second Wind', numeral: 'XX', glyph: 'feather', rarity: 'rare', text: 'Once per run, when your Composure would break, keep 1.' },
+  glass: { name: 'Glass Cannon', numeral: 'XVI', glyph: 'crystal', rarity: 'rare', text: `+${R.glassMult} mult in every room. Costs ${R.glassComposure} Composure when taken.` },
 };
 
 export const CONSUMABLES: Record<ConsumableId, CardInfo> = {
@@ -36,28 +44,88 @@ export const ROOM_NAME: Record<RoomKind, string> = {
   puzzle: 'The Riddle',
   convert: 'The Harvest',
   hold: 'The Siege',
+  ward: 'The Ward',
+  vault: 'The Vault',
+  duel: 'The Duel',
   boss: 'The Rival',
 };
 
-export function objective(kind: RoomKind, goal?: ConvertGoal): string {
+export const ROOM_SPRITE: Record<RoomKind | 'event', string> = {
+  puzzle: 'cards',
+  convert: 'scythe',
+  hold: 'tower',
+  ward: 'shield',
+  vault: 'chest',
+  duel: 'swords',
+  boss: 'skull',
+  event: 'question',
+};
+
+export const EVENTS: Record<EventKind, { name: string; sprite: string; blurb: string }> = {
+  shrine: { name: "Sam's Shrine", sprite: 'candle', blurb: 'Answer the coach. Earn a relic.' },
+  gambler: { name: 'The Gambler', sprite: 'dice', blurb: 'Stake Composure on one puzzle.' },
+  merchant: { name: 'The Merchant', sprite: 'bag', blurb: 'Relics for sale.' },
+  altar: { name: 'The Cursed Altar', sprite: 'altar', blurb: 'Power, at a price.' },
+};
+
+export const RARITY_COLOR: Record<Rarity, string> = { common: '#cdbf9f', uncommon: '#6fd3ff', rare: '#ff6bd5' };
+
+export const bossMod = (id: string): BossMod => T.bossMods[id] ?? T.bossMods.default;
+
+/** Plain-language rule text for a rival. */
+export function bossModText(m: BossMod): string {
+  const parts: string[] = [];
+  if (m.inaccuracyCost) parts.push(`inaccuracies cost ${m.inaccuracyCost} Composure`);
+  if (m.mistakeExtra) parts.push(`mistakes cost ${m.mistakeExtra} more`);
+  if (m.blunderFactor) parts.push(`blunders cost ×${m.blunderFactor}`);
+  if (m.blunderEnds) parts.push('one blunder ends the fight');
+  if (m.sealed?.length) parts.push(`${m.sealed.map((c) => CONSUMABLES[c].name).join(', ')} sealed`);
+  if (m.noEarlyWin) parts.push('only the final position counts');
+  if (m.captureMult) parts.push(`+${m.captureMult} mult per good capture`);
+  if (m.multBonus) parts.push(`+${m.multBonus} mult`);
+  const s = parts.join('; ');
+  return s ? s[0].toUpperCase() + s.slice(1) + '.' : 'No special rule.';
+}
+
+/** The boss's goal numbers after its rule. */
+export function bossGoal(m: BossMod) {
+  const b = T.rooms.boss;
+  return { winCp: m.winCp ?? b.winCp, endCp: m.endCp ?? b.endCp, moves: m.moves ?? b.moves, noEarlyWin: !!m.noEarlyWin };
+}
+
+export function objective(node: MapNode, boss?: BossMod): string {
   const r = T.rooms;
-  switch (kind) {
+  const e = node.elite;
+  switch (node.kind) {
     case 'puzzle':
-      return `Solve ${r.puzzle.needSolved} of ${r.puzzle.count} puzzles.`;
+      return `Solve ${e ? T.elite.puzzleNeed : r.puzzle.needSolved} of ${r.puzzle.count} puzzles${e ? ' (harder)' : ''}.`;
+    case 'ward':
+      return `Your opponent threatens something. Find the one move that holds — ${e ? T.elite.wardNeed : r.ward.needSolved} of ${r.ward.count}.`;
     case 'convert':
-      return goal === 'keep'
-        ? `You're winning. Stay at least +${r.convert.keepCp / 100} for ${r.convert.keepMoves} moves.`
-        : `You're winning. Win ${r.convert.gainMaterial}+ more material or mate within ${r.convert.gainMoves} moves.`;
+      return node.goal === 'keep'
+        ? `You're winning. Stay at least +${(e ? T.elite.keepCp : r.convert.keepCp) / 100} for ${r.convert.keepMoves} moves.`
+        : `You're winning. Win ${r.convert.gainMaterial}+ more material or mate within ${e ? T.elite.gainMoves : r.convert.gainMoves} moves.`;
     case 'hold':
-      return `You're a little worse. Survive ${r.hold.moves} moves without the eval dropping more than ${r.hold.maxDropCp / 100}.`;
-    case 'boss':
-      return `Reach +${r.boss.winCp / 100} (or mate) within ${r.boss.moves} moves, or be +${r.boss.endCp / 100} at the end.`;
+      return `You're a little worse. Survive ${r.hold.moves} moves without the eval dropping more than ${(e ? T.elite.holdMaxDropCp : r.hold.maxDropCp) / 100}.`;
+    case 'vault':
+      return 'A won endgame against perfect defence. Finish the job in time.';
+    case 'duel':
+      return `An opening, fresh from the book. After ${r.duel.moves} moves be at ${fmt((e ? T.elite.duelMinCp : r.duel.minCp) / 100)} or better.`;
+    case 'boss': {
+      const g = bossGoal(boss ?? T.bossMods.default);
+      return g.noEarlyWin
+        ? `Be at +${g.endCp / 100} or better after ${g.moves} moves.`
+        : `Reach +${g.winCp / 100} (or mate) within ${g.moves} moves, or be +${g.endCp / 100} at the end.`;
+    }
+    case 'event':
+      return node.event ? EVENTS[node.event].blurb : '';
   }
 }
+const fmt = (v: number) => (v > 0 ? `+${v}` : `${v}`);
 
 export const MODIFIERS: Record<ModifierId, { name: string; text: string }> = {
   steady: { name: 'Still Air', text: 'No modifier.' },
   gilded: { name: 'Gilded', text: `Gold from this room ×${T.modifiers.gilded.goldMult}.` },
   focused: { name: 'Razor Focus', text: `+${T.modifiers.focused.mult} mult, but blunders cost ${T.modifiers.focused.extraBlunderCost} more Composure.` },
-  pickpocket: { name: 'The Pickpocket', text: `Blunders cost ×${T.boss.pickpocketBlunderFactor} Composure.` },
+  rival: { name: "The Rival's Rule", text: '' },
 };

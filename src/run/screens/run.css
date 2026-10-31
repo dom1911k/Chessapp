@@ -205,3 +205,80 @@
     animation-duration: 0.01s !important;
   }
 }
+
+/* ---- v2 pixel bits ---- */
+.pixelated {
+  image-rendering: pixelated;
+}
+.pixel-gem {
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  box-shadow: 0 0 0 1px #1b0f22, 0 0 6px currentColor;
+}
+/* Candle flame: a 2-pixel-wide flicker. */
+.run-candle {
+  width: 6px;
+  height: 9px;
+  background:
+    linear-gradient(#fff6d0, #fff6d0) 2px 4px / 2px 4px no-repeat,
+    linear-gradient(#ffb454, #ffb454) 1px 2px / 4px 6px no-repeat,
+    linear-gradient(#ff6a2a, #ff6a2a) 2px 0 / 2px 3px no-repeat;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 4px #ff9a3c);
+  animation: run-candle 0.9s steps(3) infinite;
+  transform-origin: 50% 100%;
+}
+@keyframes run-candle {
+  0% { transform: scaleY(1); }
+  33% { transform: scaleY(1.15) skewX(-6deg); }
+  66% { transform: scaleY(0.9) skewX(5deg); }
+}
+.run-smoke {
+  width: 6px;
+  height: 6px;
+  background: radial-gradient(circle, rgba(200, 190, 220, 0.8) 40%, transparent 42%) 0 0 / 3px 3px;
+  animation: run-smoke 1.2s ease-out forwards;
+}
+@keyframes run-smoke {
+  0% { opacity: 0.9; transform: translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(4px, -22px) scale(2.4); }
+}
+/* Stone dungeon wall behind the map. */
+.run-dungeon {
+  background-color: #150d22;
+  background-size: 64px 64px;
+  image-rendering: pixelated;
+}
+.run-fog {
+  background-image: repeating-conic-gradient(rgba(10, 6, 18, 0.85) 0 25%, transparent 0 50%);
+  background-size: 4px 4px;
+}
+@keyframes run-coin {
+  0% { transform: translateY(-140px) rotate(0deg); opacity: 0; }
+  15% { opacity: 1; }
+  80% { transform: translateY(0) rotate(360deg); }
+  90% { transform: translateY(-6px); }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.run-coin {
+  animation: run-coin 0.75s cubic-bezier(0.4, 0, 0.7, 1.4) both;
+}
+@keyframes run-vs-l {
+  from { transform: translateX(-120%); }
+  to { transform: none; }
+}
+@keyframes run-vs-r {
+  from { transform: translateX(120%); }
+  to { transform: none; }
+}
+.run-vs-l { animation: run-vs-l 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
+.run-vs-r { animation: run-vs-r 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
+@keyframes run-glow {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(226, 71, 90, 0.6)); }
+  50% { filter: drop-shadow(0 0 16px rgba(226, 71, 90, 1)); }
+}
+.run-boss-glow { animation: run-glow 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .run-candle, .run-coin, .run-vs-l, .run-vs-r, .run-boss-glow, .run-smoke { animation-duration: 0.01s !important; }
+}

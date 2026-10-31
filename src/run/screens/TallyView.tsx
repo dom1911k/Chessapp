@@ -1,17 +1,21 @@
 // Score tally after a room: chips count up, each relic that fired flashes and adds its mult,
 // then the total slams in with a screen shake and a buzz.
 import { useEffect, useRef, useState } from 'react';
-import { MODIFIERS, RELICS, ROOM_NAME } from '../content';
+import { MODIFIERS, RELICS, ROOM_NAME, bossMod } from '../content';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
 import type { Fire } from '../types';
 import { sfx, buzz } from '../sfx';
-import { Glyph, PixelNum } from './bits';
+import { PixelNum } from './bits';
+import { PixelPortrait, Sprite } from '../pixel/sprites';
+import { CoinRain } from './scenes';
 
 export function TallyView({ onShake }: { onShake: () => void }) {
   const s = useRun();
   const run = s.run!;
   const res = run.results[run.results.length - 1];
+  const name = (f: Fire) => (f.relic === 'rival' ? bossMod(run.bossId).name : RELICS[f.relic].name);
+  const icon = (f: Fire) => (f.relic === 'rival' ? <PixelPortrait id={run.bossId} size={28} px={24} boss /> : <Sprite name={RELICS[f.relic].glyph} size={28} px={14} />);
   const multFires = res.fires.filter((f) => f.mult);
   const otherFires = res.fires.filter((f) => !f.mult);
   const baseMult = T.score.baseMult + (res.modifier === 'focused' ? T.modifiers.focused.mult : 0);
@@ -66,8 +70,8 @@ export function TallyView({ onShake }: { onShake: () => void }) {
 
   return (
     <div className="flex h-full flex-col items-center px-4 pt-6 pb-6 text-center" onClick={() => (skip.current = true)}>
-      <div className="run-label">{res.won ? 'Room cleared' : 'Room failed'} · {MODIFIERS[res.modifier].name}</div>
-      <div className="run-title mt-1 text-3xl font-black">{ROOM_NAME[res.kind]}</div>
+      <div className="run-label">{res.won ? 'Room cleared' : 'Room failed'} · {res.kind === 'boss' ? bossMod(run.bossId).name : MODIFIERS[res.modifier].name}{res.elite ? ' · Elite' : ''}</div>
+      <div className="run-title mt-1 text-3xl font-black">{res.gamble ? 'The Gamble' : ROOM_NAME[res.kind]}</div>
       <div className="run-sans mt-1 text-sm text-[var(--ink-dim)]">{res.reason}</div>
 
       <div className="mt-8 flex items-center gap-3">
@@ -85,8 +89,8 @@ export function TallyView({ onShake }: { onShake: () => void }) {
       <div className="mt-4 flex h-12 items-center justify-center">
         {flash && (
           <div key={stage} className="run-slam flex items-center gap-2 rounded-xl bg-black/40 px-3 py-1.5 ring-1 ring-[var(--gold-dim)]">
-            <span className="text-[var(--gold-2)]"><Glyph name={RELICS[flash.relic].glyph} size={26} /></span>
-            <span className="run-title font-bold">{RELICS[flash.relic].name}</span>
+            {icon(flash)}
+            <span className="run-title font-bold">{name(flash)}</span>
             <span className="run-sans font-black text-[var(--mult)]">+{flash.mult}×</span>
           </div>
         )}
@@ -103,16 +107,22 @@ export function TallyView({ onShake }: { onShake: () => void }) {
 
       {stage > final && (
         <div className="run-fadeup mt-4 flex flex-col items-center gap-1.5">
+          {res.target > 0 && (
+            <div className={`run-sans text-sm font-bold ${res.chips >= res.target ? 'text-[#5ee59a]' : 'text-[var(--ink-dim)]'}`}>
+              Chip target {res.target}: {res.chips >= res.target ? (res.won ? `beaten! +${T.gold.targetBonus} gold` : 'beaten') : 'missed'}
+            </div>
+          )}
+          {res.gold > 0 && <CoinRain n={res.gold} />}
           <div className="flex items-center gap-2 text-[var(--gold)]">
-            <Glyph name="coin" size={22} />
+            <Sprite name="coin" size={20} px={10} stroke={5} />
             <span className="run-sans font-bold">+{res.gold} gold</span>
           </div>
           {otherFires.map((f, i) => (
             <div key={i} className="run-sans text-sm text-[var(--ink-dim)]">
-              {RELICS[f.relic].name}: {f.composure ? `+${f.composure} Composure` : f.gold ? `+${f.gold} gold` : ''}
+              {name(f)}: {f.composure ? `+${f.composure} Composure` : f.gold ? `+${f.gold} gold` : ''}
             </div>
           ))}
-          {!res.won && res.kind !== 'boss' && <div className="run-sans text-sm text-[var(--blood)]">−{T.composure.failRoom} Composure for failing the room</div>}
+          {!res.won && res.kind !== 'boss' && <div className="run-sans text-sm text-[var(--blood)]">−{res.gamble ? T.events.gambleStake : T.composure.failRoom} Composure for failing the room</div>}
         </div>
       )}
 

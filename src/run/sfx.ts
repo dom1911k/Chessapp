@@ -96,3 +96,82 @@ export function buzz(ms: number | number[]) {
     /* not supported (iOS) */
   }
 }
+
+// ---- Ambient music: a low drone with a slowly breathing filter and sparse marimba notes. ----
+const MUSIC_KEY = 'chesscoach.run.music';
+export const musicPref = () => {
+  try {
+    return localStorage.getItem(MUSIC_KEY) !== '0';
+  } catch {
+    return true;
+  }
+};
+export const setMusicPref = (on: boolean) => {
+  try {
+    localStorage.setItem(MUSIC_KEY, on ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+};
+
+let amb: { stop(): void } | null = null;
+const SCALE = [220, 261.6, 293.7, 329.6, 392, 440, 523.3, 587.3];
+
+export function ambient(on: boolean) {
+  if (!on || !useSettings.getState().sound) {
+    amb?.stop();
+    amb = null;
+    return;
+  }
+  if (amb) return;
+  const a = audio();
+  if (!a) return;
+  const { c, o } = a;
+  const bus = c.createGain();
+  bus.gain.setValueAtTime(0, c.currentTime);
+  bus.gain.linearRampToValueAtTime(0.05, c.currentTime + 3);
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 380;
+  lp.Q.value = 3;
+  const lfo = c.createOscillator();
+  const lfoGain = c.createGain();
+  lfo.frequency.value = 0.06;
+  lfoGain.gain.value = 180;
+  lfo.connect(lfoGain).connect(lp.frequency);
+  lp.connect(bus).connect(o);
+  const oscs = [55, 55.35, 82.4].map((f, i) => {
+    const osc = c.createOscillator();
+    osc.type = i === 2 ? 'sine' : 'sawtooth';
+    osc.frequency.value = f;
+    const g = c.createGain();
+    g.gain.value = i === 2 ? 0.5 : 0.35;
+    osc.connect(g).connect(lp);
+    osc.start();
+    return osc;
+  });
+  lfo.start();
+  let timer: ReturnType<typeof setTimeout>;
+  const note = () => {
+    const t = c.currentTime + 0.02;
+    const f = SCALE[Math.floor(Math.random() * SCALE.length)];
+    marimba(c, bus, t, f, 0.5, 1.4);
+    if (Math.random() < 0.3) marimba(c, bus, t + 0.18, f * 1.5, 0.3, 1.2);
+    timer = setTimeout(note, 2200 + Math.random() * 2600);
+  };
+  timer = setTimeout(note, 1500);
+  amb = {
+    stop() {
+      clearTimeout(timer);
+      const t = c.currentTime;
+      bus.gain.cancelScheduledValues(t);
+      bus.gain.setValueAtTime(bus.gain.value, t);
+      bus.gain.linearRampToValueAtTime(0, t + 0.8);
+      setTimeout(() => {
+        oscs.forEach((x) => x.stop());
+        lfo.stop();
+        bus.disconnect();
+      }, 900);
+    },
+  };
+}

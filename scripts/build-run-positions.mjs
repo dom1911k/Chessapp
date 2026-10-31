@@ -12,6 +12,11 @@
 // hold:    the puzzle position *before* the losing side's mistake, played from that side:
 //          you are slightly worse (-0.6..-1.5) and must not blunder.
 // boss:    balanced middlegames (|eval| <= 0.6, at least 18 pieces) from puzzle positions.
+// ward:    "only move" positions: the side to move faces a threat and only one move (or a few
+//          moves within 0.5 of it) keeps the balance; everything else loses 2+ pawns.
+//          Pos = [fen, evalCp, acceptedMoves[]]
+//
+//   node scripts/build-run-positions.mjs --only ward    # rebuild one kind, keep the others
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -34,18 +39,21 @@ Promise.resolve(loader('lite-single', (l) => listeners.forEach((f) => f(l)))).th
 });
 const send = (c) => (sf ? sf.processCommand(c) : pending.push(c));
 
-function evaluate(fen) {
+function evaluate(fen, multipv = 1) {
   return new Promise((resolve) => {
-    let last = null;
+    const lines = [];
     const f = (line) => {
       const m = line.match(/ score (cp|mate) (-?\d+)/);
-      if (m && line.includes(' pv ')) last = { type: m[1], value: Number(m[2]), best: line.split(' pv ')[1].split(' ')[0] };
+      const k = Number(line.match(/ multipv (\d+)/)?.[1] ?? 1);
+      if (m && line.includes(' pv ')) lines[k - 1] = { type: m[1], value: Number(m[2]), best: line.split(' pv ')[1].split(' ')[0] };
       if (line.startsWith('bestmove')) {
         listeners.splice(listeners.indexOf(f), 1);
-        resolve(last ?? { type: 'cp', value: 0, best: line.split(' ')[1] });
+        const top = lines[0] ?? { type: 'cp', value: 0, best: line.split(' ')[1] };
+        resolve({ ...top, lines: lines.filter(Boolean) });
       }
     };
     listeners.push(f);
+    send(`setoption name MultiPV value ${multipv}`);
     send(`position fen ${fen}`);
     send(`go depth ${DEPTH}`);
   });
@@ -67,7 +75,18 @@ const puzzles = shuffle(files.flatMap((f) => JSON.parse(readFileSync(join(root, 
 const pieces = (fen) => fen.split(' ')[0].replace(/[^a-zA-Z]/g, '').length;
 const cp = (s) => (s.type === 'mate' ? (s.value > 0 ? 10000 : -10000) : s.value);
 
-const out = { convert: [], hold: [], boss: [] };
+const args = process.argv.slice(2);
+const only = args.includes('--only') ? args[args.indexOf('--only') + 1] : null;
+const outFile = join(root, 'src/run/data/positions.json');
+let prev = {};
+try {
+  prev = JSON.parse(readFileSync(outFile, 'utf8'));
+} catch {
+  /* first build */
+}
+const out = { convert: [], hold: [], boss: [], ward: [] };
+// With --only, the other kinds are kept as they are.
+if (only) for (const k of Object.keys(out)) if (k !== only) out[k] = prev[k] ?? [];
 const full = () => Object.values(out).every((l) => l.length >= PER_KIND);
 let checked = 0;
 
@@ -78,6 +97,22 @@ for (const [, fen, moves, , themes] of puzzles) {
   const mv = moves.split(' ');
   const t = themes.split(' ');
   checked++;
+
+  // Ward: an only-move defence (the puzzle's victim to move, before their mistake).
+  if (out.ward.length < PER_KIND && (!only || only === 'ward')) {
+    const c = new Chess(fen);
+    if (!c.isCheck() && pieces(fen) >= 10 && c.moves().length >= 8) {
+      const s = await evaluate(fen, 4);
+      const ls = s.lines;
+      if (ls.length >= 3 && ls[0].type === 'cp' && ls[0].value >= -200 && ls[0].value <= 250) {
+        const top = cp(ls[0]);
+        const accept = ls.filter((l) => top - cp(l) <= 50).map((l) => l.best);
+        const rest = ls.filter((l) => top - cp(l) > 50);
+        if (accept.length <= 2 && rest.length && rest.every((l) => top - cp(l) >= 200)) out.ward.push([fen, top, accept]);
+      }
+    }
+    if (only) continue;
+  }
 
   // Hold + boss both start from the puzzle's FEN (side to move is about to go wrong).
   if (out.hold.length < PER_KIND || (out.boss.length < PER_KIND && t.includes('middlegame'))) {
@@ -111,6 +146,6 @@ for (const [, fen, moves, , themes] of puzzles) {
 }
 
 mkdirSync(join(root, 'src/run/data'), { recursive: true });
-writeFileSync(join(root, 'src/run/data/positions.json'), JSON.stringify(out));
+writeFileSync(outFile, JSON.stringify(out));
 console.log('done after', checked, 'puzzles:', Object.fromEntries(Object.entries(out).map(([k, l]) => [k, l.length])));
 process.exit(0);

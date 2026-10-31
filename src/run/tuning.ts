@@ -1,5 +1,31 @@
 // Run mode (experimental demo): EVERY tunable number lives here.
 // Change values, reload, playtest. Nothing else in src/run should hard-code balance numbers.
+import type { ConsumableId } from './types';
+
+/** A rival's boss rule. Only scoring, Composure, goals or card access — never chess rules. */
+export interface BossMod {
+  name: string;
+  /** Extra Composure for an inaccuracy (normally free). */
+  inaccuracyCost?: number;
+  /** Extra Composure for a mistake. */
+  mistakeExtra?: number;
+  /** Blunders cost this many times the Composure. */
+  blunderFactor?: number;
+  /** A blunder ends the duel at once (lost). */
+  blunderEnds?: boolean;
+  /** Override the win line (cp) and/or move limit and/or end requirement. */
+  winCp?: number;
+  endCp?: number;
+  moves?: number;
+  /** No early win: only the position after the last move counts. */
+  noEarlyWin?: boolean;
+  /** Cards that can't be used in this fight. */
+  sealed?: ConsumableId[];
+  /** Flat mult for the fight. */
+  multBonus?: number;
+  /** Mult for each of your (sound) captures. */
+  captureMult?: number;
+}
 
 export const TUNING = {
   /** Composure = lives. */
@@ -15,14 +41,19 @@ export const TUNING = {
   gold: {
     start: 4,
     /** Per cleared room, by room kind. Failed rooms pay nothing. */
-    perRoom: { puzzle: 4, convert: 5, hold: 5, boss: 0 },
+    perRoom: { puzzle: 4, convert: 5, hold: 5, ward: 4, vault: 5, duel: 4, boss: 0 },
     /** Extra for a clean room (no mistake or blunder). */
     cleanBonus: 3,
+    /** Extra for beating the room's chip target. */
+    targetBonus: 3,
   },
 
   /** Score = chips × mult. Chips = per-move accuracy (0..100) summed over the room. */
   score: {
     baseMult: 1,
+    /** Chip target = moves played × this (beat it for bonus gold). */
+    targetPerMove: 80,
+    eliteTargetPerMove: 86,
     /** End-of-run bonus chips per Composure left (only when the boss is beaten). */
     composureLeftChips: 50,
   },
@@ -61,6 +92,20 @@ export const TUNING = {
       /** Fails if the eval (your POV) drops more than this below the starting eval. */
       maxDropCp: 150,
     },
+    ward: { count: 3, needSolved: 2 },
+    vault: {
+      /** Endgame drills used (ids from src/lib/endgames.ts) and the move limit per goal. */
+      drills: ['kqk', 'krk', 'kpk-front', 'kpk-square', 'lucena', 'qvp'],
+      maxMoves: { mate: 18, promote: 14, capture: 16 },
+    },
+    duel: {
+      /** Opening lines with this many half-moves already played. */
+      minPlies: 3,
+      maxPlies: 8,
+      moves: 8,
+      /** Your eval after the last move must be at least this. */
+      minCp: -30,
+    },
     boss: {
       moves: 15,
       /** Win at once when you reach this (your POV)… */
@@ -70,6 +115,20 @@ export const TUNING = {
     },
   },
 
+  /** Elite rooms (skull on the map): harder goals, a guaranteed relic. */
+  elite: {
+    chance: 0.3,
+    puzzleRating: 200,
+    elo: 200,
+    holdMaxDropCp: 100,
+    keepCp: 250,
+    gainMoves: 8,
+    wardNeed: 3,
+    puzzleNeed: 3,
+    vaultMovesLess: 4,
+    duelMinCp: 0,
+  },
+
   /** Room modifiers (shown before entering). */
   modifiers: {
     gilded: { goldMult: 1.5 },
@@ -77,15 +136,39 @@ export const TUNING = {
     steady: {},
   },
 
-  boss: {
-    /** The Pickpocket: blunders cost this many times the Composure. */
-    pickpocketBlunderFactor: 2,
-  },
+  /** Each rival's boss rule (by opponent id). Unknown ids use `default`. */
+  bossMods: {
+    lily: { name: 'Chaos Child', inaccuracyCost: 1 },
+    tom: { name: 'Patient Grandpa', noEarlyWin: true, endCp: 150, multBonus: 0.5 },
+    maya: { name: 'The Pickpocket', blunderFactor: 2 },
+    jonas: { name: 'The Wall', winCp: 250, mistakeExtra: 1 },
+    priya: { name: 'The Bookworm', sealed: ['eye', 'cards'], multBonus: 1 },
+    marcus: { name: 'The Brawler', captureMult: 0.3, blunderEnds: true },
+    sofia: { name: 'Clockwork', moves: 12, winCp: 250 },
+    viktor: { name: "Grandmaster's Gaze", sealed: ['eye', 'cards', 'opinion'], multBonus: 1.5 },
+    mei: { name: 'The Final Boss', winCp: 400, blunderFactor: 2, multBonus: 2 },
+    default: { name: 'The Pickpocket', blunderFactor: 2 },
+  } as Record<string, BossMod>,
 
   curse: {
     ratingBoost: 150,
     /** Taking the deal multiplies your gold right away (before the last shop). */
     goldFactor: 2,
+  },
+
+  /** Run-long curses (from the altar event). */
+  curses: {
+    /** Brittle: mistakes cost this much extra Composure. */
+    brittleMistakeExtra: 1,
+  },
+
+  events: {
+    /** Chance for a fork option (layer 1) to be an event; one event is guaranteed in layers 2–3. */
+    chance: 0.35,
+    gambleStake: 1,
+    gambleWin: 10,
+    merchantStock: 2,
+    relicPrice: { common: 6, uncommon: 9, rare: 13 },
   },
 
   shop: {
@@ -104,6 +187,9 @@ export const TUNING = {
   },
 
   relics: {
+    /** Offer weights by rarity (elite rewards use `eliteRarity`). */
+    rarity: { common: 60, uncommon: 30, rare: 10 },
+    eliteRarity: { common: 25, uncommon: 45, rare: 30 },
     calmComposure: 1,
     bloodhoundGold: 2,
     forkMult: 0.5,
@@ -113,15 +199,22 @@ export const TUNING = {
     spendthriftPriceFactor: 0.5,
     spendthriftCarryPenalty: 1,
     lateBloomerPerRoom: 0.5,
+    hunterMult: 0.4,
+    patienceMult: 0.15,
+    executionerMult: 2,
+    scholarGold: 1,
+    glassMult: 1.5,
+    glassComposure: 2,
+    luckyExtraOffer: 1,
+    luckyRestDiscount: 2,
   },
 
-  /** After a cleared room (by map layer): what kind of free 1-of-3 pick you get. */
-  rewardAfterLayer: ['consumable', 'relic', 'consumable'] as ('consumable' | 'relic' | null)[],
+  /** After a cleared room (by map layer): what kind of free 1-of-3 pick you get. Elites always give a relic. */
+  rewardAfterLayer: ['consumable', 'relic', 'consumable', 'consumable'] as ('consumable' | 'relic' | null)[],
 
   /** Timing (ms). */
   timing: {
     oppMoveMinDelay: 250,
     puzzleSetupDelay: 450,
-    wrongPuzzlePause: 1100,
   },
 } as const;

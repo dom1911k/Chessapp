@@ -18,7 +18,7 @@ export const runDb = new RunDB();
 export async function loadCurrent(): Promise<Run | null> {
   try {
     const r = (await runDb.state.get('current'))?.value as Run | undefined;
-    return r && r.version === 1 ? r : null;
+    return r && r.version === 2 ? r : null;
   } catch {
     return null;
   }

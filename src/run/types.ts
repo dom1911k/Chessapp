@@ -2,28 +2,38 @@ import type { AnalysisResult } from '../lib/engine/types';
 import type { Classification } from '../lib/chess/evaluation';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
 
-export type RoomKind = 'puzzle' | 'convert' | 'hold' | 'boss';
-export type ModifierId = 'gilded' | 'focused' | 'steady' | 'pickpocket';
+export type RoomKind = 'puzzle' | 'convert' | 'hold' | 'ward' | 'vault' | 'duel' | 'boss';
+export type NodeKind = RoomKind | 'event';
+export type EventKind = 'shrine' | 'gambler' | 'merchant' | 'altar';
+export type ModifierId = 'gilded' | 'focused' | 'steady' | 'rival';
 export type ConvertGoal = 'gain' | 'keep';
+export type Rarity = 'common' | 'uncommon' | 'rare';
+export type CurseId = 'brittle';
 
-export type RelicId = 'calm' | 'bloodhound' | 'forkmaster' | 'ironwall' | 'pins' | 'clean' | 'spendthrift' | 'bloomer';
+export type RelicId =
+  | 'calm' | 'bloodhound' | 'forkmaster' | 'ironwall' | 'pins' | 'clean' | 'spendthrift' | 'bloomer'
+  | 'hunter' | 'patience' | 'executioner' | 'secondwind' | 'scholar' | 'glass' | 'lucky';
 export type ConsumableId = 'eye' | 'rewind' | 'cards' | 'lens' | 'opinion' | 'insurance';
 
 export interface MapNode {
-  kind: RoomKind;
+  kind: NodeKind;
   modifier: ModifierId;
   goal?: ConvertGoal;
-  /** Index into the position pool (convert/hold/boss). */
+  /** Index into the position pool (convert/hold/ward/boss/duel/vault). */
   pos?: number;
+  /** Endgame drill id (vault). */
+  drill?: string;
+  elite?: boolean;
+  event?: EventKind;
 }
 
-/** A relic (or modifier) firing during a room; shown in the tally. */
+/** A relic (or the rival's rule) firing during a room; shown in the tally. */
 export interface Fire {
-  relic: RelicId;
+  relic: RelicId | 'rival';
   mult?: number;
   gold?: number;
   composure?: number;
-  /** Ply index (user move number in the room) that fired it; -1 = room end. */
+  /** User move index in the room that fired it; -1 = room end. */
   at: number;
 }
 
@@ -39,7 +49,7 @@ export interface UserMove {
   composureLost: number;
   insured?: boolean;
   eye?: boolean;
-  /** Puzzle rooms: was this the solution move? */
+  /** Puzzle-like rooms: was this the solution move? */
   correct?: boolean;
   /** Kept for the debrief (only for moves that cost Composure). */
   before?: AnalysisResult | null;
@@ -54,7 +64,7 @@ export interface Ply {
 }
 
 export interface PuzzleProgress {
-  list: PuzzleSpec[];
+  list: (PuzzleSpec & { accept?: string[] })[];
   index: number;
   /** Next solution index the user must play. */
   step: number;
@@ -62,6 +72,8 @@ export interface PuzzleProgress {
   failed: number;
   /** The current puzzle is lost (showing the answer). */
   lost: boolean;
+  count: number;
+  need: number;
 }
 
 export interface RoomState {
@@ -76,7 +88,13 @@ export interface RoomState {
   startEval: number;
   elo: number;
   oppId?: string;
+  /** Who plays the other side. */
+  opp: 'maia' | 'engine';
   puzzle?: PuzzleProgress;
+  /** Gambler event: a single puzzle with Composure at stake. */
+  gamble?: boolean;
+  /** Vault: the endgame goal and move limit. */
+  vault?: { goal: 'mate' | 'promote' | 'capture'; maxMoves: number; title: string };
   status: 'playing' | 'won' | 'failed';
   /** Why the room ended (shown in the tally). */
   reason?: string;
@@ -86,8 +104,11 @@ export interface RoomResult {
   layer: number;
   kind: RoomKind;
   modifier: ModifierId;
+  elite?: boolean;
+  gamble?: boolean;
   won: boolean;
   chips: number;
+  target: number;
   mult: number;
   score: number;
   gold: number;
@@ -108,11 +129,18 @@ export type Offer =
   | { type: 'relic'; ids: RelicId[]; free: boolean; title: string }
   | { type: 'consumable'; ids: ConsumableId[]; free: boolean; title: string };
 
+export type EventState =
+  | { kind: 'shrine'; fen: string; choices: string[]; answer: string[]; picked?: string }
+  | { kind: 'gambler'; done?: boolean }
+  | { kind: 'merchant'; stock: { id: RelicId; price: number }[] }
+  | { kind: 'altar'; ids: RelicId[] };
+
 export type Phase =
   | 'start' // choose a starting relic
   | 'map' // choose the next room
   | 'intro' // objective + modifier before entering
   | 'room'
+  | 'event'
   | 'tally'
   | 'reward' // free 1-of-3 pick after a cleared room
   | 'curse' // optional deal before the boss
@@ -120,14 +148,14 @@ export type Phase =
   | 'debrief';
 
 export interface Run {
-  version: 1;
+  version: 2;
   id: string;
   startedAt: number;
   /** Puzzle rating snapshot when the run started (read-only use). */
   rating: number;
   bossId: string;
   phase: Phase;
-  /** layers[0] = [room1]; layers[1..2] = two options each; layers[3] = [boss]. */
+  /** layers[0] = [room1]; middle layers = two options each; last = [boss]. */
   layers: MapNode[][];
   /** Chosen node per layer. */
   path: number[];
@@ -137,7 +165,9 @@ export interface Run {
   gold: number;
   relics: RelicId[];
   consumables: ConsumableId[];
+  curses: CurseId[];
   room: RoomState | null;
+  event: EventState | null;
   results: RoomResult[];
   moments: Moment[];
   offer: Offer | null;
@@ -145,6 +175,7 @@ export interface Run {
   restBought: boolean;
   cursed: boolean;
   curseDecided: boolean;
+  secondWindUsed?: boolean;
   ended: null | 'won' | 'lost';
   endedAt?: number;
   finalScore?: number;

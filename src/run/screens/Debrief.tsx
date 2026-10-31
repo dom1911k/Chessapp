@@ -1,7 +1,8 @@
 // Run over: final tally, the moments that cost the most Composure (with Coach Sam's
 // explanation), Engine's Eye moves, and a one-tap "fun?" rating for playtests.
 import { useEffect, useMemo, useState } from 'react';
-import { Board } from '../../components/Board';
+import { RunBoard } from '../pixel/RunBoard';
+import { PixelPortrait } from '../pixel/sprites';
 import { explainMove } from '../../lib/coach';
 import { CLASS_LABEL } from '../../lib/chess/evaluation';
 import { parseUci } from '../../lib/chess/game';
@@ -116,7 +117,8 @@ function MomentCard({ m }: { m: Moment }) {
   return (
     <div className="run-panel flex gap-3 p-2.5">
       <div className="w-36 shrink-0">
-        <Board
+        <RunBoard
+          mini
           fen={m.move.fenBefore}
           orientation={me}
           movable={null}
@@ -132,10 +134,10 @@ function MomentCard({ m }: { m: Moment }) {
             {CLASS_LABEL[m.move.cls]} · −{m.cost}
           </span>
           {m.move.insured && <span className="ml-1 text-xs text-[#5ee59a]">(insured)</span>}
-          {m.move.eye && <span className="ml-1">👁</span>}
+          {m.move.eye && <span className="ml-1 text-[var(--chip)]">◉ Eye</span>}
         </div>
         <div className="mt-1 flex items-start gap-1.5">
-          <span className="run-sans shrink-0 rounded bg-[var(--gold)]/20 px-1 text-[10px] font-bold text-[var(--gold-2)]">Sam</span>
+          <PixelPortrait id="coach" size={26} px={24} />
           <p className="run-sans text-[13px] leading-snug">{comment?.text.join(' ') ?? 'This move lost too much.'}</p>
         </div>
         {comment?.bestSan && <div className="run-sans mt-1 text-xs text-[#5ee59a]">Better: {comment.bestSan}</div>}

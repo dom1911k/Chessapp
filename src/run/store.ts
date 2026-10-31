@@ -10,6 +10,8 @@ import { loadRange } from '../lib/puzzles/data';
 import { fromLichess } from '../lib/puzzles/spec';
 import { getRating } from '../lib/puzzles/rating';
 import { OPPONENTS, opponentById } from '../lib/people';
+import { DRILLS } from '../lib/endgames';
+import { ECO } from '../lib/openings';
 import { getOpponentRecords, isUnlocked, starsOf } from '../lib/people/record';
 import { hangingPieces, other, parseFen, sqName } from '../lib/chess/pos';
 import { safetyInfo } from '../lib/coach/safety';
@@ -18,15 +20,40 @@ import { TUNING as T } from './tuning';
 import positions from './data/positions.json';
 import { archiveRun, loadCurrent, saveCurrent } from './db';
 import {
-  ALL_RELICS, buildMap, composureCost, consumableOffer, endFires, judge, maxConsumables, moveFires, povCp, price, restPrice,
-  roomScore, sample, sound,
+  buildMap, composureCost, consumableOffer, endFires, judge, maxConsumables, moveFires, povCp, price, relicOffer, relicPrice, restPrice,
+  roomScore, sample, shopOffers, sound, type CostCtx,
 } from './rules';
 import { sfx, buzz } from './sfx';
-import { ROOM_NAME } from './content';
-import type { ConsumableId, MapNode, RelicId, RoomState, Run, UserMove } from './types';
+import { ROOM_NAME, bossMod } from './content';
+import type { BossMod } from './tuning';
+import type { ConsumableId, MapNode, PuzzleProgress, RelicId, RoomKind, RoomState, Run, UserMove } from './types';
 
 type Pos = [string, number];
-const POOLS = positions as unknown as Record<'convert' | 'hold' | 'boss', Pos[]>;
+const POOLS = positions as unknown as Record<'convert' | 'hold' | 'boss', Pos[]> & { ward?: [string, number, string[]][] };
+const WARDS = POOLS.ward ?? [];
+
+/** Opening positions for the Duel: book lines of a few half-moves, side to move = you. */
+const DUELS: { fen: string; name: string }[] = (() => {
+  const out: { fen: string; name: string }[] = [];
+  for (const e of ECO) {
+    const sans = e.moves.split(' ');
+    if (sans.length < T.rooms.duel.minPlies || sans.length > T.rooms.duel.maxPlies) continue;
+    const c = new Chess();
+    try {
+      for (const m of sans) c.move(m);
+      out.push({ fen: c.fen(), name: e.name });
+    } catch {
+      /* skip */
+    }
+  }
+  return out;
+})();
+
+/** Endgame vault positions from the app's endgame drills. */
+const VAULTS = DRILLS.filter((d) => (T.rooms.vault.drills as readonly string[]).includes(d.id)).flatMap((d) =>
+  d.fens.map((fen) => ({ fen, drill: d.id, goal: d.goal as 'mate' | 'promote' | 'capture', title: d.title })),
+);
+export const poolSizes = () => ({ convert: POOLS.convert.length, hold: POOLS.hold.length, boss: POOLS.boss.length, ward: WARDS.length, duel: DUELS.length, vault: VAULTS.length });
 
 export type Verdict = { uci: string; label: 'safe' | 'risky' | 'blunder'; after: AnalysisResult; cls: Classification };
 
@@ -40,9 +67,10 @@ export interface Aids {
 const NO_AIDS: Aids = { eye: null, cards: null, lens: false, opinion: false, verdict: null };
 
 export type FxEvent =
-  | { id: number; kind: 'relic'; relic: RelicId; label: string }
+  | { id: number; kind: 'relic'; relic: RelicId | 'rival'; label: string }
   | { id: number; kind: 'hit'; amount: number; insured?: boolean }
-  | { id: number; kind: 'consumable'; item: ConsumableId };
+  | { id: number; kind: 'consumable'; item: ConsumableId }
+  | { id: number; kind: 'move'; cls: Classification; san: string };
 
 interface RunStore {
   run: Run | null;
@@ -52,7 +80,7 @@ interface RunStore {
   cur: { fen: string; a: AnalysisResult } | null;
   aids: Aids;
   fx: FxEvent[];
-  /** Puzzle room: answer shown after a wrong move. */
+  /** Puzzle-like rooms: answer shown after a wrong move. */
   answer: CoachArrow | null;
   load(): Promise<void>;
   newRun(): Promise<void>;
@@ -73,6 +101,12 @@ interface RunStore {
   buy(id: ConsumableId): void;
   rest(): void;
   leaveCamp(): void;
+  // events
+  shrinePick(uci: string): void;
+  gamble(): Promise<void>;
+  merchantBuy(id: RelicId): void;
+  altarTake(id: RelicId): void;
+  leaveEvent(): void;
   dev: {
     skipRoom(won: boolean): void;
     gold(n: number): void;
@@ -100,9 +134,21 @@ function wpOf(fen: string, a: AnalysisResult | null, me: 'w' | 'b'): { wp: numbe
   return { wp: winPct(povScore(s, me)), cp: povCp(s, me) };
 }
 
+/** The rival's rule, when the current room is the boss. */
+export const bossOf = (r: Run | null): BossMod | undefined => (r?.room?.node.kind === 'boss' ? bossMod(r.bossId) : undefined);
+
+/** Add a relic (Glass Cannon takes its Composure at once). */
+function addRelic(r: Run, id: RelicId) {
+  if (r.relics.includes(id)) return;
+  r.relics.push(id);
+  if (id === 'glass') r.composure = Math.max(1, r.composure - T.relics.glassComposure);
+  while (r.consumables.length > maxConsumables(r.relics)) r.consumables.pop();
+}
+
 export const useRun = create<RunStore>((set, get) => {
   const run = () => get().run!;
   const room = () => get().run!.room!;
+  const ctx = (): CostCtx => ({ node: room().node, boss: bossOf(run()), curses: run().curses });
   /** Immutable update of the run (and persist). */
   const patch = (f: (r: Run) => void) => {
     const r = clone(get().run!);
@@ -110,7 +156,7 @@ export const useRun = create<RunStore>((set, get) => {
     set({ run: r });
     saveCurrent(r);
   };
-  const fire = (e: Omit<Extract<FxEvent, { kind: 'relic' }>, 'id'> | Omit<Extract<FxEvent, { kind: 'hit' }>, 'id'> | Omit<Extract<FxEvent, { kind: 'consumable' }>, 'id'>) => {
+  const fire = (e: { kind: FxEvent['kind'] } & Record<string, unknown>) => {
     const ev = { ...e, id: fxId++ } as FxEvent;
     set((s) => ({ fx: [...s.fx.slice(-8), ev] }));
   };
@@ -141,7 +187,8 @@ export const useRun = create<RunStore>((set, get) => {
   const showPuzzle = async (t: number) => {
     const p = room().puzzle!;
     const spec = p.list[p.index];
-    const me = other(new Chess(spec.fen).turn());
+    const turn = new Chess(spec.fen).turn();
+    const me = spec.setup ? other(turn) : turn;
     patch((r) => {
       const rm = r.room!;
       rm.fen = spec.fen;
@@ -152,9 +199,11 @@ export const useRun = create<RunStore>((set, get) => {
       rm.puzzle!.lost = false;
     });
     set({ answer: null, aids: { ...NO_AIDS }, cur: null });
-    await sleep(T.timing.puzzleSetupDelay);
-    if (t !== token) return;
-    playOpp(spec.setup!);
+    if (spec.setup) {
+      await sleep(T.timing.puzzleSetupDelay);
+      if (t !== token) return;
+      playOpp(spec.setup);
+    }
     void prepare(t);
   };
 
@@ -168,19 +217,24 @@ export const useRun = create<RunStore>((set, get) => {
     });
   };
 
-  /** Maia replies (game rooms). */
+  /** The opponent replies (Maia, or Stockfish's best defence in the Vault). */
   const oppTurn = async (t: number) => {
     set({ busy: true });
     try {
       const rm = room();
-      const fens = [rm.startFen, ...rm.plies.map((p) => p.fen)];
-      const style = opponentById(rm.oppId)?.style;
       let uci: string | null = null;
-      try {
-        const [logits] = await Promise.all([maiaLogits(fens, rm.elo), sleep(T.timing.oppMoveMinDelay)]);
-        uci = sampleMove(logits, maiaTemperature(rm.elo, style));
-      } catch {
-        uci = (await analyze(rm.fen, 1)).bestMove;
+      if (rm.opp === 'engine') {
+        const [a] = await Promise.all([analyze(rm.fen, 1), sleep(T.timing.oppMoveMinDelay)]);
+        uci = a.bestMove;
+      } else {
+        const fens = [rm.startFen, ...rm.plies.map((p) => p.fen)];
+        const style = opponentById(rm.oppId)?.style;
+        try {
+          const [logits] = await Promise.all([maiaLogits(fens, rm.elo), sleep(T.timing.oppMoveMinDelay)]);
+          uci = sampleMove(logits, maiaTemperature(rm.elo, style));
+        } catch {
+          uci = (await analyze(rm.fen, 1)).bestMove;
+        }
       }
       if (t !== token) return;
       if (!uci) {
@@ -188,9 +242,11 @@ export const useRun = create<RunStore>((set, get) => {
         uci = moves.length ? moves[Math.floor(Math.random() * moves.length)].lan : null;
       }
       if (uci) playOpp(uci);
-      const verdict = judge(room(), 'reply');
+      const verdict = judge(room(), 'reply', bossOf(run()));
       if (verdict) return decide(verdict.status, verdict.reason);
       void prepare(t);
+    } catch {
+      /* cancelled */
     } finally {
       if (t === token) set({ busy: false });
     }
@@ -209,17 +265,24 @@ export const useRun = create<RunStore>((set, get) => {
   const record = (m: UserMove, cost: number) => {
     let insured = false;
     if (cost > 0 && m.cls === 'blunder' && run().consumables.includes('insurance')) insured = true;
-    const lost = insured ? 0 : cost;
+    let lost = insured ? 0 : cost;
+    // Second Wind: once per run, Composure doesn't break.
+    let wind = false;
+    if (lost > 0 && run().composure - lost <= 0 && run().relics.includes('secondwind') && !run().secondWindUsed) {
+      lost = run().composure - 1;
+      wind = true;
+    }
     m.composureLost = lost;
     m.insured = insured || undefined;
     const rm = room();
-    const fires = moveFires(run().relics, rm, m, rm.moves.length);
+    const fires = moveFires(run().relics, rm, m, rm.moves.length, bossOf(run()));
     patch((r) => {
       const R = r.room!;
       if (insured) r.consumables.splice(r.consumables.indexOf('insurance'), 1);
+      if (wind) r.secondWindUsed = true;
       r.composure = Math.max(0, r.composure - lost);
-      if (m.eye) (r.eyeMoves ??= []).push(`${ROOM_NAME[R.node.kind]}: ${m.san}`);
-      if (cost > 0) r.moments.push({ layer: R.layer, kind: R.node.kind, move: clone(m), cost });
+      if (m.eye) (r.eyeMoves ??= []).push(`${ROOM_NAME[R.node.kind as RoomKind]}: ${m.san}`);
+      if (cost > 0) r.moments.push({ layer: R.layer, kind: R.node.kind as RoomKind, move: clone(m), cost });
       if (!(cost > 0)) {
         delete m.before;
         delete m.after;
@@ -227,6 +290,7 @@ export const useRun = create<RunStore>((set, get) => {
       R.moves.push(m);
       R.fires.push(...fires);
     });
+    fire({ kind: 'move', cls: m.cls, san: m.san });
     if (lost > 0) {
       fire({ kind: 'hit', amount: lost });
       sfx('hit');
@@ -236,6 +300,7 @@ export const useRun = create<RunStore>((set, get) => {
       fire({ kind: 'consumable', item: 'insurance' });
       sfx('card');
     }
+    if (wind) setTimeout(() => (fire({ kind: 'relic', relic: 'secondwind', label: 'saved!' }), sfx('relic')), 200);
     fires.forEach((f, i) =>
       setTimeout(() => {
         fire({ kind: 'relic', relic: f.relic, label: f.mult ? `+${f.mult}×` : f.gold ? `+${f.gold}g` : '' });
@@ -270,9 +335,9 @@ export const useRun = create<RunStore>((set, get) => {
         uci, san: res.move.san, fenBefore, fenAfter: res.fen, cls, accuracy: moveAccuracy(b.wp, a.wp), evalAfter: a.cp,
         composureLost: 0, eye: eye || undefined, before, after,
       };
-      record(m, composureCost(cls, rm.node));
+      record(m, composureCost(cls, ctx()));
       if (room().status !== 'playing') return;
-      const v = judge(room(), 'mine');
+      const v = judge(room(), 'mine', bossOf(run()));
       if (v) return decide(v.status, v.reason);
       await oppTurn(t);
     } catch {
@@ -282,13 +347,20 @@ export const useRun = create<RunStore>((set, get) => {
     }
   };
 
+  const isCorrect = (uci: string, san: string) => {
+    const p = room().puzzle!;
+    const spec = p.list[p.index];
+    if (spec.accept) return spec.accept.includes(uci);
+    return uci === spec.solution[p.step] || san.endsWith('#');
+  };
+
   const puzzleMove = async (uci: string, t: number, pre?: Verdict) => {
     const rm = room();
     const p = rm.puzzle!;
     const spec = p.list[p.index];
     const expected = spec.solution[p.step];
     const res = tryMove(rm.fen, uci)!;
-    const correct = uci === expected || res.move.san.endsWith('#');
+    const correct = isCorrect(uci, res.move.san);
     const fenBefore = rm.fen;
     const eye = get().aids.eye === uci;
     patch((r) => {
@@ -316,7 +388,8 @@ export const useRun = create<RunStore>((set, get) => {
       patch((r) => void r.room!.puzzle!.solved++);
       sfx('chip', 12);
       buzz(20);
-      if (room().puzzle!.solved >= T.rooms.puzzle.needSolved) return decide('won', `Solved ${room().puzzle!.solved} puzzles.`);
+      const q = room().puzzle!;
+      if (q.solved >= q.need) return decide('won', `Solved ${q.solved} of ${q.solved + q.failed}.`);
       return advancePuzzle(t);
     }
     // Wrong: the engine grades the move, the answer is shown.
@@ -332,7 +405,7 @@ export const useRun = create<RunStore>((set, get) => {
         uci, san: res.move.san, fenBefore, fenAfter: res.fen, cls, accuracy: Math.min(moveAccuracy(b.wp, a.wp), sound(cls) ? 50 : 100),
         evalAfter: a.cp, composureLost: 0, correct: false, eye: eye || undefined, before, after,
       };
-      record(m, composureCost(cls, rm.node));
+      record(m, composureCost(cls, ctx()));
       patch((r) => {
         r.room!.puzzle!.lost = true;
         r.room!.puzzle!.failed++;
@@ -346,33 +419,33 @@ export const useRun = create<RunStore>((set, get) => {
 
   const advancePuzzle = (t: number) => {
     const p = room().puzzle!;
-    const remaining = T.rooms.puzzle.count - (p.solved + p.failed);
-    if (p.solved + remaining < T.rooms.puzzle.needSolved || remaining <= 0)
-      return decide(p.solved >= T.rooms.puzzle.needSolved ? 'won' : 'failed', `Solved ${p.solved} of ${p.solved + p.failed}.`);
+    const remaining = p.count - (p.solved + p.failed);
+    if (p.solved + remaining < p.need || remaining <= 0)
+      return decide(p.solved >= p.need ? 'won' : 'failed', room().gamble ? (p.solved ? 'The gamble pays off!' : 'The house wins.') : `Solved ${p.solved} of ${p.solved + p.failed}.`);
     patch((r) => void r.room!.puzzle!.index++);
     void showPuzzle(t);
   };
 
-  const pickPuzzles = async (r: Run, n: number) => {
+  const pickPuzzles = async (r: Run, n: number, shift = 0) => {
     const w = T.rooms.puzzle.ratingWindow;
-    let pool = await loadRange(r.rating - w, r.rating + w);
-    if (pool.length < 20) pool = await loadRange(r.rating - 3 * w, r.rating + 3 * w);
+    const c = r.rating + shift;
+    let pool = await loadRange(c - w, c + w);
+    if (pool.length < 20) pool = await loadRange(c - 3 * w, c + 3 * w);
     pool = pool.filter((p) => !r.usedPuzzles.includes(p.id) && p.moves.length >= 2);
     return sample(pool, n, Math.random).map(fromLichess);
   };
 
-  const roomElo = (r: Run) => Math.max(T.roomElo.min, Math.min(T.roomElo.max, r.rating + T.roomElo.offset));
+  const roomElo = (r: Run, elite?: boolean) => Math.max(T.roomElo.min, Math.min(T.roomElo.max + (elite ? T.elite.elo : 0), r.rating + T.roomElo.offset + (elite ? T.elite.elo : 0)));
 
   const resumeRoom = (t: number) => {
     const rm = room();
     if (rm.status !== 'playing') return;
-    if (rm.node.kind === 'puzzle') {
-      const p = rm.puzzle!;
+    if (rm.puzzle) {
+      const p = rm.puzzle;
       if (p.lost) return;
-      if (!rm.plies.length) return void showPuzzle(t);
-      if (new Chess(rm.fen).turn() !== rm.me) {
-        playOpp(p.list[p.index].solution[p.step - 1]);
-      }
+      const spec = p.list[p.index];
+      if (!rm.plies.length && spec.setup) return void showPuzzle(t);
+      if (new Chess(rm.fen).turn() !== rm.me) playOpp(spec.solution[p.step - 1]);
       return void prepare(t);
     }
     if (new Chess(rm.fen).turn() !== rm.me) return void oppTurn(t);
@@ -381,7 +454,7 @@ export const useRun = create<RunStore>((set, get) => {
 
   const openCamp = (r: Run) => {
     r.phase = 'camp';
-    r.shopStock = consumableOffer(T.shop.offers, Math.random);
+    r.shopStock = consumableOffer(shopOffers(r.relics), Math.random);
     r.restBought = false;
   };
 
@@ -391,7 +464,33 @@ export const useRun = create<RunStore>((set, get) => {
     r.phase = 'debrief';
     r.finalScore = r.results.reduce((s, x) => s + x.score, 0) + (won ? r.composure * T.score.composureLeftChips : 0);
     r.room = null;
+    r.event = null;
     void archiveRun(clone(r));
+  };
+
+  /** Next stop after a room or event: the curse offer before the boss, else the campfire. */
+  const nextAfterReward = (r: Run) => {
+    const bossNext = r.layer === r.layers.length - 1;
+    if (bossNext && !r.curseDecided) {
+      r.phase = 'curse';
+      return;
+    }
+    openCamp(r);
+  };
+
+  const puzzleRoom = (r: Run, node: MapNode, list: PuzzleProgress['list'], count: number, need: number, extra: Partial<RoomState> = {}): RoomState => ({
+    layer: r.layer, node, me: 'w', startFen: list[0].fen, fen: list[0].fen, plies: [], moves: [], fires: [], startEval: 0,
+    elo: roomElo(r), opp: 'maia', status: 'playing', puzzle: { list, index: 0, step: 0, solved: 0, failed: 0, lost: false, count, need }, ...extra,
+  });
+
+  const startPuzzleRoom = (t: number, rm: RoomState, used: string[]) => {
+    patch((x) => {
+      x.room = rm;
+      x.phase = 'room';
+      x.usedPuzzles.push(...used);
+    });
+    set({ busy: false, cur: null, aids: { ...NO_AIDS }, answer: null });
+    void showPuzzle(t);
   };
 
   return {
@@ -418,23 +517,25 @@ export const useRun = create<RunStore>((set, get) => {
       const unlocked = OPPONENTS.filter((o) => isUnlocked(o.id, records));
       const boss = unlocked.find((o) => starsOf(records[o.id]) === 0) ?? unlocked[unlocked.length - 1] ?? OPPONENTS[0];
       const r: Run = {
-        version: 1,
+        version: 2,
         id: Math.random().toString(36).slice(2, 10),
         startedAt: Date.now(),
         rating: Math.round(rating),
         bossId: boss.id,
         phase: 'start',
-        layers: buildMap(Math.random, { convert: POOLS.convert.length, hold: POOLS.hold.length, boss: POOLS.boss.length }),
+        layers: buildMap(Math.random, poolSizes()),
         path: [],
         layer: 0,
         composure: T.composure.start,
         gold: T.gold.start,
         relics: [],
         consumables: [],
+        curses: [],
         room: null,
+        event: null,
         results: [],
         moments: [],
-        offer: { type: 'relic', ids: sample(ALL_RELICS, 3, Math.random), free: true, title: 'Choose your first relic' },
+        offer: { type: 'relic', ids: relicOffer([], 3, Math.random), free: true, title: 'Choose your first relic' },
         shopStock: [],
         restBought: false,
         cursed: false,
@@ -455,7 +556,7 @@ export const useRun = create<RunStore>((set, get) => {
 
     pickStartRelic(id) {
       patch((r) => {
-        r.relics.push(id);
+        addRelic(r, id);
         r.offer = null;
         r.phase = 'map';
       });
@@ -473,37 +574,66 @@ export const useRun = create<RunStore>((set, get) => {
       const t = ++token;
       const r = run();
       const node: MapNode = r.layers[r.layer][r.path[r.layer] ?? 0];
-      let rm: RoomState;
-      if (node.kind === 'puzzle') {
-        set({ busy: true });
-        const list = await pickPuzzles(r, T.rooms.puzzle.count);
-        if (t !== token) return;
-        rm = {
-          layer: r.layer, node, me: 'w', startFen: list[0].fen, fen: list[0].fen, plies: [], moves: [], fires: [], startEval: 0,
-          elo: roomElo(r), status: 'playing', puzzle: { list, index: 0, step: 0, solved: 0, failed: 0, lost: false },
+      set({ busy: true });
+      try {
+        if (node.kind === 'event') {
+          const ev = node.event!;
+          patch((x) => {
+            x.phase = 'event';
+            if (ev === 'shrine') {
+              const [fen, , accept] = WARDS[Math.floor(Math.random() * WARDS.length)];
+              const others = new Chess(fen).moves({ verbose: true }).map((m) => m.lan).filter((u) => !accept.includes(u));
+              x.event = { kind: 'shrine', fen, answer: accept, choices: sample([accept[0], ...sample(others, 2, Math.random)], 3, Math.random) };
+            } else if (ev === 'merchant') {
+              x.event = { kind: 'merchant', stock: relicOffer(x.relics, T.events.merchantStock, Math.random).map((id) => ({ id, price: relicPrice(id, x.relics) })) };
+            } else if (ev === 'altar') {
+              x.event = { kind: 'altar', ids: relicOffer(x.relics, 3, Math.random, T.relics.rarity, 'rare') };
+            } else x.event = { kind: 'gambler' };
+          });
+          return;
+        }
+        if (node.kind === 'puzzle') {
+          const p = T.rooms.puzzle;
+          const list = await pickPuzzles(r, p.count, node.elite ? T.elite.puzzleRating : 0);
+          if (t !== token) return;
+          const rm = puzzleRoom(r, node, list, p.count, node.elite ? T.elite.puzzleNeed : p.needSolved);
+          return startPuzzleRoom(t, rm, list.map((x) => x.id));
+        }
+        if (node.kind === 'ward') {
+          const w = T.rooms.ward;
+          const picks = sample(WARDS, w.count, Math.random);
+          const list = picks.map(([fen, ev, accept], i) => ({ id: `ward-${i}-${fen}`, kind: 'lichess' as const, fen, solution: [accept[0]], accept, themes: ['defensiveMove'], rating: ev }));
+          const rm = puzzleRoom(r, node, list, w.count, node.elite ? T.elite.wardNeed : w.needSolved);
+          return startPuzzleRoom(t, rm, []);
+        }
+        let fen: string;
+        let ev = 0;
+        let extra: Partial<RoomState> = {};
+        if (node.kind === 'duel') {
+          fen = DUELS[(node.pos ?? 0) % DUELS.length].fen;
+        } else if (node.kind === 'vault') {
+          const v = VAULTS[(node.pos ?? 0) % VAULTS.length];
+          fen = v.fen;
+          const max = T.rooms.vault.maxMoves[v.goal] - (node.elite ? T.elite.vaultMovesLess : 0);
+          extra = { vault: { goal: v.goal, maxMoves: max, title: v.title }, opp: 'engine' };
+        } else {
+          const pool = POOLS[node.kind as 'convert' | 'hold' | 'boss'];
+          [fen, ev] = pool[(node.pos ?? 0) % pool.length];
+        }
+        const boss = node.kind === 'boss' ? opponentById(r.bossId) : undefined;
+        const rm: RoomState = {
+          layer: r.layer, node, me: new Chess(fen).turn(), startFen: fen, fen, plies: [], moves: [], fires: [], startEval: ev,
+          elo: boss ? boss.elo + (r.cursed ? T.curse.ratingBoost : 0) : roomElo(r, node.elite), oppId: boss?.id, opp: 'maia', status: 'playing', ...extra,
         };
         patch((x) => {
           x.room = rm;
           x.phase = 'room';
-          x.usedPuzzles.push(...list.map((p) => p.id));
         });
-        set({ busy: false, cur: null, aids: { ...NO_AIDS }, answer: null });
-        void showPuzzle(t);
-        return;
+        set({ cur: null, aids: { ...NO_AIDS }, answer: null });
+        void prepare(t);
+      } finally {
+        if (t === token) set({ busy: false });
       }
-      const pool = POOLS[node.kind as 'convert' | 'hold' | 'boss'];
-      const [fen, ev] = pool[(node.pos ?? 0) % pool.length];
-      const boss = node.kind === 'boss' ? opponentById(r.bossId) : undefined;
-      rm = {
-        layer: r.layer, node, me: new Chess(fen).turn(), startFen: fen, fen, plies: [], moves: [], fires: [], startEval: ev,
-        elo: boss ? boss.elo + (r.cursed ? T.curse.ratingBoost : 0) : roomElo(r), oppId: boss?.id, status: 'playing',
-      };
-      patch((x) => {
-        x.room = rm;
-        x.phase = 'room';
-      });
-      set({ cur: null, aids: { ...NO_AIDS }, answer: null, busy: false });
-      void prepare(t);
     },
 
     userMove(uci) {
@@ -520,13 +650,15 @@ export const useRun = create<RunStore>((set, get) => {
         void (async () => {
           try {
             const before = await currentAnalysis(t);
-            const fenAfter = tryMove(rm.fen, uci)!.fen;
-            const after = new Chess(fenAfter).isGameOver() ? null : await analyze(fenAfter, 1);
+            const res = tryMove(rm.fen, uci)!;
+            const after = new Chess(res.fen).isGameOver() ? null : await analyze(res.fen, 1);
             if (t !== token || !before) return;
-            const isSolution = rm.puzzle ? uci === rm.puzzle.list[rm.puzzle.index].solution[rm.puzzle.step] : uci === before.bestMove;
-            const cls = classify(wpOf(rm.fen, before, rm.me).wp, wpOf(fenAfter, after, rm.me).wp, isSolution);
-            const label = cls === 'blunder' ? 'blunder' : cls === 'mistake' || cls === 'inaccuracy' ? 'risky' : 'safe';
+            const ok = rm.puzzle ? isCorrect(uci, res.move.san) : uci === before.bestMove;
+            const cls = classify(wpOf(rm.fen, before, rm.me).wp, wpOf(res.fen, after, rm.me).wp, ok);
+            const label = ok ? 'safe' : cls === 'blunder' ? 'blunder' : cls === 'mistake' || cls === 'inaccuracy' || rm.puzzle ? 'risky' : 'safe';
             set({ aids: { ...get().aids, opinion: false, verdict: { uci, label, after: after!, cls } } });
+          } catch {
+            /* cancelled */
           } finally {
             if (t === token) set({ busy: false });
           }
@@ -552,6 +684,7 @@ export const useRun = create<RunStore>((set, get) => {
       const s = get();
       const rm = s.run?.room;
       if (!rm || rm.status !== 'playing' || !s.run!.consumables.includes(id) || s.busy) return;
+      if (bossOf(s.run)?.sealed?.includes(id)) return;
       if (id === 'insurance') return; // passive
       if (id === 'rewind') return get().rewind();
       const t = token;
@@ -579,10 +712,13 @@ export const useRun = create<RunStore>((set, get) => {
         consume();
         if (id === 'eye') set({ aids: { ...get().aids, eye: best } });
         if (id === 'cards') {
-          const close = new Set(a.lines.filter((l) => Math.abs(l.score.value - a.lines[0].score.value) < 60).map((l) => l.pv[0]));
+          const accept = rm.puzzle?.list[rm.puzzle.index].accept ?? [];
+          const close = new Set([...accept, ...a.lines.filter((l) => Math.abs(l.score.value - a.lines[0].score.value) < 60).map((l) => l.pv[0])]);
           const others = new Chess(rm.fen).moves({ verbose: true }).map((m) => m.lan).filter((u) => u !== best && !close.has(u));
           set({ aids: { ...get().aids, cards: sample([best, ...sample(others, 2, Math.random)], 3, Math.random) } });
         }
+      } catch {
+        /* cancelled */
       } finally {
         if (t === token) set({ busy: false });
       }
@@ -639,17 +775,20 @@ export const useRun = create<RunStore>((set, get) => {
       token++;
       getEngine().cancelAll('run');
       const broke = run().composure <= 0;
+      const boss = bossOf(run());
       patch((r) => {
         const R = r.room!;
-        R.fires.push(...endFires(r, R));
-        const sc = roomScore(R, r);
-        const fail = R.status === 'failed' && R.node.kind !== 'boss' && !broke ? T.composure.failRoom : 0;
+        R.fires.push(...endFires(r, R, boss));
+        const sc = roomScore(R);
+        const failCost = R.gamble ? T.events.gambleStake : T.composure.failRoom;
+        const fail = R.status === 'failed' && R.node.kind !== 'boss' && !broke ? failCost : 0;
         const calm = R.fires.reduce((s, f) => s + (f.composure ?? 0), 0);
         r.composure = Math.max(0, Math.min(T.composure.max, r.composure - fail + (broke ? 0 : calm)));
         r.gold += sc.gold;
         r.results.push({
-          layer: R.layer, kind: R.node.kind, modifier: R.node.modifier, won: R.status === 'won', chips: sc.chips, mult: sc.mult, score: sc.score,
-          gold: sc.gold, fires: R.fires, composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '',
+          layer: R.layer, kind: R.node.kind as RoomKind, modifier: R.node.modifier, elite: R.node.elite, gamble: R.gamble, won: R.status === 'won',
+          chips: sc.chips, target: sc.target, mult: sc.mult, score: sc.score, gold: sc.gold, fires: R.fires,
+          composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '',
         });
         if (r.composure <= 0) {
           sfx('over');
@@ -665,13 +804,14 @@ export const useRun = create<RunStore>((set, get) => {
       patch((r) => {
         const res = r.results[r.results.length - 1];
         if (res.kind === 'boss') return finishRun(r, res.won);
-        const reward = res.won ? T.rewardAfterLayer[r.layer] : null;
+        const reward = !res.won || res.gamble ? null : res.elite ? 'elite' : T.rewardAfterLayer[r.layer];
         r.room = null;
+        r.event = null;
         r.layer++;
-        if (reward === 'relic') {
-          const ids = sample(ALL_RELICS.filter((x) => !r.relics.includes(x)), 3, Math.random);
+        if (reward === 'relic' || reward === 'elite') {
+          const ids = relicOffer(r.relics, 3, Math.random, reward === 'elite' ? T.relics.eliteRarity : T.relics.rarity);
           if (ids.length) {
-            r.offer = { type: 'relic', ids, free: true, title: 'Spoils: choose a relic' };
+            r.offer = { type: 'relic', ids, free: true, title: reward === 'elite' ? 'Elite spoils: choose a relic' : 'Spoils: choose a relic' };
             r.phase = 'reward';
             return;
           }
@@ -687,7 +827,7 @@ export const useRun = create<RunStore>((set, get) => {
 
     pickReward(id) {
       patch((r) => {
-        if (id && r.offer?.type === 'relic') r.relics.push(id as RelicId);
+        if (id && r.offer?.type === 'relic') addRelic(r, id as RelicId);
         if (id && r.offer?.type === 'consumable' && r.consumables.length < maxConsumables(r.relics)) r.consumables.push(id as ConsumableId);
         r.offer = null;
         nextAfterReward(r);
@@ -736,6 +876,83 @@ export const useRun = create<RunStore>((set, get) => {
       });
     },
 
+    // ---------- events ----------
+
+    shrinePick(uci) {
+      const ev = run().event;
+      if (ev?.kind !== 'shrine' || ev.picked) return;
+      const right = ev.answer.includes(uci);
+      patch((r) => {
+        (r.event as typeof ev).picked = uci;
+      });
+      sfx(right ? 'clear' : 'fail');
+      buzz(right ? [20, 40, 20] : 60);
+    },
+
+    async gamble() {
+      const r = run();
+      if (r.event?.kind !== 'gambler') return;
+      const t = ++token;
+      set({ busy: true });
+      const list = await pickPuzzles(r, 1);
+      if (t !== token) return;
+      const node = r.layers[r.layer][r.path[r.layer] ?? 0];
+      const rm = puzzleRoom(r, { ...node, kind: 'puzzle' }, list, 1, 1, { gamble: true });
+      patch((x) => void (x.event = null));
+      startPuzzleRoom(t, rm, list.map((x) => x.id));
+    },
+
+    merchantBuy(id) {
+      const r = run();
+      const ev = r.event;
+      if (ev?.kind !== 'merchant') return;
+      const item = ev.stock.find((s) => s.id === id);
+      if (!item || r.gold < item.price) return;
+      patch((x) => {
+        x.gold -= item.price;
+        addRelic(x, id);
+        const e = x.event as typeof ev;
+        e.stock = e.stock.filter((s) => s.id !== id);
+      });
+      sfx('coin');
+      buzz(15);
+    },
+
+    altarTake(id) {
+      const r = run();
+      if (r.event?.kind !== 'altar') return;
+      patch((x) => {
+        addRelic(x, id);
+        if (!x.curses.includes('brittle')) x.curses.push('brittle');
+        x.event = null;
+        x.layer++;
+        nextAfterReward(x);
+      });
+      sfx('over');
+      buzz([40, 30, 80]);
+    },
+
+    leaveEvent() {
+      const ev = run().event;
+      patch((x) => {
+        if (ev?.kind === 'shrine' && ev.picked && ev.answer.includes(ev.picked)) {
+          // Sam's blessing: a relic pick.
+          x.event = null;
+          x.layer++;
+          const ids = relicOffer(x.relics, 3, Math.random);
+          if (ids.length) {
+            x.offer = { type: 'relic', ids, free: true, title: "Sam's blessing: choose a relic" };
+            x.phase = 'reward';
+            return;
+          }
+          return nextAfterReward(x);
+        }
+        x.event = null;
+        x.layer++;
+        nextAfterReward(x);
+      });
+    },
+
     dev: {
       skipRoom(won) {
         if (get().run?.phase !== 'room') return;
@@ -745,20 +962,11 @@ export const useRun = create<RunStore>((set, get) => {
         set({ busy: false });
       },
       gold: (n) => patch((r) => void (r.gold += n)),
-      relic: (id) => patch((r) => void (!r.relics.includes(id) && r.relics.push(id))),
+      relic: (id) => patch((r) => addRelic(r, id)),
       consumable: (id) => patch((r) => void r.consumables.push(id)),
       composure: (n) => patch((r) => void (r.composure = Math.max(0, Math.min(T.composure.max, n)))),
     },
   };
-
-  function nextAfterReward(r: Run) {
-    const bossNext = r.layer === r.layers.length - 1;
-    if (bossNext && !r.curseDecided) {
-      r.phase = 'curse';
-      return;
-    }
-    openCamp(r);
-  }
 });
 
 // Lens: hanging/attacked pieces for both sides.
@@ -770,6 +978,12 @@ export function lensMarks(fen: string, me: 'w' | 'b'): CoachHighlight[] {
 }
 
 export const arrowOf = (uci: string, tone: CoachArrow['tone']): CoachArrow => ({ ...parseUci(uci), tone });
+
+/** Your-POV eval of the current analysis (null while thinking). */
+export function liveEval(cur: { fen: string; a: AnalysisResult } | null, fen: string, me: 'w' | 'b'): number | null {
+  if (!cur || cur.fen !== fen) return null;
+  return wpOf(fen, cur.a, me).cp;
+}
 
 // Dev hook for automated playtests.
 if (import.meta.env.DEV) (window as unknown as { __run: typeof useRun }).__run = useRun;
