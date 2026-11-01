@@ -20,12 +20,12 @@ import { TUNING as T } from './tuning';
 import positions from './data/positions.json';
 import { archiveRun, loadCurrent, saveCurrent } from './db';
 import {
-  buildMap, cardSlots, composureCost, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, price, relicOffer, relicPrice, restPrice,
+  buildMap, cardSlots, composureCost, roomCap, roomLoss, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, relicOffer, relicPrice, restCost, shopPrice,
   roomScore, sample, shopOffers, sound, type CostCtx,
 } from './rules';
 import { sfx, buzz } from './sfx';
 import { ROOM_NAME, bossMod } from './content';
-import { embersFor, lockedEvents, lockedRelics, lockedRooms, useMeta } from './meta';
+import { embersFor, lockedCards, lockedEvents, lockedRelics, lockedRooms, useMeta } from './meta';
 import type { BossMod } from './tuning';
 import type { ConsumableId, MapNode, PuzzleProgress, RelicId, RoomKind, RoomState, Run, UserMove } from './types';
 
@@ -34,15 +34,15 @@ const POOLS = positions as unknown as Record<'convert' | 'hold' | 'boss', Pos[]>
 const WARDS = POOLS.ward ?? [];
 
 /** Opening positions for the Duel: book lines of a few half-moves, side to move = you. */
-const DUELS: { fen: string; name: string }[] = (() => {
-  const out: { fen: string; name: string }[] = [];
+const DUELS: { fen: string; name: string; sans: string[] }[] = (() => {
+  const out: { fen: string; name: string; sans: string[] }[] = [];
   for (const e of ECO) {
     const sans = e.moves.split(' ');
     if (sans.length < T.rooms.duel.minPlies || sans.length > T.rooms.duel.maxPlies) continue;
     const c = new Chess();
     try {
       for (const m of sans) c.move(m);
-      out.push({ fen: c.fen(), name: e.name });
+      out.push({ fen: c.fen(), name: e.name, sans });
     } catch {
       /* skip */
     }
@@ -56,16 +56,18 @@ const VAULTS = DRILLS.filter((d) => (T.rooms.vault.drills as readonly string[]).
 );
 export const poolSizes = () => ({ convert: POOLS.convert.length, hold: POOLS.hold.length, boss: POOLS.boss.length, ward: WARDS.length, duel: DUELS.length, vault: VAULTS.length });
 
-export type Verdict = { uci: string; label: 'safe' | 'risky' | 'blunder'; after: AnalysisResult; cls: Classification };
+export type Verdict = { uci: string; label: 'safe' | 'risky' | 'blunder'; after: AnalysisResult; cls: Classification; fromCheck?: boolean };
 
 export interface Aids {
   eye: string | null;
   cards: string[] | null;
   lens: boolean;
   opinion: boolean;
+  /** Blunder Check armed: only a blunder is stopped. */
+  check: boolean;
   verdict: Verdict | null;
 }
-const NO_AIDS: Aids = { eye: null, cards: null, lens: false, opinion: false, verdict: null };
+const NO_AIDS: Aids = { eye: null, cards: null, lens: false, opinion: false, check: false, verdict: null };
 
 export type FxEvent =
   | { id: number; kind: 'relic'; relic: RelicId | 'rival'; label: string }
@@ -110,6 +112,7 @@ interface RunStore {
   shrinePick(uci: string): void;
   gamble(): Promise<void>;
   merchantBuy(id: RelicId): void;
+  springBuy(): void;
   altarTake(id: RelicId): void;
   leaveEvent(): void;
   dev: {
@@ -271,6 +274,14 @@ export const useRun = create<RunStore>((set, get) => {
     let insured = false;
     if (cost > 0 && m.cls === 'blunder' && run().consumables.includes('insurance')) insured = true;
     let lost = insured ? 0 : cost;
+    // Steady Nerves: the first blunder of the run costs one less.
+    let nerves = false;
+    if (lost > 0 && m.cls === 'blunder' && run().meta?.boosts.nerves && !run().nervesUsed) {
+      lost = Math.max(0, lost - 1);
+      nerves = true;
+    }
+    // A single room can only take so many candles.
+    lost = Math.min(lost, Math.max(0, roomCap(room()) - roomLoss(room())));
     // Second Wind: once per run, Composure doesn't break.
     let wind = false;
     if (lost > 0 && run().composure - lost <= 0 && run().relics.includes('secondwind') && !run().secondWindUsed) {
@@ -285,6 +296,7 @@ export const useRun = create<RunStore>((set, get) => {
       const R = r.room!;
       if (insured) r.consumables.splice(r.consumables.indexOf('insurance'), 1);
       if (wind) r.secondWindUsed = true;
+      if (nerves) r.nervesUsed = true;
       r.composure = Math.max(0, r.composure - lost);
       if (m.eye) (r.eyeMoves ??= []).push(`${ROOM_NAME[R.node.kind as RoomKind]}: ${m.san}`);
       if (cost > 0) r.moments.push({ layer: R.layer, kind: R.node.kind as RoomKind, move: clone(m), cost });
@@ -459,7 +471,7 @@ export const useRun = create<RunStore>((set, get) => {
 
   const openCamp = (r: Run) => {
     r.phase = 'camp';
-    r.shopStock = consumableOffer(shopOffers(r.relics), Math.random);
+    r.shopStock = consumableOffer(shopOffers(r.relics), Math.random, r.meta?.lockedCards);
     r.restBought = false;
     r.rerollUsed = false;
   };
@@ -471,9 +483,23 @@ export const useRun = create<RunStore>((set, get) => {
     r.finalScore = r.results.reduce((s, x) => s + x.score, 0) + (won ? r.composure * T.score.composureLeftChips : 0);
     r.room = null;
     r.event = null;
+    const ids: string[] = [];
+    if (won) ids.push('first-win');
+    if ((r.finalScore ?? 0) >= 5000) ids.push('score-5k');
+    if (won && r.cursed) ids.push('cursed-win');
+    if (won && r.results.every((x) => x.composureLost === 0)) ids.push('untouched');
+    earn(r, ids);
     r.embers = embersFor(r);
     useMeta.getState().finish(r, r.embers);
     void archiveRun(clone(r));
+  };
+
+  /** Award milestones (once ever) and remember them on the run for the debrief. */
+  const earn = (r: Run, ids: string[]) => {
+    const fresh = useMeta.getState().award(ids);
+    if (!fresh.length) return;
+    r.milestones = [...(r.milestones ?? []), ...fresh.map((x) => x.id)];
+    setTimeout(() => sfx('relic', 3), 300);
   };
 
   /** Next stop after a room or event: the curse offer before the boss, else the campfire. */
@@ -524,6 +550,7 @@ export const useRun = create<RunStore>((set, get) => {
       const [{ rating }, records, meta] = await Promise.all([getRating(), getOpponentRecords(), useMeta.getState().load()]);
       const boosts = meta.boosts;
       const locked = lockedRelics(meta);
+      const lockedC = lockedCards(meta);
       const unlocked = OPPONENTS.filter((o) => isUnlocked(o.id, records));
       const boss = unlocked.find((o) => starsOf(records[o.id]) === 0) ?? unlocked[unlocked.length - 1] ?? OPPONENTS[0];
       const r: Run = {
@@ -539,14 +566,14 @@ export const useRun = create<RunStore>((set, get) => {
         composure: T.composure.start + (boosts.candle ?? 0),
         gold: T.gold.start + 2 * (boosts.purse ?? 0),
         relics: [],
-        consumables: boosts.satchel ? consumableOffer(1, Math.random) : [],
-        meta: { boosts: { ...boosts }, lockedRelics: locked },
+        consumables: [...(boosts.notes ? (['cards'] as ConsumableId[]) : []), ...(boosts.satchel ? consumableOffer(1, Math.random, lockedC) : [])],
+        meta: { boosts: { ...boosts }, lockedRelics: locked, lockedCards: lockedC },
         curses: [],
         room: null,
         event: null,
         results: [],
         moments: [],
-        offer: { type: 'relic', ids: relicOffer(locked, 3, Math.random), free: true, title: 'Choose your first relic' },
+        offer: { type: 'relic', ids: relicOffer(locked, boosts.keeneye ? 4 : 3, Math.random), free: true, title: 'Choose your first relic' },
         shopStock: [],
         restBought: false,
         cursed: false,
@@ -590,6 +617,14 @@ export const useRun = create<RunStore>((set, get) => {
       try {
         if (node.kind === 'event') {
           const ev = node.event!;
+          let lib: { fen: string; answer: string[]; themes: string[]; others: string[]; id: string } | null = null;
+          if (ev === 'library') {
+            const [p] = await pickPuzzles(r, 1);
+            if (t !== token) return;
+            const fen = tryMove(p.fen, p.setup!)!.fen;
+            const answer = [p.solution[0]];
+            lib = { fen, answer, themes: p.themes, id: p.id, others: new Chess(fen).moves({ verbose: true }).map((m) => m.lan).filter((u) => !answer.includes(u)) };
+          }
           patch((x) => {
             x.phase = 'event';
             if (ev === 'shrine') {
@@ -600,6 +635,11 @@ export const useRun = create<RunStore>((set, get) => {
               x.event = { kind: 'merchant', stock: relicOffer(unofferable(x), T.events.merchantStock, Math.random).map((id) => ({ id, price: relicPrice(id, x.relics) })) };
             } else if (ev === 'altar') {
               x.event = { kind: 'altar', ids: relicOffer(unofferable(x), 3, Math.random, T.relics.rarity, 'rare') };
+            } else if (ev === 'library' && lib) {
+              x.event = { kind: 'library', fen: lib.fen, answer: lib.answer, themes: lib.themes, choices: sample([lib.answer[0], ...sample(lib.others, 2, Math.random)], 3, Math.random) };
+              x.usedPuzzles.push(lib.id);
+            } else if (ev === 'spring') {
+              x.event = { kind: 'spring' };
             } else x.event = { kind: 'gambler' };
           });
           return;
@@ -622,7 +662,13 @@ export const useRun = create<RunStore>((set, get) => {
         let ev = 0;
         let extra: Partial<RoomState> = {};
         if (node.kind === 'duel') {
-          fen = DUELS[(node.pos ?? 0) % DUELS.length].fen;
+          const d = DUELS[(node.pos ?? 0) % DUELS.length];
+          fen = d.fen;
+          // The goal is relative to where the book leaves you.
+          const a = await analyze(fen, 1);
+          if (t !== token) return;
+          ev = povCp(a.lines[0]?.score ?? { type: 'cp', value: 0 }, new Chess(fen).turn());
+          extra = { book: d.sans, elo: Math.max(400, roomElo(r, node.elite) + T.rooms.duel.eloOffset) };
         } else if (node.kind === 'vault') {
           const v = VAULTS[(node.pos ?? 0) % VAULTS.length];
           fen = v.fen;
@@ -656,6 +702,34 @@ export const useRun = create<RunStore>((set, get) => {
       const c = new Chess(rm.fen);
       if (c.turn() !== rm.me || !tryMove(rm.fen, uci)) return false;
       const t = token;
+      if (s.aids.check) {
+        // Blunder Check: judge first; only a blunder is stopped.
+        set({ busy: true });
+        void (async () => {
+          try {
+            const before = await currentAnalysis(t);
+            const res = tryMove(rm.fen, uci)!;
+            const after = new Chess(res.fen).isGameOver() ? null : await analyze(res.fen, 1);
+            if (t !== token || !before) return;
+            const ok = rm.puzzle ? isCorrect(uci, res.move.san) : uci === before.bestMove;
+            const cls = classify(wpOf(rm.fen, before, rm.me).wp, wpOf(res.fen, after, rm.me).wp, ok);
+            set({ aids: { ...get().aids, check: false } });
+            if (cls === 'blunder') {
+              set({ aids: { ...get().aids, verdict: { uci, label: 'blunder', after: after!, cls, fromCheck: true } } });
+              return;
+            }
+            const v: Verdict = { uci, label: 'safe', after: after!, cls };
+            set({ busy: false });
+            if (rm.puzzle) void puzzleMove(uci, t, v);
+            else void gameMove(uci, t, v);
+          } catch {
+            /* cancelled */
+          } finally {
+            if (t === token && get().aids.verdict) set({ busy: false });
+          }
+        })();
+        return false;
+      }
       if (s.aids.opinion) {
         // Second Opinion: judge first, commit only after confirmation.
         set({ busy: true });
@@ -708,6 +782,11 @@ export const useRun = create<RunStore>((set, get) => {
       if (id === 'lens') {
         consume();
         set({ aids: { ...get().aids, lens: true } });
+        return;
+      }
+      if (id === 'check') {
+        consume();
+        set({ aids: { ...get().aids, check: true } });
         return;
       }
       if (id === 'opinion') {
@@ -793,7 +872,7 @@ export const useRun = create<RunStore>((set, get) => {
         R.fires.push(...endFires(r, R, boss));
         const sc = roomScore(R);
         const failCost = R.gamble ? T.events.gambleStake : T.composure.failRoom;
-        const fail = R.status === 'failed' && R.node.kind !== 'boss' && !broke ? failCost : 0;
+        const fail = R.status === 'failed' && R.node.kind !== 'boss' && !broke ? Math.min(failCost, Math.max(0, roomCap(R) - roomLoss(R))) : 0;
         const calm = R.fires.reduce((s, f) => s + (f.composure ?? 0), 0);
         r.composure = Math.max(0, Math.min(maxComposure(r), r.composure - fail + (broke ? 0 : calm)));
         r.gold += sc.gold;
@@ -802,6 +881,16 @@ export const useRun = create<RunStore>((set, get) => {
           chips: sc.chips, target: sc.target, mult: sc.mult, score: sc.score, gold: sc.gold, fires: R.fires,
           composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '',
         });
+        // Milestones from this room.
+        const won = R.status === 'won';
+        const ids: string[] = [];
+        if (won) ids.push('first-clear');
+        if (won && R.moves.length >= 5 && R.moves.every((m) => sound(m.cls))) ids.push('clean-room');
+        if (won && [...R.plies].reverse().find((p) => p.by === 'me')?.san.endsWith('#')) ids.push('mate');
+        if (won && R.node.kind === 'ward' && R.puzzle && R.puzzle.solved >= R.puzzle.count) ids.push('perfect-ward');
+        if (won && R.node.elite) ids.push('elite');
+        if (r.relics.length >= 5) ids.push('collector');
+        earn(r, ids);
         if (r.composure <= 0) {
           sfx('over');
           buzz([80, 60, 160]);
@@ -829,7 +918,7 @@ export const useRun = create<RunStore>((set, get) => {
           }
         }
         if (reward === 'consumable') {
-          r.offer = { type: 'consumable', ids: consumableOffer(3, Math.random), free: true, title: 'Spoils: choose a card' };
+          r.offer = { type: 'consumable', ids: consumableOffer(3, Math.random, r.meta?.lockedCards), free: true, title: 'Spoils: choose a card' };
           r.phase = 'reward';
           return;
         }
@@ -859,7 +948,7 @@ export const useRun = create<RunStore>((set, get) => {
 
     buy(id) {
       const r = run();
-      const p = price(id, r.relics);
+      const p = shopPrice(r, id);
       if (r.gold < p || r.consumables.length >= cardSlots(r) || !r.shopStock.includes(id)) return;
       patch((x) => {
         x.gold -= p;
@@ -872,7 +961,7 @@ export const useRun = create<RunStore>((set, get) => {
 
     rest() {
       const r = run();
-      const p = restPrice(r.relics);
+      const p = restCost(r);
       if (r.gold < p || r.restBought || r.composure >= maxComposure(r)) return;
       patch((x) => {
         x.gold -= p;
@@ -886,7 +975,7 @@ export const useRun = create<RunStore>((set, get) => {
       const r = run();
       if (!r.meta?.boosts.reroll || r.rerollUsed || r.phase !== 'camp') return;
       patch((x) => {
-        x.shopStock = consumableOffer(shopOffers(x.relics), Math.random);
+        x.shopStock = consumableOffer(shopOffers(x.relics), Math.random, x.meta?.lockedCards);
         x.rerollUsed = true;
       });
       sfx('card');
@@ -914,7 +1003,7 @@ export const useRun = create<RunStore>((set, get) => {
 
     shrinePick(uci) {
       const ev = run().event;
-      if (ev?.kind !== 'shrine' || ev.picked) return;
+      if ((ev?.kind !== 'shrine' && ev?.kind !== 'library') || ev.picked) return;
       const right = ev.answer.includes(uci);
       patch((r) => {
         (r.event as typeof ev).picked = uci;
@@ -966,9 +1055,27 @@ export const useRun = create<RunStore>((set, get) => {
       buzz([40, 30, 80]);
     },
 
+    springBuy() {
+      const r = run();
+      if (r.event?.kind !== 'spring' || r.event.used || r.gold < T.events.springPrice || r.composure >= maxComposure(r)) return;
+      patch((x) => {
+        x.gold -= T.events.springPrice;
+        x.composure = Math.min(maxComposure(x), x.composure + 1);
+        (x.event as { used?: boolean }).used = true;
+      });
+      sfx('clear');
+    },
+
     leaveEvent() {
       const ev = run().event;
       patch((x) => {
+        if (ev?.kind === 'library' && ev.picked && ev.answer.includes(ev.picked)) {
+          x.event = null;
+          x.layer++;
+          x.offer = { type: 'consumable', ids: consumableOffer(3, Math.random, x.meta?.lockedCards), free: true, title: 'The Library: choose a card' };
+          x.phase = 'reward';
+          return;
+        }
         if (ev?.kind === 'shrine' && ev.picked && ev.answer.includes(ev.picked)) {
           // Sam's blessing: a relic pick.
           x.event = null;
@@ -1021,3 +1128,13 @@ export function liveEval(cur: { fen: string; a: AnalysisResult } | null, fen: st
 
 // Dev hook for automated playtests.
 if (import.meta.env.DEV) (window as unknown as { __run: typeof useRun }).__run = useRun;
+
+/** The next book move for the Duel hint (UCI), while the game still follows a known line. */
+export function bookHint(room: RoomState): string | null {
+  if (room.node.kind !== 'duel' || !room.book || room.moves.length >= T.rooms.duel.hintMoves) return null;
+  const seq = [...room.book, ...room.plies.map((p) => p.san)];
+  const line = ECO.map((e) => e.moves.split(' ')).find((m) => m.length > seq.length && seq.every((x, i) => m[i] === x));
+  if (!line) return null;
+  const res = tryMove(room.fen, line[seq.length]);
+  return res ? res.move.lan : null;
+}

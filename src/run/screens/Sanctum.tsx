@@ -2,13 +2,13 @@
 // history, and Run mode's settings sheet (volumes, CRT, motion, board, abandon run).
 import { useEffect, useState } from 'react';
 import { runDb } from '../db';
-import { BOOSTS, UNLOCKS, boardUnlocked, useMeta } from '../meta';
+import { BOOSTS, MILESTONES, UNLOCKS, boardUnlocked, piecesUnlocked, useMeta } from '../meta';
 import { ROOM_NAME, RELICS } from '../content';
 import { useRunSettings } from '../settings';
 import { applyVolumes, sfx } from '../sfx';
 import { useRun } from '../store';
 import type { Run } from '../types';
-import { BOARD_THEMES, pieceSprite, tileSprite } from '../pixel/board';
+import { BOARD_THEMES, PIECE_SETS, pieceSprite, tileSprite } from '../pixel/board';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { BLOOD, EMBER, GOLD, SPIRIT } from '../pixel/pixelize';
 import { PixelNum } from './bits';
@@ -34,7 +34,7 @@ function Back({ onClick }: { onClick: () => void }) {
 
 export function SanctumScreen({ onBack }: { onBack: () => void }) {
   const m = useMeta();
-  const [tab, setTab] = useState<'boosts' | 'unlocks' | 'boards'>('boosts');
+  const [tab, setTab] = useState<'boosts' | 'unlocks' | 'boards' | 'milestones'>('boosts');
   useEffect(() => void m.load(), [m]);
   const buy = (ok: boolean) => {
     if (ok) {
@@ -57,9 +57,9 @@ export function SanctumScreen({ onBack }: { onBack: () => void }) {
         <div className="run-sans mt-1 px-6 text-center text-xs text-[var(--ink-dim)]">Embers from every run, won or lost, buy lasting gifts here. {m.runs} runs · {m.wins} won · best {m.best}</div>
       </div>
       <div className="mt-3 flex gap-1 px-4">
-        {(['boosts', 'unlocks', 'boards'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`run-btn flex-1 px-2! py-2! text-sm ${tab === t ? '' : 'ghost'}`}>
-            {t === 'boosts' ? 'Boosts' : t === 'unlocks' ? 'Unlocks' : 'Boards'}
+        {(['boosts', 'unlocks', 'boards', 'milestones'] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)} className={`run-btn flex-1 px-1! py-2! text-xs ${tab === t ? '' : 'ghost'}`}>
+            {t === 'boosts' ? 'Boosts' : t === 'unlocks' ? 'Unlocks' : t === 'boards' ? 'Looks' : 'Goals'}
           </button>
         ))}
       </div>
@@ -90,7 +90,7 @@ export function SanctumScreen({ onBack }: { onBack: () => void }) {
             );
           })}
         {tab === 'unlocks' &&
-          UNLOCKS.filter((u) => u.kind !== 'board').map((u) => {
+          UNLOCKS.filter((u) => u.kind !== 'board' && u.kind !== 'pieces').map((u) => {
             const own = m.unlocked.includes(u.id);
             const pal = u.kind === 'relic' ? (RELICS[u.ref as keyof typeof RELICS]?.rarity === 'rare' ? BLOOD : GOLD) : SPIRIT;
             return (
@@ -112,7 +112,32 @@ export function SanctumScreen({ onBack }: { onBack: () => void }) {
               </div>
             );
           })}
-        {tab === 'boards' && <Boards />}
+        {tab === 'boards' && (
+          <>
+            <Boards />
+            <PieceSets />
+          </>
+        )}
+        {tab === 'milestones' && (
+          <>
+            <div className="run-sans px-1 text-xs text-[var(--ink-dim)]">One-time goals. Each pays Embers the first time you reach it.</div>
+            {MILESTONES.map((x) => {
+              const done = (m.milestones ?? []).includes(x.id);
+              return (
+                <div key={x.id} className={`run-panel flex items-center gap-3 p-3 ${done ? '' : 'opacity-80'}`}>
+                  <Sprite name={done ? 'check' : 'star'} size={30} px={14} pal={done ? GOLD : SPIRIT} />
+                  <div className="min-w-0 flex-1">
+                    <div className="run-title font-bold">{x.name}</div>
+                    <div className="run-sans text-xs text-[var(--ink-dim)]">{x.text}</div>
+                  </div>
+                  <span className={`run-sans flex items-center gap-1 text-xs font-black ${done ? 'text-[#5ee59a]' : 'text-[#ffb454]'}`}>
+                    {done ? 'Done' : <><Sprite name="flame" size={14} px={10} pal={EMBER} /> {x.embers}</>}
+                  </span>
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
     </div>
   );
@@ -156,6 +181,45 @@ function Boards() {
         );
       })}
     </div>
+  );
+}
+
+function PieceSets() {
+  const m = useMeta();
+  const rs = useRunSettings();
+  const theme = BOARD_THEMES[rs.board] ?? BOARD_THEMES.crypt;
+  return (
+    <>
+      <div className="run-label mt-3 px-1">Piece sets</div>
+      <div className="grid grid-cols-3 gap-2">
+        {Object.keys(PIECE_SETS).map((id) => {
+          const own = piecesUnlocked(m, id);
+          const u = UNLOCKS.find((x) => x.id === `pieces:${id}`);
+          const active = (rs.pieces ?? 'board') === id;
+          return (
+            <div key={id} className="run-panel p-2 text-center" style={active ? { boxShadow: '0 0 0 2px var(--gold), 0 0 18px rgba(242,199,92,.35)' } : undefined}>
+              <div className="flex justify-center gap-0.5">
+                {(['K', 'N'] as const).map((t, i) => (
+                  <img key={t} src={pieceSprite(theme, i ? 'b' : 'w', t, id)} alt="" className="pixelated h-9 w-9" />
+                ))}
+              </div>
+              <div className="run-title mt-1 text-xs leading-tight font-bold">{id === 'board' ? 'Match board' : PIECE_SETS[id]!.name}</div>
+              {own ? (
+                <button className={`run-btn mt-1 w-full px-1! py-1! text-[11px] ${active ? '' : 'ghost'}`} onClick={() => rs.set({ pieces: id })}>
+                  {active ? 'In use' : 'Use'}
+                </button>
+              ) : (
+                <button className="run-btn mt-1 w-full px-1! py-1! text-[11px]" disabled={!u || m.embers < u.cost} onClick={() => u && m.buyUnlock(u.id) && (sfx('coin'), rs.set({ pieces: id }))}>
+                  <span className="flex items-center justify-center gap-1">
+                    <Sprite name="flame" size={11} px={10} pal={EMBER} /> {u?.cost}
+                  </span>
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -283,7 +347,25 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
               );
             })}
           </div>
-          <div className="run-sans mt-1 text-[11px] text-[var(--ink-dim)]">More boards unlock in the Sanctum.</div>
+          <div className="mt-2 flex gap-1.5">
+            {Object.keys(PIECE_SETS).map((id) => {
+              const own = piecesUnlocked(meta, id);
+              const t = BOARD_THEMES[rs.board] ?? BOARD_THEMES.crypt;
+              return (
+                <button
+                  key={id}
+                  disabled={!own}
+                  onClick={() => rs.set({ pieces: id })}
+                  className="flex h-11 flex-1 items-center justify-center bg-black/40 disabled:opacity-35"
+                  style={{ boxShadow: `0 0 0 2px #1b0f22, 0 0 0 ${(rs.pieces ?? 'board') === id ? 4 : 3}px ${(rs.pieces ?? 'board') === id ? 'var(--gold-2)' : 'var(--gold-dim)'}` }}
+                >
+                  <img src={pieceSprite(t, 'w', 'K', id)} alt="" className="pixelated h-8 w-8" />
+                  <img src={pieceSprite(t, 'b', 'K', id)} alt="" className="pixelated h-8 w-8" />
+                </button>
+              );
+            })}
+          </div>
+          <div className="run-sans mt-1 text-[11px] text-[var(--ink-dim)]">More boards and piece sets unlock in the Sanctum.</div>
         </div>
         {canAbandon && (
           <div className="mt-5 border-t border-[var(--gold-dim)]/30 pt-4">

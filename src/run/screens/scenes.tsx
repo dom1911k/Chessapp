@@ -86,7 +86,7 @@ export function CoinRain({ n }: { n: number }) {
 export function VsIntro({ bossId, cursed, onDone }: { bossId: string; cursed: boolean; onDone: () => void }) {
   const boss = opponentById(bossId);
   const mod = bossMod(bossId);
-  const king = pieceSprite(BOARD_THEMES[useRunSettings.getState().board] ?? BOARD_THEMES.crypt, 'w', 'K');
+  const king = pieceSprite(BOARD_THEMES[useRunSettings.getState().board] ?? BOARD_THEMES.crypt, 'w', 'K', useRunSettings.getState().pieces);
   useEffect(() => {
     sfx('slam');
     buzz([30, 30, 60]);

@@ -5,7 +5,7 @@ import { Chess } from 'chess.js';
 import { opponentById } from '../../lib/people';
 import { uciToSan } from '../../lib/chess/game';
 import { CONSUMABLES, EVENTS, MODIFIERS, RELICS, ROOM_NAME, ROOM_SPRITE, bossMod, bossModText, objective } from '../content';
-import { cardSlots, maxComposure, price, restPrice } from '../rules';
+import { cardSlots, maxComposure, restCost, shopPrice } from '../rules';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
 import type { ConsumableId, MapNode, RelicId, RoomKind } from '../types';
@@ -335,7 +335,7 @@ function Intro() {
             <div className="run-label mt-3">Composure</div>
             <div className="run-sans mt-1 text-sm text-[var(--ink-dim)]">
               Mistake −{T.composure.cost.mistake}, blunder −{T.composure.cost.blunder}, inaccuracy free.
-              {!isBoss ? ` Failing the room: −${T.composure.failRoom}.` : ' Losing to the rival ends the run.'}
+              {!isBoss ? ` Failing the room: −${T.composure.failRoom}.` : ' Losing to the rival ends the run.'} A room takes at most {isBoss ? T.composure.bossCap : T.composure.roomCap} candles.
             </div>
           </>
         )}
@@ -361,7 +361,27 @@ function EventView({ tools }: { tools: Tools }) {
         <PixelText text={meta.name} size={3.5} className="mt-2" maxWidth={330} />
       </div>
       <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-4">
-        {ev.kind === 'shrine' && <Shrine />}
+        {(ev.kind === 'shrine' || ev.kind === 'library') && <Shrine />}
+        {ev.kind === 'spring' && (
+          <div className="run-panel run-fadeup p-4 text-center">
+            <p className="run-sans text-sm">
+              Clear water in the dark. Drink, and a candle relights — for <b className="text-[var(--gold-2)]">{T.events.springPrice} gold</b>.
+            </p>
+            <div className="mt-3 flex justify-center">
+              <Composure value={run.composure} max={T.composure.start} />
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button className="run-btn ghost flex-1" onClick={() => s.leaveEvent()}>
+                {ev.used ? 'Move on' : 'Leave'}
+              </button>
+              {!ev.used && (
+                <button className="run-btn flex-1" disabled={run.gold < T.events.springPrice || run.composure >= maxComposure(run)} onClick={() => s.springBuy()}>
+                  Drink · {T.events.springPrice}g
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {ev.kind === 'gambler' && (
           <div className="run-panel run-fadeup p-4 text-center">
             <div className="flex justify-center">
@@ -430,7 +450,8 @@ function EventView({ tools }: { tools: Tools }) {
 function Shrine() {
   const s = useRun();
   const ev = s.run!.event;
-  if (ev?.kind !== 'shrine') return null;
+  if (ev?.kind !== 'shrine' && ev?.kind !== 'library') return null;
+  const lib = ev.kind === 'library';
   const me = new Chess(ev.fen).turn();
   const right = ev.picked ? ev.answer.includes(ev.picked) : null;
   return (
@@ -438,7 +459,7 @@ function Shrine() {
       <div className="flex items-center gap-2">
         <PixelPortrait id="coach" size={48} />
         <p className="run-sans text-sm">
-          “They're threatening something. Which move holds?” <span className="text-[var(--ink-dim)]">Right answer: a relic.</span>
+          {lib ? '“A tactic hides in this position. Which move finds it?”' : "“They're threatening something. Which move holds?”"} <span className="text-[var(--ink-dim)]">Right answer: {lib ? 'a card' : 'a relic'}.</span>
         </p>
       </div>
       <div className="mx-auto mt-3 w-64">
@@ -457,14 +478,14 @@ function Shrine() {
       <div className="mt-3 flex gap-2">
         {ev.choices.map((u) => (
           <button key={u} disabled={!!ev.picked} onClick={() => s.shrinePick(u)} className={`run-btn flex-1 ${ev.picked === u ? (right ? '' : 'danger') : 'ghost'}`}>
-            {uciToSan(ev.fen, u)}
+            {uciToSan(ev.fen, u).replace(/[+#]/g, '')}
           </button>
         ))}
       </div>
       {ev.picked && (
         <div className="run-fadeup mt-3 text-center">
           <div className="run-title text-xl font-bold" style={{ color: right ? 'var(--gold-2)' : 'var(--blood)' }}>
-            {right ? 'Sam nods. A gift awaits.' : `Not quite — ${uciToSan(ev.fen, ev.answer[0])} was the move.`}
+            {right ? (lib ? 'Well read. Take a card.' : 'Sam nods. A gift awaits.') : `Not quite — ${uciToSan(ev.fen, ev.answer[0])} was the move.`}
           </div>
           <button className="run-btn mt-3 w-full" onClick={() => s.leaveEvent()}>
             {right ? 'Receive the gift' : 'Move on'}
@@ -512,7 +533,7 @@ function Camp({ tools }: { tools: Tools }) {
   const s = useRun();
   const run = s.run!;
   const full = run.consumables.length >= cardSlots(run);
-  const rp = restPrice(run.relics);
+  const rp = restCost(run);
   const bossNext = run.layer === run.layers.length - 1;
   return (
     <div className="flex h-full flex-col pb-4">
@@ -528,7 +549,7 @@ function Camp({ tools }: { tools: Tools }) {
       </div>
       <div className="mt-3 flex justify-center gap-2 overflow-x-auto px-2">
         {run.shopStock.map((id, i) => {
-          const p = price(id, run.relics);
+          const p = shopPrice(run, id);
           const afford = run.gold >= p && !full;
           return (
             <TarotCard

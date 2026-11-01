@@ -5,6 +5,7 @@ import { RunBoard } from '../pixel/RunBoard';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { EMBER } from '../pixel/pixelize';
 import { PixelText } from './PixelText';
+import { MILESTONES } from '../meta';
 import { explainMove } from '../../lib/coach';
 import { CLASS_LABEL } from '../../lib/chess/evaluation';
 import { parseUci } from '../../lib/chess/game';
@@ -84,6 +85,19 @@ export function Debrief({ onShake, onSanctum }: { onShake: () => void; onSanctum
           ) : null}
         </div>
       </div>
+
+      {(run.milestones ?? []).length > 0 && (
+        <div className="run-panel run-fadeup mt-4 p-3">
+          <div className="run-label">Milestones reached</div>
+          {MILESTONES.filter((x) => run.milestones!.includes(x.id)).map((x) => (
+            <div key={x.id} className="mt-1.5 flex items-center gap-2">
+              <Sprite name="star" size={20} px={12} />
+              <span className="run-title flex-1 text-sm font-bold">{x.name}</span>
+              <span className="run-sans text-xs font-black text-[#ffb454]">+{x.embers}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="run-title mt-6 text-xl font-bold">What cost you</div>
       {moments.length === 0 && <div className="run-sans mt-1 text-sm text-[var(--ink-dim)]">Nothing! Not a single mistake or blunder. Coach Sam is impressed.</div>}

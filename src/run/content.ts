@@ -28,6 +28,9 @@ export const RELICS: Record<RelicId, CardInfo> = {
   spendthrift: { name: 'Spendthrift', numeral: 'VII', glyph: 'coin', rarity: 'uncommon', text: `Shop prices halved, but you carry ${R.spendthriftCarryPenalty} fewer card.` },
   executioner: { name: 'Executioner', numeral: 'XIII', glyph: 'axe', rarity: 'rare', text: `+${R.executionerMult} mult when you finish a room with checkmate.` },
   secondwind: { name: 'Second Wind', numeral: 'XX', glyph: 'feather', rarity: 'rare', text: 'Once per run, when your Composure would break, keep 1.' },
+  castle: { name: 'Castle Keep', numeral: 'XXI', glyph: 'tower', rarity: 'common', text: `Castling: +${R.castleMult} mult and +${R.castleGold} gold.` },
+  rite: { name: 'Promotion Rite', numeral: 'XIX', glyph: 'crown', rarity: 'uncommon', text: `+${R.riteMult} mult every time you promote a pawn.` },
+  tempo: { name: 'Tempo', numeral: 'XVIII', glyph: 'bolt', rarity: 'uncommon', text: `+${R.tempoMult} mult for every good move that gives check.` },
   glass: { name: 'Glass Cannon', numeral: 'XVI', glyph: 'crystal', rarity: 'rare', text: `+${R.glassMult} mult in every room. Costs ${R.glassComposure} Composure when taken.` },
 };
 
@@ -37,6 +40,7 @@ export const CONSUMABLES: Record<ConsumableId, CardInfo> = {
   cards: { name: 'Candidate Cards', numeral: 'III', glyph: 'cards', text: 'Shows three moves. One of them is the best.' },
   lens: { name: 'Threat Lens', numeral: 'IX', glyph: 'lens', text: 'Lights up every hanging or attacked piece, both sides.' },
   opinion: { name: 'Second Opinion', numeral: 'II', glyph: 'scale', text: 'Your next move is judged before it counts: safe, risky or blunder.' },
+  check: { name: 'Blunder Check', numeral: 'I', glyph: 'bell', text: 'Your next move is checked: only a blunder is stopped (you may choose again).' },
   insurance: { name: 'Insurance', numeral: 'IV', glyph: 'shield', text: 'Your next blunder costs no Composure. Works by itself.' },
 };
 
@@ -66,6 +70,8 @@ export const EVENTS: Record<EventKind, { name: string; sprite: string; blurb: st
   gambler: { name: 'The Gambler', sprite: 'dice', blurb: 'Stake Composure on one puzzle.' },
   merchant: { name: 'The Merchant', sprite: 'bag', blurb: 'Relics for sale.' },
   altar: { name: 'The Cursed Altar', sprite: 'altar', blurb: 'Power, at a price.' },
+  library: { name: 'The Library', sprite: 'book', blurb: 'Find the tactic. Earn a card.' },
+  spring: { name: 'The Healing Spring', sprite: 'fountain', blurb: 'Gold for a candle.' },
 };
 
 export const RARITY_COLOR: Record<Rarity, string> = { common: '#cdbf9f', uncommon: '#6fd3ff', rare: '#ff6bd5' };
@@ -110,7 +116,7 @@ export function objective(node: MapNode, boss?: BossMod): string {
     case 'vault':
       return 'A won endgame against perfect defence. Finish the job in time.';
     case 'duel':
-      return `An opening, fresh from the book. After ${r.duel.moves} moves be at ${fmt((e ? T.elite.duelMinCp : r.duel.minCp) / 100)} or better.`;
+      return `An opening, fresh from the book. After ${r.duel.moves} moves, don't be more than ${(e ? T.elite.duelMaxDropCp : r.duel.maxDropCp) / 100} worse than at the start. The book move is shown for your first ${r.duel.hintMoves}.`;
     case 'boss': {
       const g = bossGoal(boss ?? T.bossMods.default);
       return g.noEarlyWin
@@ -121,7 +127,6 @@ export function objective(node: MapNode, boss?: BossMod): string {
       return node.event ? EVENTS[node.event].blurb : '';
   }
 }
-const fmt = (v: number) => (v > 0 ? `+${v}` : `${v}`);
 
 export const MODIFIERS: Record<ModifierId, { name: string; text: string }> = {
   steady: { name: 'Still Air', text: 'No modifier.' },

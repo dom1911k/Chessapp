@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { embersFor } from '../run/meta';
-import { reachable, buildMap, composureCost, judge, moveFires, roomScore, price, maxConsumables, relicOffer } from '../run/rules';
+import { reachable, roomCap, roomLoss, buildMap, composureCost, judge, moveFires, roomScore, price, maxConsumables, relicOffer } from '../run/rules';
 import { RELICS } from '../run/content';
 import positions from '../run/data/positions.json';
 import { TUNING as T } from '../run/tuning';
@@ -101,6 +101,26 @@ describe('run rules', () => {
     expect(s.target).toBe(2 * T.score.targetPerMove);
     expect(s.beatTarget).toBe(true);
     expect(s.gold).toBe(T.gold.perRoom.hold + T.gold.cleanBonus + T.gold.targetBonus);
+  });
+
+  it('a room takes at most a few candles; the duel goal is relative to the start', () => {
+    const hold = room({ moves: [mv({ composureLost: 2 })] });
+    expect(roomCap(hold)).toBe(T.composure.roomCap);
+    expect(roomLoss(hold)).toBe(2);
+    expect(roomCap(room({ node: { kind: 'boss', modifier: 'rival' } }))).toBe(T.composure.bossCap);
+    const duel = (evalAfter: number) =>
+      judge(room({ node: { kind: 'duel', modifier: 'steady' }, fen: START, startEval: 40, moves: Array.from({ length: T.rooms.duel.moves }, () => mv({ evalAfter })) }), 'mine');
+    expect(duel(40 - T.rooms.duel.maxDropCp)?.status).toBe('won');
+    expect(duel(40 - T.rooms.duel.maxDropCp - 1)?.status).toBe('failed');
+  });
+
+  it('new relics: Castle Keep, Promotion Rite, Tempo fire on sound moves', () => {
+    const r = room({});
+    const at = 0;
+    expect(moveFires(['castle'], r, mv({ san: 'O-O', uci: 'e1g1', fenBefore: 'r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1', cls: 'good' }), at).map((f) => f.relic)).toEqual(['castle']);
+    expect(moveFires(['rite'], r, mv({ san: 'a8=Q', uci: 'a7a8q', fenBefore: '7k/P7/8/8/8/8/8/7K w - - 0 1', cls: 'best' }), at).map((f) => f.relic)).toEqual(['rite']);
+    expect(moveFires(['tempo'], r, mv({ san: 'Ra8+', uci: 'a1a8', fenBefore: '7k/8/8/8/8/8/8/R6K w - - 0 1', cls: 'best' }), at).map((f) => f.relic)).toContain('tempo');
+    expect(moveFires(['tempo'], r, mv({ san: 'Ra8+', uci: 'a1a8', fenBefore: '7k/8/8/8/8/8/8/R6K w - - 0 1', cls: 'mistake' }), at)).toEqual([]);
   });
 
   it('Spendthrift halves prices and carries one fewer', () => {

@@ -314,3 +314,26 @@
 @keyframes run-door-r { to { transform: translateX(102%); } }
 
 .run-portal { color: var(--ink); font-family: 'Fraunces Variable', Georgia, serif; }
+/* Capture shards / promotion flash */
+.run-shard {
+  width: 4px;
+  height: 4px;
+  box-shadow: 0 0 0 1px #1b0f22;
+  animation: run-shard 0.6s cubic-bezier(0.2, 0.7, 0.4, 1) both;
+}
+@keyframes run-shard {
+  0% { transform: translate(-50%, -50%); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) + 14px)); opacity: 0; }
+}
+.run-promo {
+  width: 12%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(255, 240, 180, 0.95) 0 30%, rgba(242, 199, 92, 0.5) 50%, transparent 70%);
+  animation: run-promo 0.7s ease-out both;
+}
+@keyframes run-promo {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+}

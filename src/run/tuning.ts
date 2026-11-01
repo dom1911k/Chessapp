@@ -36,6 +36,9 @@ export const TUNING = {
     cost: { best: 0, good: 0, inaccuracy: 0, mistake: 1, blunder: 2 },
     /** Failing a room's objective (not the boss). */
     failRoom: 1,
+    /** Most candles a single room can take (moves + failing it); the rival's room may take a little more. */
+    roomCap: 2,
+    bossCap: 3,
   },
 
   gold: {
@@ -103,8 +106,12 @@ export const TUNING = {
       minPlies: 3,
       maxPlies: 8,
       moves: 8,
-      /** Your eval after the last move must be at least this. */
-      minCp: -30,
+      /** After the last move you may be at most this much worse than where you started. */
+      maxDropCp: 100,
+      /** The Duel opponent plays this much below your level (openings are hard). */
+      eloOffset: -150,
+      /** The book move is shown as a faint arrow for your first N moves. */
+      hintMoves: 2,
     },
     boss: {
       moves: 15,
@@ -126,7 +133,7 @@ export const TUNING = {
     wardNeed: 3,
     puzzleNeed: 3,
     vaultMovesLess: 4,
-    duelMinCp: 0,
+    duelMaxDropCp: 40,
   },
 
   /** Room modifiers (shown before entering). */
@@ -162,7 +169,11 @@ export const TUNING = {
     brittleMistakeExtra: 1,
   },
 
+  /** Embers per finished run: base + per cleared room + per score step + rival win (+ cursed win). */
+  embers: { base: 3, perRoom: 2, scoreStep: 600, bossWin: 6, cursedWin: 3, lampMinRooms: 3, lamp: 2 },
+
   events: {
+    springPrice: 6,
     /** Chance for a fork option (layer 1) to be an event; one event is guaranteed in layers 2–3. */
     chance: 0.35,
     gambleStake: 1,
@@ -181,9 +192,9 @@ export const TUNING = {
 
   consumables: {
     maxHeld: 2,
-    price: { eye: 9, rewind: 5, cards: 4, lens: 3, opinion: 4, insurance: 5 },
+    price: { eye: 9, rewind: 5, cards: 4, lens: 3, opinion: 4, insurance: 5, check: 2 },
     /** Relative chance to appear in a 1-of-3 offer. */
-    weight: { eye: 1, rewind: 3, cards: 3, lens: 3, opinion: 3, insurance: 2 },
+    weight: { eye: 1, rewind: 3, cards: 3, lens: 3, opinion: 3, insurance: 2, check: 3 },
   },
 
   relics: {
@@ -207,6 +218,10 @@ export const TUNING = {
     glassComposure: 2,
     luckyExtraOffer: 1,
     luckyRestDiscount: 2,
+    castleMult: 0.5,
+    castleGold: 1,
+    riteMult: 1,
+    tempoMult: 0.3,
   },
 
   /** After a cleared room (by map layer): what kind of free 1-of-3 pick you get. Elites always give a relic. */

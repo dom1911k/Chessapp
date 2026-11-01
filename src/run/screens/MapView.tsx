@@ -107,7 +107,7 @@ export function MapView({ top }: { top: ReactNode }) {
           </svg>
           {/* Fog over rows beyond the next one */}
           {run.layers.map((row, l) =>
-            l > run.layer + 1 && row[0].kind !== 'boss' ? (
+            l > run.layer + (run.meta?.boosts.cartographer ? 2 : 1) && row[0].kind !== 'boss' ? (
               <div key={`f${l}`} className="run-fog pointer-events-none absolute inset-x-0" style={{ top: nodeXY(run.layers, l, 0).y - ROW / 2, height: ROW, opacity: 0.85 }} />
             ) : null,
           )}

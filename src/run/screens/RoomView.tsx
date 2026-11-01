@@ -7,8 +7,9 @@ import { useSettings } from '../../lib/settings';
 import type { CoachArrow } from '../../lib/coach/types';
 import type { Classification } from '../../lib/chess/evaluation';
 import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, bossMod, bossModText } from '../content';
-import { chipTarget, fmtCp, gaugeLines, cardSlots, progress, roomScore } from '../rules';
-import { arrowOf, bossOf, lensMarks, liveEval, useRun } from '../store';
+import { chipTarget, fmtCp, gaugeLines, cardSlots, progress, roomCap, roomLoss, roomScore } from '../rules';
+import { arrowOf, bookHint, bossOf, lensMarks, liveEval, useRun } from '../store';
+import { Chess } from 'chess.js';
 import { TUNING as T } from '../tuning';
 import type { ConsumableId, RelicId, RoomKind } from '../types';
 import { PixelCaptured, RunBoard } from '../pixel/RunBoard';
@@ -40,9 +41,18 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
   const plyCount = room.plies.length;
   const lastSan = room.plies[plyCount - 1]?.san;
   const lastBy = room.plies[plyCount - 1]?.by;
+  const lastUci = room.plies[plyCount - 1]?.uci;
+  const [burst, setBurst] = useState<{ id: number; sq: string; kind: 'shatter' | 'promote'; color: 'w' | 'b' } | null>(null);
   useEffect(() => {
     if (lastSan) sfx(moveSound(lastSan), 0, lastBy === 'opp');
     setView(null);
+    // A taken piece shatters into pixels; a promotion flashes gold.
+    if (lastSan && lastUci) {
+      const mover = lastBy === 'me' ? room.me : room.me === 'w' ? 'b' : 'w';
+      if (lastSan.includes('=')) setBurst({ id: Date.now(), sq: lastUci.slice(2, 4), kind: 'promote', color: mover });
+      else if (lastSan.includes('x')) setBurst({ id: Date.now(), sq: lastUci.slice(2, 4), kind: 'shatter', color: mover === 'w' ? 'b' : 'w' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plyCount, lastSan, lastBy]);
   const boss = isBoss ? opponentById(room.oppId) : undefined;
   const mod = isBoss ? bossMod(run.bossId) : undefined;
@@ -64,6 +74,7 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
   }, [lastFx, boss]);
 
   const live = roomScore(room);
+  const capReached = room.status === 'playing' && roomLoss(room) >= roomCap(room);
   const viewing = view !== null ? room.moves[view] : null;
   const mat = material(room.fen, room.startFen);
   const target = chipTarget(room);
@@ -71,10 +82,16 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
   const lastPly = room.plies[room.plies.length - 1];
   const sealed = mod?.sealed ?? [];
 
+  const viewingNow = view !== null;
   const arrows: CoachArrow[] = [];
   if (s.aids.eye) arrows.push(arrowOf(s.aids.eye, 'good'));
   if (s.aids.cards) s.aids.cards.forEach((u) => arrows.push(arrowOf(u, 'info')));
   if (s.answer) arrows.push(s.answer);
+  // Duel: the book move for the first moves (or the engine's suggestion once the book runs out).
+  const myTurn = !viewingNow && room.status === 'playing' && new Chess(room.fen).turn() === room.me;
+  const bookUci = myTurn ? bookHint(room) : null;
+  const book = bookUci ?? (myTurn && room.node.kind === 'duel' && room.moves.length < T.rooms.duel.hintMoves && s.cur?.fen === room.fen ? s.cur.a.bestMove : null);
+  if (book) arrows.push(arrowOf(book, 'info'));
   if (s.aids.verdict) arrows.push(arrowOf(s.aids.verdict.uci, s.aids.verdict.label === 'safe' ? 'good' : 'bad'));
   const highlights = useMemo(() => (s.aids.lens ? lensMarks(room.fen, me) : []), [s.aids.lens, room.fen, me]);
 
@@ -150,6 +167,7 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
         {showGauge && <EvalGauge cp={ev} {...gaugeLines(room, bossOf(run))} thinking={s.busy} />}
         <div className="relative min-w-0 flex-1">
           <PixelCaptured pieces={mat.lost[me === 'w' ? 'b' : 'w']} color={me === 'w' ? 'b' : 'w'} lead={me === 'w' ? mat.diff : -mat.diff} />
+          <div className="relative">
           <RunBoard
             fen={viewing ? viewing.fenAfter : room.fen}
             orientation={me === 'w' ? 'white' : 'black'}
@@ -161,6 +179,8 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
             showCoordinates={showCoords}
             dimmed={!!viewing}
           />
+          {burst && !viewing && <Burst key={burst.id} {...burst} orientation={me === 'w' ? 'white' : 'black'} />}
+          </div>
           <PixelCaptured pieces={mat.lost[me]} color={me} lead={me === 'w' ? -mat.diff : mat.diff} />
           {viewing && (
             <button onClick={() => setView(null)} className="run-panel run-fadeup absolute inset-x-6 top-1/2 z-30 -translate-y-1/2 p-2 text-center">
@@ -191,7 +211,13 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
             </button>
           );
         })}
-        {room.moves.length === 0 && <span className="run-sans text-[11px] text-[var(--ink-dim)]">{me === 'w' ? 'You play White.' : 'You play Black.'} Your moves will show here.</span>}
+        {book && <span className="run-sans flex items-center gap-1 bg-[#6fd3ff]/15 px-1.5 py-0.5 text-[11px] font-bold whitespace-nowrap text-[#9fe0ff]">{bookUci ? 'Book' : 'Hint'}: {uciToSan(room.fen, book)}</span>}
+        {capReached && (
+          <span className="run-sans flex items-center gap-1 bg-[#5ee59a]/15 px-1.5 py-0.5 text-[11px] font-bold whitespace-nowrap text-[#9ff0c0]">
+            <Sprite name="shield" size={12} px={10} /> No more candles lost here
+          </span>
+        )}
+        {room.moves.length === 0 && !book && <span className="run-sans text-[11px] text-[var(--ink-dim)]">{me === 'w' ? 'You play White.' : 'You play Black.'} Your moves will show here.</span>}
       </div>
 
       {/* Cards */}
@@ -352,7 +378,7 @@ function VerdictPanel() {
   return (
     <div className="absolute inset-x-4 bottom-4 z-30">
       <div className="run-panel run-fadeup p-3 text-center">
-        <div className="run-label">Second Opinion on {uciToSan(room.fen, v.uci)}</div>
+        <div className="run-label">{v.fromCheck ? 'Blunder Check' : 'Second Opinion'} on {uciToSan(room.fen, v.uci)}</div>
         <div className="run-title mt-1 text-3xl font-black uppercase" style={{ color, textShadow: `0 0 18px ${color}` }}>
           {v.label}
         </div>
@@ -361,7 +387,7 @@ function VerdictPanel() {
             Choose again
           </button>
           <button className="run-btn flex-1" onClick={() => s.confirmVerdict(true)}>
-            Play it
+            {v.fromCheck ? 'Play anyway' : 'Play it'}
           </button>
         </div>
       </div>
@@ -421,6 +447,34 @@ function PuzzleLost({ canRewind }: { canRewind: boolean }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Pixel shards from a taken piece, or a gold flash for a promotion. */
+function Burst({ sq, kind, color, orientation }: { sq: string; kind: 'shatter' | 'promote'; color: 'w' | 'b'; orientation: 'white' | 'black' }) {
+  const f = sq.charCodeAt(0) - 97;
+  const r = Number(sq[1]) - 1;
+  const col = orientation === 'white' ? f : 7 - f;
+  const row = orientation === 'white' ? 7 - r : r;
+  const left = `calc(5px + (100% - 10px) * ${(col + 0.5) / 8})`;
+  const top = `calc(5px + (100% - 10px) * ${(row + 0.5) / 8})`;
+  const shards = kind === 'promote' ? ['#fff6d0', '#ffe08a', '#f2c75c'] : color === 'w' ? ['#f1e2b8', '#cdb47c', '#8c7448'] : ['#a888e0', '#6a46a8', '#3c2466'];
+  const n = kind === 'promote' ? 16 : 12;
+  return (
+    <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+      {kind === 'promote' && <span className="run-promo absolute" style={{ left, top }} />}
+      {Array.from({ length: n }, (_, i) => {
+        const a = (i / n) * Math.PI * 2 + (i % 3) * 0.3;
+        const d = 18 + (i % 4) * 9;
+        return (
+          <span
+            key={i}
+            className="run-shard absolute"
+            style={{ left, top, background: shards[i % 3], ['--dx' as string]: `${Math.cos(a) * d}px`, ['--dy' as string]: `${Math.sin(a) * d - 8}px`, animationDelay: `${(i % 3) * 20}ms` }}
+          />
+        );
+      })}
     </div>
   );
 }

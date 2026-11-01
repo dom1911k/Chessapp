@@ -19,11 +19,13 @@ export const useBoardTheme = (): BoardTheme => {
   return BOARD_THEMES[id] ?? BOARD_THEMES.crypt;
 };
 
-function piecesFor(theme: BoardTheme): PieceRenderObject {
+export const usePieceSet = () => useRunSettings((s) => s.pieces ?? 'board');
+
+function piecesFor(theme: BoardTheme, set: string): PieceRenderObject {
   const out: PieceRenderObject = {};
   for (const c of ['w', 'b'] as const)
     for (const t of TYPES) {
-      const url = pieceSprite(theme, c, t);
+      const url = pieceSprite(theme, c, t, set);
       out[`${c}${t}`] = () => (
         <img src={url} alt="" draggable={false} style={{ width: '100%', height: '100%', imageRendering: 'pixelated', filter: 'drop-shadow(0 2px 0 rgba(0,0,0,.5))' }} />
       );
@@ -53,7 +55,8 @@ export function RunBoard({ fen, orientation, movable, onMove, arrows = [], highl
   const [selected, setSelected] = useState<string | null>(null);
   const [promo, setPromo] = useState<{ from: string; to: string } | null>(null);
   const theme = useBoardTheme();
-  const pieces = useMemo(() => piecesFor(theme), [theme]);
+  const set = usePieceSet();
+  const pieces = useMemo(() => piecesFor(theme, set), [theme, set]);
 
   const chess = useMemo(() => new Chess(fen), [fen]);
   useEffect(() => setSelected(null), [fen]);
@@ -156,7 +159,7 @@ export function RunBoard({ fen, orientation, movable, onMove, arrows = [], highl
                   onMove?.(m);
                 }}
               >
-                <img src={pieceSprite(theme, turn, p.toUpperCase() as 'Q')} alt={p} style={{ imageRendering: 'pixelated', width: '100%' }} />
+                <img src={pieceSprite(theme, turn, p.toUpperCase() as 'Q', set)} alt={p} style={{ imageRendering: 'pixelated', width: '100%' }} />
               </button>
             ))}
           </div>
@@ -169,10 +172,11 @@ export function RunBoard({ fen, orientation, movable, onMove, arrows = [], highl
 /** A captured-piece row (pixel sprites), cheapest first. */
 export function PixelCaptured({ pieces, color, lead }: { pieces: string[]; color: 'w' | 'b'; lead: number }) {
   const theme = useBoardTheme();
+  const set = usePieceSet();
   return (
     <div className="flex h-5 items-center">
       {pieces.map((k, i) => (
-        <img key={i} src={pieceSprite(theme, color, k.toUpperCase() as 'P')} alt={k} className="pixelated" style={{ width: 20, height: 20, marginLeft: i && pieces[i - 1] === k ? -9 : i ? -3 : 0 }} />
+        <img key={i} src={pieceSprite(theme, color, k.toUpperCase() as 'P', set)} alt={k} className="pixelated" style={{ width: 20, height: 20, marginLeft: i && pieces[i - 1] === k ? -9 : i ? -3 : 0 }} />
       ))}
       {lead > 0 && <span className="run-sans ml-1 text-[11px] font-black text-[var(--gold-2)]">+{lead}</span>}
     </div>

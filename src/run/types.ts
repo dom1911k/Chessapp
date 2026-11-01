@@ -4,7 +4,7 @@ import type { PuzzleSpec } from '../lib/puzzles/spec';
 
 export type RoomKind = 'puzzle' | 'convert' | 'hold' | 'ward' | 'vault' | 'duel' | 'boss';
 export type NodeKind = RoomKind | 'event';
-export type EventKind = 'shrine' | 'gambler' | 'merchant' | 'altar';
+export type EventKind = 'shrine' | 'gambler' | 'merchant' | 'altar' | 'library' | 'spring';
 export type ModifierId = 'gilded' | 'focused' | 'steady' | 'rival';
 export type ConvertGoal = 'gain' | 'keep';
 export type Rarity = 'common' | 'uncommon' | 'rare';
@@ -12,8 +12,9 @@ export type CurseId = 'brittle';
 
 export type RelicId =
   | 'calm' | 'bloodhound' | 'forkmaster' | 'ironwall' | 'pins' | 'clean' | 'spendthrift' | 'bloomer'
-  | 'hunter' | 'patience' | 'executioner' | 'secondwind' | 'scholar' | 'glass' | 'lucky';
-export type ConsumableId = 'eye' | 'rewind' | 'cards' | 'lens' | 'opinion' | 'insurance';
+  | 'hunter' | 'patience' | 'executioner' | 'secondwind' | 'scholar' | 'glass' | 'lucky'
+  | 'castle' | 'rite' | 'tempo';
+export type ConsumableId = 'eye' | 'rewind' | 'cards' | 'lens' | 'opinion' | 'insurance' | 'check';
 
 export interface MapNode {
   kind: NodeKind;
@@ -95,6 +96,8 @@ export interface RoomState {
   puzzle?: PuzzleProgress;
   /** Gambler event: a single puzzle with Composure at stake. */
   gamble?: boolean;
+  /** Duel: the book line played so far (SAN), for the opening hint. */
+  book?: string[];
   /** Vault: the endgame goal and move limit. */
   vault?: { goal: 'mate' | 'promote' | 'capture'; maxMoves: number; title: string };
   status: 'playing' | 'won' | 'failed';
@@ -135,7 +138,9 @@ export type EventState =
   | { kind: 'shrine'; fen: string; choices: string[]; answer: string[]; picked?: string }
   | { kind: 'gambler'; done?: boolean }
   | { kind: 'merchant'; stock: { id: RelicId; price: number }[] }
-  | { kind: 'altar'; ids: RelicId[] };
+  | { kind: 'altar'; ids: RelicId[] }
+  | { kind: 'library'; fen: string; choices: string[]; answer: string[]; picked?: string; themes: string[] }
+  | { kind: 'spring'; used?: boolean };
 
 export type Phase =
   | 'start' // choose a starting relic
@@ -184,7 +189,11 @@ export interface Run {
   /** Puzzles already used this run (avoid repeats). */
   usedPuzzles: string[];
   /** Meta snapshot taken when the run started (boosts and what is still locked). */
-  meta?: { boosts: Partial<Record<'purse' | 'candle' | 'pocket' | 'reroll' | 'satchel', number>>; lockedRelics: RelicId[] };
+  meta?: { boosts: Partial<Record<string, number>>; lockedRelics: RelicId[]; lockedCards?: ConsumableId[] };
+  /** Steady Nerves boost used (first blunder of the run costs one less). */
+  nervesUsed?: boolean;
+  /** Milestones earned during this run (ids), for the debrief. */
+  milestones?: string[];
   /** The free shop reroll (Second Look) has been used at this campfire. */
   rerollUsed?: boolean;
   /** Embers earned (set when the run ends). */

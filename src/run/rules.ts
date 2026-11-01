@@ -9,7 +9,7 @@ import { TUNING as T, type BossMod } from './tuning';
 import type { ConsumableId, CurseId, EventKind, Fire, MapNode, ModifierId, Rarity, RelicId, RoomKind, RoomState, Run, UserMove } from './types';
 
 export const ALL_RELICS = Object.keys(RELICS) as RelicId[];
-export const ALL_CONSUMABLES: ConsumableId[] = ['eye', 'rewind', 'cards', 'lens', 'opinion', 'insurance'];
+export const ALL_CONSUMABLES: ConsumableId[] = ['eye', 'rewind', 'cards', 'lens', 'opinion', 'insurance', 'check'];
 
 export type Rand = () => number;
 export const pickOne = <X,>(a: readonly X[], rand: Rand): X => a[Math.floor(rand() * a.length)];
@@ -34,7 +34,7 @@ function weighted<X extends string>(w: Record<X, number>, n: number, rand: Rand,
   }
   return out;
 }
-export const consumableOffer = (n: number, rand: Rand) => weighted<ConsumableId>({ ...T.consumables.weight }, n, rand);
+export const consumableOffer = (n: number, rand: Rand, locked: ConsumableId[] = []) => weighted<ConsumableId>({ ...T.consumables.weight }, n, rand, locked);
 
 /** 1-of-n relic offer weighted by rarity, never a relic you already own. */
 export function relicOffer(owned: RelicId[], n: number, rand: Rand, rarity: Record<Rarity, number> = T.relics.rarity, only?: Rarity): RelicId[] {
@@ -70,7 +70,7 @@ export interface Locks {
 export function buildMap(rand: Rand, pools: Pools, locks: Locks = {}): MapNode[][] {
   const mod = (): ModifierId => pickOne<ModifierId>(['steady', 'steady', 'gilded', 'focused'], rand);
   const kinds = (['puzzle', 'convert', 'hold', 'ward', 'vault', 'duel'] as RoomKind[]).filter((k) => !locks.rooms?.includes(k));
-  const events = (['shrine', 'gambler', 'merchant', 'altar'] as EventKind[]).filter((k) => !locks.events?.includes(k));
+  const events = (['shrine', 'gambler', 'merchant', 'altar', 'library', 'spring'] as EventKind[]).filter((k) => !locks.events?.includes(k));
   const room = (kind: RoomKind, layer: number): MapNode => ({
     kind,
     modifier: mod(),
@@ -162,6 +162,9 @@ export function moveFires(relics: RelicId[], room: RoomState, m: UserMove, at: n
   if (has('ironwall') && room.node.kind === 'hold') out.push({ relic: 'ironwall', mult: T.relics.ironWallMult, at });
   if (has('hunter') && capture) out.push({ relic: 'hunter', mult: T.relics.hunterMult, at });
   if (has('patience') && !capture && !check) out.push({ relic: 'patience', mult: T.relics.patienceMult, at });
+  if (has('castle') && m.san.startsWith('O-O')) out.push({ relic: 'castle', mult: T.relics.castleMult, gold: T.relics.castleGold, at });
+  if (has('rite') && m.san.includes('=')) out.push({ relic: 'rite', mult: T.relics.riteMult, at });
+  if (has('tempo') && check) out.push({ relic: 'tempo', mult: T.relics.tempoMult, at });
   if (boss?.captureMult && capture) out.push({ relic: 'rival', mult: boss.captureMult, at });
   return out;
 }
@@ -207,6 +210,10 @@ export function maxConsumables(relics: RelicId[], pocket = 0) {
 }
 /** Card slots for a run (relics and the Deep Pockets boost). */
 export const cardSlots = (r: Pick<Run, 'relics' | 'meta'>) => maxConsumables(r.relics, r.meta?.boosts.pocket ?? 0);
+/** Most candles one room can take (moves + failing it). */
+export const roomCap = (room: Pick<RoomState, 'node'>) => (room.node.kind === 'boss' ? T.composure.bossCap : T.composure.roomCap);
+/** Candles already lost in this room. */
+export const roomLoss = (room: Pick<RoomState, 'moves'>) => room.moves.reduce((s, m) => s + m.composureLost, 0);
 /** Max Composure for a run (Spare Candle boost). */
 export const maxComposure = (r: Pick<Run, 'meta'>) => T.composure.max + (r.meta?.boosts.candle ?? 0);
 /** Relics a run can't be offered: owned ones and those still locked. */
@@ -225,6 +232,9 @@ export function restPrice(relics: RelicId[]) {
   if (relics.includes('spendthrift')) p = Math.round(p * T.relics.spendthriftPriceFactor);
   return Math.max(1, p);
 }
+/** Campfire prices for a run (Spendthrift, Haggler). */
+export const shopPrice = (r: Pick<Run, 'relics' | 'meta'>, id: ConsumableId) => Math.max(1, price(id, r.relics) - (r.meta?.boosts.haggler ? 1 : 0));
+export const restCost = (r: Pick<Run, 'relics' | 'meta'>) => Math.max(1, restPrice(r.relics) - (r.meta?.boosts.haggler ? 1 : 0));
 export const shopOffers = (relics: RelicId[]) => T.shop.offers + (relics.includes('lucky') ? T.relics.luckyExtraOffer : 0);
 
 const mat = (fen: string, me: 'w' | 'b') => materialBalance(parseFen(fen).board, me);
@@ -275,7 +285,7 @@ export function judge(room: RoomState, stage: 'mine' | 'reply', boss?: BossMod):
     return null;
   }
   if (k === 'duel') {
-    const min = e ? T.elite.duelMinCp : r.duel.minCp;
+    const min = room.startEval - (e ? T.elite.duelMaxDropCp : r.duel.maxDropCp);
     if (stage === 'mine' && last && n >= r.duel.moves)
       return last.evalAfter >= min ? { status: 'won', reason: `Out of the opening at ${fmtCp(last.evalAfter)}.` } : { status: 'failed', reason: `Out of the opening at only ${fmtCp(last.evalAfter)}.` };
     return null;
@@ -313,7 +323,7 @@ export function gaugeLines(room: RoomState, boss?: BossMod): { floor?: number; g
     case 'hold':
       return { floor: room.startEval - (e ? T.elite.holdMaxDropCp : r.hold.maxDropCp) };
     case 'duel':
-      return { floor: e ? T.elite.duelMinCp : r.duel.minCp };
+      return { floor: room.startEval - (e ? T.elite.duelMaxDropCp : r.duel.maxDropCp) };
     case 'boss': {
       const g = bossGoal(boss ?? T.bossMods.default);
       return g.noEarlyWin ? { goal: g.endCp } : { goal: g.winCp, floor: undefined };
@@ -340,7 +350,7 @@ export function progress(room: RoomState, boss?: BossMod): string {
     case 'hold':
       return `Move ${n}/${r.hold.moves} · floor ${fmtCp(room.startEval - (e ? T.elite.holdMaxDropCp : r.hold.maxDropCp))}`;
     case 'duel':
-      return `Move ${n}/${r.duel.moves} · end ≥ ${fmtCp(e ? T.elite.duelMinCp : r.duel.minCp)}`;
+      return `Move ${n}/${r.duel.moves} · end ≥ ${fmtCp(room.startEval - (e ? T.elite.duelMaxDropCp : r.duel.maxDropCp))}`;
     case 'vault':
       return `Move ${n}/${room.vault?.maxMoves ?? 0} · ${room.vault?.goal === 'mate' ? 'checkmate' : room.vault?.goal === 'promote' ? 'promote' : 'win the pawn'}`;
     case 'boss': {

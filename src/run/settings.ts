@@ -10,10 +10,12 @@ export interface RunSettings {
   crt: 0 | 1 | 2;
   reduceMotion: boolean;
   board: string;
+  /** Piece set ('board' = match the board). */
+  pieces: string;
 }
 
 const KEY = 'chesscoach.run.settings';
-const DEFAULTS: RunSettings = { music: 0.6, sfx: 0.9, crt: 1, reduceMotion: false, board: 'crypt' };
+const DEFAULTS: RunSettings = { music: 0.6, sfx: 0.9, crt: 1, reduceMotion: false, board: 'crypt', pieces: 'board' };
 
 function read(): RunSettings {
   try {
