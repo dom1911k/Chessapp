@@ -5,9 +5,9 @@ import { Chess } from 'chess.js';
 import { opponentById } from '../../lib/people';
 import { uciToSan } from '../../lib/chess/game';
 import { CONSUMABLES, EVENTS, MODIFIERS, RELICS, ROOM_NAME, ROOM_SPRITE, bossMod, bossModText, objective } from '../content';
-import { cardSlots, maxComposure, restCost, shopPrice } from '../rules';
+import { cardSlots, maxComposure, restCost, rivalElo, shopPrice } from '../rules';
 import { useRun } from '../store';
-import { TUNING as T } from '../tuning';
+import { TUNING as T, type DiffId } from '../tuning';
 import type { ConsumableId, MapNode, RelicId, RoomKind } from '../types';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { BLOOD, EMBER, GOLD, JADE, SPIRIT, type SpritePalette } from '../pixel/pixelize';
@@ -164,6 +164,7 @@ function Home({ tools, onSanctum, onHistory }: { tools: Tools; onSanctum: () => 
         Short rooms, strange events and a rival at the end. Mistakes snuff out your candles; good moves earn chips. Relics multiply. Normal chess, always.
       </p>
       <div className="mt-auto flex w-full max-w-xs flex-col gap-2">
+        <DifficultyPicker />
         <button className="run-btn w-full text-lg" onClick={() => void s.newRun()}>
           Begin a run
         </button>
@@ -180,13 +181,46 @@ function Home({ tools, onSanctum, onHistory }: { tools: Tools; onSanctum: () => 
   );
 }
 
+const DIFFS: DiffId[] = ['apprentice', 'adept', 'master'];
+
+/** Difficulty for the next run (remembered). */
+function DifficultyPicker() {
+  const diff = useRunSettings((x) => x.difficulty);
+  const setS = useRunSettings((x) => x.set);
+  const d = T.difficulty[diff];
+  return (
+    <div className="mb-1 text-left">
+      <div className="run-label mb-1">Difficulty</div>
+      <div className="flex gap-1.5">
+        {DIFFS.map((id) => (
+          <button
+            key={id}
+            onClick={() => {
+              setS({ difficulty: id });
+              sfx('card');
+            }}
+            className={`run-sans flex-1 py-1.5 text-sm font-bold ${id === diff ? 'text-[var(--gold-2)]' : 'text-[var(--ink-dim)]'}`}
+            style={{ background: id === diff ? 'rgba(242,199,92,.14)' : 'rgba(0,0,0,.35)', boxShadow: `0 0 0 2px #1b0f22, inset 0 0 0 1px ${id === diff ? 'var(--gold-2)' : 'var(--gold-dim)'}` }}
+          >
+            {T.difficulty[id].name}
+          </button>
+        ))}
+      </div>
+      <p className="run-sans mt-1.5 min-h-[2.6em] text-xs leading-snug text-[var(--ink-dim)]">{d.blurb}</p>
+    </div>
+  );
+}
+
 function TopBar({ tools }: { tools: Tools }) {
   const run = useRun((x) => x.run!);
   const lp = useLongPress(tools.onDev);
   return (
     <div className="flex items-center justify-between gap-2 px-4 pt-2">
       <div {...lp} className="select-none">
-        <div className="run-label">Act I{run.curses.length ? ' · Brittle' : ''}</div>
+        <div className="run-label">
+          Act I · {T.difficulty[run.difficulty ?? 'adept'].name}
+          {run.curses.length ? ' · Brittle' : ''}
+        </div>
         <div className="run-title text-lg font-bold">The Gambit</div>
       </div>
       <div className="flex items-center gap-2">
@@ -300,7 +334,7 @@ function Intro() {
   const isBoss = node.kind === 'boss';
   const boss = isBoss ? opponentById(run.bossId) : undefined;
   const mod = bossMod(run.bossId);
-  const elo = boss ? boss.elo + (run.cursed ? T.curse.ratingBoost : 0) : undefined;
+  const elo = boss ? rivalElo(run) : undefined;
   const title = node.kind === 'event' ? EVENTS[node.event!].name : isBoss ? boss?.name : ROOM_NAME[node.kind as RoomKind];
   return (
     <div className="flex h-full flex-col items-center px-6 pt-8 pb-6 text-center">
@@ -326,7 +360,7 @@ function Intro() {
       )}
       <div className="run-panel run-fadeup mt-6 w-full max-w-sm p-4 text-left">
         <div className="run-label">{node.kind === 'event' ? 'What waits inside' : 'Objective'}</div>
-        <div className="run-sans mt-1 text-[15px] font-semibold">{objective(node, isBoss ? mod : undefined)}</div>
+        <div className="run-sans mt-1 text-[15px] font-semibold">{objective(node, isBoss ? mod : undefined, run.difficulty)}</div>
         {node.kind !== 'event' && (
           <>
             <div className="run-label mt-3">{isBoss ? `Rival's rule · ${mod.name}` : `Modifier · ${MODIFIERS[node.modifier].name}`}</div>
@@ -334,8 +368,15 @@ function Intro() {
             {node.elite && <div className="run-sans mt-1 text-sm text-[#ff8c9a]">Elite: harder goal and opponent. Clear it for a guaranteed relic, often rare.</div>}
             <div className="run-label mt-3">Composure</div>
             <div className="run-sans mt-1 text-sm text-[var(--ink-dim)]">
-              Mistake −{T.composure.cost.mistake}, blunder −{T.composure.cost.blunder}, inaccuracy free.
-              {!isBoss ? ` Failing the room: −${T.composure.failRoom}.` : ' Losing to the rival ends the run.'} A room takes at most {isBoss ? T.composure.bossCap : T.composure.roomCap} candles.
+              {(() => {
+                const d = T.difficulty[run.difficulty ?? 'adept'];
+                const c = (n: number) => (n ? `−${n}` : 'free');
+                return `${d.name}: mistake ${c(d.cost.mistake)}, blunder ${c(d.cost.blunder)}, inaccuracy free.${
+                  d.takebacks ? ` ${d.takebacks} free take-back${d.takebacks > 1 ? 's' : ''} in this room.` : ''
+                }`;
+              })()}
+              {!isBoss ? ` Failing the room: −${T.composure.failRoom}, unless a move here already cost a candle.` : ' Losing to the rival ends the run.'} A room takes at most{' '}
+              {isBoss ? T.composure.bossCap : T.composure.roomCap} candles.
             </div>
           </>
         )}

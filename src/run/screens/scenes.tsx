@@ -131,7 +131,7 @@ const PAGES = [
   {
     sprite: 'candle',
     title: 'Composure',
-    text: 'Your candles are your lives. A mistake snuffs out one, a blunder two. Inaccuracies are free. When the last candle goes out, the run ends.',
+    text: 'Your candles are your lives. Costly moves snuff them out (on Apprentice only blunders do, and you get a free take-back per room). Slip below a red line and you get a few moves to recover. When the last candle goes out, the run ends.',
   },
   {
     sprite: 'star',

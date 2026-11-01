@@ -4,8 +4,9 @@ import { Chess } from 'chess.js';
 import { materialBalance, parseFen } from '../lib/chess/pos';
 import type { Classification, Score } from '../lib/chess/evaluation';
 import { moveMotifs, type Motif } from '../lib/coach/tactics';
+import { OPPONENTS, opponentById } from '../lib/people';
 import { RELICS, bossGoal } from './content';
-import { TUNING as T, type BossMod } from './tuning';
+import { TUNING as T, type BossMod, type DiffId } from './tuning';
 import type { ConsumableId, CurseId, EventKind, Fire, MapNode, ModifierId, Rarity, RelicId, RoomKind, RoomState, Run, UserMove } from './types';
 
 export const ALL_RELICS = Object.keys(RELICS) as RelicId[];
@@ -127,12 +128,67 @@ export interface CostCtx {
   node: MapNode;
   boss?: BossMod;
   curses?: CurseId[];
+  diff?: DiffId;
+}
+
+export const diffOf = (id?: DiffId) => T.difficulty[id ?? 'adept'];
+
+/** The room's goal numbers after the difficulty's margin (for text and judging). */
+export function limits(node: Pick<MapNode, 'kind' | 'elite'>, diff?: DiffId, boss?: BossMod) {
+  const d = diffOf(diff);
+  const e = node.elite;
+  const r = T.rooms;
+  const g = bossGoal(boss ?? T.bossMods.default);
+  return {
+    grace: d.grace,
+    keepCp: (e ? T.elite.keepCp : r.convert.keepCp) - d.margin,
+    holdDrop: (e ? T.elite.holdMaxDropCp : r.hold.maxDropCp) + d.margin,
+    duelDrop: (e ? T.elite.duelMaxDropCp : r.duel.maxDropCp) + d.margin,
+    winCp: g.winCp,
+    endCp: g.endCp - d.margin,
+    moves: g.moves,
+    noEarlyWin: g.noEarlyWin,
+  };
+}
+
+/** A red line you must stay above during play (Hold, Keep-ahead), your POV cp. */
+export function floorLine(room: Pick<RoomState, 'node' | 'startEval' | 'diff'>): number | undefined {
+  const L = limits(room.node, room.diff);
+  if (room.node.kind === 'hold') return room.startEval - L.holdDrop;
+  if (room.node.kind === 'convert' && room.node.goal === 'keep') return L.keepCp;
+  return undefined;
+}
+
+/** How many of your latest moves in a row ended below `line`. */
+export function below(room: Pick<RoomState, 'moves'>, line: number): number {
+  let k = 0;
+  for (let i = room.moves.length - 1; i >= 0 && room.moves[i].evalAfter < line; i--) k++;
+  return k;
+}
+
+/**
+ * The recovery window: you're below a red line (or past the move limit short of the goal) and
+ * have `left` more moves to fix it. Null when all is well.
+ */
+export function recovery(room: RoomState, boss?: BossMod): { left: number; overtime: boolean } | null {
+  if (room.status !== 'playing' || room.puzzle || !room.moves.length) return null;
+  const L = limits(room.node, room.diff, boss);
+  const last = room.moves[room.moves.length - 1];
+  const n = room.moves.length;
+  const floor = floorLine(room);
+  if (floor !== undefined) {
+    const k = below(room, floor);
+    return k > 0 ? { left: L.grace - k + 1, overtime: false } : null;
+  }
+  if (room.node.kind === 'duel' && n >= T.rooms.duel.moves && last.evalAfter < room.startEval - L.duelDrop) return { left: T.rooms.duel.moves + L.grace - n, overtime: true };
+  if (room.node.kind === 'boss' && n >= L.moves && last.evalAfter < L.endCp) return { left: L.moves + L.grace - n, overtime: true };
+  return null;
 }
 
 /** Composure a move costs, before Insurance. */
 export function composureCost(cls: Classification, ctx: CostCtx): number {
   const { node, boss, curses = [] } = ctx;
-  let c: number = T.composure.cost[cls];
+  let c: number = diffOf(ctx.diff).cost[cls];
   if (cls === 'inaccuracy' && boss?.inaccuracyCost) c += boss.inaccuracyCost;
   if (cls === 'mistake') {
     if (boss?.mistakeExtra) c += boss.mistakeExtra;
@@ -259,11 +315,13 @@ export function judge(room: RoomState, stage: 'mine' | 'reply', boss?: BossMod):
     return k === 'hold' ? { status: 'won', reason: 'A draw — you held!' } : { status: 'failed', reason: 'The game ended in a draw.' };
   }
   const r = T.rooms;
+  const L = limits(room.node, room.diff, boss);
   if (k === 'convert' && room.node.goal === 'keep') {
-    const keep = e ? T.elite.keepCp : r.convert.keepCp;
+    const keep = L.keepCp;
     if (stage === 'mine' && last) {
-      if (last.evalAfter < keep) return { status: 'failed', reason: `Dropped below +${keep / 100}.` };
-      if (n >= r.convert.keepMoves) return { status: 'won', reason: `Stayed above +${keep / 100} for ${n} moves.` };
+      const k = below(room, keep);
+      if (k > L.grace) return { status: 'failed', reason: `Stayed below ${fmtCp(keep)} too long.` };
+      if (n >= r.convert.keepMoves && k === 0) return { status: 'won', reason: `Stayed above ${fmtCp(keep)} for ${n} moves.` };
     }
     return null;
   }
@@ -277,17 +335,19 @@ export function judge(room: RoomState, stage: 'mine' | 'reply', boss?: BossMod):
     return null;
   }
   if (k === 'hold') {
-    const drop = e ? T.elite.holdMaxDropCp : r.hold.maxDropCp;
     if (stage === 'mine' && last) {
-      if (last.evalAfter < room.startEval - drop) return { status: 'failed', reason: 'The position slipped too far.' };
-      if (n >= r.hold.moves) return { status: 'won', reason: `Held for ${n} moves.` };
+      const k = below(room, room.startEval - L.holdDrop);
+      if (k > L.grace) return { status: 'failed', reason: 'The position stayed below the line too long.' };
+      if (n >= r.hold.moves && k === 0) return { status: 'won', reason: `Held for ${n} moves.` };
     }
     return null;
   }
   if (k === 'duel') {
-    const min = room.startEval - (e ? T.elite.duelMaxDropCp : r.duel.maxDropCp);
-    if (stage === 'mine' && last && n >= r.duel.moves)
-      return last.evalAfter >= min ? { status: 'won', reason: `Out of the opening at ${fmtCp(last.evalAfter)}.` } : { status: 'failed', reason: `Out of the opening at only ${fmtCp(last.evalAfter)}.` };
+    const min = room.startEval - L.duelDrop;
+    if (stage === 'mine' && last && n >= r.duel.moves) {
+      if (last.evalAfter >= min) return { status: 'won', reason: `Out of the opening at ${fmtCp(last.evalAfter)}.` };
+      if (n >= r.duel.moves + L.grace) return { status: 'failed', reason: `Out of the opening at only ${fmtCp(last.evalAfter)}.` };
+    }
     return null;
   }
   if (k === 'vault' && room.vault) {
@@ -301,12 +361,14 @@ export function judge(room: RoomState, stage: 'mine' | 'reply', boss?: BossMod):
     return null;
   }
   // boss
-  const g = bossGoal(boss ?? T.bossMods.default);
+  const g = limits(room.node, room.diff, boss);
   if (stage === 'mine' && last) {
     if (boss?.blunderEnds && last.cls === 'blunder') return { status: 'failed', reason: 'One blunder was all it took.' };
     if (!g.noEarlyWin && last.evalAfter >= g.winCp) return { status: 'won', reason: `Reached ${fmtCp(last.evalAfter)}!` };
-    if (n >= g.moves)
-      return last.evalAfter >= g.endCp ? { status: 'won', reason: `Ahead (${fmtCp(last.evalAfter)}) when time ran out.` } : { status: 'failed', reason: `Only ${fmtCp(last.evalAfter)} after ${n} moves.` };
+    if (n >= g.moves) {
+      if (last.evalAfter >= g.endCp) return { status: 'won', reason: `Ahead (${fmtCp(last.evalAfter)}) when time ran out.` };
+      if (n >= g.moves + g.grace) return { status: 'failed', reason: `Only ${fmtCp(last.evalAfter)} after ${n} moves.` };
+    }
   }
   return null;
 }
@@ -315,19 +377,16 @@ export const fmtCp = (cp: number) => (Math.abs(cp) >= 9000 ? (cp > 0 ? 'mate' : 
 
 /** Eval lines for the gauge: the room's floor and/or goal (your POV, cp). */
 export function gaugeLines(room: RoomState, boss?: BossMod): { floor?: number; goal?: number } {
-  const r = T.rooms;
-  const e = room.node.elite;
+  const L = limits(room.node, room.diff, boss);
   switch (room.node.kind) {
     case 'convert':
-      return room.node.goal === 'keep' ? { floor: e ? T.elite.keepCp : r.convert.keepCp } : {};
+      return room.node.goal === 'keep' ? { floor: L.keepCp } : {};
     case 'hold':
-      return { floor: room.startEval - (e ? T.elite.holdMaxDropCp : r.hold.maxDropCp) };
+      return { floor: room.startEval - L.holdDrop };
     case 'duel':
-      return { floor: room.startEval - (e ? T.elite.duelMaxDropCp : r.duel.maxDropCp) };
-    case 'boss': {
-      const g = bossGoal(boss ?? T.bossMods.default);
-      return g.noEarlyWin ? { goal: g.endCp } : { goal: g.winCp, floor: undefined };
-    }
+      return { floor: room.startEval - L.duelDrop };
+    case 'boss':
+      return L.noEarlyWin ? { goal: L.endCp } : { goal: L.winCp, floor: undefined };
     default:
       return {};
   }
@@ -338,6 +397,7 @@ export function progress(room: RoomState, boss?: BossMod): string {
   const n = room.moves.length;
   const r = T.rooms;
   const e = room.node.elite;
+  const L = limits(room.node, room.diff, boss);
   if (room.puzzle) {
     const p = room.puzzle;
     return `${room.node.kind === 'ward' ? 'Threat' : 'Puzzle'} ${Math.min(p.index + 1, p.count)}/${p.count} · solved ${p.solved}/${p.need}`;
@@ -345,20 +405,53 @@ export function progress(room: RoomState, boss?: BossMod): string {
   switch (room.node.kind) {
     case 'convert':
       return room.node.goal === 'keep'
-        ? `Move ${n}/${r.convert.keepMoves} · stay ≥ +${(e ? T.elite.keepCp : r.convert.keepCp) / 100}`
+        ? `Move ${n}/${r.convert.keepMoves} · stay ≥ ${fmtCp(L.keepCp)}`
         : `Move ${n}/${e ? T.elite.gainMoves : r.convert.gainMoves} · material ${signed(mat(room.fen, room.me) - mat(room.startFen, room.me))}/+${r.convert.gainMaterial}`;
     case 'hold':
-      return `Move ${n}/${r.hold.moves} · floor ${fmtCp(room.startEval - (e ? T.elite.holdMaxDropCp : r.hold.maxDropCp))}`;
+      return `Move ${n}/${r.hold.moves} · line ${fmtCp(room.startEval - L.holdDrop)}`;
     case 'duel':
-      return `Move ${n}/${r.duel.moves} · end ≥ ${fmtCp(room.startEval - (e ? T.elite.duelMaxDropCp : r.duel.maxDropCp))}`;
+      return `Move ${n}/${r.duel.moves} · end ≥ ${fmtCp(room.startEval - L.duelDrop)}`;
     case 'vault':
       return `Move ${n}/${room.vault?.maxMoves ?? 0} · ${room.vault?.goal === 'mate' ? 'checkmate' : room.vault?.goal === 'promote' ? 'promote' : 'win the pawn'}`;
-    case 'boss': {
-      const g = bossGoal(boss ?? T.bossMods.default);
-      return `Move ${n}/${g.moves} · ${g.noEarlyWin ? `end ≥ +${g.endCp / 100}` : `reach +${g.winCp / 100}`}`;
-    }
+    case 'boss':
+      return `Move ${n}/${L.moves} · ${L.noEarlyWin ? `end ≥ ${fmtCp(L.endCp)}` : `reach +${L.winCp / 100}`}`;
     default:
       return '';
   }
 }
 const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
+
+/** Opponent strength: puzzle rating blended with real results against the app's opponents. */
+export function playStrength(puzzle: number, records: Record<string, { w: number; l: number; d: number }>): number {
+  const S = T.strength;
+  const beaten = OPPONENTS.filter((o) => (records[o.id]?.w ?? 0) > 0).map((o) => o.elo + S.beatBonus);
+  const played = OPPONENTS.some((o) => { const x = records[o.id]; return !!x && x.w + x.l + x.d > 0; });
+  if (!played) return Math.round(puzzle + S.noGamesOffset);
+  const play = beaten.length ? Math.max(...beaten) : S.onlyLosses;
+  return Math.round(Math.min(puzzle, S.puzzleWeight * puzzle + (1 - S.puzzleWeight) * play));
+}
+
+/** The rival's rating this run: never far above your strength, then difficulty and curse. */
+export function rivalElo(r: Run): number {
+  const boss = opponentById(r.bossId);
+  const base = Math.min(boss?.elo ?? 1000, (r.strength ?? r.rating) + T.strength.rivalOver);
+  return Math.max(T.roomElo.min, Math.round(base + diffOf(r.difficulty).eloOffset + (r.cursed ? T.curse.ratingBoost : 0)));
+}
+
+/** Take-backs left in this room (difficulty). */
+export function takebacksLeft(r: Run): number {
+  const rm = r.room;
+  if (!rm) return 0;
+  return Math.max(0, diffOf(r.difficulty).takebacks - (rm.takebacks ?? 0));
+}
+
+/** A free take-back is possible: right after a mistake/blunder (or a wrong puzzle move). */
+export function canTakeBack(r: Run): boolean {
+  const rm = r.room;
+  if (!rm || rm.gamble || takebacksLeft(r) <= 0) return false;
+  const last = rm.moves[rm.moves.length - 1];
+  if (!last || !rm.plies.some((p) => p.by === 'me' && p.fen === last.fenAfter)) return false;
+  if (rm.puzzle) return rm.puzzle.lost;
+  // Only the latest move (not one from before an earlier take-back point).
+  return last.cls === 'mistake' || last.cls === 'blunder' || (rm.status === 'failed' && last.composureLost > 0);
+}

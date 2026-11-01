@@ -1,5 +1,5 @@
 // Names, texts and glyphs for relics, consumables, rooms, events and modifiers.
-import { TUNING as T, type BossMod } from './tuning';
+import { TUNING as T, type BossMod, type DiffId } from './tuning';
 import type { ConsumableId, EventKind, MapNode, ModifierId, Rarity, RelicId, RoomKind } from './types';
 
 export interface CardInfo {
@@ -99,9 +99,13 @@ export function bossGoal(m: BossMod) {
   return { winCp: m.winCp ?? b.winCp, endCp: m.endCp ?? b.endCp, moves: m.moves ?? b.moves, noEarlyWin: !!m.noEarlyWin };
 }
 
-export function objective(node: MapNode, boss?: BossMod): string {
+export function objective(node: MapNode, boss?: BossMod, diff?: DiffId): string {
   const r = T.rooms;
   const e = node.elite;
+  const d = T.difficulty[diff ?? 'adept'];
+  const g = bossGoal(boss ?? T.bossMods.default);
+  const pawns = (cp: number) => `${Math.round(cp) / 100}`;
+  const grace = `Slip below the line and you get ${d.grace} move${d.grace === 1 ? '' : 's'} to recover.`;
   switch (node.kind) {
     case 'puzzle':
       return `Solve ${e ? T.elite.puzzleNeed : r.puzzle.needSolved} of ${r.puzzle.count} puzzles${e ? ' (harder)' : ''}.`;
@@ -109,19 +113,20 @@ export function objective(node: MapNode, boss?: BossMod): string {
       return `Your opponent threatens something. Find the one move that holds — ${e ? T.elite.wardNeed : r.ward.needSolved} of ${r.ward.count}.`;
     case 'convert':
       return node.goal === 'keep'
-        ? `You're winning. Stay at least +${(e ? T.elite.keepCp : r.convert.keepCp) / 100} for ${r.convert.keepMoves} moves.`
+        ? `You're winning. Stay at least +${pawns((e ? T.elite.keepCp : r.convert.keepCp) - d.margin)} for ${r.convert.keepMoves} moves. ${grace}`
         : `You're winning. Win ${r.convert.gainMaterial}+ more material or mate within ${e ? T.elite.gainMoves : r.convert.gainMoves} moves.`;
     case 'hold':
-      return `You're a little worse. Survive ${r.hold.moves} moves without the eval dropping more than ${(e ? T.elite.holdMaxDropCp : r.hold.maxDropCp) / 100}.`;
+      return `You're a little worse. Survive ${r.hold.moves} moves without the eval dropping more than ${pawns((e ? T.elite.holdMaxDropCp : r.hold.maxDropCp) + d.margin)}. ${grace}`;
     case 'vault':
       return 'A won endgame against perfect defence. Finish the job in time.';
     case 'duel':
-      return `An opening, fresh from the book. After ${r.duel.moves} moves, don't be more than ${(e ? T.elite.duelMaxDropCp : r.duel.maxDropCp) / 100} worse than at the start. The book move is shown for your first ${r.duel.hintMoves}.`;
+      return `An opening, fresh from the book. After ${r.duel.moves} moves, don't be more than ${pawns((e ? T.elite.duelMaxDropCp : r.duel.maxDropCp) + d.margin)} worse than at the start (${d.grace} extra move${d.grace === 1 ? '' : 's'} to fix it). The book move is shown for your first ${r.duel.hintMoves}.`;
     case 'boss': {
-      const g = bossGoal(boss ?? T.bossMods.default);
+      const end = g.endCp - d.margin;
+      const endTxt = end > 0 ? `+${pawns(end)} or better` : end === 0 ? 'at least equal' : `no worse than ${pawns(end)}`;
       return g.noEarlyWin
-        ? `Be at +${g.endCp / 100} or better after ${g.moves} moves.`
-        : `Reach +${g.winCp / 100} (or mate) within ${g.moves} moves, or be +${g.endCp / 100} at the end.`;
+        ? `Be ${endTxt} after ${g.moves} moves.`
+        : `Reach +${g.winCp / 100} (or mate) within ${g.moves} moves, or be ${endTxt} at the end.`;
     }
     case 'event':
       return node.event ? EVENTS[node.event].blurb : '';

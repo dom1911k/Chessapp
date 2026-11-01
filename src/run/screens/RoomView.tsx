@@ -7,7 +7,8 @@ import { useSettings } from '../../lib/settings';
 import type { CoachArrow } from '../../lib/coach/types';
 import type { Classification } from '../../lib/chess/evaluation';
 import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, bossMod, bossModText } from '../content';
-import { chipTarget, fmtCp, gaugeLines, cardSlots, progress, roomCap, roomLoss, roomScore } from '../rules';
+import { canTakeBack, chipTarget, fmtCp, gaugeLines, cardSlots, progress, recovery, roomCap, roomLoss, roomScore, takebacksLeft } from '../rules';
+import { explainMove } from '../../lib/coach';
 import { arrowOf, bookHint, bossOf, lensMarks, liveEval, useRun } from '../store';
 import { Chess } from 'chess.js';
 import { TUNING as T } from '../tuning';
@@ -73,6 +74,22 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
     if (lastFx.kind === 'relic') setBossLine(pickLine(boss, 'userGoodMove'));
   }, [lastFx, boss]);
 
+  // The latest slip (mistake/blunder) in a game room, explained by the coach until you move on.
+  const lastMove = room.moves[room.moves.length - 1];
+  const [slipSeen, setSlipSeen] = useState(-1);
+  const slipIdx = !room.puzzle && lastMove && (lastMove.cls === 'mistake' || lastMove.cls === 'blunder') ? room.moves.length - 1 : -1;
+  const slip = slipIdx >= 0 && slipSeen !== slipIdx && room.status === 'playing' ? lastMove : null;
+  const why = useMemo(() => {
+    if (!slip) return null;
+    try {
+      return explainMove({ fenBefore: slip.fenBefore, uci: slip.uci, before: slip.before ?? null, after: slip.after ?? null, classification: slip.cls });
+    } catch {
+      return null;
+    }
+  }, [slip]);
+  const takeBack = canTakeBack(run);
+  const lines = gaugeLines(room, bossOf(run));
+
   const live = roomScore(room);
   const capReached = room.status === 'playing' && roomLoss(room) >= roomCap(room);
   const viewing = view !== null ? room.moves[view] : null;
@@ -93,12 +110,16 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
   const book = bookUci ?? (myTurn && room.node.kind === 'duel' && room.moves.length < T.rooms.duel.hintMoves && s.cur?.fen === room.fen ? s.cur.a.bestMove : null);
   if (book) arrows.push(arrowOf(book, 'info'));
   if (s.aids.verdict) arrows.push(arrowOf(s.aids.verdict.uci, s.aids.verdict.label === 'safe' ? 'good' : 'bad'));
+  if (why && !s.busy) arrows.push(...why.arrows.slice(0, 2));
   const highlights = useMemo(() => (s.aids.lens ? lensMarks(room.fen, me) : []), [s.aids.lens, room.fen, me]);
 
   const playing = room.status === 'playing';
   const canRewind = run.consumables.includes('rewind') && room.moves.length > 0 && (!room.puzzle || room.puzzle.lost) && room.plies.some((p) => p.by === 'me');
   const showGauge = !room.puzzle;
   const ev = liveEval(s.cur, room.fen, me) ?? (room.moves.length ? room.moves[room.moves.length - 1].evalAfter : room.startEval);
+  // The warning follows the live position: if they missed your slip, you're already safe again.
+  const rec0 = recovery(room, bossOf(run));
+  const rec = rec0 && (rec0.overtime || lines.floor === undefined || ev < lines.floor) ? rec0 : null;
   const relicsShown: (RelicId | 'rival')[] = [...run.relics, ...(isBoss ? (['rival'] as const) : [])];
 
   return (
@@ -150,7 +171,14 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
           <div className="flex items-center gap-1 rounded bg-[var(--mult)]/20 px-2 py-1 ring-1 ring-[var(--mult)]/50">
             <PixelNum value={live.mult} size={2.5} color="var(--mult)" />
           </div>
-          <div className="run-sans ml-auto text-right text-xs font-semibold text-[var(--ink-dim)]">{progress(room, bossOf(run))}</div>
+          <div className="run-sans ml-auto text-right text-xs leading-tight font-semibold text-[var(--ink-dim)]">
+            <div>{progress(room, bossOf(run))}</div>
+            {showGauge && (
+              <div className="font-bold" style={{ color: evalWord(ev).color }}>
+                {evalWord(ev).text}
+              </div>
+            )}
+          </div>
         </div>
         {/* Relic rail (tap for info) */}
         <div className="mt-2 flex min-h-9 items-center gap-1.5">
@@ -164,7 +192,7 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
 
       {/* Board + eval gauge */}
       <div className="relative mt-1 flex gap-1.5 px-1.5">
-        {showGauge && <EvalGauge cp={ev} {...gaugeLines(room, bossOf(run))} thinking={s.busy} />}
+        {showGauge && <EvalGauge cp={ev} {...lines} thinking={s.busy} danger={!!rec} />}
         <div className="relative min-w-0 flex-1">
           <PixelCaptured pieces={mat.lost[me === 'w' ? 'b' : 'w']} color={me === 'w' ? 'b' : 'w'} lead={me === 'w' ? mat.diff : -mat.diff} />
           <div className="relative">
@@ -190,11 +218,31 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
           )}
           {used && <UsedCard key={used.id} item={used.item} />}
           {s.aids.verdict && <VerdictPanel />}
-          {!playing && <EndBanner canRewind={canRewind} />}
-          {playing && room.puzzle?.lost && <PuzzleLost canRewind={canRewind} />}
+          {!playing && <EndBanner canRewind={canRewind} takeBack={takeBack} />}
+          {playing && room.puzzle?.lost && <PuzzleLost canRewind={canRewind} takeBack={takeBack} />}
         </div>
       </div>
 
+      {rec && (
+        <div className="run-sans run-danger mx-3 mt-1.5 flex items-center gap-2 px-2 py-1 text-xs font-bold text-[#ffd0d6]">
+          <Sprite name="skull" size={14} px={10} pal={BLOOD} />
+          {rec.overtime
+            ? `Not there yet — ${rec.left} extra move${rec.left === 1 ? '' : 's'} to reach the goal.`
+            : `Below the red line! Get back above it — ${rec.left} move${rec.left === 1 ? '' : 's'} left.`}
+        </div>
+      )}
+      {slip && !viewingNow && (
+        <SlipNote
+          cls={slip.cls}
+          lost={slip.composureLost}
+          text={why?.text.slice(0, 2) ?? []}
+          best={why?.bestSan}
+          takeBack={takeBack && !s.busy}
+          left={takebacksLeft(run)}
+          onTakeBack={() => s.rewind(true)}
+          onClose={() => setSlipSeen(slipIdx)}
+        />
+      )}
       {/* Move recap */}
       <div className="mt-1.5 flex min-h-6 items-center gap-1 overflow-hidden px-3">
         {room.moves.slice(-7).map((m, i) => {
@@ -249,25 +297,77 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
 const SPRITE_OF: Record<RoomKind, string> = { puzzle: 'cards', convert: 'scythe', hold: 'tower', ward: 'shield', vault: 'chest', duel: 'swords', boss: 'skull' };
 const spriteOf = (k: RoomKind) => SPRITE_OF[k];
 
-/** Vertical eval meter (your POV): −5 … +5, with the room's floor and goal lines. */
-function EvalGauge({ cp, floor, goal, thinking }: { cp: number; floor?: number; goal?: number; thinking: boolean }) {
-  const clamp = (v: number) => Math.max(-500, Math.min(500, v));
-  const pos = (v: number) => 50 - clamp(v) / 10; // % from top
+/** Your-POV eval in plain words. */
+function evalWord(cp: number): { text: string; color: string } {
+  if (cp >= 9000) return { text: 'Mate ahead!', color: '#5ee59a' };
+  if (cp <= -9000) return { text: 'Mate threatened', color: 'var(--blood)' };
+  if (cp >= 500) return { text: 'Winning', color: '#5ee59a' };
+  if (cp >= 200) return { text: 'Clearly better', color: '#9ff0c0' };
+  if (cp >= 60) return { text: 'Slightly better', color: '#cfe8a0' };
+  if (cp > -60) return { text: 'About equal', color: 'var(--ink)' };
+  if (cp > -200) return { text: 'Slightly worse', color: '#ffd36b' };
+  if (cp > -500) return { text: 'Clearly worse', color: '#ffb454' };
+  return { text: 'Losing', color: 'var(--blood)' };
+}
+
+/** 0..100 bar position on a soft win-chance curve: small slips nudge it, only big swings move it far. */
+const barPct = (cp: number) => {
+  const v = Math.max(-1000, Math.min(1000, cp));
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * T.gauge.softness * v)) - 1);
+};
+
+/** Vertical eval meter (your POV) with the room's red line and goal. Tap to show the number. */
+function EvalGauge({ cp, floor, goal, thinking, danger }: { cp: number; floor?: number; goal?: number; thinking: boolean; danger?: boolean }) {
+  const [num, setNum] = useState(false);
+  const pos = (v: number) => 100 - barPct(v); // % from top
   const p = pos(cp);
   return (
-    <div className="relative w-4 shrink-0" title={`Eval ${fmtCp(cp)}`} style={{ background: 'linear-gradient(#1b0f22,#1b0f22)', boxShadow: '0 0 0 2px #1b0f22, inset 0 0 0 1px rgba(242,199,92,.35)' }}>
-      {/* filled part = your advantage (from the bottom) */}
-      <div className="absolute inset-x-0 bottom-0 transition-[height] duration-500" style={{ height: `${100 - p}%`, background: 'repeating-linear-gradient(0deg, #e0a93a 0 3px, #c48f2a 3px 4px)' }} />
+    <button
+      onClick={() => setNum((x) => !x)}
+      aria-label={`Evaluation ${fmtCp(cp)}`}
+      className={`relative w-4 shrink-0 ${danger ? 'run-danger-bar' : ''}`}
+      style={{ background: 'linear-gradient(#1b0f22,#1b0f22)', boxShadow: '0 0 0 2px #1b0f22, inset 0 0 0 1px rgba(242,199,92,.35)' }}
+    >
+      {/* filled part = your side (from the bottom) */}
+      <div className="absolute inset-x-0 bottom-0 transition-[height] duration-700 ease-out" style={{ height: `${100 - p}%`, background: 'repeating-linear-gradient(0deg, #e0a93a 0 3px, #c48f2a 3px 4px)' }} />
       <div className="absolute inset-x-0 top-1/2 h-px bg-white/30" />
       {floor !== undefined && (
-        <div className="absolute inset-x-[-3px] h-[3px]" style={{ top: `${pos(floor)}%`, background: 'var(--blood)', boxShadow: '0 0 6px var(--blood)' }} title={`Floor ${fmtCp(floor)}`} />
+        <div className={`absolute inset-x-[-3px] h-[3px] ${danger ? 'animate-pulse' : ''}`} style={{ top: `${pos(floor)}%`, background: 'var(--blood)', boxShadow: '0 0 6px var(--blood)' }} />
       )}
-      {goal !== undefined && (
-        <div className="absolute inset-x-[-3px] h-[3px]" style={{ top: `${pos(goal)}%`, background: '#5ee59a', boxShadow: '0 0 6px #5ee59a' }} title={`Goal ${fmtCp(goal)}`} />
+      {goal !== undefined && <div className="absolute inset-x-[-3px] h-[3px]" style={{ top: `${pos(goal)}%`, background: '#5ee59a', boxShadow: '0 0 6px #5ee59a' }} />}
+      {num && (
+        <div className={`run-sans absolute left-1/2 z-10 -translate-x-1/2 rounded bg-black/85 px-0.5 text-[8px] font-black whitespace-nowrap text-[var(--gold-2)] ${thinking ? 'opacity-60' : ''}`} style={{ top: `calc(${Math.max(4, Math.min(92, p))}% - 6px)` }}>
+          {fmtCp(cp).replace('+', '')}
+        </div>
       )}
-      <div className={`run-sans absolute left-1/2 -translate-x-1/2 rounded bg-black/80 px-0.5 text-[8px] font-black whitespace-nowrap text-[var(--gold-2)] ${thinking ? 'opacity-60' : ''}`} style={{ top: `calc(${Math.max(4, Math.min(92, p))}% - 6px)` }}>
-        {fmtCp(cp).replace('+', '')}
+    </button>
+  );
+}
+
+/** What just went wrong, in the coach's words — with the free take-back when the difficulty has one. */
+function SlipNote({ cls, lost, text, best, takeBack, left, onTakeBack, onClose }: {
+  cls: Classification; lost: number; text: string[]; best?: string; takeBack: boolean; left: number; onTakeBack: () => void; onClose: () => void;
+}) {
+  const color = CLS_COLOR[cls];
+  return (
+    <div className="run-panel run-fadeup mx-3 mt-1.5 p-2.5" style={{ boxShadow: `0 0 0 2px #1b0f22, inset 0 0 0 1px ${color}` }}>
+      <div className="flex items-center gap-2">
+        <span className="run-sans text-xs font-black uppercase" style={{ color }}>
+          {cls}
+        </span>
+        <span className="run-sans text-xs text-[var(--ink-dim)]">{lost > 0 ? `−${lost} candle${lost === 1 ? '' : 's'}` : 'no candle lost'}</span>
+        <button className="run-sans ml-auto text-xs font-bold text-[var(--ink-dim)]" onClick={onClose} aria-label="Dismiss">
+          ✕
+        </button>
       </div>
+      <div className="run-sans mt-1 text-[13px] leading-snug">
+        {text.length ? text.join(' ') : best ? `${best} was stronger.` : 'That gave your opponent a chance.'}
+      </div>
+      {takeBack && (
+        <button className="run-btn mt-2 w-full py-1.5! text-sm" onClick={onTakeBack}>
+          Take it back (free · {left} left in this room)
+        </button>
+      )}
     </div>
   );
 }
@@ -395,14 +495,14 @@ function VerdictPanel() {
   );
 }
 
-function EndBanner({ canRewind }: { canRewind: boolean }) {
+function EndBanner({ canRewind, takeBack }: { canRewind: boolean; takeBack: boolean }) {
   const s = useRun();
   const run = s.run!;
   const room = run.room!;
   const won = room.status === 'won';
   const broke = run.composure <= 0;
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/45 p-4" onClick={() => !canRewind && s.closeRoom()}>
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/45 p-4" onClick={() => !canRewind && !takeBack && s.closeRoom()}>
       <div className="run-panel run-slam w-full max-w-xs p-4 text-center" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-center">
           <Sprite name={won ? 'check' : broke ? 'candle' : 'cross'} size={44} px={14} pal={won ? GOLD : BLOOD} />
@@ -412,12 +512,19 @@ function EndBanner({ canRewind }: { canRewind: boolean }) {
         </div>
         <div className="run-sans mt-1 text-sm text-[var(--ink-dim)]">{room.reason}</div>
         <div className="mt-4 flex gap-2">
-          {!won && canRewind && (
-            <button className="run-btn ghost flex-1" onClick={() => s.rewind()}>
-              Rewind
+          {!won && takeBack ? (
+            <button className="run-btn flex-1" onClick={() => s.rewind(true)}>
+              Take back (free)
             </button>
+          ) : (
+            !won &&
+            canRewind && (
+              <button className="run-btn ghost flex-1" onClick={() => s.rewind()}>
+                Rewind
+              </button>
+            )
           )}
-          <button className={`run-btn flex-1 ${broke ? 'danger' : ''}`} onClick={() => s.closeRoom()}>
+          <button className={`run-btn flex-1 ${broke ? 'danger' : ''} ${!won && takeBack ? 'ghost' : ''}`} onClick={() => s.closeRoom()}>
             {broke ? 'Debrief' : 'Continue'}
           </button>
         </div>
@@ -426,7 +533,7 @@ function EndBanner({ canRewind }: { canRewind: boolean }) {
   );
 }
 
-function PuzzleLost({ canRewind }: { canRewind: boolean }) {
+function PuzzleLost({ canRewind, takeBack }: { canRewind: boolean; takeBack: boolean }) {
   const s = useRun();
   const last = s.run!.room!.moves[s.run!.room!.moves.length - 1];
   return (
@@ -437,10 +544,16 @@ function PuzzleLost({ canRewind }: { canRewind: boolean }) {
           {last?.cls && last.composureLost > 0 ? `${last.cls[0].toUpperCase()}${last.cls.slice(1)}: −${last.composureLost} Composure. ` : ''}The green arrow shows the move.
         </div>
         <div className="mt-3 flex gap-2">
-          {canRewind && (
-            <button className="run-btn ghost flex-1" onClick={() => s.rewind()}>
-              Rewind
+          {takeBack ? (
+            <button className="run-btn ghost flex-1" onClick={() => s.rewind(true)}>
+              Try again (free)
             </button>
+          ) : (
+            canRewind && (
+              <button className="run-btn ghost flex-1" onClick={() => s.rewind()}>
+                Rewind
+              </button>
+            )
           )}
           <button className="run-btn flex-1" disabled={s.busy} onClick={() => s.nextPuzzle()}>
             Next

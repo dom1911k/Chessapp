@@ -1,6 +1,7 @@
 // Run mode's own settings (music/sound volume, CRT strength, motion, board theme), kept in
 // localStorage so they stay with the experiment.
 import { create } from 'zustand';
+import type { DiffId } from './tuning';
 
 export interface RunSettings {
   /** 0..1, multiplied with the app's volume. */
@@ -12,10 +13,12 @@ export interface RunSettings {
   board: string;
   /** Piece set ('board' = match the board). */
   pieces: string;
+  /** Difficulty for the next run. */
+  difficulty: DiffId;
 }
 
 const KEY = 'chesscoach.run.settings';
-const DEFAULTS: RunSettings = { music: 0.6, sfx: 0.9, crt: 1, reduceMotion: false, board: 'crypt', pieces: 'board' };
+const DEFAULTS: RunSettings = { music: 0.6, sfx: 0.9, crt: 1, reduceMotion: false, board: 'crypt', pieces: 'board', difficulty: 'apprentice' };
 
 function read(): RunSettings {
   try {

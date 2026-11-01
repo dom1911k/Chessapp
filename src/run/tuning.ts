@@ -2,6 +2,28 @@
 // Change values, reload, playtest. Nothing else in src/run should hard-code balance numbers.
 import type { ConsumableId } from './types';
 
+export type DiffId = 'apprentice' | 'adept' | 'master';
+type Costs = { best: number; good: number; inaccuracy: number; mistake: number; blunder: number };
+
+/** A difficulty, chosen before each run. */
+export interface Difficulty {
+  name: string;
+  blurb: string;
+  /** Added to the opponents' rating (rooms and rival). */
+  eloOffset: number;
+  /** Free take-backs per room (after a mistake or blunder). */
+  takebacks: number;
+  /** Candles per classified move. */
+  cost: Costs;
+  /** Room red lines move this many centipawns in your favour (negative = stricter). */
+  margin: number;
+  /** Moves you get to climb back above a red line (or overtime moves at the end). */
+  grace: number;
+  /** Extra Embers for a run with at least one cleared room. */
+  embers: number;
+}
+
+
 /** A rival's boss rule. Only scoring, Composure, goals or card access — never chess rules. */
 export interface BossMod {
   name: string;
@@ -28,13 +50,55 @@ export interface BossMod {
 }
 
 export const TUNING = {
+  difficulty: {
+    apprentice: {
+      name: 'Apprentice',
+      blurb: 'Gentler opponents, wider red lines, one free take-back per room. Only blunders cost a candle.',
+      eloOffset: -200,
+      takebacks: 1,
+      cost: { best: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 1 },
+      margin: 100,
+      grace: 3,
+      embers: 0,
+    },
+    adept: {
+      name: 'Adept',
+      blurb: 'The intended challenge. Mistakes and blunders cost candles. +1 Ember.',
+      eloOffset: 0,
+      takebacks: 0,
+      cost: { best: 0, good: 0, inaccuracy: 0, mistake: 1, blunder: 2 },
+      margin: 0,
+      grace: 2,
+      embers: 1,
+    },
+    master: {
+      name: 'Master',
+      blurb: 'Stronger opponents, tighter red lines, one move to recover. +3 Embers.',
+      eloOffset: 150,
+      takebacks: 0,
+      cost: { best: 0, good: 0, inaccuracy: 0, mistake: 1, blunder: 2 },
+      margin: -50,
+      grace: 1,
+      embers: 3,
+    },
+  } as Record<DiffId, Difficulty>,
+
+  /**
+   * Opponent strength: your puzzle rating blended with how you actually play (the best app
+   * opponent you've beaten, + beatBonus). Never above your puzzle rating.
+   */
+  strength: { puzzleWeight: 0.4, beatBonus: 100, onlyLosses: 500, noGamesOffset: -250, rivalOver: 200 },
+
+  /** Eval bar: how soft the curve is (lower = calmer swings). */
+  gauge: { softness: 0.7 },
+
   /** Composure = lives. */
   composure: {
     start: 5,
     max: 7,
-    /** Cost per classified move. Inaccuracy is free. */
+    /** Cost per classified move (Adept; each difficulty has its own). */
     cost: { best: 0, good: 0, inaccuracy: 0, mistake: 1, blunder: 2 },
-    /** Failing a room's objective (not the boss). */
+    /** Failing a room's objective (not the boss) — waived when a move in that room already cost candles. */
     failRoom: 1,
     /** Most candles a single room can take (moves + failing it); the rival's room may take a little more. */
     roomCap: 2,
@@ -70,7 +134,7 @@ export const TUNING = {
   },
 
   /** Opponent strength for normal rooms: your puzzle rating, clamped. */
-  roomElo: { min: 700, max: 1700, offset: 0 },
+  roomElo: { min: 500, max: 1700, offset: 0 },
 
   rooms: {
     puzzle: {

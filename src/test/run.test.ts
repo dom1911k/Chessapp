@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { embersFor } from '../run/meta';
-import { reachable, roomCap, roomLoss, buildMap, composureCost, judge, moveFires, roomScore, price, maxConsumables, relicOffer } from '../run/rules';
+import { canTakeBack, playStrength, reachable, recovery, roomCap, roomLoss, buildMap, composureCost, judge, moveFires, roomScore, price, maxConsumables, relicOffer } from '../run/rules';
 import { RELICS } from '../run/content';
 import positions from '../run/data/positions.json';
 import { TUNING as T } from '../run/tuning';
-import type { RoomState, UserMove } from '../run/types';
+import type { RoomState, Run, UserMove } from '../run/types';
+import { OPPONENTS } from '../lib/people';
 import { Chess } from 'chess.js';
 
 const room = (over: Partial<RoomState>): RoomState => ({
@@ -38,6 +39,7 @@ describe('run rules', () => {
     expect(embersFor(base)).toBe(3);
     const good = { ...base, results: [{ won: true }, { won: true }, { won: true }], finalScore: 3000, ended: 'won' } as unknown as Parameters<typeof embersFor>[0];
     expect(embersFor(good)).toBe(3 + 6 + 5 + 6);
+    expect(embersFor({ ...good, difficulty: 'master' } as typeof good)).toBe(3 + 6 + 5 + 6 + T.difficulty.master.embers);
   });
 
   it('charges Composure by class and modifier', () => {
@@ -51,12 +53,49 @@ describe('run rules', () => {
     expect(composureCost('mistake', { ...hold, curses: ['brittle'] })).toBe(2);
   });
 
-  it('hold room: fails on a big drop, wins after enough moves', () => {
+  it('hold room: a drop below the line starts a recovery window; staying below fails', () => {
     const fen = START;
-    expect(judge(room({ fen, moves: [mv({ evalAfter: -300 })] }), 'mine')?.status).toBe('failed');
+    const g = T.difficulty.adept.grace;
+    const low = (n: number) => Array.from({ length: n }, () => mv({ evalAfter: -300 }));
+    expect(judge(room({ fen, moves: low(1) }), 'mine')).toBeNull();
+    expect(recovery(room({ fen, moves: low(1) }))?.left).toBe(g);
+    expect(judge(room({ fen, moves: low(g) }), 'mine')).toBeNull();
+    expect(judge(room({ fen, moves: low(g + 1) }), 'mine')?.status).toBe('failed');
+    // Climbing back resets it.
+    expect(judge(room({ fen, moves: [...low(g), mv({ evalAfter: -100 }), ...low(g)] }), 'mine')).toBeNull();
     expect(judge(room({ fen, moves: [mv({ evalAfter: -100 })] }), 'mine')).toBeNull();
     const eight = Array.from({ length: T.rooms.hold.moves }, () => mv({ evalAfter: -90 }));
     expect(judge(room({ fen, moves: eight }), 'mine')?.status).toBe('won');
+    // At the move limit but below the line: play on until back above it.
+    expect(judge(room({ fen, moves: [...eight.slice(1), mv({ evalAfter: -300 })] }), 'mine')).toBeNull();
+    // Apprentice: wider line and longer window; Master: one move.
+    expect(judge(room({ fen, diff: 'apprentice', moves: [mv({ evalAfter: -80 - T.rooms.hold.maxDropCp - 90 })] }), 'mine')).toBeNull();
+    expect(recovery(room({ fen, diff: 'apprentice', moves: [mv({ evalAfter: -80 - T.rooms.hold.maxDropCp - 90 })] }))).toBeNull();
+    expect(judge(room({ fen, diff: 'master', moves: low(2) }), 'mine')?.status).toBe('failed');
+  });
+
+  it('difficulty sets candle costs; strength blends puzzles with real results', () => {
+    const hold = { node: { kind: 'hold' as const, modifier: 'steady' as const } };
+    expect(composureCost('mistake', { ...hold, diff: 'apprentice' })).toBe(0);
+    expect(composureCost('blunder', { ...hold, diff: 'apprentice' })).toBe(1);
+    expect(composureCost('blunder', { ...hold, diff: 'master' })).toBe(2);
+    expect(playStrength(1500, {})).toBe(1500 + T.strength.noGamesOffset);
+    // Beat the 800 opponent: well below a 1500 puzzle rating.
+    const s = playStrength(1500, { [OPPONENTS.find((o) => o.elo === 800)!.id]: { w: 1, l: 0, d: 0 } });
+    expect(s).toBeLessThan(1300);
+    expect(s).toBeGreaterThan(900);
+    // Never above the puzzle rating.
+    expect(playStrength(700, { [OPPONENTS[OPPONENTS.length - 1].id]: { w: 1, l: 0, d: 0 } })).toBe(700);
+  });
+
+  it('free take-back: only after a slip, once per room on Apprentice', () => {
+    const slip = mv({ cls: 'blunder', fenAfter: 'x' });
+    const base = room({ moves: [slip], plies: [{ uci: 'e2e4', san: 'e4', fen: 'x', by: 'me' }] });
+    const run = (rm: RoomState, difficulty?: 'apprentice' | 'adept') => ({ room: rm, difficulty }) as unknown as Run;
+    expect(canTakeBack(run(base, 'apprentice'))).toBe(true);
+    expect(canTakeBack(run(base, 'adept'))).toBe(false);
+    expect(canTakeBack(run({ ...base, takebacks: 1 }, 'apprentice'))).toBe(false);
+    expect(canTakeBack(run({ ...base, moves: [mv({ cls: 'good', fenAfter: 'x' })] }, 'apprentice'))).toBe(false);
   });
 
   it('convert (gain) is won by material after the reply', () => {
@@ -111,7 +150,10 @@ describe('run rules', () => {
     const duel = (evalAfter: number) =>
       judge(room({ node: { kind: 'duel', modifier: 'steady' }, fen: START, startEval: 40, moves: Array.from({ length: T.rooms.duel.moves }, () => mv({ evalAfter })) }), 'mine');
     expect(duel(40 - T.rooms.duel.maxDropCp)?.status).toBe('won');
-    expect(duel(40 - T.rooms.duel.maxDropCp - 1)?.status).toBe('failed');
+    // Below at the end: extra moves to fix it, then it fails.
+    expect(duel(40 - T.rooms.duel.maxDropCp - 1)).toBeNull();
+    const late = Array.from({ length: T.rooms.duel.moves + T.difficulty.adept.grace }, () => mv({ evalAfter: -200 }));
+    expect(judge(room({ node: { kind: 'duel', modifier: 'steady' }, fen: START, startEval: 40, moves: late }), 'mine')?.status).toBe('failed');
   });
 
   it('new relics: Castle Keep, Promotion Rite, Tempo fire on sound moves', () => {

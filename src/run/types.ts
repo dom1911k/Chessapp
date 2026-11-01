@@ -1,6 +1,7 @@
 import type { AnalysisResult } from '../lib/engine/types';
 import type { Classification } from '../lib/chess/evaluation';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
+import type { DiffId } from './tuning';
 
 export type RoomKind = 'puzzle' | 'convert' | 'hold' | 'ward' | 'vault' | 'duel' | 'boss';
 export type NodeKind = RoomKind | 'event';
@@ -100,6 +101,10 @@ export interface RoomState {
   book?: string[];
   /** Vault: the endgame goal and move limit. */
   vault?: { goal: 'mate' | 'promote' | 'capture'; maxMoves: number; title: string };
+  /** Difficulty of the run (old saves: Adept). */
+  diff?: DiffId;
+  /** Free take-backs used in this room. */
+  takebacks?: number;
   status: 'playing' | 'won' | 'failed';
   /** Why the room ended (shown in the tally). */
   reason?: string;
@@ -160,6 +165,9 @@ export interface Run {
   startedAt: number;
   /** Puzzle rating snapshot when the run started (read-only use). */
   rating: number;
+  /** Opponent strength (puzzle rating blended with playing results). */
+  strength?: number;
+  difficulty?: DiffId;
   bossId: string;
   phase: Phase;
   /** layers[0] = [room1]; middle layers = two options each; last = [boss]. */

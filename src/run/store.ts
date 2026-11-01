@@ -21,8 +21,9 @@ import positions from './data/positions.json';
 import { archiveRun, loadCurrent, saveCurrent } from './db';
 import {
   buildMap, cardSlots, composureCost, roomCap, roomLoss, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, relicOffer, relicPrice, restCost, shopPrice,
-  roomScore, sample, shopOffers, sound, type CostCtx,
+  roomScore, sample, shopOffers, sound, diffOf, canTakeBack, playStrength, rivalElo, type CostCtx,
 } from './rules';
+import { useRunSettings } from './settings';
 import { sfx, buzz } from './sfx';
 import { ROOM_NAME, bossMod } from './content';
 import { embersFor, lockedCards, lockedEvents, lockedRelics, lockedRooms, useMeta } from './meta';
@@ -94,7 +95,8 @@ interface RunStore {
   userMove(uci: string): boolean;
   confirmVerdict(play: boolean): void;
   use(id: ConsumableId): Promise<void>;
-  rewind(): void;
+  /** Undo your last move: with the Rewind card, or `free` with a difficulty take-back. */
+  rewind(free?: boolean): void;
   nextPuzzle(): void;
   /** Accept a decided room → tally (or debrief). */
   closeRoom(): void;
@@ -156,7 +158,7 @@ function addRelic(r: Run, id: RelicId) {
 export const useRun = create<RunStore>((set, get) => {
   const run = () => get().run!;
   const room = () => get().run!.room!;
-  const ctx = (): CostCtx => ({ node: room().node, boss: bossOf(run()), curses: run().curses });
+  const ctx = (): CostCtx => ({ node: room().node, boss: bossOf(run()), curses: run().curses, diff: run().difficulty });
   /** Immutable update of the run (and persist). */
   const patch = (f: (r: Run) => void) => {
     const r = clone(get().run!);
@@ -300,7 +302,8 @@ export const useRun = create<RunStore>((set, get) => {
       r.composure = Math.max(0, r.composure - lost);
       if (m.eye) (r.eyeMoves ??= []).push(`${ROOM_NAME[R.node.kind as RoomKind]}: ${m.san}`);
       if (cost > 0) r.moments.push({ layer: R.layer, kind: R.node.kind as RoomKind, move: clone(m), cost });
-      if (!(cost > 0)) {
+      // Keep the analysis of costly moves and slips (the debrief and the "why" note use it).
+      if (!(cost > 0) && m.cls !== 'mistake' && m.cls !== 'blunder') {
         delete m.before;
         delete m.after;
       }
@@ -452,7 +455,10 @@ export const useRun = create<RunStore>((set, get) => {
     return sample(pool, n, Math.random).map(fromLichess);
   };
 
-  const roomElo = (r: Run, elite?: boolean) => Math.max(T.roomElo.min, Math.min(T.roomElo.max + (elite ? T.elite.elo : 0), r.rating + T.roomElo.offset + (elite ? T.elite.elo : 0)));
+  const roomElo = (r: Run, elite?: boolean) => {
+    const e = elite ? T.elite.elo : 0;
+    return Math.max(T.roomElo.min, Math.min(T.roomElo.max + e, (r.strength ?? r.rating) + T.roomElo.offset + diffOf(r.difficulty).eloOffset + e));
+  };
 
   const resumeRoom = (t: number) => {
     const rm = room();
@@ -514,7 +520,7 @@ export const useRun = create<RunStore>((set, get) => {
 
   const puzzleRoom = (r: Run, node: MapNode, list: PuzzleProgress['list'], count: number, need: number, extra: Partial<RoomState> = {}): RoomState => ({
     layer: r.layer, node, me: 'w', startFen: list[0].fen, fen: list[0].fen, plies: [], moves: [], fires: [], startEval: 0,
-    elo: roomElo(r), opp: 'maia', status: 'playing', puzzle: { list, index: 0, step: 0, solved: 0, failed: 0, lost: false, count, need }, ...extra,
+    elo: roomElo(r), opp: 'maia', status: 'playing', diff: r.difficulty, puzzle: { list, index: 0, step: 0, solved: 0, failed: 0, lost: false, count, need }, ...extra,
   });
 
   const startPuzzleRoom = (t: number, rm: RoomState, used: string[]) => {
@@ -553,11 +559,14 @@ export const useRun = create<RunStore>((set, get) => {
       const lockedC = lockedCards(meta);
       const unlocked = OPPONENTS.filter((o) => isUnlocked(o.id, records));
       const boss = unlocked.find((o) => starsOf(records[o.id]) === 0) ?? unlocked[unlocked.length - 1] ?? OPPONENTS[0];
+      const difficulty = useRunSettings.getState().difficulty ?? 'apprentice';
       const r: Run = {
         version: 2,
         id: Math.random().toString(36).slice(2, 10),
         startedAt: Date.now(),
         rating: Math.round(rating),
+        strength: playStrength(rating, records),
+        difficulty,
         bossId: boss.id,
         phase: 'start',
         layers: buildMap(Math.random, poolSizes(), { rooms: lockedRooms(meta), events: lockedEvents(meta) }),
@@ -681,7 +690,7 @@ export const useRun = create<RunStore>((set, get) => {
         const boss = node.kind === 'boss' ? opponentById(r.bossId) : undefined;
         const rm: RoomState = {
           layer: r.layer, node, me: new Chess(fen).turn(), startFen: fen, fen, plies: [], moves: [], fires: [], startEval: ev,
-          elo: boss ? boss.elo + (r.cursed ? T.curse.ratingBoost : 0) : roomElo(r, node.elite), oppId: boss?.id, opp: 'maia', status: 'playing', ...extra,
+          elo: boss ? rivalElo(r) : roomElo(r, node.elite), oppId: boss?.id, opp: 'maia', status: 'playing', diff: r.difficulty, ...extra,
         };
         patch((x) => {
           x.room = rm;
@@ -815,11 +824,12 @@ export const useRun = create<RunStore>((set, get) => {
       }
     },
 
-    rewind() {
+    rewind(free) {
       const s = get();
       const r = s.run;
       const rm = r?.room;
-      if (!r || !rm || !r.consumables.includes('rewind') || s.busy) return;
+      if (!r || !rm || s.busy) return;
+      if (free ? !canTakeBack(r) : !r.consumables.includes('rewind')) return;
       const last = rm.moves[rm.moves.length - 1];
       if (!last) return;
       // Only the move just played; in puzzles only a wrong one.
@@ -831,7 +841,8 @@ export const useRun = create<RunStore>((set, get) => {
       const idx = rm.moves.length - 1;
       patch((x) => {
         const R = x.room!;
-        x.consumables.splice(x.consumables.indexOf('rewind'), 1);
+        if (free) R.takebacks = (R.takebacks ?? 0) + 1;
+        else x.consumables.splice(x.consumables.indexOf('rewind'), 1);
         x.composure = Math.min(maxComposure(x), x.composure + last.composureLost);
         if (last.insured && x.consumables.length < cardSlots(x)) x.consumables.push('insurance');
         R.moves.pop();
@@ -848,8 +859,8 @@ export const useRun = create<RunStore>((set, get) => {
           R.puzzle.failed--;
         }
       });
-      fire({ kind: 'consumable', item: 'rewind' });
-      sfx('card');
+      if (!free) fire({ kind: 'consumable', item: 'rewind' });
+      sfx(free ? 'whoosh' : 'card');
       set({ busy: false, answer: null, aids: { ...NO_AIDS } });
       void prepare(t);
     },
@@ -872,7 +883,8 @@ export const useRun = create<RunStore>((set, get) => {
         R.fires.push(...endFires(r, R, boss));
         const sc = roomScore(R);
         const failCost = R.gamble ? T.events.gambleStake : T.composure.failRoom;
-        const fail = R.status === 'failed' && R.node.kind !== 'boss' && !broke ? Math.min(failCost, Math.max(0, roomCap(R) - roomLoss(R))) : 0;
+        // One punishment per slip: no fail penalty when a move here already cost candles (the gamble's stake always counts).
+        const fail = R.status === 'failed' && R.node.kind !== 'boss' && !broke && (R.gamble || roomLoss(R) === 0) ? Math.min(failCost, Math.max(0, roomCap(R) - roomLoss(R))) : 0;
         const calm = R.fires.reduce((s, f) => s + (f.composure ?? 0), 0);
         r.composure = Math.max(0, Math.min(maxComposure(r), r.composure - fail + (broke ? 0 : calm)));
         r.gold += sc.gold;
@@ -1138,3 +1150,4 @@ export function bookHint(room: RoomState): string | null {
   const res = tryMove(room.fen, line[seq.length]);
   return res ? res.move.lan : null;
 }
+

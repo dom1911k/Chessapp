@@ -337,3 +337,22 @@
   0% { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
   100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
 }
+
+/* Recovery window: below a red line */
+.run-danger {
+  background: rgba(226, 71, 90, 0.18);
+  box-shadow: 0 0 0 2px #1b0f22, inset 0 0 0 1px var(--blood);
+  animation: run-danger-pulse 1.2s ease-in-out infinite;
+}
+.run-danger-bar {
+  animation: run-danger-pulse 1.2s ease-in-out infinite;
+}
+@keyframes run-danger-pulse {
+  50% {
+    filter: brightness(1.35);
+  }
+}
+.run-calm .run-danger,
+.run-calm .run-danger-bar {
+  animation: none;
+}

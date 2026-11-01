@@ -171,7 +171,7 @@ export function MapView({ top }: { top: ReactNode }) {
                 {node.kind === 'event' ? 'Event' : node.kind === 'boss' ? bossMod(run.bossId).name : `${node.elite ? 'Elite · ' : ''}${MODIFIERS[node.modifier].name}`}
               </div>
               <div className="run-title text-lg leading-tight font-bold">{title(node, boss?.name)}</div>
-              <div className="run-sans text-xs leading-snug text-[var(--ink-dim)]">{objective(node, node.kind === 'boss' ? bossMod(run.bossId) : undefined)}</div>
+              <div className="run-sans text-xs leading-snug text-[var(--ink-dim)]">{objective(node, node.kind === 'boss' ? bossMod(run.bossId) : undefined, run.difficulty)}</div>
             </div>
             <button className="run-btn shrink-0" onClick={() => s.chooseNode(sel!)}>
               Travel
