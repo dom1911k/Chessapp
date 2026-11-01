@@ -233,8 +233,8 @@ export const TUNING = {
     brittleMistakeExtra: 1,
   },
 
-  /** Embers per finished run: base + per cleared room + per score step + rival win (+ cursed win). */
-  embers: { base: 3, perRoom: 2, scoreStep: 600, bossWin: 6, cursedWin: 3, lampMinRooms: 3, lamp: 2 },
+  /** Embers per finished run: base + per cleared room + per score step + rival win (+ cursed win) + 1 per `goldPer` gold left. */
+  embers: { base: 3, perRoom: 2, scoreStep: 600, bossWin: 6, cursedWin: 3, lampMinRooms: 3, lamp: 2, goldPer: 20 },
 
   events: {
     springPrice: 6,
@@ -249,9 +249,20 @@ export const TUNING = {
   shop: {
     /** Consumables offered per shop visit. */
     offers: 3,
-    /** Price of a Rest (+1 Composure). */
+    /** Price of a Rest (+1 Composure); each further rest at the same campfire costs restStep more. */
     restPrice: 6,
     restComposure: 1,
+    restStep: 3,
+    restMax: 3,
+    /** Paid shop reroll (each one at the same campfire costs rerollStep more). */
+    rerollPrice: 2,
+    rerollStep: 1,
+    /** One relic for sale at every campfire, by rarity. */
+    stallPrice: { common: 9, uncommon: 13, rare: 18 },
+    /** Bigger Pouch: +1 card slot for the rest of the run (once). */
+    pouchPrice: 12,
+    /** Cleanse the altar's curse. */
+    cleansePrice: 10,
   },
 
   consumables: {

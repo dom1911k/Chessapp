@@ -103,7 +103,7 @@ export function embersFor(r: Run): number {
   const beatBoss = r.ended === 'won';
   const lamp = r.meta?.boosts.lamp && won >= E.lampMinRooms ? E.lamp : 0;
   const diff = won > 0 && r.difficulty ? T.difficulty[r.difficulty].embers : 0;
-  return diff + E.base + won * E.perRoom + Math.floor((r.finalScore ?? 0) / E.scoreStep) + (beatBoss ? E.bossWin : 0) + (beatBoss && r.cursed ? E.cursedWin : 0) + lamp;
+  return diff + Math.floor(Math.max(0, r.gold ?? 0) / E.goldPer) + E.base + won * E.perRoom + Math.floor((r.finalScore ?? 0) / E.scoreStep) + (beatBoss ? E.bossWin : 0) + (beatBoss && r.cursed ? E.cursedWin : 0) + lamp;
 }
 
 export const isUnlocked = (m: Meta, id: string) => !UNLOCKS.some((u) => u.id === id) || m.unlocked.includes(id);

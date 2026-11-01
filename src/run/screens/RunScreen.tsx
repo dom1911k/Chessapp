@@ -5,7 +5,7 @@ import { Chess } from 'chess.js';
 import { opponentById } from '../../lib/people';
 import { uciToSan } from '../../lib/chess/game';
 import { CONSUMABLES, EVENTS, MODIFIERS, RELICS, ROOM_NAME, ROOM_SPRITE, bossMod, bossModText, objective } from '../content';
-import { cardSlots, maxComposure, restCost, rivalElo, shopPrice } from '../rules';
+import { cardSlots, cleansePrice, goldToEmbers, maxComposure, nextRestCost, pouchPrice, rerollPrice, rivalElo, shopPrice, stallPrice } from '../rules';
 import { useRun } from '../store';
 import { TUNING as T, type DiffId } from '../tuning';
 import type { ConsumableId, MapNode, RelicId, RoomKind } from '../types';
@@ -402,7 +402,7 @@ function EventView({ tools }: { tools: Tools }) {
         <PixelText text={meta.name} size={3.5} className="mt-2" maxWidth={330} />
       </div>
       <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-4">
-        {(ev.kind === 'shrine' || ev.kind === 'library') && <Shrine />}
+        {(ev.kind === 'shrine' || ev.kind === 'library') && <Shrine key={ev.fen} />}
         {ev.kind === 'spring' && (
           <div className="run-panel run-fadeup p-4 text-center">
             <p className="run-sans text-sm">
@@ -488,46 +488,90 @@ function EventView({ tools }: { tools: Tools }) {
   );
 }
 
+const PIECE: Record<string, string> = { p: 'Pawn', n: 'Knight', b: 'Bishop', r: 'Rook', q: 'Queen', k: 'King' };
+
+/** A move in plain words for beginners — without giving away checks or mates. */
+function plainMove(fen: string, uci: string): string {
+  try {
+    const m = new Chess(fen).move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+    if (m.isKingsideCastle()) return 'Castle on the king side (king to the right, rook jumps over)';
+    if (m.isQueensideCastle()) return 'Castle on the queen side (king to the left, rook jumps over)';
+    let t = `${PIECE[m.piece]} from ${m.from} to ${m.to}`;
+    if (m.isEnPassant()) t += ', taking their pawn en passant';
+    else if (m.captured) t += `, taking their ${PIECE[m.captured].toLowerCase()}`;
+    if (m.promotion) t += ` and becoming a ${PIECE[m.promotion].toLowerCase()}`;
+    return t;
+  } catch {
+    return uci;
+  }
+}
+
 function Shrine() {
   const s = useRun();
   const ev = s.run!.event;
+  const [sel, setSel] = useState<string | null>(null);
   if (ev?.kind !== 'shrine' && ev?.kind !== 'library') return null;
   const lib = ev.kind === 'library';
   const me = new Chess(ev.fen).turn();
   const right = ev.picked ? ev.answer.includes(ev.picked) : null;
+  const arrows = ev.picked
+    ? [{ from: ev.picked.slice(0, 2), to: ev.picked.slice(2, 4), tone: right ? ('good' as const) : ('bad' as const) }, ...(right ? [] : [{ from: ev.answer[0].slice(0, 2), to: ev.answer[0].slice(2, 4), tone: 'good' as const }])]
+    : sel
+      ? [{ from: sel.slice(0, 2), to: sel.slice(2, 4), tone: 'info' as const }]
+      : [];
   return (
     <div className="run-fadeup">
       <div className="flex items-center gap-2">
         <PixelPortrait id="coach" size={48} />
         <p className="run-sans text-sm">
-          {lib ? '“A tactic hides in this position. Which move finds it?”' : "“They're threatening something. Which move holds?”"} <span className="text-[var(--ink-dim)]">Right answer: {lib ? 'a card' : 'a relic'}.</span>
+          {lib ? '“A tactic hides in this position. Which move finds it?”' : "“They're threatening something. Which move holds?”"}{' '}
+          <span className="text-[var(--ink-dim)]">
+            You play {me === 'w' ? 'White' : 'Black'}. Right answer: {lib ? 'a card' : 'a relic'}.
+          </span>
         </p>
       </div>
-      <div className="mx-auto mt-3 w-64">
-        <RunBoard
-          fen={ev.fen}
-          orientation={me === 'w' ? 'white' : 'black'}
-          movable={null}
-          showCoordinates={false}
-          arrows={
-            ev.picked
-              ? [{ from: ev.picked.slice(0, 2), to: ev.picked.slice(2, 4), tone: right ? 'good' : 'bad' }, ...(right ? [] : [{ from: ev.answer[0].slice(0, 2), to: ev.answer[0].slice(2, 4), tone: 'good' as const }])]
-              : []
-          }
-        />
+      <div className="mx-auto mt-3 w-72">
+        <RunBoard fen={ev.fen} orientation={me === 'w' ? 'white' : 'black'} movable={null} showCoordinates arrows={arrows} />
       </div>
-      <div className="mt-3 flex gap-2">
-        {ev.choices.map((u) => (
-          <button key={u} disabled={!!ev.picked} onClick={() => s.shrinePick(u)} className={`run-btn flex-1 ${ev.picked === u ? (right ? '' : 'danger') : 'ghost'}`}>
-            {uciToSan(ev.fen, u).replace(/[+#]/g, '')}
-          </button>
-        ))}
+      {!ev.picked && <div className="run-sans mt-2 text-center text-[11px] text-[var(--ink-dim)]">Tap a move to see it on the board, then lock it in.</div>}
+      <div className="mt-2 flex flex-col gap-1.5">
+        {ev.choices.map((u) => {
+          const picked = ev.picked === u;
+          const isAnswer = !!ev.picked && ev.answer.includes(u);
+          const on = sel === u && !ev.picked;
+          return (
+            <button
+              key={u}
+              disabled={!!ev.picked}
+              onClick={() => {
+                setSel(u);
+                sfx('card');
+              }}
+              className="run-sans flex items-center gap-2.5 bg-black/35 px-2.5 py-2 text-left disabled:opacity-100"
+              style={{
+                boxShadow: `0 0 0 2px #1b0f22, inset 0 0 0 ${on || picked || isAnswer ? 2 : 1}px ${
+                  isAnswer ? '#5ee59a' : picked ? 'var(--blood)' : on ? '#6fd3ff' : 'var(--gold-dim)'
+                }`,
+                opacity: ev.picked && !picked && !isAnswer ? 0.5 : 1,
+              }}
+            >
+              <span className="run-title w-14 shrink-0 text-lg font-black text-[var(--gold-2)]">{uciToSan(ev.fen, u).replace(/[+#]/g, '')}</span>
+              <span className="text-[13px] leading-snug">{plainMove(ev.fen, u)}</span>
+            </button>
+          );
+        })}
       </div>
+      {!ev.picked && (
+        <button className="run-btn mt-3 w-full" disabled={!sel} onClick={() => sel && s.shrinePick(sel)}>
+          {sel ? 'Lock it in' : 'Choose a move'}
+        </button>
+      )}
       {ev.picked && (
         <div className="run-fadeup mt-3 text-center">
           <div className="run-title text-xl font-bold" style={{ color: right ? 'var(--gold-2)' : 'var(--blood)' }}>
-            {right ? (lib ? 'Well read. Take a card.' : 'Sam nods. A gift awaits.') : `Not quite — ${uciToSan(ev.fen, ev.answer[0])} was the move.`}
+            {right ? (lib ? 'Well read. Take a card.' : 'Sam nods. A gift awaits.') : 'Not quite — the green arrow was the move.'}
           </div>
+          {!right && <div className="run-sans mt-1 text-sm text-[var(--ink-dim)]">{plainMove(ev.fen, ev.answer[0])}.</div>}
           <button className="run-btn mt-3 w-full" onClick={() => s.leaveEvent()}>
             {right ? 'Receive the gift' : 'Move on'}
           </button>
@@ -574,64 +618,128 @@ function Camp({ tools }: { tools: Tools }) {
   const s = useRun();
   const run = s.run!;
   const full = run.consumables.length >= cardSlots(run);
-  const rp = restCost(run);
+  const rp = nextRestCost(run);
+  const rests = run.rests ?? 0;
   const bossNext = run.layer === run.layers.length - 1;
+  const stall = run.stall;
   return (
     <div className="flex h-full flex-col pb-4">
       <TopBar tools={tools} />
-      <div className="mt-1 flex flex-col items-center">
-        <div className="flex items-end gap-3">
-          <PixelPortrait id="coach" size={56} />
-          <Fire w={24} h={26} scale={3} logs />
-          <Sprite name="bag" size={44} px={16} pal={JADE} />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mt-1 flex flex-col items-center">
+          <div className="flex items-end gap-3">
+            <PixelPortrait id="coach" size={48} />
+            <Fire w={22} h={24} scale={3} logs />
+            <Sprite name="bag" size={40} px={16} pal={JADE} />
+          </div>
+          <PixelText text="The Campfire" size={3} className="mt-1" />
+          <div className="run-sans text-xs text-[var(--ink-dim)]">{bossNext ? 'The rival waits beyond the fire.' : 'Rest a moment. Spend what you carry.'}</div>
         </div>
-        <PixelText text="The Campfire" size={3} className="mt-1" />
-        <div className="run-sans text-xs text-[var(--ink-dim)]">{bossNext ? 'The rival waits beyond the fire.' : 'Rest a moment. Buy a card or two.'}</div>
-      </div>
-      <div className="mt-3 flex justify-center gap-2 overflow-x-auto px-2">
-        {run.shopStock.map((id, i) => {
-          const p = shopPrice(run, id);
-          const afford = run.gold >= p && !full;
-          return (
-            <TarotCard
-              key={id + i}
-              info={CONSUMABLES[id]}
-              kind="consumable"
-              w={run.shopStock.length > 3 ? 88 : 110}
-              onClick={afford ? () => s.buy(id) : undefined}
-              className="run-deal"
-              style={{ animationDelay: `${i * 90}ms`, opacity: afford ? 1 : 0.55 }}
-              footer={
-                <span className="run-sans flex items-center justify-center gap-1 text-xs font-black text-[var(--gold)]">
-                  <Sprite name="coin" size={14} px={10} stroke={5} /> {p}
-                </span>
-              }
-            />
-          );
-        })}
-        {run.shopStock.length === 0 && <div className="run-sans py-10 text-sm text-[var(--ink-dim)]">Sold out.</div>}
-      </div>
-      {full && <div className="run-sans mt-2 text-center text-xs text-[var(--ink-dim)]">Hands full ({cardSlots(run)} cards max).</div>}
-      {run.meta?.boosts.reroll ? (
-        <div className="mt-2 px-4">
-          <button className="run-btn ghost w-full py-2! text-sm" disabled={run.rerollUsed} onClick={() => s.rerollShop()}>
-            {run.rerollUsed ? 'Shop rerolled' : 'Second Look: reroll the shop (free)'}
-          </button>
+
+        <div className="run-label mt-3 px-4">Cards · {run.consumables.length}/{cardSlots(run)} held</div>
+        <div className="mt-1 flex justify-center gap-2 overflow-x-auto px-2">
+          {run.shopStock.map((id, i) => {
+            const p = shopPrice(run, id);
+            const afford = run.gold >= p && !full;
+            return (
+              <TarotCard
+                key={id + i}
+                info={CONSUMABLES[id]}
+                kind="consumable"
+                w={run.shopStock.length > 3 ? 84 : 104}
+                onClick={afford ? () => s.buy(id) : undefined}
+                className="run-deal"
+                style={{ animationDelay: `${i * 90}ms`, opacity: afford ? 1 : 0.55 }}
+                footer={
+                  <span className="run-sans flex items-center justify-center gap-1 text-xs font-black text-[var(--gold)]">
+                    <Sprite name="coin" size={14} px={10} stroke={5} /> {p}
+                  </span>
+                }
+              />
+            );
+          })}
+          {run.shopStock.length === 0 && <div className="run-sans py-10 text-sm text-[var(--ink-dim)]">Sold out.</div>}
         </div>
-      ) : null}
-      <div className="mt-3 px-4">
-        <button className="run-btn ghost w-full" disabled={run.restBought || run.gold < rp || run.composure >= maxComposure(run)} onClick={() => s.rest()}>
-          Rest: +{T.shop.restComposure} candle · {rp}g{run.restBought ? ' (done)' : ''}
-        </button>
+        {full && <div className="run-sans mt-1 text-center text-xs text-[var(--ink-dim)]">Hands full — a Bigger Pouch holds one more.</div>}
+        <div className="mt-2 flex gap-2 px-4">
+          {run.meta?.boosts.reroll && !run.rerollUsed ? (
+            <button className="run-btn ghost flex-1 py-2! text-sm" onClick={() => s.rerollShop()}>
+              Second Look (free)
+            </button>
+          ) : (
+            <button className="run-btn ghost flex-1 py-2! text-sm" disabled={run.gold < rerollPrice(run)} onClick={() => s.paidReroll()}>
+              New cards · {rerollPrice(run)}g
+            </button>
+          )}
+        </div>
+
+        {stall && (
+          <>
+            <div className="run-label mt-4 px-4">Relic stall</div>
+            <div className="run-panel mx-4 mt-1 flex items-center gap-3 p-2.5">
+              <Sprite name={RELICS[stall].glyph} size={40} px={14} pal={rarityPal(stall)} />
+              <div className="min-w-0 flex-1">
+                <div className="run-title text-[15px] leading-tight font-bold">
+                  {RELICS[stall].name} <span className="run-sans text-[10px] font-bold text-[var(--ink-dim)] uppercase">{RELICS[stall].rarity}</span>
+                </div>
+                <div className="run-sans text-xs leading-snug text-[var(--ink-dim)]">{RELICS[stall].text}</div>
+              </div>
+              <button className="run-btn shrink-0 px-3! py-2! text-sm" disabled={run.gold < stallPrice(run, stall)} onClick={() => s.buyStall()}>
+                {stallPrice(run, stall)}g
+              </button>
+            </div>
+          </>
+        )}
+
+        <div className="run-label mt-4 px-4">Services</div>
+        <div className="mt-1 flex flex-col gap-1.5 px-4">
+          <Service
+            sprite="candle"
+            title={`Rest · +${T.shop.restComposure} candle`}
+            text={rests >= T.shop.restMax ? 'Rested enough for now.' : run.composure >= maxComposure(run) ? 'Your candles are full.' : `Each rest here costs more (${rests}/${T.shop.restMax}).`}
+            price={rp}
+            disabled={rests >= T.shop.restMax || run.gold < rp || run.composure >= maxComposure(run)}
+            onClick={() => s.rest()}
+          />
+          <Service
+            sprite="bag"
+            title="Bigger Pouch"
+            text={run.pouch ? 'Bought: one extra card slot for this run.' : 'Hold one more card for the rest of the run.'}
+            price={pouchPrice(run)}
+            disabled={!!run.pouch || run.gold < pouchPrice(run)}
+            onClick={() => s.buyPouch()}
+          />
+          {run.curses.length > 0 && (
+            <Service sprite="flame" title="Cleansing rite" text="Lift the altar's curse (Brittle)." price={cleansePrice(run)} disabled={run.gold < cleansePrice(run)} onClick={() => s.cleanse()} />
+          )}
+        </div>
+        <div className="run-sans mt-2 px-4 text-center text-[11px] text-[var(--ink-dim)]">
+          Gold you don't spend becomes Embers when the run ends: {T.embers.goldPer}g = 1 Ember{run.gold >= T.embers.goldPer ? ` (now +${goldToEmbers(run.gold)})` : ''}.
+        </div>
+        <div className="mt-3">
+          <Inventory />
+        </div>
       </div>
-      <div className="mt-3">
-        <Inventory />
-      </div>
-      <div className="mt-auto px-4">
+      <div className="px-4 pt-2">
         <button className="run-btn w-full" onClick={() => s.leaveCamp()}>
           {bossNext ? 'Face the rival' : 'Onward'}
         </button>
       </div>
+    </div>
+  );
+}
+
+function Service({ sprite, title, text, price, disabled, onClick }: { sprite: string; title: string; text: string; price: number; disabled: boolean; onClick: () => void }) {
+  return (
+    <div className="flex items-center gap-2.5 bg-black/30 p-2" style={{ boxShadow: '0 0 0 2px #1b0f22, inset 0 0 0 1px var(--gold-dim)' }}>
+      <Sprite name={sprite} size={26} px={12} pal={EMBER} />
+      <div className="min-w-0 flex-1">
+        <div className="run-sans text-sm leading-tight font-bold">{title}</div>
+        <div className="run-sans text-[11px] leading-snug text-[var(--ink-dim)]">{text}</div>
+      </div>
+      <button className="run-btn ghost shrink-0 px-3! py-1.5! text-sm" disabled={disabled} onClick={onClick}>
+        {price}g
+      </button>
     </div>
   );
 }

@@ -188,6 +188,16 @@ export interface Run {
   offer: Offer | null;
   shopStock: ConsumableId[];
   restBought: boolean;
+  /** Rests bought at the current campfire. */
+  rests?: number;
+  /** Paid rerolls at the current campfire. */
+  rerolls?: number;
+  /** The campfire's relic for sale (null once bought). */
+  stall?: RelicId | null;
+  /** Bigger Pouch bought (extra card slots). */
+  pouch?: number;
+  /** Embers that leftover gold turned into (set when the run ends). */
+  goldEmbers?: number;
   cursed: boolean;
   curseDecided: boolean;
   secondWindUsed?: boolean;

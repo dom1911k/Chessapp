@@ -20,8 +20,8 @@ import { TUNING as T } from './tuning';
 import positions from './data/positions.json';
 import { archiveRun, loadCurrent, saveCurrent } from './db';
 import {
-  buildMap, cardSlots, composureCost, roomCap, roomLoss, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, relicOffer, relicPrice, restCost, shopPrice,
-  roomScore, sample, shopOffers, sound, diffOf, canTakeBack, playStrength, rivalElo, type CostCtx,
+  buildMap, cardSlots, composureCost, roomCap, roomLoss, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, relicOffer, relicPrice, shopPrice,
+  roomScore, sample, shopOffers, sound, diffOf, nextRestCost, stallPrice, pouchPrice, cleansePrice, rerollPrice, goldToEmbers, canTakeBack, playStrength, rivalElo, type CostCtx,
 } from './rules';
 import { useRunSettings } from './settings';
 import { sfx, buzz } from './sfx';
@@ -105,6 +105,11 @@ interface RunStore {
   decideCurse(take: boolean): void;
   buy(id: ConsumableId): void;
   rest(): void;
+  /** Campfire extras: the relic stall, Bigger Pouch, cleanse the curse, paid reroll. */
+  buyStall(): void;
+  buyPouch(): void;
+  cleanse(): void;
+  paidReroll(): void;
   leaveCamp(): void;
   /** Second Look boost: a fresh shop, once per campfire. */
   rerollShop(): void;
@@ -480,6 +485,9 @@ export const useRun = create<RunStore>((set, get) => {
     r.shopStock = consumableOffer(shopOffers(r.relics), Math.random, r.meta?.lockedCards);
     r.restBought = false;
     r.rerollUsed = false;
+    r.rests = 0;
+    r.rerolls = 0;
+    r.stall = relicOffer(unofferable(r), 1, Math.random)[0] ?? null;
   };
 
   const finishRun = (r: Run, won: boolean) => {
@@ -495,6 +503,7 @@ export const useRun = create<RunStore>((set, get) => {
     if (won && r.cursed) ids.push('cursed-win');
     if (won && r.results.every((x) => x.composureLost === 0)) ids.push('untouched');
     earn(r, ids);
+    r.goldEmbers = goldToEmbers(r.gold);
     r.embers = embersFor(r);
     useMeta.getState().finish(r, r.embers);
     void archiveRun(clone(r));
@@ -973,14 +982,58 @@ export const useRun = create<RunStore>((set, get) => {
 
     rest() {
       const r = run();
-      const p = restCost(r);
-      if (r.gold < p || r.restBought || r.composure >= maxComposure(r)) return;
+      const p = nextRestCost(r);
+      if (r.gold < p || (r.rests ?? 0) >= T.shop.restMax || r.composure >= maxComposure(r)) return;
       patch((x) => {
         x.gold -= p;
         x.composure = Math.min(maxComposure(x), x.composure + T.shop.restComposure);
         x.restBought = true;
+        x.rests = (x.rests ?? 0) + 1;
       });
       sfx('coin');
+    },
+
+    buyStall() {
+      const r = run();
+      if (r.phase !== 'camp' || !r.stall || r.gold < stallPrice(r, r.stall)) return;
+      patch((x) => {
+        x.gold -= stallPrice(x, x.stall!);
+        addRelic(x, x.stall!);
+        x.stall = null;
+      });
+      sfx('relic');
+      buzz(15);
+    },
+
+    buyPouch() {
+      const r = run();
+      if (r.phase !== 'camp' || (r.pouch ?? 0) > 0 || r.gold < pouchPrice(r)) return;
+      patch((x) => {
+        x.gold -= pouchPrice(x);
+        x.pouch = 1;
+      });
+      sfx('coin');
+    },
+
+    cleanse() {
+      const r = run();
+      if (r.phase !== 'camp' || !r.curses.length || r.gold < cleansePrice(r)) return;
+      patch((x) => {
+        x.gold -= cleansePrice(x);
+        x.curses = [];
+      });
+      sfx('clear');
+    },
+
+    paidReroll() {
+      const r = run();
+      if (r.phase !== 'camp' || r.gold < rerollPrice(r)) return;
+      patch((x) => {
+        x.gold -= rerollPrice(x);
+        x.rerolls = (x.rerolls ?? 0) + 1;
+        x.shopStock = consumableOffer(shopOffers(x.relics), Math.random, x.meta?.lockedCards);
+      });
+      sfx('card');
     },
 
     rerollShop() {

@@ -80,7 +80,15 @@ export function Debrief({ onShake, onSanctum }: { onShake: () => void; onSanctum
             <div className="run-fadeup mt-3 flex items-center gap-2" style={{ animationDelay: '0.4s' }}>
               <Sprite name="flame" size={26} px={12} pal={EMBER} />
               <PixelNum value={`+${run.embers}`} size={3.5} color="#ffb454" />
-              <span className="run-sans text-xs text-[var(--ink-dim)]">Embers for the Sanctum</span>
+              <span className="run-sans text-xs text-[var(--ink-dim)]">
+                Embers for the Sanctum
+                {run.goldEmbers ? (
+                  <>
+                    <br />
+                    incl. +{run.goldEmbers} from {run.gold}g left over
+                  </>
+                ) : null}
+              </span>
             </div>
           ) : null}
         </div>

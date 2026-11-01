@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { embersFor } from '../run/meta';
-import { canTakeBack, playStrength, reachable, recovery, roomCap, roomLoss, buildMap, composureCost, judge, moveFires, roomScore, price, maxConsumables, relicOffer } from '../run/rules';
+import { canTakeBack, goldToEmbers, nextRestCost, stallPrice, cardSlots, playStrength, reachable, recovery, roomCap, roomLoss, buildMap, composureCost, judge, moveFires, roomScore, price, maxConsumables, relicOffer } from '../run/rules';
 import { RELICS } from '../run/content';
 import positions from '../run/data/positions.json';
 import { TUNING as T } from '../run/tuning';
@@ -40,6 +40,9 @@ describe('run rules', () => {
     const good = { ...base, results: [{ won: true }, { won: true }, { won: true }], finalScore: 3000, ended: 'won' } as unknown as Parameters<typeof embersFor>[0];
     expect(embersFor(good)).toBe(3 + 6 + 5 + 6);
     expect(embersFor({ ...good, difficulty: 'master' } as typeof good)).toBe(3 + 6 + 5 + 6 + T.difficulty.master.embers);
+    // Leftover gold: 1 Ember per goldPer.
+    expect(embersFor({ ...base, gold: T.embers.goldPer * 2 + 5 } as typeof base)).toBe(3 + 2);
+    expect(goldToEmbers(T.embers.goldPer - 1)).toBe(0);
   });
 
   it('charges Composure by class and modifier', () => {
@@ -86,6 +89,14 @@ describe('run rules', () => {
     expect(s).toBeGreaterThan(900);
     // Never above the puzzle rating.
     expect(playStrength(700, { [OPPONENTS[OPPONENTS.length - 1].id]: { w: 1, l: 0, d: 0 } })).toBe(700);
+  });
+
+  it('campfire: rests get dearer, the stall prices by rarity, the pouch adds a slot', () => {
+    const r = { relics: [], meta: { boosts: {}, lockedRelics: [] } } as unknown as Run;
+    expect(nextRestCost({ ...r, rests: 2 })).toBe(T.shop.restPrice + 2 * T.shop.restStep);
+    expect(stallPrice(r, 'calm')).toBe(T.shop.stallPrice.common);
+    expect(stallPrice({ ...r, relics: ['spendthrift'] }, 'calm')).toBe(Math.round(T.shop.stallPrice.common * T.relics.spendthriftPriceFactor));
+    expect(cardSlots({ ...r, pouch: 1 })).toBe(cardSlots(r) + 1);
   });
 
   it('free take-back: only after a slip, once per room on Apprentice', () => {

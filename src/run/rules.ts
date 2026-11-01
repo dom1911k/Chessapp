@@ -265,7 +265,7 @@ export function maxConsumables(relics: RelicId[], pocket = 0) {
   return T.consumables.maxHeld + pocket - (relics.includes('spendthrift') ? T.relics.spendthriftCarryPenalty : 0);
 }
 /** Card slots for a run (relics and the Deep Pockets boost). */
-export const cardSlots = (r: Pick<Run, 'relics' | 'meta'>) => maxConsumables(r.relics, r.meta?.boosts.pocket ?? 0);
+export const cardSlots = (r: Pick<Run, 'relics' | 'meta'> & { pouch?: number }) => maxConsumables(r.relics, (r.meta?.boosts.pocket ?? 0) + (r.pouch ?? 0));
 /** Most candles one room can take (moves + failing it). */
 export const roomCap = (room: Pick<RoomState, 'node'>) => (room.node.kind === 'boss' ? T.composure.bossCap : T.composure.roomCap);
 /** Candles already lost in this room. */
@@ -291,6 +291,16 @@ export function restPrice(relics: RelicId[]) {
 /** Campfire prices for a run (Spendthrift, Haggler). */
 export const shopPrice = (r: Pick<Run, 'relics' | 'meta'>, id: ConsumableId) => Math.max(1, price(id, r.relics) - (r.meta?.boosts.haggler ? 1 : 0));
 export const restCost = (r: Pick<Run, 'relics' | 'meta'>) => Math.max(1, restPrice(r.relics) - (r.meta?.boosts.haggler ? 1 : 0));
+type Shopper = Pick<Run, 'relics' | 'meta'> & { rests?: number; rerolls?: number };
+const deal = (r: Shopper, p: number) => Math.max(1, (r.relics.includes('spendthrift') ? Math.round(p * T.relics.spendthriftPriceFactor) : p) - (r.meta?.boosts.haggler ? 1 : 0));
+/** The next rest at this campfire (gets dearer each time). */
+export const nextRestCost = (r: Shopper) => restCost(r) + (r.rests ?? 0) * T.shop.restStep;
+export const stallPrice = (r: Shopper, id: RelicId) => deal(r, T.shop.stallPrice[RELICS[id].rarity ?? 'common']);
+export const pouchPrice = (r: Shopper) => deal(r, T.shop.pouchPrice);
+export const cleansePrice = (r: Shopper) => deal(r, T.shop.cleansePrice);
+export const rerollPrice = (r: Shopper) => T.shop.rerollPrice + (r.rerolls ?? 0) * T.shop.rerollStep;
+/** Embers that leftover gold turns into at the end of a run. */
+export const goldToEmbers = (gold: number) => Math.floor(Math.max(0, gold) / T.embers.goldPer);
 export const shopOffers = (relics: RelicId[]) => T.shop.offers + (relics.includes('lucky') ? T.relics.luckyExtraOffer : 0);
 
 const mat = (fen: string, me: 'w' | 'b') => materialBalance(parseFen(fen).board, me);
