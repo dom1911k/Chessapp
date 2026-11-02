@@ -107,12 +107,18 @@ export const TUNING = {
 
   gold: {
     start: 4,
-    /** Per cleared room, by room kind. Failed rooms pay nothing. */
-    perRoom: { puzzle: 4, convert: 5, hold: 5, ward: 4, vault: 5, duel: 4, boss: 0 },
+    /**
+     * A cleared room pays score / goldRate (failed rooms pay nothing). An average clean room
+     * (8 moves, ~85 accuracy, ×1.2, blind beaten) ≈ 9 gold; an excellent one (×2.5) ≈ 17.
+     */
+    goldRate: 200,
+    /** Beating the room's chip target (its "blind") multiplies the room's gold. */
+    blindGoldMult: 1.5,
     /** Extra for a clean room (no mistake or blunder). */
     cleanBonus: 3,
-    /** Extra for beating the room's chip target. */
-    targetBonus: 3,
+    /** Soft cap: gold above `softCap` per room only counts at `overCapRate`. */
+    softCap: 18,
+    overCapRate: 0.35,
   },
 
   /** Score = chips × mult. Chips = per-move accuracy (0..100) summed over the room. */
@@ -237,13 +243,15 @@ export const TUNING = {
   embers: { base: 3, perRoom: 2, scoreStep: 600, bossWin: 6, cursedWin: 3, lampMinRooms: 3, lamp: 2, goldPer: 20 },
 
   events: {
+    /** Healing Spring: pay, heal `springHeal`, but your next room gets Razor Focus. */
     springPrice: 6,
+    springHeal: 2,
     /** Chance for a fork option (layer 1) to be an event; one event is guaranteed in layers 2–3. */
     chance: 0.35,
     gambleStake: 1,
     gambleWin: 10,
-    merchantStock: 2,
-    relicPrice: { common: 6, uncommon: 9, rare: 13 },
+    /** The merchant stocks one uncommon and one rare relic, priced like the campfire stall. */
+    merchantRarities: ['uncommon', 'rare'] as ('common' | 'uncommon' | 'rare')[],
   },
 
   shop: {
@@ -287,20 +295,40 @@ export const TUNING = {
     lateBloomerPerRoom: 0.5,
     hunterMult: 0.4,
     patienceMult: 0.15,
+    /** Executioner: ×mult when the room ends in your checkmate. */
     executionerMult: 2,
     scholarGold: 1,
     glassMult: 1.5,
     glassComposure: 2,
     luckyExtraOffer: 1,
     luckyRestDiscount: 2,
-    castleMult: 0.5,
-    castleGold: 1,
+    /** Castle Keep: +mult per good move while your king is castled or behind 2+ own pawns. */
+    castleMult: 0.1,
     riteMult: 1,
+    /** Promotion Rite: a passed pawn reaching your 6th rank. */
+    riteRankMult: 0.5,
     tempoMult: 0.3,
+    /** Rare ×mult relics. */
+    perfectionistX: 2,
+    coldReadX: 1.5,
+    /** Watchman: the lens is refunded if material is won within this many of your moves. */
+    watchmanMoves: 2,
+    /** Bookbinder: a free Blunder Check per this many puzzles solved without a card. */
+    bookbinderEvery: 2,
+    /** Siege Engine: chips per move survived above the red line, × moves survived so far. */
+    siegeChips: 5,
   },
 
   /** After a cleared room (by map layer): what kind of free 1-of-3 pick you get. Elites always give a relic. */
   rewardAfterLayer: ['consumable', 'relic', 'consumable', 'consumable'] as ('consumable' | 'relic' | null)[],
+  /** Chance that a cleared non-elite room gives a free pick at all. */
+  rewardChance: 0.5,
+
+  /** Map: one campfire in row 2 or 3 (index 1–2), plus a guaranteed one right before the rival. */
+  map: { campRows: [1, 2] as number[] },
+
+  /** Rival choice: unlocked rivals you haven't beaten in Run mode are this many times likelier. */
+  rival: { unbeatenWeight: 3 },
 
   /** Timing (ms). */
   timing: {

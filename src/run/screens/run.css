@@ -356,3 +356,20 @@
 .run-calm .run-danger-bar {
   animation: none;
 }
+
+/* Tally: the blind stamp */
+.run-stamp {
+  box-shadow: 0 0 0 2px #5ee59a, 0 0 14px rgba(94, 229, 154, 0.5);
+  background: rgba(10, 30, 20, 0.85);
+  animation: run-stamp 0.35s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+@keyframes run-stamp {
+  from {
+    transform: scale(2.2) rotate(-10deg);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) rotate(-10deg);
+    opacity: 1;
+  }
+}

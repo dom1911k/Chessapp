@@ -2,8 +2,8 @@
 // per room, so routes branch and merge), landmarks, fog over far rows. Tap a room to preview it.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { opponentById } from '../../lib/people';
-import { EVENTS, MODIFIERS, ROOM_NAME, ROOM_SPRITE, bossMod, objective } from '../content';
-import { reachable } from '../rules';
+import { EVENTS, MODIFIERS, ROOM_NAME, ROOM_SPRITE, bossMod, bossModText, objective } from '../content';
+import { isFinalCamp, reachable, rivalElo } from '../rules';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
 import type { MapNode } from '../types';
@@ -25,8 +25,9 @@ function nodeXY(layers: MapNode[][], l: number, i: number) {
   return { x, y };
 }
 
-const title = (n: MapNode, boss?: string) => (n.kind === 'boss' ? (boss ?? 'The Rival') : n.kind === 'event' ? EVENTS[n.event!].name : ROOM_NAME[n.kind]);
-const spriteOf = (n: MapNode) => (n.kind === 'event' ? EVENTS[n.event!].sprite : ROOM_SPRITE[n.kind]);
+const title = (n: MapNode, boss?: string) =>
+  n.kind === 'boss' ? (boss ?? 'The Rival') : n.kind === 'event' ? EVENTS[n.event!].name : n.kind === 'camp' ? 'Campfire' : ROOM_NAME[n.kind];
+const spriteOf = (n: MapNode) => (n.kind === 'event' ? EVENTS[n.event!].sprite : ROOM_SPRITE[n.kind as keyof typeof ROOM_SPRITE]);
 
 // Little landmarks drawn on the vellum.
 const MARKS: { x: number; y: number; s: string; size: number }[] = [
@@ -120,7 +121,7 @@ export function MapView({ top }: { top: ReactNode }) {
               const chosen = run.path[l] === i && l < run.layer;
               const res = chosen ? run.results.find((r) => r.layer === l) : undefined;
               const isBoss = n.kind === 'boss';
-              const ring = isBoss || n.elite ? '#e2475a' : n.kind === 'event' ? '#6fd3ff' : '#e0a93a';
+              const ring = isBoss || n.elite ? '#e2475a' : n.kind === 'event' ? '#6fd3ff' : n.kind === 'camp' ? '#5ee59a' : '#e0a93a';
               const size = isBoss ? 72 : 54;
               return (
                 <button
@@ -162,28 +163,58 @@ export function MapView({ top }: { top: ReactNode }) {
           )}
         </div>
       </div>
-      {/* Preview of the selected room */}
+      {/* Preview of the selected node: everything the old intro screen said, plus Enter */}
       <div className="px-3 pt-2 pb-3">
-        {node ? (
-          <div key={sel} className="run-panel run-fadeup flex items-center gap-3 p-3">
-            <div className="min-w-0 flex-1">
-              <div className="run-label">
-                {node.kind === 'event' ? 'Event' : node.kind === 'boss' ? bossMod(run.bossId).name : `${node.elite ? 'Elite · ' : ''}${MODIFIERS[node.modifier].name}`}
-              </div>
-              <div className="run-title text-lg leading-tight font-bold">{title(node, boss?.name)}</div>
-              <div className="run-sans text-xs leading-snug text-[var(--ink-dim)]">{objective(node, node.kind === 'boss' ? bossMod(run.bossId) : undefined, run.difficulty)}</div>
-            </div>
-            <button className="run-btn shrink-0" onClick={() => s.chooseNode(sel!)}>
-              Travel
-            </button>
-          </div>
-        ) : (
+        {node ? <Preview key={sel} node={node} onEnter={() => s.chooseNode(sel!)} busy={s.busy} /> : (
           <div className="run-sans py-3 text-center text-xs text-[var(--ink-dim)]">
             Choose where to go next — {options.length} path{options.length === 1 ? '' : 's'} open. Tap a glowing room.
             {run.layer === 0 ? ` You have ${T.composure.start} candles.` : ''}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function Preview({ node, onEnter, busy }: { node: MapNode; onEnter: () => void; busy: boolean }) {
+  const run = useRun((x) => x.run!);
+  const isBoss = node.kind === 'boss';
+  const boss = isBoss ? opponentById(run.bossId) : undefined;
+  const mod = bossMod(run.bossId);
+  const room = node.kind !== 'event' && node.kind !== 'camp';
+  const focused = room && !isBoss && run.springDebt;
+  const modifier = focused ? 'focused' : node.modifier;
+  const d = T.difficulty[run.difficulty ?? 'adept'];
+  const c = (n: number) => (n ? `−${n}` : 'free');
+  const lastCamp = node.kind === 'camp' && isFinalCamp({ layers: run.layers, layer: run.layer }) && !run.curseDecided;
+  return (
+    <div className="run-panel run-fadeup max-h-[42vh] overflow-y-auto p-3">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="run-label">
+            {node.kind === 'event' ? 'Event' : node.kind === 'camp' ? 'Rest stop' : isBoss ? `Rival's rule · ${mod.name}` : `${node.elite ? 'Elite · ' : ''}${MODIFIERS[modifier].name}`}
+          </div>
+          <div className="run-title text-lg leading-tight font-bold">
+            {title(node, boss?.name)}
+            {boss && <span className="run-sans ml-1.5 text-xs font-semibold text-[var(--ink-dim)]">plays like ~{rivalElo(run)}</span>}
+          </div>
+        </div>
+        <button className="run-btn shrink-0" disabled={busy} onClick={onEnter}>
+          {busy ? '…' : node.kind === 'camp' ? 'Rest' : node.kind === 'event' ? 'Step in' : 'Enter'}
+        </button>
+      </div>
+      <div className="run-sans mt-1 text-[13px] leading-snug">{objective(node, isBoss ? mod : undefined, run.difficulty)}</div>
+      {room && (
+        <div className="run-sans mt-1.5 space-y-1 text-xs leading-snug text-[var(--ink-dim)]">
+          <div>{isBoss ? bossModText(mod) : MODIFIERS[modifier].text}{focused ? ' (the Healing Spring’s price)' : ''}</div>
+          {node.elite && <div className="text-[#ff8c9a]">Elite: harder goal and opponent; clearing it always gives a relic pick.</div>}
+          <div>
+            {d.name}: mistake {c(d.cost.mistake)}, blunder {c(d.cost.blunder)}.{d.takebacks ? ` ${d.takebacks} free take-back.` : ''}{' '}
+            {isBoss ? 'Losing to the rival ends the run.' : `At most ${T.composure.roomCap} candles here.`}
+          </div>
+        </div>
+      )}
+      {lastCamp && <div className="run-sans mt-1.5 text-xs text-[#ff8c9a]">The rival's envoy waits by this fire with an offer…</div>}
     </div>
   );
 }

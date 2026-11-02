@@ -196,6 +196,10 @@ function FunRating({ onSanctum }: { onSanctum: () => void }) {
       rooms: run.results.map((r) => ({ kind: r.kind, won: r.won, score: r.score })),
       composureLeft: run.composure,
       cursed: run.cursed,
+      difficulty: run.difficulty,
+      roomMinutes: Math.round((run.roomMs ?? 0) / 6000) / 10,
+      goldEarned: run.goldEarned ?? 0,
+      goldSpent: run.goldSpent ?? 0,
     });
     setSaved(true);
     sfx('coin');

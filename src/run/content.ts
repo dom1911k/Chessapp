@@ -26,10 +26,15 @@ export const RELICS: Record<RelicId, CardInfo> = {
   ironwall: { name: 'Iron Wall', numeral: 'IV', glyph: 'tower', rarity: 'uncommon', text: `Siege rooms: +${R.ironWallMult} mult for every good move.` },
   hunter: { name: 'Hunter', numeral: 'XI', glyph: 'bow', rarity: 'uncommon', text: `+${R.hunterMult} mult for every good capture.` },
   spendthrift: { name: 'Spendthrift', numeral: 'VII', glyph: 'coin', rarity: 'uncommon', text: `Shop prices halved, but you carry ${R.spendthriftCarryPenalty} fewer card.` },
-  executioner: { name: 'Executioner', numeral: 'XIII', glyph: 'axe', rarity: 'rare', text: `+${R.executionerMult} mult when you finish a room with checkmate.` },
+  executioner: { name: 'Executioner', numeral: 'XIII', glyph: 'axe', rarity: 'rare', text: `×${R.executionerMult} mult when you finish a room with checkmate.` },
+  perfectionist: { name: 'Perfectionist', numeral: 'XXII', glyph: 'star', rarity: 'rare', text: `×${R.perfectionistX} mult in a room where every move was good or best.` },
+  coldread: { name: 'Cold Read', numeral: 'XXIII', glyph: 'eye', rarity: 'rare', text: `×${R.coldReadX} mult in a room where you used no card.` },
+  watchman: { name: 'Watchman', numeral: 'XXIV', glyph: 'lens', rarity: 'uncommon', text: `Threat Lens comes back if you win material within ${R.watchmanMoves} moves of using it.` },
+  bookbinder: { name: 'Bookbinder', numeral: 'XXV', glyph: 'book', rarity: 'uncommon', text: `Every ${R.bookbinderEvery} puzzles solved without a card: a free Blunder Check (if you have room).` },
+  siege: { name: 'Siege Engine', numeral: 'XXVI', glyph: 'tower', rarity: 'common', text: `Siege rooms: +${R.siegeChips} chips × moves survived above the red line.` },
   secondwind: { name: 'Second Wind', numeral: 'XX', glyph: 'feather', rarity: 'rare', text: 'Once per run, when your Composure would break, keep 1.' },
-  castle: { name: 'Castle Keep', numeral: 'XXI', glyph: 'tower', rarity: 'common', text: `Castling: +${R.castleMult} mult and +${R.castleGold} gold.` },
-  rite: { name: 'Promotion Rite', numeral: 'XIX', glyph: 'crown', rarity: 'uncommon', text: `+${R.riteMult} mult every time you promote a pawn.` },
+  castle: { name: 'Castle Keep', numeral: 'XXI', glyph: 'tower', rarity: 'common', text: `+${R.castleMult} mult for every good move while your king is castled or sheltered by 2+ of your pawns.` },
+  rite: { name: 'Promotion Rite', numeral: 'XIX', glyph: 'crown', rarity: 'uncommon', text: `+${R.riteMult} mult when you promote; +${R.riteRankMult} when a passed pawn reaches your 6th rank.` },
   tempo: { name: 'Tempo', numeral: 'XVIII', glyph: 'bolt', rarity: 'uncommon', text: `+${R.tempoMult} mult for every good move that gives check.` },
   glass: { name: 'Glass Cannon', numeral: 'XVI', glyph: 'crystal', rarity: 'rare', text: `+${R.glassMult} mult in every room. Costs ${R.glassComposure} Composure when taken.` },
 };
@@ -54,7 +59,7 @@ export const ROOM_NAME: Record<RoomKind, string> = {
   boss: 'The Rival',
 };
 
-export const ROOM_SPRITE: Record<RoomKind | 'event', string> = {
+export const ROOM_SPRITE: Record<RoomKind | 'event' | 'camp', string> = {
   puzzle: 'cards',
   convert: 'scythe',
   hold: 'tower',
@@ -63,6 +68,7 @@ export const ROOM_SPRITE: Record<RoomKind | 'event', string> = {
   duel: 'swords',
   boss: 'skull',
   event: 'question',
+  camp: 'flame',
 };
 
 export const EVENTS: Record<EventKind, { name: string; sprite: string; blurb: string }> = {
@@ -71,7 +77,7 @@ export const EVENTS: Record<EventKind, { name: string; sprite: string; blurb: st
   merchant: { name: 'The Merchant', sprite: 'bag', blurb: 'Relics for sale.' },
   altar: { name: 'The Cursed Altar', sprite: 'altar', blurb: 'Power, at a price.' },
   library: { name: 'The Library', sprite: 'book', blurb: 'Find the tactic. Earn a card.' },
-  spring: { name: 'The Healing Spring', sprite: 'fountain', blurb: 'Gold for a candle.' },
+  spring: { name: 'The Healing Spring', sprite: 'fountain', blurb: 'Gold for two candles — but the next room is under Razor Focus.' },
 };
 
 export const RARITY_COLOR: Record<Rarity, string> = { common: '#cdbf9f', uncommon: '#6fd3ff', rare: '#ff6bd5' };
@@ -130,6 +136,8 @@ export function objective(node: MapNode, boss?: BossMod, diff?: DiffId): string 
     }
     case 'event':
       return node.event ? EVENTS[node.event].blurb : '';
+    case 'camp':
+      return 'A campfire: buy cards and relics, rest, or make the pouch bigger. No fight.';
   }
 }
 

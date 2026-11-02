@@ -92,9 +92,11 @@ export interface Meta {
   runs: number;
   wins: number;
   best: number;
+  /** Run-mode wins per rival id. */
+  rivalWins?: Record<string, number>;
 }
 
-const EMPTY: Meta = { embers: 0, earned: 0, unlocked: [], boosts: {}, runs: 0, wins: 0, best: 0, milestones: [] };
+const EMPTY: Meta = { embers: 0, earned: 0, unlocked: [], boosts: {}, runs: 0, wins: 0, best: 0, milestones: [], rivalWins: {} };
 
 /** Embers for a finished run: something every time, more for progress and a win. */
 export function embersFor(r: Run): number {
@@ -103,7 +105,8 @@ export function embersFor(r: Run): number {
   const beatBoss = r.ended === 'won';
   const lamp = r.meta?.boosts.lamp && won >= E.lampMinRooms ? E.lamp : 0;
   const diff = won > 0 && r.difficulty ? T.difficulty[r.difficulty].embers : 0;
-  return diff + Math.floor(Math.max(0, r.gold ?? 0) / E.goldPer) + E.base + won * E.perRoom + Math.floor((r.finalScore ?? 0) / E.scoreStep) + (beatBoss ? E.bossWin : 0) + (beatBoss && r.cursed ? E.cursedWin : 0) + lamp;
+  // Base Embers only once a room was cleared (abandoning at once isn't farmable).
+  return diff + Math.floor(Math.max(0, r.gold ?? 0) / E.goldPer) + (won > 0 ? E.base : 0) + won * E.perRoom + Math.floor((r.finalScore ?? 0) / E.scoreStep) + (beatBoss ? E.bossWin : 0) + (beatBoss && r.cursed ? E.cursedWin : 0) + lamp;
 }
 
 export const isUnlocked = (m: Meta, id: string) => !UNLOCKS.some((u) => u.id === id) || m.unlocked.includes(id);
@@ -127,7 +130,7 @@ interface MetaStore extends Meta {
 }
 
 const save = (m: Meta) => void runDb.state.put({ key: 'meta', value: m }).catch(() => {});
-const pick = (s: Meta): Meta => ({ embers: s.embers, earned: s.earned, unlocked: s.unlocked, boosts: s.boosts, runs: s.runs, wins: s.wins, best: s.best, milestones: s.milestones ?? [] });
+const pick = (s: Meta): Meta => ({ embers: s.embers, earned: s.earned, unlocked: s.unlocked, boosts: s.boosts, runs: s.runs, wins: s.wins, best: s.best, milestones: s.milestones ?? [], rivalWins: s.rivalWins ?? {} });
 
 export const useMeta = create<MetaStore>((set, get) => ({
   ...EMPTY,
@@ -163,7 +166,9 @@ export const useMeta = create<MetaStore>((set, get) => ({
   },
   finish(r, embers) {
     const s = get();
-    set({ embers: s.embers + embers, earned: s.earned + embers, runs: s.runs + 1, wins: s.wins + (r.ended === 'won' ? 1 : 0), best: Math.max(s.best, r.finalScore ?? 0) });
+    const rivalWins = { ...(s.rivalWins ?? {}) };
+    if (r.ended === 'won') rivalWins[r.bossId] = (rivalWins[r.bossId] ?? 0) + 1;
+    set({ embers: s.embers + embers, earned: s.earned + embers, runs: s.runs + 1, wins: s.wins + (r.ended === 'won' ? 1 : 0), best: Math.max(s.best, r.finalScore ?? 0), rivalWins });
     save(pick(get()));
   },
   award(ids) {

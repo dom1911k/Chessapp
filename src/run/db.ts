@@ -15,12 +15,16 @@ class RunDB extends Dexie {
 
 export const runDb = new RunDB();
 
-export async function loadCurrent(): Promise<Run | null> {
+/** The saved run in progress; a run from an older version is set aside (`stale`). */
+export async function loadCurrent(): Promise<{ run: Run | null; stale: boolean }> {
   try {
-    const r = (await runDb.state.get('current'))?.value as Run | undefined;
-    return r && r.version === 2 ? r : null;
+    const r = (await runDb.state.get('current'))?.value as (Omit<Run, 'version'> & { version: number }) | undefined;
+    if (!r) return { run: null, stale: false };
+    if (r.version === 3) return { run: r as Run, stale: false };
+    await runDb.state.delete('current');
+    return { run: null, stale: !r.ended };
   } catch {
-    return null;
+    return { run: null, stale: false };
   }
 }
 
@@ -45,3 +49,4 @@ export async function archiveRun(run: Run) {
 
 export const addPlaytest = (p: Playtest) => runDb.playtests.add(p);
 export const allPlaytests = () => runDb.playtests.orderBy('at').toArray();
+export const allRuns = () => runDb.runs.orderBy('startedAt').toArray();

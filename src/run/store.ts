@@ -12,7 +12,7 @@ import { getRating } from '../lib/puzzles/rating';
 import { OPPONENTS, opponentById } from '../lib/people';
 import { DRILLS } from '../lib/endgames';
 import { ECO } from '../lib/openings';
-import { getOpponentRecords, isUnlocked, starsOf } from '../lib/people/record';
+import { getOpponentRecords, isUnlocked } from '../lib/people/record';
 import { hangingPieces, other, parseFen, sqName } from '../lib/chess/pos';
 import { safetyInfo } from '../lib/coach/safety';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
@@ -20,7 +20,7 @@ import { TUNING as T } from './tuning';
 import positions from './data/positions.json';
 import { archiveRun, loadCurrent, saveCurrent } from './db';
 import {
-  buildMap, cardSlots, composureCost, roomCap, roomLoss, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, relicOffer, relicPrice, shopPrice,
+  buildMap, cardSlots, composureCost, roomCap, roomLoss, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, relicOffer, shopPrice, isFinalCamp, materialOf, pickRival,
   roomScore, sample, shopOffers, sound, diffOf, nextRestCost, stallPrice, pouchPrice, cleansePrice, rerollPrice, goldToEmbers, canTakeBack, playStrength, rivalElo, type CostCtx,
 } from './rules';
 import { useRunSettings } from './settings';
@@ -79,6 +79,8 @@ export type FxEvent =
 interface RunStore {
   run: Run | null;
   loaded: boolean;
+  /** One-line notice for the home screen (e.g. an old run was set aside). */
+  notice: string | null;
   /** Engine or opponent working. */
   busy: boolean;
   cur: { fen: string; a: AnalysisResult } | null;
@@ -212,6 +214,7 @@ export const useRun = create<RunStore>((set, get) => {
       rm.plies = [];
       rm.puzzle!.step = 0;
       rm.puzzle!.lost = false;
+      rm.puzzleCard = false;
     });
     set({ answer: null, aids: { ...NO_AIDS }, cur: null });
     if (spec.setup) {
@@ -230,6 +233,24 @@ export const useRun = create<RunStore>((set, get) => {
       rm.plies.push({ uci, san: res.move.san, fen: res.fen, by: 'opp' });
       rm.fen = res.fen;
     });
+  };
+
+  /** Watchman: the Threat Lens comes back if material was won within a few of your moves. */
+  const watchman = () => {
+    const rm = room();
+    const L = rm.lensAt;
+    if (!L || !run().relics.includes('watchman')) return;
+    const gained = materialOf(rm.fen, rm.me) - L.mat >= 1;
+    const refund = gained && run().consumables.length < cardSlots(run());
+    if (refund || gained || rm.moves.length - L.moves >= T.relics.watchmanMoves)
+      patch((r) => {
+        r.room!.lensAt = undefined;
+        if (refund) r.consumables.push('lens');
+      });
+    if (refund) {
+      fire({ kind: 'relic', relic: 'watchman', label: '+lens' });
+      sfx('relic');
+    }
   };
 
   /** The opponent replies (Maia, or Stockfish's best defence in the Vault). */
@@ -257,6 +278,7 @@ export const useRun = create<RunStore>((set, get) => {
         uci = moves.length ? moves[Math.floor(Math.random() * moves.length)].lan : null;
       }
       if (uci) playOpp(uci);
+      watchman();
       const verdict = judge(room(), 'reply', bossOf(run()));
       if (verdict) return decide(verdict.status, verdict.reason);
       void prepare(t);
@@ -301,7 +323,10 @@ export const useRun = create<RunStore>((set, get) => {
     const fires = moveFires(run().relics, rm, m, rm.moves.length, bossOf(run()));
     patch((r) => {
       const R = r.room!;
-      if (insured) r.consumables.splice(r.consumables.indexOf('insurance'), 1);
+      if (insured) {
+        r.consumables.splice(r.consumables.indexOf('insurance'), 1);
+        R.cardsUsed = (R.cardsUsed ?? 0) + 1;
+      }
       if (wind) r.secondWindUsed = true;
       if (nerves) r.nervesUsed = true;
       r.composure = Math.max(0, r.composure - lost);
@@ -328,7 +353,7 @@ export const useRun = create<RunStore>((set, get) => {
     if (wind) setTimeout(() => (fire({ kind: 'relic', relic: 'secondwind', label: 'saved!' }), sfx('relic')), 200);
     fires.forEach((f, i) =>
       setTimeout(() => {
-        fire({ kind: 'relic', relic: f.relic, label: f.mult ? `+${f.mult}×` : f.gold ? `+${f.gold}g` : '' });
+        fire({ kind: 'relic', relic: f.relic, label: f.xmult ? `×${f.xmult}` : f.mult ? `+${f.mult}` : f.chips ? `+${f.chips} chips` : f.gold ? `+${f.gold}g` : '' });
         sfx('relic', i);
         buzz(15);
       }, 250 + i * 260),
@@ -410,7 +435,19 @@ export const useRun = create<RunStore>((set, get) => {
         void prepare(t);
         return;
       }
-      patch((r) => void r.room!.puzzle!.solved++);
+      let bound = false;
+      patch((r) => {
+        r.room!.puzzle!.solved++;
+        // Bookbinder: puzzles solved without a card earn a free Blunder Check.
+        if (r.relics.includes('bookbinder') && !r.room!.puzzleCard && !r.room!.gamble) {
+          r.bookbinder = (r.bookbinder ?? 0) + 1;
+          if (r.bookbinder % T.relics.bookbinderEvery === 0 && r.consumables.length < cardSlots(r)) {
+            r.consumables.push('check');
+            bound = true;
+          }
+        }
+      });
+      if (bound) setTimeout(() => (fire({ kind: 'relic', relic: 'bookbinder', label: '+card' }), sfx('relic')), 250);
       sfx('chip', 12);
       buzz(20);
       const q = room().puzzle!;
@@ -517,14 +554,15 @@ export const useRun = create<RunStore>((set, get) => {
     setTimeout(() => sfx('relic', 3), 300);
   };
 
-  /** Next stop after a room or event: the curse offer before the boss, else the campfire. */
+  const spend = (x: Run, n: number) => {
+    spend(x, n);
+    x.goldSpent = (x.goldSpent ?? 0) + n;
+  };
+
+  /** After a room, event or campfire: back to the map (campfires are map nodes now). */
   const nextAfterReward = (r: Run) => {
-    const bossNext = r.layer === r.layers.length - 1;
-    if (bossNext && !r.curseDecided) {
-      r.phase = 'curse';
-      return;
-    }
-    openCamp(r);
+    r.offer = null;
+    r.phase = 'map';
   };
 
   const puzzleRoom = (r: Run, node: MapNode, list: PuzzleProgress['list'], count: number, need: number, extra: Partial<RoomState> = {}): RoomState => ({
@@ -537,6 +575,7 @@ export const useRun = create<RunStore>((set, get) => {
       x.room = rm;
       x.phase = 'room';
       x.usedPuzzles.push(...used);
+      x.roomStartedAt = Date.now();
     });
     set({ busy: false, cur: null, aids: { ...NO_AIDS }, answer: null });
     void showPuzzle(t);
@@ -545,6 +584,7 @@ export const useRun = create<RunStore>((set, get) => {
   return {
     run: null,
     loaded: false,
+    notice: null,
     busy: false,
     cur: null,
     aids: { ...NO_AIDS },
@@ -553,9 +593,10 @@ export const useRun = create<RunStore>((set, get) => {
 
     async load() {
       if (get().loaded) return;
-      const r = await loadCurrent();
+      const { run: r, stale } = await loadCurrent();
       if (get().run) return set({ loaded: true }); // a run started meanwhile wins
-      set({ run: r, loaded: true });
+      if (r?.phase === 'room') r.roomStartedAt = Date.now(); // time away doesn't count as room time
+      set({ run: r, loaded: true, notice: stale ? 'Run mode was updated: your run in progress was set aside. Start a new one!' : null });
       if (r?.phase === 'room' && r.room) resumeRoom(++token);
     },
 
@@ -567,10 +608,10 @@ export const useRun = create<RunStore>((set, get) => {
       const locked = lockedRelics(meta);
       const lockedC = lockedCards(meta);
       const unlocked = OPPONENTS.filter((o) => isUnlocked(o.id, records));
-      const boss = unlocked.find((o) => starsOf(records[o.id]) === 0) ?? unlocked[unlocked.length - 1] ?? OPPONENTS[0];
+      const boss = pickRival(unlocked.length ? unlocked : [OPPONENTS[0]], meta.rivalWins ?? {}, Math.random);
       const difficulty = useRunSettings.getState().difficulty ?? 'apprentice';
       const r: Run = {
-        version: 2,
+        version: 3,
         id: Math.random().toString(36).slice(2, 10),
         startedAt: Date.now(),
         rating: Math.round(rating),
@@ -598,8 +639,11 @@ export const useRun = create<RunStore>((set, get) => {
         curseDecided: false,
         ended: null,
         usedPuzzles: [],
+        roomMs: 0,
+        goldEarned: 0,
+        goldSpent: 0,
       };
-      set({ run: r, cur: null, aids: { ...NO_AIDS }, fx: [], answer: null, busy: false });
+      set({ run: r, cur: null, aids: { ...NO_AIDS }, fx: [], answer: null, busy: false, notice: null });
       saveCurrent(r);
     },
 
@@ -620,17 +664,30 @@ export const useRun = create<RunStore>((set, get) => {
     },
 
     chooseNode(i) {
-      if (!reachable(run()).includes(i)) return;
-      patch((r) => {
-        r.path[r.layer] = i;
-        r.phase = 'intro';
-      });
+      if (!reachable(run()).includes(i) || run().phase !== 'map') return;
+      const node = run().layers[run().layer][i];
+      if (node.kind === 'camp') {
+        patch((r) => {
+          r.path[r.layer] = i;
+          // The Devil's Bargain waits at the last campfire.
+          if (isFinalCamp(r) && !r.curseDecided) r.phase = 'curse';
+          else openCamp(r);
+        });
+        return;
+      }
+      patch((r) => void (r.path[r.layer] = i));
+      void get().enterRoom();
     },
 
     async enterRoom() {
       const t = ++token;
       const r = run();
-      const node: MapNode = r.layers[r.layer][r.path[r.layer] ?? 0];
+      let node: MapNode = r.layers[r.layer][r.path[r.layer] ?? 0];
+      // Healing Spring's price: the next room is under Razor Focus.
+      if (r.springDebt && node.kind !== 'event' && node.kind !== 'boss' && node.kind !== 'camp') {
+        node = { ...node, modifier: 'focused' };
+        patch((x) => void (x.springDebt = false));
+      }
       set({ busy: true });
       try {
         if (node.kind === 'event') {
@@ -650,7 +707,9 @@ export const useRun = create<RunStore>((set, get) => {
               const others = new Chess(fen).moves({ verbose: true }).map((m) => m.lan).filter((u) => !accept.includes(u));
               x.event = { kind: 'shrine', fen, answer: accept, choices: sample([accept[0], ...sample(others, 2, Math.random)], 3, Math.random) };
             } else if (ev === 'merchant') {
-              x.event = { kind: 'merchant', stock: relicOffer(unofferable(x), T.events.merchantStock, Math.random).map((id) => ({ id, price: relicPrice(id, x.relics) })) };
+              // One uncommon and one rare, priced like the campfire stall.
+              const ids = T.events.merchantRarities.map((rar) => relicOffer(unofferable(x), 1, Math.random, T.relics.rarity, rar)[0]).filter(Boolean);
+              x.event = { kind: 'merchant', stock: ids.map((id) => ({ id, price: stallPrice(x, id) })) };
             } else if (ev === 'altar') {
               x.event = { kind: 'altar', ids: relicOffer(unofferable(x), 3, Math.random, T.relics.rarity, 'rare') };
             } else if (ev === 'library' && lib) {
@@ -704,6 +763,7 @@ export const useRun = create<RunStore>((set, get) => {
         patch((x) => {
           x.room = rm;
           x.phase = 'room';
+          x.roomStartedAt = Date.now();
         });
         set({ cur: null, aids: { ...NO_AIDS }, answer: null });
         void prepare(t);
@@ -793,13 +853,18 @@ export const useRun = create<RunStore>((set, get) => {
       if (id === 'rewind') return get().rewind();
       const t = token;
       const consume = () => {
-        patch((r) => void r.consumables.splice(r.consumables.indexOf(id), 1));
+        patch((r) => {
+          r.consumables.splice(r.consumables.indexOf(id), 1);
+          r.room!.cardsUsed = (r.room!.cardsUsed ?? 0) + 1;
+          if (r.room!.puzzle) r.room!.puzzleCard = true;
+        });
         fire({ kind: 'consumable', item: id });
         sfx('card');
       };
       if (id === 'lens') {
         consume();
         set({ aids: { ...get().aids, lens: true } });
+        if (!rm.puzzle) patch((r) => void (r.room!.lensAt = { moves: rm.moves.length, mat: materialOf(rm.fen, rm.me) }));
         return;
       }
       if (id === 'check') {
@@ -851,7 +916,10 @@ export const useRun = create<RunStore>((set, get) => {
       patch((x) => {
         const R = x.room!;
         if (free) R.takebacks = (R.takebacks ?? 0) + 1;
-        else x.consumables.splice(x.consumables.indexOf('rewind'), 1);
+        else {
+          x.consumables.splice(x.consumables.indexOf('rewind'), 1);
+          R.cardsUsed = (R.cardsUsed ?? 0) + 1;
+        }
         x.composure = Math.min(maxComposure(x), x.composure + last.composureLost);
         if (last.insured && x.consumables.length < cardSlots(x)) x.consumables.push('insurance');
         R.moves.pop();
@@ -897,10 +965,13 @@ export const useRun = create<RunStore>((set, get) => {
         const calm = R.fires.reduce((s, f) => s + (f.composure ?? 0), 0);
         r.composure = Math.max(0, Math.min(maxComposure(r), r.composure - fail + (broke ? 0 : calm)));
         r.gold += sc.gold;
+        r.goldEarned = (r.goldEarned ?? 0) + sc.gold;
+        if (r.roomStartedAt) r.roomMs = (r.roomMs ?? 0) + Math.min(30 * 60000, Math.max(0, Date.now() - r.roomStartedAt));
+        r.roomStartedAt = undefined;
         r.results.push({
           layer: R.layer, kind: R.node.kind as RoomKind, modifier: R.node.modifier, elite: R.node.elite, gamble: R.gamble, won: R.status === 'won',
           chips: sc.chips, target: sc.target, mult: sc.mult, score: sc.score, gold: sc.gold, fires: R.fires,
-          composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '',
+          composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '', clean: sc.clean,
         });
         // Milestones from this room.
         const won = R.status === 'won';
@@ -917,6 +988,15 @@ export const useRun = create<RunStore>((set, get) => {
           buzz([80, 60, 160]);
           return finishRun(r, false);
         }
+        // The free pick shows under the tally: elites always give a relic, other rooms sometimes.
+        r.offer = null;
+        if (won && !R.gamble && R.node.kind !== 'boss') {
+          const kind = R.node.elite ? 'elite' : Math.random() < T.rewardChance ? (T.rewardAfterLayer[R.layer] ?? 'consumable') : null;
+          if (kind === 'relic' || kind === 'elite') {
+            const ids = relicOffer(unofferable(r), 3, Math.random, kind === 'elite' ? T.relics.eliteRarity : T.relics.rarity);
+            if (ids.length) r.offer = { type: 'relic', ids, free: true, title: kind === 'elite' ? 'Elite spoils: choose a relic' : 'Spoils: choose a relic' };
+          } else if (kind === 'consumable') r.offer = { type: 'consumable', ids: consumableOffer(3, Math.random, r.meta?.lockedCards), free: true, title: 'Spoils: choose a card' };
+        }
         r.phase = 'tally';
       });
       set({ cur: null, aids: { ...NO_AIDS }, answer: null, busy: false });
@@ -926,32 +1006,23 @@ export const useRun = create<RunStore>((set, get) => {
       patch((r) => {
         const res = r.results[r.results.length - 1];
         if (res.kind === 'boss') return finishRun(r, res.won);
-        const reward = !res.won || res.gamble ? null : res.elite ? 'elite' : T.rewardAfterLayer[r.layer];
         r.room = null;
         r.event = null;
         r.layer++;
-        if (reward === 'relic' || reward === 'elite') {
-          const ids = relicOffer(unofferable(r), 3, Math.random, reward === 'elite' ? T.relics.eliteRarity : T.relics.rarity);
-          if (ids.length) {
-            r.offer = { type: 'relic', ids, free: true, title: reward === 'elite' ? 'Elite spoils: choose a relic' : 'Spoils: choose a relic' };
-            r.phase = 'reward';
-            return;
-          }
-        }
-        if (reward === 'consumable') {
-          r.offer = { type: 'consumable', ids: consumableOffer(3, Math.random, r.meta?.lockedCards), free: true, title: 'Spoils: choose a card' };
-          r.phase = 'reward';
-          return;
-        }
         nextAfterReward(r);
       });
     },
 
     pickReward(id) {
+      const fromTally = run().phase === 'tally';
       patch((r) => {
         if (id && r.offer?.type === 'relic') addRelic(r, id as RelicId);
         if (id && r.offer?.type === 'consumable' && r.consumables.length < cardSlots(r)) r.consumables.push(id as ConsumableId);
         r.offer = null;
+        if (fromTally) {
+          r.room = null;
+          r.layer++;
+        }
         nextAfterReward(r);
       });
       if (id) sfx('card');
@@ -961,7 +1032,11 @@ export const useRun = create<RunStore>((set, get) => {
       patch((r) => {
         r.curseDecided = true;
         r.cursed = take;
-        if (take) r.gold = Math.round(r.gold * T.curse.goldFactor);
+        if (take) {
+          const g = Math.round(r.gold * T.curse.goldFactor);
+          r.goldEarned = (r.goldEarned ?? 0) + g - r.gold;
+          r.gold = g;
+        }
         openCamp(r);
       });
       if (take) sfx('coin');
@@ -972,7 +1047,7 @@ export const useRun = create<RunStore>((set, get) => {
       const p = shopPrice(r, id);
       if (r.gold < p || r.consumables.length >= cardSlots(r) || !r.shopStock.includes(id)) return;
       patch((x) => {
-        x.gold -= p;
+        spend(x, p);
         x.consumables.push(id);
         x.shopStock.splice(x.shopStock.indexOf(id), 1);
       });
@@ -985,7 +1060,7 @@ export const useRun = create<RunStore>((set, get) => {
       const p = nextRestCost(r);
       if (r.gold < p || (r.rests ?? 0) >= T.shop.restMax || r.composure >= maxComposure(r)) return;
       patch((x) => {
-        x.gold -= p;
+        spend(x, p);
         x.composure = Math.min(maxComposure(x), x.composure + T.shop.restComposure);
         x.restBought = true;
         x.rests = (x.rests ?? 0) + 1;
@@ -997,7 +1072,7 @@ export const useRun = create<RunStore>((set, get) => {
       const r = run();
       if (r.phase !== 'camp' || !r.stall || r.gold < stallPrice(r, r.stall)) return;
       patch((x) => {
-        x.gold -= stallPrice(x, x.stall!);
+        spend(x, stallPrice(x, x.stall!));
         addRelic(x, x.stall!);
         x.stall = null;
       });
@@ -1009,7 +1084,7 @@ export const useRun = create<RunStore>((set, get) => {
       const r = run();
       if (r.phase !== 'camp' || (r.pouch ?? 0) > 0 || r.gold < pouchPrice(r)) return;
       patch((x) => {
-        x.gold -= pouchPrice(x);
+        spend(x, pouchPrice(x));
         x.pouch = 1;
       });
       sfx('coin');
@@ -1019,7 +1094,7 @@ export const useRun = create<RunStore>((set, get) => {
       const r = run();
       if (r.phase !== 'camp' || !r.curses.length || r.gold < cleansePrice(r)) return;
       patch((x) => {
-        x.gold -= cleansePrice(x);
+        spend(x, cleansePrice(x));
         x.curses = [];
       });
       sfx('clear');
@@ -1029,7 +1104,7 @@ export const useRun = create<RunStore>((set, get) => {
       const r = run();
       if (r.phase !== 'camp' || r.gold < rerollPrice(r)) return;
       patch((x) => {
-        x.gold -= rerollPrice(x);
+        spend(x, rerollPrice(x));
         x.rerolls = (x.rerolls ?? 0) + 1;
         x.shopStock = consumableOffer(shopOffers(x.relics), Math.random, x.meta?.lockedCards);
       });
@@ -1060,6 +1135,7 @@ export const useRun = create<RunStore>((set, get) => {
 
     leaveCamp() {
       patch((r) => {
+        r.layer++;
         r.phase = 'map';
       });
     },
@@ -1097,7 +1173,7 @@ export const useRun = create<RunStore>((set, get) => {
       const item = ev.stock.find((s) => s.id === id);
       if (!item || r.gold < item.price) return;
       patch((x) => {
-        x.gold -= item.price;
+        spend(x, item.price);
         addRelic(x, id);
         const e = x.event as typeof ev;
         e.stock = e.stock.filter((s) => s.id !== id);
@@ -1124,8 +1200,9 @@ export const useRun = create<RunStore>((set, get) => {
       const r = run();
       if (r.event?.kind !== 'spring' || r.event.used || r.gold < T.events.springPrice || r.composure >= maxComposure(r)) return;
       patch((x) => {
-        x.gold -= T.events.springPrice;
-        x.composure = Math.min(maxComposure(x), x.composure + 1);
+        spend(x, T.events.springPrice);
+        x.composure = Math.min(maxComposure(x), x.composure + T.events.springHeal);
+        x.springDebt = true;
         (x.event as { used?: boolean }).used = true;
       });
       sfx('clear');
@@ -1203,4 +1280,5 @@ export function bookHint(room: RoomState): string | null {
   const res = tryMove(room.fen, line[seq.length]);
   return res ? res.move.lan : null;
 }
+
 

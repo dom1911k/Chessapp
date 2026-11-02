@@ -4,11 +4,11 @@ import { createPortal } from 'react-dom';
 import { Chess } from 'chess.js';
 import { opponentById } from '../../lib/people';
 import { uciToSan } from '../../lib/chess/game';
-import { CONSUMABLES, EVENTS, MODIFIERS, RELICS, ROOM_NAME, ROOM_SPRITE, bossMod, bossModText, objective } from '../content';
-import { cardSlots, cleansePrice, goldToEmbers, maxComposure, nextRestCost, pouchPrice, rerollPrice, rivalElo, shopPrice, stallPrice } from '../rules';
+import { CONSUMABLES, EVENTS, MODIFIERS, RELICS } from '../content';
+import { isFinalCamp, cardSlots, cleansePrice, goldToEmbers, maxComposure, nextRestCost, pouchPrice, rerollPrice, shopPrice, stallPrice } from '../rules';
 import { useRun } from '../store';
 import { TUNING as T, type DiffId } from '../tuning';
-import type { ConsumableId, MapNode, RelicId, RoomKind } from '../types';
+import type { ConsumableId, RelicId } from '../types';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { BLOOD, EMBER, GOLD, JADE, SPIRIT, type SpritePalette } from '../pixel/pixelize';
 import { RunBoard } from '../pixel/RunBoard';
@@ -58,7 +58,7 @@ export function RunScreen() {
   const [trans, setTrans] = useState<{ id: number; kind: 'wipe' | 'door' } | null>(null);
   useEffect(() => {
     if (prevKey.current === key) return;
-    const door = key.startsWith('room:') && prevKey.current.startsWith('intro:');
+    const door = key.startsWith('room:') && prevKey.current.startsWith('map:');
     prevKey.current = key;
     if (!rs.reduceMotion) setTrans({ id: Date.now(), kind: door ? 'door' : 'wipe' });
   }, [key, rs.reduceMotion]);
@@ -89,7 +89,6 @@ export function RunScreen() {
   else if (run.phase === 'start') body = <Pick title="Choose your first relic" tools={tools} />;
   else if (run.phase === 'reward') body = <Pick title={run.offer?.title ?? 'Spoils'} tools={tools} skip />;
   else if (run.phase === 'map') body = <MapView top={<TopBar tools={tools} />} />;
-  else if (run.phase === 'intro') body = <Intro />;
   else if (inRoom) body = <RoomView onDev={openDev} onSettings={() => setSettings(true)} />;
   else if (run.phase === 'event') body = <EventView tools={tools} />;
   else if (run.phase === 'tally') body = <TallyView onShake={shake} />;
@@ -160,6 +159,7 @@ function Home({ tools, onSanctum, onHistory }: { tools: Tools; onSanctum: () => 
         <Fire w={22} h={26} scale={4} logs />
         <PixelPortrait id="viktor" size={84} boss className="run-boss-glow" />
       </div>
+      {s.notice && <div className="run-sans mt-3 max-w-xs rounded bg-[var(--blood)]/20 px-2 py-1 text-xs text-[#ffd0d6]">{s.notice}</div>}
       <p className="run-sans mt-5 max-w-xs text-sm leading-relaxed text-[var(--ink-dim)]">
         Short rooms, strange events and a rival at the end. Mistakes snuff out your candles; good moves earn chips. Relics multiply. Normal chess, always.
       </p>
@@ -324,70 +324,6 @@ function Pick({ title, tools, skip }: { title: string; tools: Tools; skip?: bool
   );
 }
 
-const nodeSprite = (n: MapNode) => (n.kind === 'event' ? EVENTS[n.event!].sprite : ROOM_SPRITE[n.kind]);
-const nodePal = (n: MapNode) => (n.elite ? BLOOD : n.kind === 'event' ? SPIRIT : GOLD);
-
-function Intro() {
-  const s = useRun();
-  const run = s.run!;
-  const node = run.layers[run.layer][run.path[run.layer] ?? 0];
-  const isBoss = node.kind === 'boss';
-  const boss = isBoss ? opponentById(run.bossId) : undefined;
-  const mod = bossMod(run.bossId);
-  const elo = boss ? rivalElo(run) : undefined;
-  const title = node.kind === 'event' ? EVENTS[node.event!].name : isBoss ? boss?.name : ROOM_NAME[node.kind as RoomKind];
-  return (
-    <div className="flex h-full flex-col items-center px-6 pt-8 pb-6 text-center">
-      <div className="run-label">
-        Room {run.layer + 1} of {run.layers.length}
-        {node.elite ? ' · Elite' : ''}
-      </div>
-      {boss ? (
-        <>
-          <PixelPortrait id={boss.id} size={128} boss className="run-slam run-boss-glow mt-4" />
-          <PixelText text={title ?? ''} size={4} color="#ff8c9a" className="mt-3" />
-          <div className="run-sans text-sm text-[var(--ink-dim)]">
-            {boss.tagline} · plays like ~{elo}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="run-slam mt-6">
-            <Sprite name={nodeSprite(node)} size={104} px={20} pal={nodePal(node)} />
-          </div>
-          <PixelText text={title ?? ''} size={4} className="mt-3" maxWidth={330} />
-        </>
-      )}
-      <div className="run-panel run-fadeup mt-6 w-full max-w-sm p-4 text-left">
-        <div className="run-label">{node.kind === 'event' ? 'What waits inside' : 'Objective'}</div>
-        <div className="run-sans mt-1 text-[15px] font-semibold">{objective(node, isBoss ? mod : undefined, run.difficulty)}</div>
-        {node.kind !== 'event' && (
-          <>
-            <div className="run-label mt-3">{isBoss ? `Rival's rule · ${mod.name}` : `Modifier · ${MODIFIERS[node.modifier].name}`}</div>
-            <div className="run-sans mt-1 text-sm text-[var(--ink-dim)]">{isBoss ? bossModText(mod) : MODIFIERS[node.modifier].text}</div>
-            {node.elite && <div className="run-sans mt-1 text-sm text-[#ff8c9a]">Elite: harder goal and opponent. Clear it for a guaranteed relic, often rare.</div>}
-            <div className="run-label mt-3">Composure</div>
-            <div className="run-sans mt-1 text-sm text-[var(--ink-dim)]">
-              {(() => {
-                const d = T.difficulty[run.difficulty ?? 'adept'];
-                const c = (n: number) => (n ? `−${n}` : 'free');
-                return `${d.name}: mistake ${c(d.cost.mistake)}, blunder ${c(d.cost.blunder)}, inaccuracy free.${
-                  d.takebacks ? ` ${d.takebacks} free take-back${d.takebacks > 1 ? 's' : ''} in this room.` : ''
-                }`;
-              })()}
-              {!isBoss ? ` Failing the room: −${T.composure.failRoom}, unless a move here already cost a candle.` : ' Losing to the rival ends the run.'} A room takes at most{' '}
-              {isBoss ? T.composure.bossCap : T.composure.roomCap} candles.
-            </div>
-          </>
-        )}
-      </div>
-      <button className="run-btn mt-auto w-full max-w-xs text-lg" disabled={s.busy} onClick={() => void s.enterRoom()}>
-        {s.busy ? 'Shuffling…' : node.kind === 'event' ? 'Step inside' : 'Enter'}
-      </button>
-    </div>
-  );
-}
-
 function EventView({ tools }: { tools: Tools }) {
   const s = useRun();
   const run = s.run!;
@@ -406,7 +342,9 @@ function EventView({ tools }: { tools: Tools }) {
         {ev.kind === 'spring' && (
           <div className="run-panel run-fadeup p-4 text-center">
             <p className="run-sans text-sm">
-              Clear water in the dark. Drink, and a candle relights — for <b className="text-[var(--gold-2)]">{T.events.springPrice} gold</b>.
+              Clear water in the dark. Drink, and <b className="text-[var(--gold-2)]">{T.events.springHeal} candles</b> relight — for{' '}
+              <b className="text-[var(--gold-2)]">{T.events.springPrice} gold</b>. But the water is sharp: your next room is under <b className="text-[var(--blood)]">Razor Focus</b>{' '}
+              ({MODIFIERS.focused.text})
             </p>
             <div className="mt-3 flex justify-center">
               <Composure value={run.composure} max={T.composure.start} />
@@ -620,7 +558,7 @@ function Camp({ tools }: { tools: Tools }) {
   const full = run.consumables.length >= cardSlots(run);
   const rp = nextRestCost(run);
   const rests = run.rests ?? 0;
-  const bossNext = run.layer === run.layers.length - 1;
+  const bossNext = isFinalCamp(run);
   const stall = run.stall;
   return (
     <div className="flex h-full flex-col pb-4">

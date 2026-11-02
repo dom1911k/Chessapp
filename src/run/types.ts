@@ -4,7 +4,7 @@ import type { PuzzleSpec } from '../lib/puzzles/spec';
 import type { DiffId } from './tuning';
 
 export type RoomKind = 'puzzle' | 'convert' | 'hold' | 'ward' | 'vault' | 'duel' | 'boss';
-export type NodeKind = RoomKind | 'event';
+export type NodeKind = RoomKind | 'event' | 'camp';
 export type EventKind = 'shrine' | 'gambler' | 'merchant' | 'altar' | 'library' | 'spring';
 export type ModifierId = 'gilded' | 'focused' | 'steady' | 'rival';
 export type ConvertGoal = 'gain' | 'keep';
@@ -14,7 +14,8 @@ export type CurseId = 'brittle';
 export type RelicId =
   | 'calm' | 'bloodhound' | 'forkmaster' | 'ironwall' | 'pins' | 'clean' | 'spendthrift' | 'bloomer'
   | 'hunter' | 'patience' | 'executioner' | 'secondwind' | 'scholar' | 'glass' | 'lucky'
-  | 'castle' | 'rite' | 'tempo';
+  | 'castle' | 'rite' | 'tempo'
+  | 'perfectionist' | 'coldread' | 'watchman' | 'bookbinder' | 'siege';
 export type ConsumableId = 'eye' | 'rewind' | 'cards' | 'lens' | 'opinion' | 'insurance' | 'check';
 
 export interface MapNode {
@@ -34,7 +35,12 @@ export interface MapNode {
 /** A relic (or the rival's rule) firing during a room; shown in the tally. */
 export interface Fire {
   relic: RelicId | 'rival';
+  /** Added to the mult (+0.5). */
   mult?: number;
+  /** Multiplies the mult at the end (×2). */
+  xmult?: number;
+  /** Extra chips. */
+  chips?: number;
   gold?: number;
   composure?: number;
   /** User move index in the room that fired it; -1 = room end. */
@@ -105,6 +111,12 @@ export interface RoomState {
   diff?: DiffId;
   /** Free take-backs used in this room. */
   takebacks?: number;
+  /** Cards used in this room (Cold Read). */
+  cardsUsed?: number;
+  /** A card was used on the current puzzle (Bookbinder). */
+  puzzleCard?: boolean;
+  /** Watchman: Threat Lens used at this move count with this material balance. */
+  lensAt?: { moves: number; mat: number };
   status: 'playing' | 'won' | 'failed';
   /** Why the room ended (shown in the tally). */
   reason?: string;
@@ -125,6 +137,8 @@ export interface RoomResult {
   fires: Fire[];
   composureLost: number;
   reason: string;
+  /** No mistake or blunder (clean bonus). */
+  clean?: boolean;
 }
 
 export interface Moment {
@@ -150,17 +164,16 @@ export type EventState =
 export type Phase =
   | 'start' // choose a starting relic
   | 'map' // choose the next room
-  | 'intro' // objective + modifier before entering
   | 'room'
   | 'event'
-  | 'tally'
-  | 'reward' // free 1-of-3 pick after a cleared room
+  | 'tally' // score, gold and (sometimes) a free 1-of-3 pick underneath
+  | 'reward' // free 1-of-3 pick after an event
   | 'curse' // optional deal before the boss
   | 'camp' // campfire / shop
   | 'debrief';
 
 export interface Run {
-  version: 2;
+  version: 3;
   id: string;
   startedAt: number;
   /** Puzzle rating snapshot when the run started (read-only use). */
@@ -219,6 +232,15 @@ export interface Run {
   abandoned?: boolean;
   /** Moves played with Engine's Eye showing ("Room: Nf3"), for the debrief. */
   eyeMoves?: string[];
+  /** Healing Spring: the next room gets Razor Focus. */
+  springDebt?: boolean;
+  /** Bookbinder: puzzles solved without a card (counts toward the next free Blunder Check). */
+  bookbinder?: number;
+  /** Measurement for playtests. */
+  roomMs?: number;
+  roomStartedAt?: number;
+  goldEarned?: number;
+  goldSpent?: number;
 }
 
 export interface Playtest {
@@ -234,4 +256,9 @@ export interface Playtest {
   rooms: { kind: RoomKind; won: boolean; score: number }[];
   composureLeft: number;
   cursed: boolean;
+  difficulty?: DiffId;
+  /** Minutes spent inside rooms (the rest is map, shop, menus). */
+  roomMinutes?: number;
+  goldEarned?: number;
+  goldSpent?: number;
 }

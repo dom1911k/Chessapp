@@ -87,7 +87,7 @@ export function buildMap(rand: Rand, pools: Pools, locks: Locks = {}): MapNode[]
     layers[1 + Math.floor(rand() * 2)][Math.floor(rand() * 3)] = event();
     layers[3][Math.floor(rand() * 3)] = event();
   }
-  // Paths: straight ahead, sometimes also diagonally; every node is reachable.
+  // Paths (set before the campfire replaces a node, which keeps its paths): straight ahead, sometimes also diagonally; every node is reachable.
   for (let l = 0; l < layers.length - 1; l++) {
     const cur = layers[l];
     const nxt = layers[l + 1];
@@ -103,11 +103,20 @@ export function buildMap(rand: Rand, pools: Pools, locks: Locks = {}): MapNode[]
       if (!cur.some((n) => n.next!.includes(j))) cur[Math.min(j, cur.length - 1)].next!.push(j);
     });
   }
+  // One campfire in row 2 or 3 (never replacing that row's event), and one right before the rival.
+  const cr = pickOne(T.map.campRows, rand);
+  const free = layers[cr].map((n, i) => (n.kind === 'event' ? -1 : i)).filter((i) => i >= 0);
+  const ci = pickOne(free, rand);
+  layers[cr][ci] = { kind: 'camp', modifier: 'steady', next: layers[cr][ci].next };
   const boss: MapNode = { kind: 'boss', modifier: 'rival', pos: Math.floor(rand() * pools.boss) };
   layers[3].forEach((n) => (n.next = [0]));
+  layers.push([{ kind: 'camp', modifier: 'steady', next: [0] }]);
   layers.push([boss]);
   return layers;
 }
+
+/** The campfire right before the rival (where the Devil's Bargain waits). */
+export const isFinalCamp = (r: Pick<Run, 'layers' | 'layer'>) => r.layers[r.layer]?.[0]?.kind === 'camp' && r.layer === r.layers.length - 2;
 
 /** Which nodes of the current row can be chosen (those the last choice leads to). */
 export function reachable(r: Pick<Run, 'layers' | 'path' | 'layer'>): number[] {
@@ -203,6 +212,64 @@ export function composureCost(cls: Classification, ctx: CostCtx): number {
 
 export const sound = (c: Classification) => c === 'best' || c === 'good';
 
+const colorOf = (fen: string): 'w' | 'b' => (fen.split(' ')[1] === 'b' ? 'b' : 'w');
+function boardAt(fen: string) {
+  // FEN lists rank 8 first; returns [file][rank] (0-based) → piece letter or ''.
+  const rows = fen.split(' ')[0].split('/');
+  const g: string[][] = Array.from({ length: 8 }, () => Array(8).fill(''));
+  rows.forEach((row, i) => {
+    let f = 0;
+    for (const ch of row) {
+      if (/\d/.test(ch)) f += Number(ch);
+      else g[f++][7 - i] = ch;
+    }
+  });
+  return g;
+}
+
+/** Castle Keep: your king is castled (g/h or a/b/c file on its home rank) or has 2+ own pawns right in front. */
+export function kingSheltered(fen: string, me: 'w' | 'b'): boolean {
+  if (!fen) return false;
+  const g = boardAt(fen);
+  const K = me === 'w' ? 'K' : 'k';
+  const P = me === 'w' ? 'P' : 'p';
+  for (let f = 0; f < 8; f++)
+    for (let r = 0; r < 8; r++) {
+      if (g[f][r] !== K) continue;
+      const home = me === 'w' ? 0 : 7;
+      if (r === home && (f >= 6 || f <= 2)) return true;
+      const front = r + (me === 'w' ? 1 : -1);
+      if (front < 0 || front > 7) return false;
+      let n = 0;
+      for (const df of [-1, 0, 1]) if (f + df >= 0 && f + df < 8 && g[f + df][front] === P) n++;
+      // Also count the second rank in front (pawn pushed one square).
+      const front2 = front + (me === 'w' ? 1 : -1);
+      if (n < 2 && front2 >= 0 && front2 < 8) for (const df of [-1, 0, 1]) if (f + df >= 0 && f + df < 8 && g[f + df][front2] === P) n++;
+      return n >= 2;
+    }
+  return false;
+}
+
+/** Promotion Rite: this move brings a passed pawn to your 6th rank. */
+export function passedToSixth(fen: string, uci: string): boolean {
+  const g = boardAt(fen);
+  const f = uci.charCodeAt(0) - 97;
+  const r0 = Number(uci[1]) - 1;
+  const p = g[f]?.[r0];
+  if (p !== 'P' && p !== 'p') return false;
+  const white = p === 'P';
+  const tf = uci.charCodeAt(2) - 97;
+  const tr = Number(uci[3]) - 1;
+  if (tr !== (white ? 5 : 2)) return false;
+  const enemy = white ? 'p' : 'P';
+  for (let df = -1; df <= 1; df++) {
+    const ff = tf + df;
+    if (ff < 0 || ff > 7) continue;
+    for (let r = white ? tr + 1 : tr - 1; white ? r < 8 : r >= 0; r += white ? 1 : -1) if (g[ff][r] === enemy) return false;
+  }
+  return true;
+}
+
 /** Relics (and the rival's rule) that fire on a single (your) move. */
 export function moveFires(relics: RelicId[], room: RoomState, m: UserMove, at: number, boss?: BossMod, motifs?: Motif[]): Fire[] {
   if (!sound(m.cls)) return [];
@@ -218,8 +285,16 @@ export function moveFires(relics: RelicId[], room: RoomState, m: UserMove, at: n
   if (has('ironwall') && room.node.kind === 'hold') out.push({ relic: 'ironwall', mult: T.relics.ironWallMult, at });
   if (has('hunter') && capture) out.push({ relic: 'hunter', mult: T.relics.hunterMult, at });
   if (has('patience') && !capture && !check) out.push({ relic: 'patience', mult: T.relics.patienceMult, at });
-  if (has('castle') && m.san.startsWith('O-O')) out.push({ relic: 'castle', mult: T.relics.castleMult, gold: T.relics.castleGold, at });
+  if (has('castle') && kingSheltered(m.fenAfter || m.fenBefore, colorOf(m.fenBefore))) out.push({ relic: 'castle', mult: T.relics.castleMult, at });
   if (has('rite') && m.san.includes('=')) out.push({ relic: 'rite', mult: T.relics.riteMult, at });
+  else if (has('rite') && passedToSixth(m.fenBefore, m.uci)) out.push({ relic: 'rite', mult: T.relics.riteRankMult, at });
+  if (has('siege') && room.node.kind === 'hold') {
+    const line = floorLine(room);
+    if (line !== undefined && m.evalAfter >= line) {
+      const survived = room.moves.filter((x) => x.evalAfter >= line).length + 1;
+      out.push({ relic: 'siege', chips: T.relics.siegeChips * survived, at });
+    }
+  }
   if (has('tempo') && check) out.push({ relic: 'tempo', mult: T.relics.tempoMult, at });
   if (boss?.captureMult && capture) out.push({ relic: 'rival', mult: boss.captureMult, at });
   return out;
@@ -233,7 +308,9 @@ export function endFires(run: Run, room: RoomState, boss?: BossMod): Fire[] {
   if (has('bloomer') && cleared > 0) out.push({ relic: 'bloomer', mult: T.relics.lateBloomerPerRoom * cleared, at: -1 });
   if (has('glass')) out.push({ relic: 'glass', mult: T.relics.glassMult, at: -1 });
   const lastMine = [...room.plies].reverse().find((p) => p.by === 'me');
-  if (has('executioner') && room.status === 'won' && lastMine?.san.endsWith('#')) out.push({ relic: 'executioner', mult: T.relics.executionerMult, at: -1 });
+  if (has('executioner') && room.status === 'won' && lastMine?.san.endsWith('#')) out.push({ relic: 'executioner', xmult: T.relics.executionerMult, at: -1 });
+  if (has('perfectionist') && room.moves.length > 0 && room.moves.every((m) => sound(m.cls))) out.push({ relic: 'perfectionist', xmult: T.relics.perfectionistX, at: -1 });
+  if (has('coldread') && room.moves.length > 0 && !(room.cardsUsed ?? 0)) out.push({ relic: 'coldread', xmult: T.relics.coldReadX, at: -1 });
   if (has('scholar') && room.puzzle && room.puzzle.solved > 0) out.push({ relic: 'scholar', gold: T.relics.scholarGold * room.puzzle.solved, at: -1 });
   if (boss?.multBonus) out.push({ relic: 'rival', mult: boss.multBonus, at: -1 });
   if (has('calm') && room.moves.length > 0 && room.moves.every((m) => sound(m.cls))) out.push({ relic: 'calm', composure: T.relics.calmComposure, at: -1 });
@@ -244,21 +321,40 @@ export function chipTarget(room: RoomState): number {
   return room.moves.length * (room.node.elite ? T.score.eliteTargetPerMove : T.score.targetPerMove);
 }
 
-export function roomScore(room: RoomState) {
-  const chips = Math.round(room.moves.reduce((s, m) => s + m.accuracy, 0));
+/** The additive mult before any ×mult (base + modifier + relic adds). */
+export function addMult(room: Pick<RoomState, 'node' | 'fires'>): number {
   const modMult = room.node.modifier === 'focused' ? T.modifiers.focused.mult : 0;
-  const mult = Math.round((T.score.baseMult + modMult + room.fires.reduce((s, f) => s + (f.mult ?? 0), 0)) * 100) / 100;
+  return Math.round((T.score.baseMult + modMult + room.fires.reduce((s, f) => s + (f.mult ?? 0), 0)) * 100) / 100;
+}
+
+/** Gold for a cleared room's score: score / rate, ×blind, + clean bonus, soft-capped. */
+export function goldParts(score: number, beatBlind: boolean, clean: boolean) {
+  const G = T.gold;
+  const base = score / G.goldRate;
+  let g = beatBlind ? base * G.blindGoldMult : base;
+  if (clean) g += G.cleanBonus;
+  const capped = g > G.softCap;
+  if (capped) g = G.softCap + (g - G.softCap) * G.overCapRate;
+  return { base: Math.round(base), capped, total: Math.round(g) };
+}
+export const scoreGold = (score: number, beatBlind: boolean, clean: boolean) => goldParts(score, beatBlind, clean).total;
+
+export function roomScore(room: RoomState) {
+  const chips = Math.round(room.moves.reduce((s, m) => s + m.accuracy, 0) + room.fires.reduce((s, f) => s + (f.chips ?? 0), 0));
+  const xmult = room.fires.reduce((s, f) => s * (f.xmult ?? 1), 1);
+  const mult = Math.round(addMult(room) * xmult * 100) / 100;
   const clean = room.moves.every((m) => m.cls !== 'mistake' && m.cls !== 'blunder');
   const target = chipTarget(room);
   const beatTarget = room.moves.length > 0 && chips >= target;
+  const score = Math.round(chips * mult);
   let gold = 0;
   if (room.status === 'won' && room.node.kind !== 'event' && !room.gamble) {
-    gold = T.gold.perRoom[room.node.kind as RoomKind] + (clean ? T.gold.cleanBonus : 0) + (beatTarget ? T.gold.targetBonus : 0);
+    gold = scoreGold(score, beatTarget, clean);
     if (room.node.modifier === 'gilded') gold = Math.round(gold * T.modifiers.gilded.goldMult);
   }
   if (room.gamble && room.status === 'won') gold += T.events.gambleWin;
   gold += room.fires.reduce((s, f) => s + (f.gold ?? 0), 0);
-  return { chips, mult, score: Math.round(chips * mult), gold, clean, target, beatTarget };
+  return { chips, mult, score, gold, clean, target, beatTarget };
 }
 
 export function maxConsumables(relics: RelicId[], pocket = 0) {
@@ -276,10 +372,6 @@ export const maxComposure = (r: Pick<Run, 'meta'>) => T.composure.max + (r.meta?
 export const unofferable = (r: Pick<Run, 'relics' | 'meta'>) => [...r.relics, ...(r.meta?.lockedRelics ?? [])];
 export function price(id: ConsumableId, relics: RelicId[]) {
   const p = T.consumables.price[id];
-  return relics.includes('spendthrift') ? Math.max(1, Math.round(p * T.relics.spendthriftPriceFactor)) : p;
-}
-export function relicPrice(id: RelicId, relics: RelicId[]) {
-  const p = T.events.relicPrice[RELICS[id].rarity ?? 'common'];
   return relics.includes('spendthrift') ? Math.max(1, Math.round(p * T.relics.spendthriftPriceFactor)) : p;
 }
 export function restPrice(relics: RelicId[]) {
@@ -304,6 +396,8 @@ export const goldToEmbers = (gold: number) => Math.floor(Math.max(0, gold) / T.e
 export const shopOffers = (relics: RelicId[]) => T.shop.offers + (relics.includes('lucky') ? T.relics.luckyExtraOffer : 0);
 
 const mat = (fen: string, me: 'w' | 'b') => materialBalance(parseFen(fen).board, me);
+/** Material balance (pawn = 1) from `me`'s side. */
+export const materialOf = mat;
 const count = (fen: string, color: 'w' | 'b', type: string) => parseFen(fen).board.filter((p) => p && p.color === color && p.type === type).length;
 
 /**
@@ -464,4 +558,15 @@ export function canTakeBack(r: Run): boolean {
   if (rm.puzzle) return rm.puzzle.lost;
   // Only the latest move (not one from before an earlier take-back point).
   return last.cls === 'mistake' || last.cls === 'blunder' || (rm.status === 'failed' && last.composureLost > 0);
+}
+
+/** The rival for a new run: random among unlocked opponents, likelier if not yet beaten in Run mode. */
+export function pickRival<O extends { id: string }>(unlocked: O[], wins: Record<string, number>, rand: () => number): O {
+  const w = unlocked.map((o) => ((wins[o.id] ?? 0) > 0 ? 1 : T.rival.unbeatenWeight));
+  let x = rand() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < unlocked.length; i++) {
+    x -= w[i];
+    if (x <= 0) return unlocked[i];
+  }
+  return unlocked[unlocked.length - 1];
 }
