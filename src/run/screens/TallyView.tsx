@@ -180,6 +180,11 @@ export function TallyView({ onShake }: { onShake: () => void }) {
               />
             ))}
           </div>
+          {sel && (
+            <div className="run-sans mt-2 text-xs leading-snug">
+              {(offer.type === 'relic' ? RELICS[sel as RelicId] : CONSUMABLES[sel as ConsumableId]).text}
+            </div>
+          )}
         </div>
       )}
 

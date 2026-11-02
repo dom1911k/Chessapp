@@ -303,8 +303,18 @@ function Pick({ title, tools, skip }: { title: string; tools: Tools; skip?: bool
           />
         ))}
       </div>
+      <div className="run-sans mx-4 mt-4 min-h-10 text-center text-sm leading-snug">
+        {sel ? (
+          <>
+            <b className="text-[var(--gold-2)]">{(offer.type === 'relic' ? RELICS[sel as RelicId] : CONSUMABLES[sel as ConsumableId]).name}:</b>{' '}
+            {(offer.type === 'relic' ? RELICS[sel as RelicId] : CONSUMABLES[sel as ConsumableId]).text}
+          </>
+        ) : (
+          <span className="text-[var(--ink-dim)]">Tap a card to read it.</span>
+        )}
+      </div>
       {offer.type === 'relic' && (
-        <div className="run-sans mt-4 flex justify-center gap-3 text-[10px] text-[var(--ink-dim)]">
+        <div className="run-sans mt-2 flex justify-center gap-3 text-[10px] text-[var(--ink-dim)]">
           <span>◆ common</span>
           <span className="text-[#6fd3ff]">◆ uncommon</span>
           <span className="text-[#ff6bd5]">◆ rare</span>
@@ -401,6 +411,7 @@ function EventView({ tools }: { tools: Tools }) {
               ))}
               {ev.stock.length === 0 && <div className="run-sans py-8 text-sm text-[var(--ink-dim)]">Sold out.</div>}
             </div>
+            <FullTexts ids={ev.stock.map((x) => x.id)} />
             <button className="run-btn mt-5 w-full" onClick={() => s.leaveEvent()}>
               Leave
             </button>
@@ -416,12 +427,26 @@ function EventView({ tools }: { tools: Tools }) {
                 <TarotCard key={id} info={RELICS[id]} kind="relic" w={112} onClick={() => s.altarTake(id)} className="run-deal" style={{ animationDelay: `${i * 100}ms` }} />
               ))}
             </div>
+            <FullTexts ids={ev.ids} />
             <button className="run-btn ghost mt-5 w-full" onClick={() => s.leaveEvent()}>
               Leave it be
             </button>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The full description of each relic on offer (the cards only show a few words). */
+function FullTexts({ ids }: { ids: RelicId[] }) {
+  return (
+    <div className="run-sans mt-3 space-y-1 text-xs leading-snug">
+      {ids.map((id) => (
+        <div key={id}>
+          <b className="text-[var(--gold-2)]">{RELICS[id].name}:</b> <span className="text-[var(--ink-dim)]">{RELICS[id].text}</span>
+        </div>
+      ))}
     </div>
   );
 }

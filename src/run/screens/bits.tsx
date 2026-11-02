@@ -1,5 +1,6 @@
 // Small visual pieces for Run mode: pixel numerals, tarot cards, candles (Composure).
 import type { CSSProperties, ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { CONSUMABLES, RARITY_COLOR, RELICS, type CardInfo } from '../content';
 import type { ConsumableId, RelicId } from '../types';
 import { Sprite } from '../pixel/sprites';
@@ -69,11 +70,13 @@ export function TarotCard({
           {info.rarity && <span className="pixel-gem" style={{ background: RARITY_COLOR[info.rarity] }} title={info.rarity} />}
         </div>
         <div className="mt-1">
-          <Sprite name={info.glyph} size={Math.round(w * 0.42)} pal={pal} />
+          <Sprite name={info.glyph} size={Math.round(w * 0.38)} pal={pal} />
         </div>
-        <div className="run-title mt-1 text-[13px] leading-tight font-bold">{info.name}</div>
-        <div className="run-sans mt-1 text-[10px] leading-[1.3] text-[var(--ink-dim)]">{info.text}</div>
-        <div className="mt-auto">{footer}</div>
+        <div className="run-title mt-1 leading-tight font-bold" style={{ fontSize: Math.max(10, Math.round(w * 0.115)) }}>
+          {info.name}
+        </div>
+        <FitText text={info.short ?? info.text} max={Math.max(9, Math.round(w * 0.092))} />
+        {footer && <div className="mt-auto pt-0.5">{footer}</div>}
       </div>
     </button>
   );
@@ -97,6 +100,22 @@ export function Composure({ value, max, hit }: { value: number; max: number; hit
           )}
         </span>
       ))}
+    </div>
+  );
+}
+
+/** Text that shrinks (down to 7px) until it fits the space left on a card. */
+function FitText({ text, max }: { text: string; max: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState(max);
+  useLayoutEffect(() => setSize(max), [text, max]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && el.scrollHeight > el.clientHeight + 1 && size > 7) setSize((x) => x - 0.5);
+  }, [size, text, max]);
+  return (
+    <div ref={ref} className="run-sans mt-1 min-h-0 w-full flex-1 overflow-hidden leading-[1.25] text-[var(--ink-dim)]" style={{ fontSize: size }}>
+      {text}
     </div>
   );
 }
