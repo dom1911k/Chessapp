@@ -15,6 +15,7 @@ import { PixelNum } from './bits';
 import { PixelText } from './PixelText';
 import { Fire } from './scenes';
 import { GrimoireScreen } from './Grimoire';
+import { CodexScreen } from './Codex';
 
 function Embers({ n, size = 3 }: { n: number; size?: number }) {
   return (
@@ -33,10 +34,10 @@ function Back({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function SanctumScreen({ onBack }: { onBack: () => void }) {
+export function SanctumScreen({ onBack, start }: { onBack: () => void; start?: 'codex' }) {
   const m = useMeta();
   const [tab, setTab] = useState<'boosts' | 'unlocks' | 'boards' | 'milestones'>('boosts');
-  const [sub, setSub] = useState<null | 'grimoire'>(null);
+  const [sub, setSub] = useState<null | 'grimoire' | 'codex'>(start ?? null);
   useEffect(() => void m.load(), [m]);
   const buy = (ok: boolean) => {
     if (ok) {
@@ -45,6 +46,7 @@ export function SanctumScreen({ onBack }: { onBack: () => void }) {
     } else sfx('fail');
   };
   if (sub === 'grimoire') return <GrimoireScreen onBack={() => setSub(null)} />;
+  if (sub === 'codex') return <CodexScreen onBack={() => (start ? onBack() : setSub(null))} />;
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-4 pt-3">
@@ -65,9 +67,14 @@ export function SanctumScreen({ onBack }: { onBack: () => void }) {
             {m.refundNote} ✕
           </button>
         )}
-        <button className="run-btn ghost mt-2 flex items-center gap-1.5 px-3! py-1.5! text-sm" onClick={() => (setSub('grimoire'), sfx('card'))}>
-          <Sprite name="book" size={16} px={12} pal={GOLD} /> Grimoire
-        </button>
+        <div className="mt-2 flex gap-2">
+          <button className="run-btn ghost flex items-center gap-1.5 px-3! py-1.5! text-sm" onClick={() => (setSub('grimoire'), sfx('card'))}>
+            <Sprite name="book" size={16} px={12} pal={GOLD} /> Grimoire
+          </button>
+          <button className="run-btn ghost flex items-center gap-1.5 px-3! py-1.5! text-sm" onClick={() => (setSub('codex'), sfx('card'))}>
+            <Sprite name="scroll" size={16} px={12} pal={EMBER} /> Codex
+          </button>
+        </div>
       </div>
       <div className="mt-3 flex gap-1 px-4">
         {(['boosts', 'unlocks', 'boards', 'milestones'] as const).map((t) => (

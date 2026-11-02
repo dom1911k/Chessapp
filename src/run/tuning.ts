@@ -291,6 +291,22 @@ export const TUNING = {
    */
   battlefield: { options: 3, bestPickGold: 8, okPickGold: 4, okPickCp: 50 },
 
+  /** The Codex: techniques you learn, equip and fire. */
+  codex: {
+    /** Techniques you can equip for a run. */
+    slots: 3,
+    /** Learning check: solve `checkNeed` of `checkPuzzles`, around your puzzle rating ± checkWindow. */
+    checkPuzzles: 3,
+    checkNeed: 2,
+    checkWindow: 250,
+    /** ×mult when it fires, by mastery level (uses: Adept at adeptUses, Master at masterUses). */
+    mult: { novice: 1.2, adept: 1.3, master: 1.5 },
+    adeptUses: 5,
+    masterUses: 15,
+    /** Map/riddle weight for rooms where an equipped technique can occur. */
+    mapWeight: 1.5,
+  },
+
   curse: {
     ratingBoost: 150,
     /** Taking the deal multiplies your gold right away (before the last shop). */

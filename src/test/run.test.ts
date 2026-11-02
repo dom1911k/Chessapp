@@ -581,3 +581,88 @@ describe('stage E: choose your battlefield', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------- Stage F: the Codex
+import { TECHNIQUES, techById, techLevel, techMult, techAffinity, techniquesIn, REPLACES, type TechCtx, type TechId } from '../run/codex';
+
+const PUZ: TechCtx = { kind: 'puzzle' };
+const VAULT: TechCtx = { kind: 'vault' };
+const GAIN: TechCtx = { kind: 'convert', goal: 'gain' };
+type Case = [fen: string, uci: string, ctx?: TechCtx];
+const CASES: Record<TechId, { yes: Case[]; no: Case[] }> = {
+  fork: {
+    yes: [['r3k3/8/8/1N6/8/8/8/4K3 w - - 0 1', 'b5c7'], ['4k3/8/2r1n3/8/3P4/8/8/K7 w - - 0 1', 'd4d5'], ['r3k3/8/8/8/8/8/8/4K2Q w - - 0 1', 'h1e4']],
+    no: [[START, 'e2e4'], ['r3k3/8/8/1N6/8/8/8/4K3 w - - 0 1', 'b5a3'], ['4k3/8/2r5/8/3P4/8/8/K7 w - - 0 1', 'd4d5']],
+  },
+  pin: {
+    yes: [['4k3/8/2n5/8/8/8/8/4KB2 w - - 0 1', 'f1b5'], ['3k4/3n4/8/8/8/8/8/R5K1 w - - 0 1', 'a1d1'], ['4k3/8/2n5/8/8/8/8/3QK3 w - - 0 1', 'd1a4']],
+    no: [[START, 'g1f3'], ['4k3/8/2n5/8/8/8/8/4KB2 w - - 0 1', 'f1e2'], ['3k4/3n4/8/8/8/8/8/R5K1 w - - 0 1', 'a1a2']],
+  },
+  skewer: {
+    yes: [['3q4/8/8/3k4/8/8/8/R5K1 w - - 0 1', 'a1d1'], ['7r/8/5k2/8/8/8/8/3Q2K1 w - - 0 1', 'd1d4'], ['8/8/8/8/q2k4/8/8/6KR w - - 0 1', 'h1h4']],
+    no: [[START, 'd2d4'], ['3q4/8/8/3k4/8/8/8/R5K1 w - - 0 1', 'a1a2'], ['7r/8/5k2/8/8/8/8/3Q2K1 w - - 0 1', 'd1d2']],
+  },
+  discovered: {
+    yes: [['q3k3/8/8/8/8/8/4B3/4R1K1 w - - 0 1', 'e2f3'], ['3q3k/8/8/8/8/8/3B4/3R2K1 w - - 0 1', 'd2g5'], ['4k3/8/8/8/8/4N3/8/4R1K1 w - - 0 1', 'e3c4']],
+    no: [[START, 'e2e4'], ['q3k3/8/8/8/8/8/4B3/4R1K1 w - - 0 1', 'g1h1'], ['4k3/8/8/8/8/4N3/8/4R1K1 w - - 0 1', 'e1e2']],
+  },
+  backrank: {
+    yes: [['6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1', 'a1a8'], ['6k1/5ppp/8/8/8/8/8/3Q2K1 w - - 0 1', 'd1d8'], ['r5k1/8/8/8/8/8/5PPP/6K1 b - - 0 1', 'a8a1']],
+    no: [['6rk/6pp/8/6N1/8/8/8/6K1 w - - 0 1', 'g5f7'], ['6k1/5pp1/7p/8/8/8/8/R5K1 w - - 0 1', 'a1a8'], ['6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1', 'a1a7']],
+  },
+  smothered: {
+    yes: [['6rk/6pp/8/6N1/8/8/8/6K1 w - - 0 1', 'g5f7'], ['6k1/8/8/8/6n1/8/6PP/6RK b - - 0 1', 'g4f2'], ['6rk/6pp/8/4N3/8/8/8/6K1 w - - 0 1', 'e5f7']],
+    no: [['6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1', 'a1a8'], ['6rk/6p1/8/6N1/8/8/8/6K1 w - - 0 1', 'g5f7'], ['6rk/6pp/8/6N1/8/8/8/6K1 w - - 0 1', 'g5e6']],
+  },
+  promotion: {
+    yes: [['8/1P4k1/8/8/8/8/8/K7 w - - 0 1', 'b7b8q', VAULT], ['8/1P4k1/8/8/8/8/8/K7 w - - 0 1', 'b7b8q', GAIN], ['r6k/1P6/8/8/8/8/8/K7 w - - 0 1', 'b7a8q', VAULT]],
+    no: [['8/1P4k1/8/8/8/8/8/K7 w - - 0 1', 'b7b8q', PUZ], ['8/1P4k1/8/8/8/8/8/K7 w - - 0 1', 'b7b8q', { kind: 'convert', goal: 'keep' }], ['8/8/1P4k1/8/8/8/8/K7 w - - 0 1', 'b6b7', VAULT]],
+  },
+  opposition: {
+    yes: [['8/8/4k3/8/3K4/4P3/8/8 w - - 0 1', 'd4e4', VAULT], ['8/8/8/3k4/8/4K3/3P4/8 w - - 0 1', 'e3d3', VAULT], ['8/8/8/8/k7/3K4/1P6/8 w - - 0 1', 'd3c4', VAULT]],
+    no: [['8/8/4k3/8/3K4/4P3/8/8 w - - 0 1', 'd4e4', PUZ], ['8/8/4k3/8/3K4/4P3/8/8 w - - 0 1', 'd4c4', VAULT], ['8/8/4k3/8/3K4/4P3/8/7r w - - 0 1', 'd4e4', VAULT]],
+  },
+};
+
+describe('stage F: Codex techniques', () => {
+  it('eight techniques, each with a 3–5 sentence lesson, an example that fires, and a puzzle theme', () => {
+    expect(TECHNIQUES.map((t) => t.id).sort()).toEqual(['backrank', 'discovered', 'fork', 'opposition', 'pin', 'promotion', 'skewer', 'smothered']);
+    for (const t of TECHNIQUES) {
+      expect(t.lesson.length).toBeGreaterThanOrEqual(3);
+      expect(t.lesson.length).toBeLessThanOrEqual(5);
+      expect(t.theme).toBeTruthy();
+      const ctx = t.id === 'promotion' || t.id === 'opposition' ? VAULT : PUZ;
+      expect(t.detect(t.example.fen, t.example.uci, ctx)).toBe(true);
+    }
+  });
+  for (const id of Object.keys(CASES) as TechId[]) {
+    it(`${id}: detects 3 positives and rejects 3 negatives`, () => {
+      const t = techById(id);
+      for (const [fen, uci, ctx] of CASES[id].yes) expect(t.detect(fen, uci, ctx ?? PUZ), `${fen} ${uci}`).toBe(true);
+      for (const [fen, uci, ctx] of CASES[id].no) expect(t.detect(fen, uci, ctx ?? PUZ), `${fen} ${uci}`).toBe(false);
+    });
+  }
+  it('only equipped techniques fire', () => {
+    expect(techniquesIn(['pin'], 'r3k3/8/8/1N6/8/8/8/4K3 w - - 0 1', 'b5c7', PUZ)).toEqual([]);
+    expect(techniquesIn(['fork', 'pin'], 'r3k3/8/8/1N6/8/8/8/4K3 w - - 0 1', 'b5c7', PUZ)).toEqual(['fork']);
+  });
+  it('mastery: Novice → Adept at 5 uses → Master at 15; the ×mult rises a little', () => {
+    expect(techLevel(0)).toBe('novice');
+    expect(techLevel(T.codex.adeptUses)).toBe('adept');
+    expect(techLevel(T.codex.masterUses)).toBe('master');
+    expect(techMult(0)).toBeLessThan(techMult(T.codex.adeptUses));
+    expect(techMult(T.codex.adeptUses)).toBeLessThan(techMult(T.codex.masterUses));
+  });
+  it('the map leans toward rooms where equipped techniques can happen', () => {
+    expect(techAffinity(['fork'], 'riddle')).toBe(T.codex.mapWeight);
+    expect(techAffinity(['fork'], 'riddle:fork')).toBe(T.codex.mapWeight);
+    expect(techAffinity(['fork'], 'riddle:pin')).toBe(1);
+    expect(techAffinity(['opposition'], 'vault:kpk-front')).toBe(T.codex.mapWeight);
+    expect(techAffinity(['opposition'], 'vault:krk')).toBe(1);
+    expect(techAffinity(['promotion'], 'gain')).toBe(T.codex.mapWeight);
+    expect(techAffinity([], 'hold')).toBe(1);
+  });
+  it('a learned Fork or Pin replaces its relic', () => {
+    expect(REPLACES).toEqual({ fork: 'forkmaster', pin: 'pins' });
+  });
+});

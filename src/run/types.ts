@@ -2,6 +2,7 @@ import type { AnalysisResult } from '../lib/engine/types';
 import type { Classification } from '../lib/chess/evaluation';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
 import type { DiffId } from './tuning';
+import type { TechId } from './codex';
 
 export type RoomKind = 'puzzle' | 'convert' | 'hold' | 'ward' | 'vault' | 'duel' | 'echo' | 'mirror' | 'boss';
 export type NodeKind = RoomKind | 'event' | 'camp';
@@ -36,7 +37,9 @@ export interface MapNode {
 
 /** A relic (or the rival's rule) firing during a room; shown in the tally. */
 export interface Fire {
-  relic: RelicId | 'rival';
+  relic: RelicId | 'rival' | 'tech';
+  /** A Codex technique fired (relic = 'tech'). */
+  tech?: TechId;
   /** Added to the mult (+0.5). */
   mult?: number;
   /** Multiplies the mult at the end (×2). */
@@ -267,6 +270,10 @@ export interface Run {
   bookbinder?: number;
   /** The rival's battlefield options (boss pool indices) while choosing. */
   battlefield?: number[];
+  /** Codex techniques equipped for this run. */
+  techniques?: TechId[];
+  /** Failed-room positions where an equipped technique was there to find (sent to reviews). */
+  techMissed?: Moment[];
   /** Nemesis rule (a coach theme id) from your recurring mistakes in the main app. */
   nemesis?: string;
   /** Debrief moments written into the app's reviews (set when the run ends). */

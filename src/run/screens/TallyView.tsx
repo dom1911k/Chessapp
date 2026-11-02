@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, rivalRule } from '../content';
 import { cardSlots, goldParts, heatRules, fmtCp } from '../rules';
 import { RunBoard } from '../pixel/RunBoard';
+import { techById } from '../codex';
+import { EMBER } from '../pixel/pixelize';
 import type { BattlefieldResult } from '../types';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
@@ -19,8 +21,8 @@ export function TallyView({ onShake }: { onShake: () => void }) {
   const run = s.run!;
   const res = run.results[run.results.length - 1];
   const offer = run.offer;
-  const name = (f: Fire) => (f.relic === 'rival' ? rivalRule(run).name : RELICS[f.relic].name);
-  const icon = (f: Fire) => (f.relic === 'rival' ? <PixelPortrait id={run.bossId} size={28} px={24} boss /> : <Sprite name={RELICS[f.relic].glyph} size={28} px={14} />);
+  const name = (f: Fire) => (f.relic === 'rival' ? rivalRule(run).name : f.relic === 'tech' ? techById(f.tech!).name : RELICS[f.relic].name);
+  const icon = (f: Fire) => (f.relic === 'rival' ? <PixelPortrait id={run.bossId} size={28} px={24} boss /> : <Sprite name={f.relic === 'tech' ? techById(f.tech!).glyph : RELICS[f.relic].glyph} size={28} px={14} pal={f.relic === 'tech' ? EMBER : undefined} />);
   // Adds first, then multipliers — the same order the score uses.
   const multFires = [...res.fires.filter((f) => f.mult), ...res.fires.filter((f) => f.xmult)];
   const chipFires = res.fires.reduce((a, f) => a + (f.chips ?? 0), 0);

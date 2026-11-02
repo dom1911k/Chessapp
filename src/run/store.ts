@@ -20,6 +20,7 @@ import { TUNING as T } from './tuning';
 import positions from './data/positions.json';
 import { archiveRun, loadCurrent, saveCurrent } from './db';
 import { addRunReviews, readEchoes, readNemesis } from './bridge';
+import { REPLACES, techAffinity, techMult, techniquesIn, type TechId } from './codex';
 import { THEME_SETS } from '../lib/puzzles/themes';
 import {
   buildMap, cardSlots, composureCost, roomCap, roomLoss, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, relicOffer, shopPrice, isFinalCamp, materialOf, pickRival,
@@ -30,7 +31,7 @@ import { sfx, buzz } from './sfx';
 import { ROOM_NAME, rivalRule } from './content';
 import { embersFor, lockedCards, lockedDrills, lockedEvents, lockedRelics, lockedRooms, useMeta } from './meta';
 import type { BossMod } from './tuning';
-import type { ConsumableId, EchoPos, MapNode, PuzzleProgress, RelicId, RoomKind, RoomState, Run, UserMove } from './types';
+import type { ConsumableId, EchoPos, Fire, MapNode, PuzzleProgress, RelicId, RoomKind, RoomState, Run, UserMove } from './types';
 
 type Pos = [string, number];
 const POOLS = positions as unknown as Record<'convert' | 'hold' | 'boss', Pos[]> & { ward?: [string, number, string[]][] };
@@ -81,7 +82,8 @@ export interface Aids {
 const NO_AIDS: Aids = { eye: null, cards: null, lens: false, opinion: false, check: false, shadow: false, verdict: null };
 
 export type FxEvent =
-  | { id: number; kind: 'relic'; relic: RelicId | 'rival'; label: string }
+  | { id: number; kind: 'relic'; relic: RelicId | 'rival' | 'tech'; label: string; tech?: TechId }
+  | { id: number; kind: 'technique'; tech: TechId; label: string }
   | { id: number; kind: 'hit'; amount: number; insured?: boolean }
   | { id: number; kind: 'consumable'; item: ConsumableId }
   | { id: number; kind: 'move'; cls: Classification; san: string };
@@ -400,6 +402,10 @@ export const useRun = create<RunStore>((set, get) => {
     m.insured = insured || undefined;
     const rm = room();
     const fires = moveFires(run().relics, rm, m, rm.moves.length, bossOf(run()));
+    // Codex: an equipped technique executed with a sound move fires its own ×mult.
+    const techs = sound(m.cls) && m.fenBefore && run().techniques?.length ? techniquesIn(run().techniques!, m.fenBefore, m.uci, { kind: rm.node.kind as RoomKind, goal: rm.node.goal }) : [];
+    const codex = useMeta.getState().codex ?? {};
+    const techFires: Fire[] = techs.map((id) => ({ relic: 'tech', tech: id, xmult: techMult(codex[id]?.uses), at: rm.moves.length }));
     patch((r) => {
       const R = r.room!;
       if (insured) {
@@ -419,8 +425,16 @@ export const useRun = create<RunStore>((set, get) => {
         delete m.after;
       }
       R.moves.push(m);
-      R.fires.push(...fires);
+      R.fires.push(...fires, ...techFires);
     });
+    techs.forEach((id) => useMeta.getState().useTechnique(id));
+    techFires.forEach((f, i) =>
+      setTimeout(() => {
+        fire({ kind: 'technique', tech: f.tech, label: `×${f.xmult}` });
+        sfx('technique');
+        buzz([20, 30, 40]);
+      }, 150 + i * 700),
+    );
     fire({ kind: 'move', cls: m.cls, san: m.san });
     if (lost > 0) {
       fire({ kind: 'hit', amount: lost });
@@ -585,7 +599,7 @@ export const useRun = create<RunStore>((set, get) => {
     pool = pool.filter((p) => !r.usedPuzzles.includes(p.id) && p.moves.length >= 2);
     // Grimoire: riddle themes you fail more often come up a little more.
     const g = useMeta.getState().grimoire ?? {};
-    const tw = (p: (typeof pool)[number]) => Math.max(1, ...riddleThemes(p.themes).map((th) => scenarioWeight(g, `riddle:${th}`)));
+    const tw = (p: (typeof pool)[number]) => Math.max(1, ...riddleThemes(p.themes).map((th) => scenarioWeight(g, `riddle:${th}`))) * Math.max(1, ...p.themes.map((th) => techAffinity(r.techniques ?? [], `riddle:${th}`)));
     const out: typeof pool = [];
     const left = [...pool];
     while (out.length < n && left.length) {
@@ -646,7 +660,7 @@ export const useRun = create<RunStore>((set, get) => {
     useMeta.getState().finish(r, r.embers);
     const snap = clone(r);
     // The one write into the main app: the top moments become review cards.
-    void addRunReviews(snap).then((n) => {
+    void addRunReviews(snap, snap.techMissed ?? []).then((n) => {
       snap.reviewsAdded = n;
       void archiveRun(snap);
       if (get().run?.id === snap.id) patch((x) => void (x.reviewsAdded = n));
@@ -716,7 +730,10 @@ export const useRun = create<RunStore>((set, get) => {
       const echoes: EchoPos[] = allEchoes.length >= T.rooms.echo.minPositions ? sample(allEchoes, T.rooms.echo.sample, Math.random) : [];
       const grimoire: Grimoire = meta.grimoire ?? {};
       const boosts = meta.boosts;
-      const locked = lockedRelics(meta);
+      // Codex: equipped techniques; a learned Fork/Pin replaces its relic.
+      const techniques = (meta.equipped ?? []).filter((id) => meta.codex?.[id]?.learned);
+      const replaced = (Object.keys(REPLACES) as TechId[]).filter((id) => meta.codex?.[id]?.learned).map((id) => REPLACES[id]!);
+      const locked = [...lockedRelics(meta), ...replaced];
       const difficulty = useRunSettings.getState().difficulty ?? 'apprentice';
       const heat = heatFor(difficulty, useRunSettings.getState().heat ?? 0, meta.heatUnlocked ?? 0);
       // Heat 4: Engine's Eye is never offered.
@@ -736,9 +753,10 @@ export const useRun = create<RunStore>((set, get) => {
         heat,
         bossId: boss.id,
         phase: 'start',
-        layers: buildMap(Math.random, { ...poolSizes(), echo: echoes.length || POOLS.hold.length, mirror: POOLS.hold.length }, { rooms: lockedRooms(meta), events: lockedEvents(meta), drills: lockedDrills(meta) }, (k) => scenarioWeight(grimoire, k)),
+        layers: buildMap(Math.random, { ...poolSizes(), echo: echoes.length || POOLS.hold.length, mirror: POOLS.hold.length }, { rooms: lockedRooms(meta), events: lockedEvents(meta), drills: lockedDrills(meta) }, (k) => scenarioWeight(grimoire, k) * techAffinity(techniques, k)),
         nemesis,
         echoes,
+        techniques,
         path: [],
         layer: 0,
         composure: T.composure.start,
@@ -1186,6 +1204,14 @@ export const useRun = create<RunStore>((set, get) => {
         if (won && R.node.elite) ids.push('elite');
         if (r.relics.length >= 5) ids.push('collector');
         earn(r, ids);
+        // Codex: in a failed room, positions where an equipped technique was the best move go to your reviews.
+        if (!won && r.techniques?.length)
+          for (const m of R.moves) {
+            const best = m.before?.bestMove;
+            if (!best || best === m.uci || !m.fenBefore) continue;
+            if (techniquesIn(r.techniques, m.fenBefore, best, { kind: R.node.kind as RoomKind, goal: R.node.goal }).length)
+              (r.techMissed ??= []).push({ layer: R.layer, kind: R.node.kind as RoomKind, move: clone(m), cost: m.composureLost, best });
+          }
         // Grimoire: the room's scenario, or each riddle's themes.
         const notes: { key: string; won: boolean }[] = [];
         const key = scenarioOf(R.node, R.vault?.drill);

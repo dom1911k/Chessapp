@@ -373,3 +373,12 @@
     opacity: 1;
   }
 }
+
+/* Codex: technique chips (frame by mastery) and the fire banner */
+.tech-chip { background: rgba(0,0,0,.45); color: var(--ink); box-shadow: 0 0 0 2px #1b0f22, inset 0 0 0 1px #9a7a5a; }
+.tech-chip.lvl-adept { box-shadow: 0 0 0 2px #1b0f22, inset 0 0 0 1px #c9d4e6, 0 0 8px rgba(201,212,230,.35); }
+.tech-chip.lvl-master { box-shadow: 0 0 0 2px #1b0f22, inset 0 0 0 2px var(--gold-2), 0 0 12px rgba(242,199,92,.55); color: var(--gold-2); }
+.tech-banner { background: radial-gradient(rgba(60,20,10,.92), rgba(20,8,16,.85)); box-shadow: 0 0 0 2px #1b0f22, inset 0 0 0 2px #ffb454, 0 0 40px rgba(255,140,60,.6); }
+.tech-card { box-shadow: 0 0 0 2px #1b0f22, inset 0 0 0 1px #9a7a5a; }
+.tech-card.lvl-adept { box-shadow: 0 0 0 2px #1b0f22, inset 0 0 0 2px #c9d4e6, 0 0 10px rgba(201,212,230,.3); }
+.tech-card.lvl-master { box-shadow: 0 0 0 2px #1b0f22, inset 0 0 0 3px var(--gold-2), 0 0 18px rgba(242,199,92,.5); }

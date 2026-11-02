@@ -6,6 +6,7 @@ import { runDb } from './db';
 import type { ConsumableId, EventKind, RelicId, RoomKind, Run } from './types';
 import { TUNING as T } from './tuning';
 import { heatAfterWin, heatAllowed, noteScenario, type Grimoire } from './rules';
+import type { TechId } from './codex';
 
 export type BoostId = 'reroll' | 'notes' | 'nerves' | 'cartographer' | 'keeneye';
 
@@ -120,9 +121,13 @@ export interface Meta {
   refundNote?: string;
   /** Scenario records (met / cleared / failed / clears in a row). */
   grimoire?: Grimoire;
+  /** The Codex: learned techniques and how often each was executed. */
+  codex?: Partial<Record<TechId, { learned: boolean; uses: number }>>;
+  /** Techniques equipped for the next run (up to codexSlots). */
+  equipped?: TechId[];
 }
 
-const EMPTY: Meta = { embers: 0, earned: 0, unlocked: [], boosts: {}, runs: 0, wins: 0, best: 0, milestones: [], rivalWins: {}, grimoire: {}, heatUnlocked: 0, heatBest: 0 };
+const EMPTY: Meta = { embers: 0, earned: 0, unlocked: [], boosts: {}, runs: 0, wins: 0, best: 0, milestones: [], rivalWins: {}, grimoire: {}, heatUnlocked: 0, heatBest: 0, codex: {}, equipped: [] };
 
 /** Embers for a finished run: something every time, more for progress and a win. */
 export function embersFor(r: Run): number {
@@ -156,11 +161,17 @@ interface MetaStore extends Meta {
   /** Record scenario outcomes in the Grimoire. */
   noteGrimoire(entries: { key: string; won: boolean }[]): void;
   clearRefundNote(): void;
+  /** Codex: a technique passed its learning check. */
+  learnTechnique(id: TechId): void;
+  /** Codex: equip / unequip for the next run (max codexSlots). */
+  toggleEquip(id: TechId): boolean;
+  /** Codex: executions count toward mastery. */
+  useTechnique(id: TechId, n?: number): void;
   dev(n: number): void;
 }
 
 const save = (m: Meta) => void runDb.state.put({ key: 'meta', value: m }).catch(() => {});
-const pick = (s: Meta): Meta => ({ embers: s.embers, earned: s.earned, unlocked: s.unlocked, boosts: s.boosts, runs: s.runs, wins: s.wins, best: s.best, milestones: s.milestones ?? [], rivalWins: s.rivalWins ?? {}, grimoire: s.grimoire ?? {}, heatUnlocked: s.heatUnlocked ?? 0, heatBest: s.heatBest ?? 0, refundNote: s.refundNote });
+const pick = (s: Meta): Meta => ({ embers: s.embers, earned: s.earned, unlocked: s.unlocked, boosts: s.boosts, runs: s.runs, wins: s.wins, best: s.best, milestones: s.milestones ?? [], rivalWins: s.rivalWins ?? {}, grimoire: s.grimoire ?? {}, heatUnlocked: s.heatUnlocked ?? 0, heatBest: s.heatBest ?? 0, refundNote: s.refundNote, codex: s.codex ?? {}, equipped: s.equipped ?? [] });
 
 export const useMeta = create<MetaStore>((set, get) => ({
   ...EMPTY,
@@ -220,6 +231,28 @@ export const useMeta = create<MetaStore>((set, get) => ({
     set({ milestones: [...have, ...fresh.map((x) => x.id)], embers: s.embers + n, earned: s.earned + n });
     save(pick(get()));
     return fresh;
+  },
+  learnTechnique(id) {
+    const c = { ...(get().codex ?? {}) };
+    c[id] = { learned: true, uses: c[id]?.uses ?? 0 };
+    const eq = get().equipped ?? [];
+    set({ codex: c, equipped: eq.length < T.codex.slots && !eq.includes(id) ? [...eq, id] : eq });
+    save(pick(get()));
+  },
+  toggleEquip(id) {
+    const eq = get().equipped ?? [];
+    if (eq.includes(id)) set({ equipped: eq.filter((x) => x !== id) });
+    else if (eq.length < T.codex.slots && get().codex?.[id]?.learned) set({ equipped: [...eq, id] });
+    else return false;
+    save(pick(get()));
+    return true;
+  },
+  useTechnique(id, n = 1) {
+    const c = { ...(get().codex ?? {}) };
+    if (!c[id]) return;
+    c[id] = { ...c[id]!, uses: c[id]!.uses + n };
+    set({ codex: c });
+    save(pick(get()));
   },
   clearRefundNote() {
     set({ refundNote: undefined });

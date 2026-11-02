@@ -22,6 +22,8 @@ import { BLOOD, EMBER, GOLD } from '../pixel/pixelize';
 import { Composure, PixelNum } from './bits';
 import { VsIntro } from './scenes';
 import { useLongPress } from './useLongPress';
+import { useMeta } from '../meta';
+import { techById, techLevel, type TechId } from '../codex';
 
 const CLS_COLOR: Record<Classification, string> = { best: '#5ee59a', good: '#9fd8b5', inaccuracy: '#ffd36b', mistake: '#ffb454', blunder: '#e2475a' };
 
@@ -62,11 +64,19 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
   const lastFx = s.fx[s.fx.length - 1];
   useEffect(() => {
     if (!lastFx) return;
-    if (lastFx.kind === 'relic') setPulse((p) => ({ ...p, [lastFx.relic]: { id: lastFx.id, label: lastFx.label } }));
+    if (lastFx.kind === 'relic') setPulse((p) => ({ ...p, [lastFx.relic === 'tech' ? `tech:${lastFx.tech}` : lastFx.relic]: { id: lastFx.id, label: lastFx.label } }));
+    if (lastFx.kind === 'technique') {
+      setPulse((p) => ({ ...p, [`tech:${lastFx.tech}`]: { id: lastFx.id, label: lastFx.label } }));
+      setTechFx({ id: lastFx.id, tech: lastFx.tech, label: lastFx.label });
+      const t = setTimeout(() => setTechFx((x) => (x?.id === lastFx.id ? null : x)), 1500);
+      return () => clearTimeout(t);
+    }
     if (lastFx.kind === 'hit') setHit({ id: lastFx.id, insured: lastFx.insured });
     if (lastFx.kind === 'consumable') setUsed({ id: lastFx.id, item: lastFx.item });
   }, [lastFx]);
 
+  const [techFx, setTechFx] = useState<{ id: number; tech: TechId; label: string } | null>(null);
+  const codex = useMeta((m) => m.codex ?? {});
   const [bossLine, setBossLine] = useState(() => (boss ? pickLine(boss, 'greet') : ''));
   useEffect(() => {
     if (!boss || !lastFx) return;
@@ -190,6 +200,23 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
             )}
           </div>
         </div>
+        {/* Codex: equipped techniques (their own row, above the relics) */}
+        {(run.techniques ?? []).length > 0 && (
+          <div className="mt-2 flex items-center gap-1.5">
+            {run.techniques!.map((id) => {
+              const lvl = techLevel(codex[id]?.uses);
+              const p = pulse[`tech:${id}`];
+              return (
+                <span key={id} className={`tech-chip lvl-${lvl} relative flex items-center gap-1 px-1.5 py-0.5`}>
+                  <span key={p?.id} className={`flex items-center gap-1 ${p ? 'run-pulse' : ''}`}>
+                    <Sprite name={techById(id).glyph} size={16} px={10} pal={EMBER} />
+                    <span className="run-sans text-[10px] font-black">{techById(id).name}</span>
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+        )}
         {/* Relic rail (tap for info) */}
         <div className="mt-2 flex min-h-9 items-center gap-1.5">
           {relicsShown.map((id) => (
@@ -227,6 +254,15 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
             </button>
           )}
           {used && <UsedCard key={used.id} item={used.item} />}
+          {techFx && (
+            <div key={techFx.id} className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center">
+              <div className="run-slam tech-banner flex flex-col items-center px-4 py-2">
+                <Sprite name={techById(techFx.tech).glyph} size={44} px={16} pal={EMBER} />
+                <PixelText text={techById(techFx.tech).name} size={3} color="#ffe7a3" />
+                <PixelNum value={techFx.label} size={4} color="var(--mult)" />
+              </div>
+            </div>
+          )}
           {s.aids.verdict && <VerdictPanel />}
           {!playing && <EndBanner canRewind={canRewind} takeBack={takeBack} />}
           {playing && room.puzzle?.lost && <PuzzleLost canRewind={canRewind} takeBack={takeBack} />}

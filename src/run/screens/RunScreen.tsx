@@ -15,6 +15,7 @@ import { RunBoard } from '../pixel/RunBoard';
 import { runMusic, sfx } from '../sfx';
 import { useRunSettings } from '../settings';
 import { useMeta } from '../meta';
+import { techById } from '../codex';
 import { allRuns } from '../db';
 import { getRating } from '../../lib/puzzles/rating';
 import { getOpponentRecords } from '../../lib/people/record';
@@ -36,7 +37,7 @@ export function RunScreen() {
   const [dev, setDev] = useState(false);
   const [tut, setTut] = useState(false);
   const [settings, setSettings] = useState(false);
-  const [view, setView] = useState<'main' | 'sanctum' | 'history'>('main');
+  const [view, setView] = useState<'main' | 'sanctum' | 'history' | 'codex'>('main');
   const shaker = useRef<HTMLDivElement>(null);
   useEffect(() => void s.load(), [s]);
   useEffect(() => void useMeta.getState().load(), []);
@@ -89,8 +90,9 @@ export function RunScreen() {
   let body;
   if (!s.loaded) body = null;
   else if (view === 'sanctum') body = <SanctumScreen onBack={() => setView('main')} />;
+  else if (view === 'codex') body = <SanctumScreen start="codex" onBack={() => setView('main')} />;
   else if (view === 'history') body = <HistoryScreen onBack={() => setView('main')} />;
-  else if (!run) body = <Home tools={tools} onSanctum={() => setView('sanctum')} onHistory={() => setView('history')} />;
+  else if (!run) body = <Home tools={tools} onSanctum={() => setView('sanctum')} onHistory={() => setView('history')} onCodex={() => setView('codex')} />;
   else if (run.phase === 'start') body = <Pick title="Choose your first relic" tools={tools} />;
   else if (run.phase === 'reward') body = <Pick title={run.offer?.title ?? 'Spoils'} tools={tools} skip />;
   else if (run.phase === 'map') body = <MapView top={<TopBar tools={tools} />} />;
@@ -150,7 +152,7 @@ function IconBtn({ sprite, label, onClick, pal = GOLD }: { sprite: string; label
   );
 }
 
-function Home({ tools, onSanctum, onHistory }: { tools: Tools; onSanctum: () => void; onHistory: () => void }) {
+function Home({ tools, onSanctum, onHistory, onCodex }: { tools: Tools; onSanctum: () => void; onHistory: () => void; onCodex: () => void }) {
   const s = useRun();
   const embers = useMeta((m) => m.embers);
   return (
@@ -173,6 +175,7 @@ function Home({ tools, onSanctum, onHistory }: { tools: Tools; onSanctum: () => 
         <DifficultyPicker />
         <HeatPicker />
         <StrengthLine />
+        <EquippedRow onCodex={onCodex} />
         <button className="run-btn w-full text-lg" onClick={() => void s.newRun()}>
           Begin a run
         </button>
@@ -219,6 +222,18 @@ function HeatPicker() {
         {h === 0 ? 'No extra constraints.' : <>{HEAT_TEXT.slice(0, h).map((t, i) => <span key={i} className="block">{i + 1}. {t}</span>)}<span className="text-[#ffb454]">Win: +{h * T.heat.embersPerLevel} Embers.</span></>}
       </p>
     </div>
+  );
+}
+
+/** Codex techniques equipped for the next run (tap to change). */
+function EquippedRow({ onCodex }: { onCodex: () => void }) {
+  const eq = useMeta((m) => m.equipped ?? []);
+  const any = useMeta((m) => Object.values(m.codex ?? {}).some((x) => x?.learned));
+  return (
+    <button onClick={onCodex} className="run-sans -mt-0.5 mb-1 flex items-center justify-center gap-1.5 text-xs text-[var(--ink-dim)]">
+      <Sprite name="scroll" size={14} px={10} pal={EMBER} />
+      {!any ? 'Codex: learn your first technique →' : eq.length ? <>Techniques: <b className="text-[var(--gold-2)]">{eq.map((id) => techById(id).name).join(' · ')}</b> (change)</> : 'No techniques equipped (tap to choose)'}
+    </button>
   );
 }
 
