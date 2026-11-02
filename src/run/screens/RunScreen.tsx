@@ -4,9 +4,9 @@ import { createPortal } from 'react-dom';
 import { Chess } from 'chess.js';
 import { opponentById } from '../../lib/people';
 import { uciToSan } from '../../lib/chess/game';
-import { CONSUMABLES, EVENTS, HEAT_TEXT, MODIFIERS, RELICS } from '../content';
+import { CONSUMABLES, EVENTS, HEAT_TEXT, MODIFIERS, RELICS, objective, rivalRule, bossModText } from '../content';
 import { heatAllowed, heatFor, playStrength, isFinalCamp, cardSlots, cleansePrice, goldToEmbers, maxComposure, nextRestCost, pouchPrice, rerollPrice, shopPrice, stallPrice, stallExtraPrice } from '../rules';
-import { useRun } from '../store';
+import { bossFen, useRun } from '../store';
 import { TUNING as T, type DiffId } from '../tuning';
 import type { ConsumableId, RelicId } from '../types';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
@@ -44,7 +44,7 @@ export function RunScreen() {
   // Music: the ambient drone on the map and menus; in a room its battle theme (the rival's own
   // theme in the boss room, a quieter one for puzzle rooms).
   const kind = run?.phase === 'room' ? run.room?.node.kind : undefined;
-  const theme = !kind ? 'map' : kind === 'boss' ? 'rival' : kind === 'puzzle' || kind === 'ward' || run?.room?.gamble ? 'riddle' : 'battle';
+  const theme = run?.phase === 'battlefield' ? 'rival' : !kind ? 'map' : kind === 'boss' ? 'rival' : kind === 'puzzle' || kind === 'ward' || run?.room?.gamble ? 'riddle' : 'battle';
   useEffect(() => {
     const want = rs.music > 0 ? theme : null;
     runMusic(want);
@@ -98,6 +98,7 @@ export function RunScreen() {
   else if (run.phase === 'event') body = <EventView tools={tools} />;
   else if (run.phase === 'tally') body = <TallyView onShake={shake} />;
   else if (run.phase === 'curse') body = <Curse />;
+  else if (run.phase === 'battlefield') body = <Battlefield tools={tools} />;
   else if (run.phase === 'camp') body = <Camp tools={tools} />;
   else if (run.phase === 'debrief') body = <Debrief onShake={shake} onSanctum={() => setView('sanctum')} />;
 
@@ -330,6 +331,55 @@ function Inventory() {
             {CONSUMABLES[id].name}
           </span>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** Choose your battlefield: three rival positions, evals hidden; the tally reveals them. */
+function Battlefield({ tools }: { tools: Tools }) {
+  const s = useRun();
+  const run = s.run!;
+  const [sel, setSel] = useState<number | null>(null);
+  const boss = opponentById(run.bossId);
+  const rule = rivalRule(run);
+  const node = run.layers[run.layer][run.path[run.layer] ?? 0];
+  const opts = run.battlefield ?? [];
+  return (
+    <div className="flex h-full flex-col pb-5">
+      <TopBar tools={tools} />
+      <div className="mt-4 flex items-center gap-3 px-4">
+        <PixelPortrait id={run.bossId} size={64} boss className="run-boss-glow" />
+        <div className="min-w-0">
+          <div className="run-label text-[var(--blood)]!">{rule.nemesis ? 'Nemesis · ' : ''}{rule.name}</div>
+          <div className="run-title text-xl leading-tight font-black">Choose your battlefield</div>
+          <div className="run-sans text-xs text-[var(--ink-dim)]">{boss?.name} lets you pick where to fight. Which one suits you best?</div>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2 px-3">
+        {opts.map((j, i) => {
+          const fen = bossFen(j);
+          const side = fen.split(' ')[1] === 'w' ? 'white' : 'black';
+          return (
+            <button key={j} onClick={() => (setSel(i), sfx('card'))} className={`run-panel p-1.5 text-center ${sel === i ? 'ring-2 ring-[var(--gold-2)]' : ''}`}>
+              <RunBoard mini fen={fen} orientation={side} movable={null} showCoordinates={false} />
+              <div className="run-sans mt-1 text-[11px] font-bold">{['I', 'II', 'III'][i] ?? i + 1} · you play {side === 'white' ? 'White' : 'Black'}</div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="run-panel mx-4 mt-4 p-3">
+        <div className="run-label">The goal (same everywhere)</div>
+        <div className="run-sans mt-0.5 text-[13px] leading-snug">{objective(node, rule, run.difficulty, run.heat)}</div>
+        <div className="run-sans mt-1 text-xs text-[var(--ink-dim)]">{bossModText(rule)}</div>
+        <div className="run-sans mt-2 text-xs text-[#ffb454]">
+          The evaluations stay hidden. After the fight: +{T.battlefield.bestPickGold}g if you picked the best one for you, +{T.battlefield.okPickGold}g if within {T.battlefield.okPickCp / 100} of it.
+        </div>
+      </div>
+      <div className="mt-auto px-4">
+        <button className="run-btn w-full" disabled={sel === null || s.busy} onClick={() => sel !== null && s.pickBattlefield(sel)}>
+          {s.busy ? '…' : 'Fight here'}
+        </button>
       </div>
     </div>
   );

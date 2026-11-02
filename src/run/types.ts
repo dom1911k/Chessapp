@@ -155,6 +155,8 @@ export interface RoomResult {
   reason: string;
   /** No mistake or blunder (clean bonus). */
   clean?: boolean;
+  /** Rival fight: the battlefield choice, revealed in the tally. */
+  battlefield?: BattlefieldResult;
   /** Eval (your POV, cp) after your last move — shown in the tally when Heat hides numbers. */
   evalEnd?: number;
 }
@@ -189,6 +191,7 @@ export type Phase =
   | 'tally' // score, gold and (sometimes) a free 1-of-3 pick underneath
   | 'reward' // free 1-of-3 pick after an event
   | 'curse' // optional deal before the boss
+  | 'battlefield' // choose where to fight the rival
   | 'camp' // campfire / shop
   | 'debrief';
 
@@ -262,6 +265,8 @@ export interface Run {
   springDebt?: boolean;
   /** Bookbinder: puzzles solved without a card (counts toward the next free Blunder Check). */
   bookbinder?: number;
+  /** The rival's battlefield options (boss pool indices) while choosing. */
+  battlefield?: number[];
   /** Nemesis rule (a coach theme id) from your recurring mistakes in the main app. */
   nemesis?: string;
   /** Debrief moments written into the app's reviews (set when the run ends). */
@@ -271,6 +276,18 @@ export interface Run {
   roomStartedAt?: number;
   goldEarned?: number;
   goldSpent?: number;
+}
+
+export interface BattlefieldResult {
+  fens: string[];
+  /** Your-POV evals of the options (cp). */
+  evals: number[];
+  picked: number;
+  /** 1 = the best for you. */
+  rank: number;
+  /** How much worse than the best option (cp). */
+  lossCp: number;
+  gold: number;
 }
 
 export interface EchoPos {
@@ -298,6 +315,8 @@ export interface Playtest {
   cursed: boolean;
   difficulty?: DiffId;
   heat?: number;
+  /** Battlefield judgement (rank 1 = best of the three, and cp behind the best). */
+  battlefield?: { rank: number; lossCp: number };
   /** Minutes spent inside rooms (the rest is map, shop, menus). */
   roomMinutes?: number;
   goldEarned?: number;

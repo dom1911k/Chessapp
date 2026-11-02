@@ -819,3 +819,13 @@ export function nullMoveFen(fen: string): string | null {
     return null;
   }
 }
+
+/** Battlefield judgement: rank of your pick (1 = best for you), cp behind the best, and the gold bonus. */
+export function judgeBattlefield(evals: number[], picked: number) {
+  const B = T.battlefield;
+  const best = Math.max(...evals);
+  const lossCp = Math.max(0, best - evals[picked]);
+  const rank = 1 + evals.filter((e) => e > evals[picked]).length;
+  const gold = rank === 1 ? B.bestPickGold : lossCp <= B.okPickCp ? B.okPickGold : 0;
+  return { rank, lossCp, gold };
+}

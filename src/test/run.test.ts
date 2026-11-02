@@ -558,3 +558,26 @@ describe('stage D: archetypes and keystones', () => {
     expect(stallExtraPrice(r, 'perfectionist')).toBe(Math.round(T.shop.stallPrice.rare * T.relics.patronDiscount));
   });
 });
+
+// ---------------------------------------------------------------- Stage E
+import { judgeBattlefield } from '../run/rules';
+
+describe('stage E: choose your battlefield', () => {
+  it('ranks your pick and pays for judgement: best, within okPickCp, or nothing', () => {
+    const evals = [120, 40, 100];
+    expect(judgeBattlefield(evals, 0)).toEqual({ rank: 1, lossCp: 0, gold: T.battlefield.bestPickGold });
+    expect(judgeBattlefield(evals, 2)).toEqual({ rank: 2, lossCp: 20, gold: T.battlefield.okPickGold });
+    expect(judgeBattlefield(evals, 1)).toEqual({ rank: 3, lossCp: 80, gold: 0 });
+  });
+  it('ties for best all count as the best pick', () => {
+    expect(judgeBattlefield([50, 50, 0], 1).rank).toBe(1);
+  });
+  it('the boss pool has evals to judge (your POV) and enough positions for three options', () => {
+    const boss = (positions as unknown as Record<string, [string, number][]>).boss;
+    expect(boss.length).toBeGreaterThanOrEqual(T.battlefield.options);
+    for (const [fen, ev] of boss.slice(0, 10)) {
+      expect(typeof ev).toBe('number');
+      expect(() => new Chess(fen)).not.toThrow();
+    }
+  });
+});

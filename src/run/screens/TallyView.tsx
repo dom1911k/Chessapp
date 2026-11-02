@@ -4,6 +4,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, rivalRule } from '../content';
 import { cardSlots, goldParts, heatRules, fmtCp } from '../rules';
+import { RunBoard } from '../pixel/RunBoard';
+import type { BattlefieldResult } from '../types';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
 import type { ConsumableId, Fire, RelicId } from '../types';
@@ -159,6 +161,7 @@ export function TallyView({ onShake }: { onShake: () => void }) {
               {name(f)}: {f.composure ? `+${f.composure} Composure` : f.gold ? `+${f.gold} gold` : ''}
             </div>
           ))}
+          {res.battlefield && <BattlefieldReveal b={res.battlefield} />}
           {!res.won && res.kind !== 'boss' && res.composureLost > 0 && (
             <div className="run-sans text-xs text-[var(--blood)]">−{res.composureLost} Composure in this room</div>
           )}
@@ -206,6 +209,33 @@ export function TallyView({ onShake }: { onShake: () => void }) {
             {res.kind === 'boss' ? 'Debrief' : 'Continue'}
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** The rival's battlefield: all three evaluations revealed, and the judgement bonus. */
+function BattlefieldReveal({ b }: { b: BattlefieldResult }) {
+  const verdict = b.rank === 1 ? 'You picked the best battlefield!' : b.gold > 0 ? `Close — ${fmtCp(b.lossCp).replace('+', '')} behind the best.` : `The best one was ${fmtCp(b.lossCp).replace('+', '')} better for you.`;
+  return (
+    <div className="run-panel run-fadeup mt-2 w-full p-2">
+      <div className="run-label">Your battlefield judgement</div>
+      <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+        {b.fens.map((fen, i) => {
+          const best = b.evals[i] === Math.max(...b.evals);
+          return (
+            <div key={i} className={`p-1 ${i === b.picked ? 'ring-2 ring-[var(--gold-2)]' : ''}`}>
+              <RunBoard mini fen={fen} orientation={fen.split(' ')[1] === 'w' ? 'white' : 'black'} movable={null} showCoordinates={false} />
+              <div className={`run-sans mt-0.5 text-xs font-black ${best ? 'text-[#5ee59a]' : 'text-[var(--ink-dim)]'}`}>
+                {fmtCp(b.evals[i])}
+                {i === b.picked ? ' · yours' : ''}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="run-sans mt-1 text-xs">
+        {verdict} {b.gold > 0 && <b className="text-[var(--gold)]">+{b.gold} gold</b>}
       </div>
     </div>
   );

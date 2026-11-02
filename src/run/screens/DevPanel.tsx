@@ -114,6 +114,16 @@ function Stats() {
             <td className="text-right">{timed.length ? `${Math.round(roomShare * 100)}%` : '–'} ({timed.length} timed runs)</td>
           </tr>
           <tr>
+            <td className="py-0.5">Battlefield picks (best / ok / avg cp behind)</td>
+            <td className="text-right">
+              {(() => {
+                const bs = done.map((r) => r.results.find((x) => x.battlefield)?.battlefield).filter((x) => !!x);
+                if (!bs.length) return '–';
+                return `${bs.filter((b) => b!.rank === 1).length}/${bs.length} · ${bs.filter((b) => b!.rank > 1 && b!.gold > 0).length} · ${Math.round(bs.reduce((a, b) => a + b!.lossCp, 0) / bs.length)}`;
+              })()}
+            </td>
+          </tr>
+          <tr>
             <td className="py-0.5">Gold earned / spent per run</td>
             <td className="text-right">
               {done.length ? `${Math.round(earned / done.length)} / ${Math.round(spent / done.length)}` : '–'}

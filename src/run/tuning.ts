@@ -285,6 +285,12 @@ export const TUNING = {
     default: { name: 'The Pickpocket', blunderFactor: 2 },
   } as Record<string, BossMod>,
 
+  /**
+   * Choose your battlefield (rival only, prototype): 3 positions from the boss pool, evals hidden.
+   * After the fight the tally reveals them and pays for good judgement.
+   */
+  battlefield: { options: 3, bestPickGold: 8, okPickGold: 4, okPickCp: 50 },
+
   curse: {
     ratingBoost: 150,
     /** Taking the deal multiplies your gold right away (before the last shop). */

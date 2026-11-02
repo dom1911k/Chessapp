@@ -23,7 +23,7 @@ import { addRunReviews, readEchoes, readNemesis } from './bridge';
 import { THEME_SETS } from '../lib/puzzles/themes';
 import {
   buildMap, cardSlots, composureCost, roomCap, roomLoss, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, relicOffer, shopPrice, isFinalCamp, materialOf, pickRival,
-  roomScore, sample, shopOffers, sound, diffOf, heatFor, heatRules, nullMoveFen, stallExtraPrice, closeMoves, plausibleWrong, scenarioOf, scenarioWeight, type Grimoire, nextRestCost, stallPrice, pouchPrice, cleansePrice, rerollPrice, goldToEmbers, canTakeBack, playStrength, rivalElo, type CostCtx,
+  roomScore, sample, shopOffers, sound, diffOf, judgeBattlefield, heatFor, heatRules, nullMoveFen, stallExtraPrice, closeMoves, plausibleWrong, scenarioOf, scenarioWeight, type Grimoire, nextRestCost, stallPrice, pouchPrice, cleansePrice, rerollPrice, goldToEmbers, canTakeBack, playStrength, rivalElo, type CostCtx,
 } from './rules';
 import { useRunSettings } from './settings';
 import { sfx, buzz } from './sfx';
@@ -57,6 +57,8 @@ const DUELS: { fen: string; name: string; sans: string[] }[] = (() => {
 const VAULTS = DRILLS.filter((d) => (T.rooms.vault.drills as readonly string[]).includes(d.id)).flatMap((d) =>
   d.fens.map((fen) => ({ fen, drill: d.id, goal: d.goal, title: d.title })),
 );
+/** A rival position by pool index (battlefield previews). */
+export const bossFen = (i: number) => POOLS.boss[i % POOLS.boss.length][0];
 export const poolSizes = () => ({ convert: POOLS.convert.length, hold: POOLS.hold.length, boss: POOLS.boss.length, ward: WARDS.length, duel: DUELS.length, vault: VAULTS.length, vaultDrills: VAULTS.map((v) => v.drill) });
 
 /** Riddle themes the Grimoire tracks (the app's puzzle theme sets). */
@@ -108,6 +110,8 @@ interface RunStore {
   confirmVerdict(play: boolean): void;
   /** The Mirror: name the opponent's most dangerous idea. */
   mirrorPick(uci: string): void;
+  /** Choose your battlefield (rival): fight in option `i`. */
+  pickBattlefield(i: number): void;
   use(id: ConsumableId): Promise<void>;
   /** Undo your last move: with the Rewind card, or `free` with a difficulty take-back. */
   rewind(free?: boolean): void;
@@ -791,7 +795,28 @@ export const useRun = create<RunStore>((set, get) => {
         });
         return;
       }
+      // The rival: choose your battlefield first (three positions, evals hidden).
+      if (node.kind === 'boss') {
+        patch((r) => {
+          r.path[r.layer] = i;
+          const all = POOLS.boss.map((_, j) => j).filter((j) => j !== (node.pos ?? 0) % POOLS.boss.length);
+          r.battlefield = sample([(node.pos ?? 0) % POOLS.boss.length, ...sample(all, T.battlefield.options - 1, Math.random)], T.battlefield.options, Math.random);
+          r.phase = 'battlefield';
+        });
+        return;
+      }
       patch((r) => void (r.path[r.layer] = i));
+      void get().enterRoom();
+    },
+
+    pickBattlefield(i) {
+      const r = run();
+      if (r.phase !== 'battlefield' || r.battlefield?.[i] === undefined) return;
+      patch((x) => {
+        const row = x.layers[x.layer];
+        row[x.path[x.layer] ?? 0] = { ...row[x.path[x.layer] ?? 0], pos: x.battlefield![i] };
+      });
+      sfx('slam');
       void get().enterRoom();
     },
 
@@ -1132,6 +1157,16 @@ export const useRun = create<RunStore>((set, get) => {
         const fail = R.status === 'failed' && R.node.kind !== 'boss' && !broke && (R.gamble || roomLoss(R) === 0) ? Math.min(failCost, Math.max(0, roomCap(R) - roomLoss(R))) : 0;
         const calm = R.fires.reduce((s, f) => s + (f.composure ?? 0), 0);
         r.composure = Math.max(0, Math.min(maxComposure(r), r.composure - fail + (broke ? 0 : calm)));
+        // Battlefield: reveal the three options and pay for good judgement.
+        let bf: import('./types').BattlefieldResult | undefined;
+        if (R.node.kind === 'boss' && r.battlefield?.length) {
+          const evals = r.battlefield.map((j) => POOLS.boss[j][1]);
+          const picked = Math.max(0, r.battlefield.indexOf((R.node.pos ?? 0) % POOLS.boss.length));
+          const j = judgeBattlefield(evals, picked);
+          bf = { fens: r.battlefield.map((x) => POOLS.boss[x][0]), evals, picked, ...j };
+          r.gold += j.gold;
+          r.goldEarned = (r.goldEarned ?? 0) + j.gold;
+        }
         r.gold += sc.gold;
         r.goldEarned = (r.goldEarned ?? 0) + sc.gold;
         if (r.roomStartedAt) r.roomMs = (r.roomMs ?? 0) + Math.min(30 * 60000, Math.max(0, Date.now() - r.roomStartedAt));
@@ -1139,7 +1174,7 @@ export const useRun = create<RunStore>((set, get) => {
         r.results.push({
           layer: R.layer, kind: R.node.kind as RoomKind, modifier: R.node.modifier, elite: R.node.elite, gamble: R.gamble, won: R.status === 'won',
           chips: sc.chips, target: sc.target, mult: sc.mult, score: sc.score, gold: sc.gold, fires: R.fires,
-          composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '', clean: sc.clean, evalEnd: R.puzzle ? undefined : R.moves[R.moves.length - 1]?.evalAfter,
+          composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '', clean: sc.clean, battlefield: bf, evalEnd: R.puzzle ? undefined : R.moves[R.moves.length - 1]?.evalAfter,
         });
         // Milestones from this room.
         const won = R.status === 'won';

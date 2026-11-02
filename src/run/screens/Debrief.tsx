@@ -213,6 +213,10 @@ function FunRating({ onSanctum }: { onSanctum: () => void }) {
       cursed: run.cursed,
       difficulty: run.difficulty,
       heat: run.heat,
+      battlefield: (() => {
+        const b = run.results.find((x) => x.battlefield)?.battlefield;
+        return b ? { rank: b.rank, lossCp: b.lossCp } : undefined;
+      })(),
       roomMinutes: Math.round((run.roomMs ?? 0) / 6000) / 10,
       goldEarned: run.goldEarned ?? 0,
       goldSpent: run.goldSpent ?? 0,
