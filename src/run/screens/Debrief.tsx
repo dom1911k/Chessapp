@@ -13,6 +13,7 @@ import { addPlaytest } from '../db';
 import { ROOM_NAME } from '../content';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
+import { momentLoss, topMoments } from '../rules';
 import type { Moment } from '../types';
 import { sfx, buzz } from '../sfx';
 import { PixelNum } from './bits';
@@ -42,7 +43,7 @@ export function Debrief({ onShake, onSanctum }: { onShake: () => void; onSanctum
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const moments = useMemo(() => [...run.moments].sort((a, b) => b.cost - a.cost || b.move.accuracy - a.move.accuracy).slice(0, 3), [run.moments]);
+  const moments = useMemo(() => topMoments(run.moments), [run.moments]);
   const eyeMoves = collectEye(run);
   const minutes = Math.max(1, Math.round(((run.endedAt ?? Date.now()) - run.startedAt) / 60000));
 
@@ -107,8 +108,17 @@ export function Debrief({ onShake, onSanctum }: { onShake: () => void; onSanctum
         </div>
       )}
 
-      <div className="run-title mt-6 text-xl font-bold">What cost you</div>
+      <div className="run-title mt-6 text-xl font-bold">Your biggest slips</div>
       {moments.length === 0 && <div className="run-sans mt-1 text-sm text-[var(--ink-dim)]">Nothing! Not a single mistake or blunder. Coach Sam is impressed.</div>}
+      {moments.length > 0 && <div className="run-sans mt-0.5 text-xs text-[var(--ink-dim)]">Ranked by how much of the game each move gave away.</div>}
+      {(run.reviewsAdded ?? 0) > 0 && (
+        <div className="run-panel run-fadeup mt-2 flex items-center gap-2 p-2.5">
+          <Sprite name="scroll" size={20} px={12} />
+          <span className="run-sans text-sm">
+            <b>{run.reviewsAdded} position{run.reviewsAdded === 1 ? '' : 's'}</b> added to your reviews <span className="text-[var(--ink-dim)]">(tagged “From a run”)</span>
+          </span>
+        </div>
+      )}
       <div className="mt-2 space-y-3">
         {moments.map((m, i) => (
           <MomentCard key={i} m={m} />
@@ -144,7 +154,7 @@ function MomentCard({ m }: { m: Moment }) {
     }
   }, [m]);
   const me = m.move.fenBefore.split(' ')[1] === 'w' ? 'white' : 'black';
-  const best = m.move.before?.bestMove;
+  const best = m.best ?? m.move.before?.bestMove;
   return (
     <div className="run-panel flex gap-3 p-2.5">
       <div className="w-36 shrink-0">
@@ -158,12 +168,17 @@ function MomentCard({ m }: { m: Moment }) {
         />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="run-sans text-xs text-[var(--ink-dim)]">{ROOM_NAME[m.kind]}</div>
+        <div className="flex items-center justify-between gap-1">
+          <span className="run-sans text-xs text-[var(--ink-dim)]">
+            {ROOM_NAME[m.kind]} · −{Math.round(momentLoss(m))}% win chance
+          </span>
+          <span className={`run-sans shrink-0 rounded px-1.5 text-[10px] font-black ${m.cost > 0 ? 'bg-[#4a1020] text-[#ffb3bd]' : 'bg-black/40 text-[var(--ink-dim)]'}`}>
+            {m.cost > 0 ? `−${m.cost} candle${m.cost === 1 ? '' : 's'}` : 'free'}
+          </span>
+        </div>
         <div className="run-sans font-bold">
           {m.move.san}{' '}
-          <span className="text-[var(--blood)]">
-            {CLASS_LABEL[m.move.cls]} · −{m.cost}
-          </span>
+          <span className="text-[var(--blood)]">{CLASS_LABEL[m.move.cls]}</span>
           {m.move.insured && <span className="ml-1 text-xs text-[#5ee59a]">(insured)</span>}
           {m.move.eye && <span className="ml-1 text-[var(--chip)]">◉ Eye</span>}
         </div>

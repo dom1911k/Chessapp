@@ -55,6 +55,8 @@ export interface Pools {
   ward: number;
   duel: number;
   vault: number;
+  /** Drill id of each vault position (for Grimoire weighting). */
+  vaultDrills?: string[];
 }
 
 /** What a run may not offer yet (locked in the Sanctum). */
@@ -68,19 +70,45 @@ export interface Locks {
  * to one or two nodes of the next row (neighbours), so the choices form real paths. At least
  * two events and a few elites are spread over the middle rows.
  */
-export function buildMap(rand: Rand, pools: Pools, locks: Locks = {}): MapNode[][] {
+export function buildMap(rand: Rand, pools: Pools, locks: Locks = {}, bias: (key: string) => number = () => 1): MapNode[][] {
   const mod = (): ModifierId => pickOne<ModifierId>(['steady', 'steady', 'gilded', 'focused'], rand);
+  // Grimoire: scenarios you fail most are a little likelier to show up.
+  const drills = pools.vaultDrills ?? [];
+  const kindWeight = (k: RoomKind) =>
+    k === 'convert' ? Math.max(bias('gain'), bias('keep')) : k === 'puzzle' ? bias('riddle') : k === 'vault' ? (drills.length ? Math.max(...drills.map((d) => bias(`vault:${d}`))) : 1) : bias(k);
+  const pickW = <X,>(xs: X[], w: (x: X) => number): X => {
+    const ws = xs.map(w);
+    let r = rand() * ws.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < xs.length; i++) if ((r -= ws[i]) <= 0) return xs[i];
+    return xs[xs.length - 1];
+  };
+  const posFor = (kind: RoomKind): number => {
+    if (kind === 'vault' && drills.length) {
+      const d = pickW([...new Set(drills)], (x) => bias(`vault:${x}`));
+      return pickOne(drills.map((x, i) => (x === d ? i : -1)).filter((i) => i >= 0), rand);
+    }
+    return Math.floor(rand() * Math.max(1, pools[kind as keyof Omit<Pools, 'vaultDrills'>] ?? 1));
+  };
   const kinds = (['puzzle', 'convert', 'hold', 'ward', 'vault', 'duel'] as RoomKind[]).filter((k) => !locks.rooms?.includes(k));
   const events = (['shrine', 'gambler', 'merchant', 'altar', 'library', 'spring'] as EventKind[]).filter((k) => !locks.events?.includes(k));
   const room = (kind: RoomKind, layer: number): MapNode => ({
     kind,
     modifier: mod(),
-    goal: kind === 'convert' ? pickOne(['gain', 'keep'] as const, rand) : undefined,
-    pos: kind === 'puzzle' ? undefined : Math.floor(rand() * Math.max(1, pools[kind as keyof Pools] ?? 1)),
+    goal: kind === 'convert' ? pickW<'gain' | 'keep'>(['gain', 'keep'], (g) => bias(g)) : undefined,
+    pos: kind === 'puzzle' ? undefined : posFor(kind),
     elite: layer >= 2 && rand() < T.elite.chance ? true : undefined,
   });
   const event = (): MapNode => ({ kind: 'event', modifier: 'steady', event: pickOne(events, rand) });
-  const row = (layer: number, from: RoomKind[]) => sample(from.length >= 3 ? from : [...from, ...kinds], 3, rand).map((k) => room(k, layer));
+  const row = (layer: number, from: RoomKind[]) => {
+    const pool = [...(from.length >= 3 ? from : [...from, ...kinds])];
+    const out: RoomKind[] = [];
+    while (out.length < 3 && pool.length) {
+      const k = pickW(pool, kindWeight);
+      out.push(k);
+      pool.splice(pool.indexOf(k), 1);
+    }
+    return out.map((k) => room(k, layer));
+  };
   const layers: MapNode[][] = [row(0, kinds.filter((k) => k !== 'vault')), row(1, kinds), row(2, kinds), row(3, kinds)];
   // Events: one somewhere in row 1–2, one in row 3 (never two in the same row).
   if (events.length) {
@@ -569,4 +597,101 @@ export function pickRival<O extends { id: string }>(unlocked: O[], wins: Record<
     if (x <= 0) return unlocked[i];
   }
   return unlocked[unlocked.length - 1];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Stage B: plausible wrong options, debrief ranking, nemesis, Grimoire.
+
+/** Moves within `closeCp` of the best line (your POV), from a multi-PV analysis. Never "wrong". */
+export function closeMoves(lines: { pv: string[]; score: Score }[], me: 'w' | 'b', closeCp: number = T.engine.cardsCloseCp): Set<string> {
+  const out = new Set<string>();
+  if (!lines.length) return out;
+  const top = povCp(lines[0].score, me);
+  for (const l of lines) if (l.pv[0] && top - povCp(l.score, me) < closeCp) out.add(l.pv[0]);
+  return out;
+}
+
+/**
+ * Wrong options for a multiple choice: the moves Maia finds most likely (a real player's
+ * temptations), never one of `exclude` (the answer and near-best moves). Random legal moves
+ * fill in only when Maia gives too few.
+ */
+export function plausibleWrong(legal: string[], exclude: Iterable<string>, logits: Map<string, number> | null, n: number, rand: Rand): string[] {
+  const ex = new Set(exclude);
+  const pool = legal.filter((u) => !ex.has(u));
+  const ranked = logits ? pool.filter((u) => logits.has(u)).sort((a, b) => logits.get(b)! - logits.get(a)!) : [];
+  const out = ranked.slice(0, n);
+  if (out.length < n) out.push(...sample(pool.filter((u) => !out.includes(u)), n - out.length, rand));
+  return out;
+}
+
+/** Win% a move gave away (old saves without it: estimated from accuracy). */
+export const momentLoss = (m: { move: { wpLoss?: number; accuracy: number } }) => m.move.wpLoss ?? (100 - m.move.accuracy) / 2;
+
+/** The debrief's moments: every mistake and blunder, biggest win% loss first. */
+export function topMoments<M extends { move: { wpLoss?: number; accuracy: number } }>(moments: M[], n: number = T.debrief.keep): M[] {
+  return [...moments].sort((a, b) => momentLoss(b) - momentLoss(a)).slice(0, n);
+}
+
+/**
+ * Nemesis: the dominant recurring mistake across your recent games (main themes per game,
+ * newest first). Only themes that have a nemesis rule count; anything else keeps the rival's rule.
+ */
+export function nemesisFor(gameThemes: string[][]): string | undefined {
+  const N = T.nemesis;
+  const games = gameThemes.slice(0, N.games);
+  if (games.length < N.minCount) return undefined;
+  const tally = new Map<string, number>();
+  for (const g of games) for (const t of new Set(g)) tally.set(t, (tally.get(t) ?? 0) + 1);
+  const [theme, count] = [...tally.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
+  if (!theme || (count ?? 0) < N.minCount) return undefined;
+  return theme in N.rules ? theme : undefined;
+}
+
+export interface ScenarioStat {
+  met: number;
+  cleared: number;
+  failed: number;
+  /** Clears in a row (reset by a fail). */
+  streak: number;
+}
+export type Grimoire = Record<string, ScenarioStat>;
+
+/** The Grimoire scenario a room belongs to (riddles are counted per puzzle theme instead). */
+export function scenarioOf(node: Pick<MapNode, 'kind' | 'goal'>, drill?: string): string | null {
+  switch (node.kind) {
+    case 'hold':
+    case 'ward':
+    case 'duel':
+      return node.kind;
+    case 'convert':
+      return node.goal ?? 'keep';
+    case 'vault':
+      return drill ? `vault:${drill}` : null;
+    default:
+      return null;
+  }
+}
+
+/** Record one outcome (returns a new Grimoire). */
+export function noteScenario(g: Grimoire, key: string, won: boolean): Grimoire {
+  const s = g[key] ?? { met: 0, cleared: 0, failed: 0, streak: 0 };
+  return { ...g, [key]: { met: s.met + 1, cleared: s.cleared + (won ? 1 : 0), failed: s.failed + (won ? 0 : 1), streak: won ? s.streak + 1 : 0 } };
+}
+
+export const isMastered = (s?: ScenarioStat) => !!s && s.streak >= T.grimoire.masteredStreak;
+
+/**
+ * How strongly the map favours a scenario: 1 + grimoireWeight × fail rate (unseen or mastered
+ * = 1). A prefix key ('riddle', 'vault') takes the worst of its entries.
+ */
+export function scenarioWeight(g: Grimoire, key: string): number {
+  const one = (s?: ScenarioStat) => (!s || !s.met || isMastered(s) ? 1 : 1 + T.grimoire.grimoireWeight * (s.failed / s.met));
+  if (key === 'riddle' || key === 'vault') {
+    const ws = Object.entries(g)
+      .filter(([k]) => k.startsWith(`${key}:`))
+      .map(([, s]) => one(s));
+    return ws.length ? Math.max(...ws) : 1;
+  }
+  return one(g[key]);
 }

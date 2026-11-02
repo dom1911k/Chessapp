@@ -61,6 +61,8 @@ export interface UserMove {
   eye?: boolean;
   /** Puzzle-like rooms: was this the solution move? */
   correct?: boolean;
+  /** Win% this move gave away (0..100), for the debrief ranking. */
+  wpLoss?: number;
   /** Kept for the debrief (only for moves that cost Composure). */
   before?: AnalysisResult | null;
   after?: AnalysisResult | null;
@@ -82,6 +84,8 @@ export interface PuzzleProgress {
   failed: number;
   /** The current puzzle is lost (showing the answer). */
   lost: boolean;
+  /** Outcome of each finished puzzle (Grimoire). */
+  outcomes?: boolean[];
   count: number;
   need: number;
 }
@@ -106,7 +110,7 @@ export interface RoomState {
   /** Duel: the book line played so far (SAN), for the opening hint. */
   book?: string[];
   /** Vault: the endgame goal and move limit. */
-  vault?: { goal: 'mate' | 'promote' | 'capture'; maxMoves: number; title: string };
+  vault?: { goal: 'mate' | 'promote' | 'capture'; maxMoves: number; title: string; drill?: string };
   /** Difficulty of the run (old saves: Adept). */
   diff?: DiffId;
   /** Free take-backs used in this room. */
@@ -145,8 +149,10 @@ export interface Moment {
   layer: number;
   kind: RoomKind;
   move: UserMove;
-  /** Composure it cost (or would have, if insured). */
+  /** Composure it cost (or would have, if insured); 0 for a free slip. */
   cost: number;
+  /** The better move (engine's best, or the puzzle's answer). */
+  best?: string;
 }
 
 export type Offer =
@@ -236,6 +242,10 @@ export interface Run {
   springDebt?: boolean;
   /** Bookbinder: puzzles solved without a card (counts toward the next free Blunder Check). */
   bookbinder?: number;
+  /** Nemesis rule (a coach theme id) from your recurring mistakes in the main app. */
+  nemesis?: string;
+  /** Debrief moments written into the app's reviews (set when the run ends). */
+  reviewsAdded?: number;
   /** Measurement for playtests. */
   roomMs?: number;
   roomStartedAt?: number;

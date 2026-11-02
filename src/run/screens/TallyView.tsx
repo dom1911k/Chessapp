@@ -2,7 +2,7 @@
 // slams in, then the score turns into gold (the blind stamp when the chip target was beaten).
 // When the room gives a free pick, its cards slide up underneath — one screen, not two.
 import { useEffect, useRef, useState } from 'react';
-import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, bossMod } from '../content';
+import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, rivalRule } from '../content';
 import { cardSlots, goldParts } from '../rules';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
@@ -17,7 +17,7 @@ export function TallyView({ onShake }: { onShake: () => void }) {
   const run = s.run!;
   const res = run.results[run.results.length - 1];
   const offer = run.offer;
-  const name = (f: Fire) => (f.relic === 'rival' ? bossMod(run.bossId).name : RELICS[f.relic].name);
+  const name = (f: Fire) => (f.relic === 'rival' ? rivalRule(run).name : RELICS[f.relic].name);
   const icon = (f: Fire) => (f.relic === 'rival' ? <PixelPortrait id={run.bossId} size={28} px={24} boss /> : <Sprite name={RELICS[f.relic].glyph} size={28} px={14} />);
   // Adds first, then multipliers — the same order the score uses.
   const multFires = [...res.fires.filter((f) => f.mult), ...res.fires.filter((f) => f.xmult)];
@@ -85,7 +85,7 @@ export function TallyView({ onShake }: { onShake: () => void }) {
   return (
     <div className="flex h-full flex-col items-center px-4 pt-5 pb-5 text-center" onClick={() => (skip.current = true)}>
       <div className="run-label">
-        {res.won ? 'Room cleared' : 'Room failed'} · {res.kind === 'boss' ? bossMod(run.bossId).name : MODIFIERS[res.modifier].name}
+        {res.won ? 'Room cleared' : 'Room failed'} · {res.kind === 'boss' ? rivalRule(run).name : MODIFIERS[res.modifier].name}
         {res.elite ? ' · Elite' : ''}
       </div>
       <div className="run-title mt-0.5 text-2xl font-black">{res.gamble ? 'The Gamble' : ROOM_NAME[res.kind]}</div>

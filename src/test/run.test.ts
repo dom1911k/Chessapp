@@ -256,3 +256,116 @@ describe('run rules', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------- Stage B
+import { closeMoves, plausibleWrong, topMoments, momentLoss, nemesisFor, noteScenario, isMastered, scenarioWeight, scenarioOf, type Grimoire } from '../run/rules';
+import { momentCard } from '../run/bridge';
+import type { Moment } from '../run/types';
+
+describe('stage B: plausible wrong options', () => {
+  const legal = ['e2e4', 'd2d4', 'g1f3', 'a2a3', 'h2h3', 'b1c3'];
+  it('takes Maia’s likeliest moves, never the answer or a near-best move', () => {
+    const logits = new Map([['e2e4', 5], ['d2d4', 4], ['g1f3', 3], ['a2a3', 2.5], ['h2h3', 0.1]]);
+    const out = plausibleWrong(legal, ['e2e4', 'd2d4'], logits, 2, () => 0.5);
+    expect(out).toEqual(['g1f3', 'a2a3']);
+  });
+  it('falls back to random legal moves when Maia gives too few', () => {
+    const out = plausibleWrong(legal, ['e2e4'], new Map([['h2h3', 1]]), 2, () => 0);
+    expect(out[0]).toBe('h2h3');
+    expect(out).toHaveLength(2);
+    expect(out).not.toContain('e2e4');
+    expect(plausibleWrong(legal, ['e2e4'], null, 2, () => 0)).toHaveLength(2);
+  });
+  it('near-best = within cardsCloseCp of the top line, from your side (scores are White POV)', () => {
+    const lines = [
+      { pv: ['a7a6'], score: { type: 'cp' as const, value: -100 } },
+      { pv: ['b7b6'], score: { type: 'cp' as const, value: -100 + T.engine.cardsCloseCp - 1 } },
+      { pv: ['c7c6'], score: { type: 'cp' as const, value: -100 + T.engine.cardsCloseCp + 1 } },
+    ];
+    expect([...closeMoves(lines, 'b')].sort()).toEqual(['a7a6', 'b7b6']);
+  });
+});
+
+describe('stage B: debrief and reviews', () => {
+  const mom = (wpLoss: number | undefined, cost: number, accuracy = 50, uci = 'e2e4'): Moment => ({
+    layer: 1, kind: 'hold', cost, best: 'd2d4', move: mv({ uci, san: uci, wpLoss, accuracy, cls: 'mistake', fenBefore: START }),
+  });
+  it('ranks every mistake by win% lost, not by candles, and keeps the top 3', () => {
+    const ms = [mom(8, 2), mom(30, 0), mom(15, 1), mom(4, 0)];
+    expect(topMoments(ms).map((m) => m.move.wpLoss)).toEqual([30, 15, 8]);
+    expect(T.debrief.keep).toBe(3);
+  });
+  it('old moments without wpLoss still rank (estimated from accuracy)', () => {
+    expect(momentLoss(mom(undefined, 2, 40))).toBe(30);
+  });
+  it('turns a moment into a review card in the app’s mistake format, tagged “From a run”', () => {
+    const c = momentCard('abc', 0, mom(20, 1), 1000)!;
+    expect(c).toMatchObject({ id: 'm:run-abc:0', kind: 'mistake', fen: START, solution: ['d2d4'], playedUci: 'e2e4', label: 'From a run', step: 0, reps: 0 });
+    expect(c.due).toBeGreaterThan(1000);
+    expect(momentCard('abc', 1, { ...mom(20, 1), best: 'e2e4' })).toBeNull();
+  });
+});
+
+describe('stage B: nemesis', () => {
+  it('a dominant mapped theme in ≥ minCount of the recent games becomes the nemesis', () => {
+    expect(nemesisFor([['hangingPiece'], ['hangingPiece', 'fork'], ['pin'], ['hangingPiece']])).toBe('hangingPiece');
+    expect(nemesisFor([['defense'], ['defense'], ['defense']])).toBe('defense');
+  });
+  it('no nemesis without a pattern, with too few games, or for an unmapped theme', () => {
+    expect(nemesisFor([['fork'], ['pin'], ['hangingPiece'], ['defense']])).toBeUndefined();
+    expect(nemesisFor([['fork'], ['fork']])).toBeUndefined();
+    expect(nemesisFor([['opening'], ['opening'], ['opening']])).toBeUndefined();
+  });
+  it('only looks at the most recent games', () => {
+    const old = [['fork'], ['fork'], ['fork']];
+    expect(nemesisFor([['pin'], ['pin'], ['opening'], ['trade'], ['endgame'], ...old])).toBeUndefined();
+  });
+  it('nemesis rules only touch scoring, Composure or card access', () => {
+    for (const m of Object.values(T.nemesis.rules)) expect(Object.keys(m).every((k) => ['name', 'blunderFactor', 'sealed', 'multBonus', 'mistakeExtra', 'blunderEnds', 'inaccuracyCost'].includes(k))).toBe(true);
+    expect(T.nemesis.rules.hangingPiece.blunderFactor).toBe(2);
+    expect(T.nemesis.rules.defense.sealed).toEqual(['lens']);
+  });
+});
+
+describe('stage B: Grimoire', () => {
+  it('counts met, cleared, failed; 3 clears in a row = mastered, a fail resets the streak', () => {
+    let g: Grimoire = {};
+    g = noteScenario(g, 'hold', true);
+    g = noteScenario(g, 'hold', true);
+    expect(isMastered(g.hold)).toBe(false);
+    g = noteScenario(g, 'hold', false);
+    expect(g.hold).toEqual({ met: 3, cleared: 2, failed: 1, streak: 0 });
+    for (let i = 0; i < 3; i++) g = noteScenario(g, 'hold', true);
+    expect(isMastered(g.hold)).toBe(true);
+  });
+  it('scenario of a room', () => {
+    expect(scenarioOf({ kind: 'convert', goal: 'gain' })).toBe('gain');
+    expect(scenarioOf({ kind: 'vault' }, 'krk')).toBe('vault:krk');
+    expect(scenarioOf({ kind: 'puzzle' })).toBeNull();
+    expect(scenarioOf({ kind: 'boss' })).toBeNull();
+  });
+  it('weight = 1 + grimoireWeight × fail rate; unseen and mastered = 1; prefixes take the worst', () => {
+    const g: Grimoire = { hold: { met: 4, cleared: 1, failed: 3, streak: 0 }, duel: { met: 5, cleared: 3, failed: 2, streak: 3 }, 'riddle:fork': { met: 2, cleared: 0, failed: 2, streak: 0 }, 'riddle:pin': { met: 2, cleared: 2, failed: 0, streak: 2 } };
+    expect(scenarioWeight(g, 'hold')).toBeCloseTo(1 + T.grimoire.grimoireWeight * 0.75);
+    expect(scenarioWeight(g, 'duel')).toBe(1);
+    expect(scenarioWeight(g, 'ward')).toBe(1);
+    expect(scenarioWeight(g, 'riddle')).toBe(1 + T.grimoire.grimoireWeight);
+  });
+  it('the map favours scenarios with the worst clear rate', () => {
+    const pools = { convert: 10, hold: 10, boss: 10, ward: 10, duel: 10, vault: 4, vaultDrills: ['kqk', 'kqk', 'krk', 'krk'] };
+    const count = (bias?: (k: string) => number) => {
+      let holds = 0;
+      let krk = 0;
+      for (let i = 0; i < 300; i++) {
+        const m = buildMap(Math.random, pools, {}, bias);
+        holds += m.flat().filter((n) => n.kind === 'hold').length;
+        krk += m.flat().filter((n) => n.kind === 'vault' && (n.pos ?? 0) >= 2).length / Math.max(1, m.flat().filter((n) => n.kind === 'vault').length);
+      }
+      return { holds, krk };
+    };
+    const plain = count();
+    const biased = count((k) => (k === 'hold' || k === 'vault:krk' ? 3 : 1));
+    expect(biased.holds).toBeGreaterThan(plain.holds * 1.3);
+    expect(biased.krk).toBeGreaterThan(plain.krk * 1.2);
+  });
+});

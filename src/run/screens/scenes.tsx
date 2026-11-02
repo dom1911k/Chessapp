@@ -2,7 +2,8 @@
 // "VS" intro, and the first-run tutorial.
 import { useEffect, useRef, useState } from 'react';
 import { opponentById } from '../../lib/people';
-import { bossMod, bossModText } from '../content';
+import { bossModText } from '../content';
+import type { BossMod } from '../tuning';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { BLOOD, GOLD } from '../pixel/pixelize';
 import { BOARD_THEMES, pieceSprite } from '../pixel/board';
@@ -83,9 +84,9 @@ export function CoinRain({ n }: { n: number }) {
 }
 
 /** Boss intro: you and the rival slam together with a VS between. */
-export function VsIntro({ bossId, cursed, onDone }: { bossId: string; cursed: boolean; onDone: () => void }) {
+export function VsIntro({ bossId, rule, cursed, onDone }: { bossId: string; rule: BossMod & { nemesis?: boolean }; cursed: boolean; onDone: () => void }) {
   const boss = opponentById(bossId);
-  const mod = bossMod(bossId);
+  const mod = rule;
   const king = pieceSprite(BOARD_THEMES[useRunSettings.getState().board] ?? BOARD_THEMES.crypt, 'w', 'K', useRunSettings.getState().pieces);
   useEffect(() => {
     sfx('slam');
@@ -111,7 +112,7 @@ export function VsIntro({ bossId, cursed, onDone }: { bossId: string; cursed: bo
         </div>
       </div>
       <div className="run-fadeup relative mt-8 px-8 text-center" style={{ animationDelay: '0.6s' }}>
-        <div className="run-label text-[var(--blood)]!">{mod.name}{cursed ? ' · cursed' : ''}</div>
+        <div className="run-label text-[var(--blood)]!">{mod.nemesis ? 'Nemesis · ' : ''}{mod.name}{cursed ? ' · cursed' : ''}</div>
         <div className="run-sans mt-1 text-sm text-[var(--ink)]">{bossModText(mod)}</div>
       </div>
     </button>

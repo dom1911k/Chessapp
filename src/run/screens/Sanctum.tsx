@@ -14,6 +14,7 @@ import { BLOOD, EMBER, GOLD, SPIRIT } from '../pixel/pixelize';
 import { PixelNum } from './bits';
 import { PixelText } from './PixelText';
 import { Fire } from './scenes';
+import { GrimoireScreen } from './Grimoire';
 
 function Embers({ n, size = 3 }: { n: number; size?: number }) {
   return (
@@ -35,6 +36,7 @@ function Back({ onClick }: { onClick: () => void }) {
 export function SanctumScreen({ onBack }: { onBack: () => void }) {
   const m = useMeta();
   const [tab, setTab] = useState<'boosts' | 'unlocks' | 'boards' | 'milestones'>('boosts');
+  const [sub, setSub] = useState<null | 'grimoire'>(null);
   useEffect(() => void m.load(), [m]);
   const buy = (ok: boolean) => {
     if (ok) {
@@ -42,6 +44,7 @@ export function SanctumScreen({ onBack }: { onBack: () => void }) {
       sfx('relic');
     } else sfx('fail');
   };
+  if (sub === 'grimoire') return <GrimoireScreen onBack={() => setSub(null)} />;
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-4 pt-3">
@@ -55,6 +58,9 @@ export function SanctumScreen({ onBack }: { onBack: () => void }) {
         </div>
         <PixelText text="The Sanctum" size={3} className="mt-1" />
         <div className="run-sans mt-1 px-6 text-center text-xs text-[var(--ink-dim)]">Embers from every run, won or lost, buy lasting gifts here. {m.runs} runs · {m.wins} won · best {m.best}</div>
+        <button className="run-btn ghost mt-2 flex items-center gap-1.5 px-3! py-1.5! text-sm" onClick={() => (setSub('grimoire'), sfx('card'))}>
+          <Sprite name="book" size={16} px={12} pal={GOLD} /> Grimoire
+        </button>
       </div>
       <div className="mt-3 flex gap-1 px-4">
         {(['boosts', 'unlocks', 'boards', 'milestones'] as const).map((t) => (

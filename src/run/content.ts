@@ -86,6 +86,18 @@ export const EVENTS: Record<EventKind, { name: string; sprite: string; blurb: st
 export const RARITY_COLOR: Record<Rarity, string> = { common: '#cdbf9f', uncommon: '#6fd3ff', rare: '#ff6bd5' };
 
 export const bossMod = (id: string): BossMod => T.bossMods[id] ?? T.bossMods.default;
+/** The rule in force for this run's rival: a nemesis rule (from your recurring mistakes) replaces its own. */
+export const rivalRule = (r: { bossId: string; nemesis?: string }): BossMod & { nemesis?: boolean } => {
+  const n = r.nemesis ? (T.nemesis.rules as Record<string, BossMod>)[r.nemesis] : undefined;
+  return n ? { ...n, nemesis: true } : bossMod(r.bossId);
+};
+/** What the nemesis rule answers (shown under its name). */
+export const NEMESIS_WHY: Record<string, string> = {
+  hangingPiece: 'You keep leaving pieces hanging in your games.',
+  defense: 'You keep missing your opponent’s threats in your games.',
+  fork: 'Forks keep catching you in your games.',
+  kingSafety: 'Your king keeps getting caught in your games.',
+};
 
 /** Plain-language rule text for a rival. */
 export function bossModText(m: BossMod): string {

@@ -2,7 +2,7 @@
 // per room, so routes branch and merge), landmarks, fog over far rows. Tap a room to preview it.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { opponentById } from '../../lib/people';
-import { EVENTS, MODIFIERS, ROOM_NAME, ROOM_SPRITE, bossMod, bossModText, objective } from '../content';
+import { EVENTS, MODIFIERS, ROOM_NAME, ROOM_SPRITE, rivalRule, bossModText, objective, NEMESIS_WHY } from '../content';
 import { isFinalCamp, reachable, rivalElo } from '../rules';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
@@ -153,6 +153,12 @@ export function MapView({ top }: { top: ReactNode }) {
                     {n.elite ? '☠ ' : ''}
                     {title(n, boss?.name)}
                   </span>
+                  {isBoss && (
+                    <span className="run-sans mt-0.5 rounded bg-[#4a1020]/80 px-1 text-[9px] leading-tight font-bold whitespace-nowrap text-[#ffb3bd]">
+                      {run.nemesis ? 'Nemesis · ' : ''}
+                      {rivalRule(run).name}
+                    </span>
+                  )}
                   {chosen && (
                     <span className={`run-sans text-[10px] font-black ${res ? (res.won ? 'text-[#5ee59a]' : 'text-[var(--blood)]') : 'text-[#6fd3ff]'}`}>{res ? (res.won ? `✓ ${res.score}` : '✕') : '✓'}</span>
                   )}
@@ -180,7 +186,7 @@ function Preview({ node, onEnter, busy }: { node: MapNode; onEnter: () => void; 
   const run = useRun((x) => x.run!);
   const isBoss = node.kind === 'boss';
   const boss = isBoss ? opponentById(run.bossId) : undefined;
-  const mod = bossMod(run.bossId);
+  const mod = rivalRule(run);
   const room = node.kind !== 'event' && node.kind !== 'camp';
   const focused = room && !isBoss && run.springDebt;
   const modifier = focused ? 'focused' : node.modifier;
@@ -192,7 +198,7 @@ function Preview({ node, onEnter, busy }: { node: MapNode; onEnter: () => void; 
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="run-label">
-            {node.kind === 'event' ? 'Event' : node.kind === 'camp' ? 'Rest stop' : isBoss ? `Rival's rule · ${mod.name}` : `${node.elite ? 'Elite · ' : ''}${MODIFIERS[modifier].name}`}
+            {node.kind === 'event' ? 'Event' : node.kind === 'camp' ? 'Rest stop' : isBoss ? `${mod.nemesis ? 'Nemesis rule' : "Rival's rule"} · ${mod.name}` : `${node.elite ? 'Elite · ' : ''}${MODIFIERS[modifier].name}`}
           </div>
           <div className="run-title text-lg leading-tight font-bold">
             {title(node, boss?.name)}
@@ -207,6 +213,7 @@ function Preview({ node, onEnter, busy }: { node: MapNode; onEnter: () => void; 
       {room && (
         <div className="run-sans mt-1.5 space-y-1 text-xs leading-snug text-[var(--ink-dim)]">
           <div>{isBoss ? bossModText(mod) : MODIFIERS[modifier].text}{focused ? ' (the Healing Spring’s price)' : ''}</div>
+          {isBoss && mod.nemesis && run.nemesis && <div className="text-[#ff8c9a]">Nemesis: {NEMESIS_WHY[run.nemesis]} The rival has studied it.</div>}
           {node.elite && <div className="text-[#ff8c9a]">Elite: harder goal and opponent; clearing it always gives a relic pick.</div>}
           <div>
             {d.name}: mistake {c(d.cost.mistake)}, blunder {c(d.cost.blunder)}.{d.takebacks ? ` ${d.takebacks} free take-back.` : ''}{' '}

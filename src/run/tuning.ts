@@ -137,6 +137,42 @@ export const TUNING = {
     movetime: 900,
     /** Multi-PV for the position before your move (Candidate Cards need ≥ 3). */
     multipv: 3,
+    /** Wider multi-PV used once when building wrong options (so near-best moves are never "wrong"). */
+    optionsMultipv: 8,
+    /** Wrong options (Candidate Cards, Shrine, Library) must be at least this much worse than the best move. */
+    cardsCloseCp: 60,
+  },
+
+  /** Run debrief and the bridge into the app's reviews. */
+  debrief: {
+    /** Moments shown (ranked by win% lost). */
+    keep: 3,
+    /** Of those, at most this many become review cards in the main app. */
+    reviews: 3,
+  },
+
+  /**
+   * Nemesis: when your recent games (main app) share a recurring mistake, the rival's rule
+   * becomes a matching one. Pattern ids are the coach's themes.
+   */
+  nemesis: {
+    /** Recent games looked at, and in how many of them the theme must appear. */
+    games: 5,
+    minCount: 3,
+    rules: {
+      hangingPiece: { name: 'The Pickpocket', blunderFactor: 2 },
+      defense: { name: 'The Ambush', sealed: ['lens'], multBonus: 1 },
+      fork: { name: 'The Trident', mistakeExtra: 1, multBonus: 0.5 },
+      kingSafety: { name: 'The Assassin', blunderEnds: true, multBonus: 1.5 },
+    } as Record<string, BossMod>,
+  },
+
+  /** Grimoire: scenario records across runs. */
+  grimoire: {
+    /** Clears in a row for "mastered". */
+    masteredStreak: 3,
+    /** Map bias: a scenario's weight is 1 + grimoireWeight × its fail rate (mastered and unseen = 1). */
+    grimoireWeight: 2,
   },
 
   /** Opponent strength for normal rooms: your puzzle rating, clamped. */

@@ -19,13 +19,15 @@ import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
 import { TUNING as T } from './tuning';
 import positions from './data/positions.json';
 import { archiveRun, loadCurrent, saveCurrent } from './db';
+import { addRunReviews, readNemesis } from './bridge';
+import { THEME_SETS } from '../lib/puzzles/themes';
 import {
   buildMap, cardSlots, composureCost, roomCap, roomLoss, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, relicOffer, shopPrice, isFinalCamp, materialOf, pickRival,
-  roomScore, sample, shopOffers, sound, diffOf, nextRestCost, stallPrice, pouchPrice, cleansePrice, rerollPrice, goldToEmbers, canTakeBack, playStrength, rivalElo, type CostCtx,
+  roomScore, sample, shopOffers, sound, diffOf, closeMoves, plausibleWrong, scenarioOf, scenarioWeight, type Grimoire, nextRestCost, stallPrice, pouchPrice, cleansePrice, rerollPrice, goldToEmbers, canTakeBack, playStrength, rivalElo, type CostCtx,
 } from './rules';
 import { useRunSettings } from './settings';
 import { sfx, buzz } from './sfx';
-import { ROOM_NAME, bossMod } from './content';
+import { ROOM_NAME, rivalRule } from './content';
 import { embersFor, lockedCards, lockedEvents, lockedRelics, lockedRooms, useMeta } from './meta';
 import type { BossMod } from './tuning';
 import type { ConsumableId, MapNode, PuzzleProgress, RelicId, RoomKind, RoomState, Run, UserMove } from './types';
@@ -55,7 +57,11 @@ const DUELS: { fen: string; name: string; sans: string[] }[] = (() => {
 const VAULTS = DRILLS.filter((d) => (T.rooms.vault.drills as readonly string[]).includes(d.id)).flatMap((d) =>
   d.fens.map((fen) => ({ fen, drill: d.id, goal: d.goal as 'mate' | 'promote' | 'capture', title: d.title })),
 );
-export const poolSizes = () => ({ convert: POOLS.convert.length, hold: POOLS.hold.length, boss: POOLS.boss.length, ward: WARDS.length, duel: DUELS.length, vault: VAULTS.length });
+export const poolSizes = () => ({ convert: POOLS.convert.length, hold: POOLS.hold.length, boss: POOLS.boss.length, ward: WARDS.length, duel: DUELS.length, vault: VAULTS.length, vaultDrills: VAULTS.map((v) => v.drill) });
+
+/** Riddle themes the Grimoire tracks (the app's puzzle theme sets). */
+const RIDDLE_THEMES = new Set(THEME_SETS.map((t) => t.id));
+export const riddleThemes = (themes: string[]) => themes.filter((t) => RIDDLE_THEMES.has(t));
 
 export type Verdict = { uci: string; label: 'safe' | 'risky' | 'blunder'; after: AnalysisResult; cls: Classification; fromCheck?: boolean };
 
@@ -151,8 +157,31 @@ function wpOf(fen: string, a: AnalysisResult | null, me: 'w' | 'b'): { wp: numbe
   return { wp: winPct(povScore(s, me)), cp: povCp(s, me) };
 }
 
+/**
+ * Two wrong options for a multiple choice: Maia's likeliest moves at `elo` (what a player at
+ * that level would be tempted by), never one within cardsCloseCp of the best move.
+ */
+async function wrongOptions(fens: string[], answer: string[], elo: number): Promise<string[]> {
+  const fen = fens[fens.length - 1];
+  const c = new Chess(fen);
+  const legal = c.moves({ verbose: true }).map((m) => m.lan);
+  let close = new Set<string>();
+  try {
+    close = closeMoves((await analyze(fen, T.engine.optionsMultipv)).lines, c.turn());
+  } catch {
+    /* engine busy: exclude only the answer */
+  }
+  let logits: Map<string, number> | null = null;
+  try {
+    logits = await maiaLogits(fens, elo);
+  } catch {
+    /* Maia unavailable: random fallback */
+  }
+  return plausibleWrong(legal, [...answer, ...close], logits, 2, Math.random);
+}
+
 /** The rival's rule, when the current room is the boss. */
-export const bossOf = (r: Run | null): BossMod | undefined => (r?.room?.node.kind === 'boss' ? bossMod(r.bossId) : undefined);
+export const bossOf = (r: Run | null): BossMod | undefined => (r?.room?.node.kind === 'boss' ? rivalRule(r) : undefined);
 
 /** Add a relic (Glass Cannon takes its Composure at once). */
 function addRelic(r: Run, id: RelicId) {
@@ -299,7 +328,7 @@ export const useRun = create<RunStore>((set, get) => {
   };
 
   /** Bookkeeping for one of your moves: classification, Composure, relics, debrief moment. */
-  const record = (m: UserMove, cost: number) => {
+  const record = (m: UserMove, cost: number, best?: string) => {
     let insured = false;
     if (cost > 0 && m.cls === 'blunder' && run().consumables.includes('insurance')) insured = true;
     let lost = insured ? 0 : cost;
@@ -331,7 +360,9 @@ export const useRun = create<RunStore>((set, get) => {
       if (nerves) r.nervesUsed = true;
       r.composure = Math.max(0, r.composure - lost);
       if (m.eye) (r.eyeMoves ??= []).push(`${ROOM_NAME[R.node.kind as RoomKind]}: ${m.san}`);
-      if (cost > 0) r.moments.push({ layer: R.layer, kind: R.node.kind as RoomKind, move: clone(m), cost });
+      // Every mistake and blunder becomes a debrief moment, whatever it cost (free slips too).
+      if (cost > 0 || m.cls === 'mistake' || m.cls === 'blunder')
+        r.moments.push({ layer: R.layer, kind: R.node.kind as RoomKind, move: clone(m), cost, best: best ?? m.before?.bestMove ?? undefined });
       // Keep the analysis of costly moves and slips (the debrief and the "why" note use it).
       if (!(cost > 0) && m.cls !== 'mistake' && m.cls !== 'blunder') {
         delete m.before;
@@ -383,7 +414,7 @@ export const useRun = create<RunStore>((set, get) => {
       const cls = classify(b.wp, a.wp, uci === before.bestMove);
       const m: UserMove = {
         uci, san: res.move.san, fenBefore, fenAfter: res.fen, cls, accuracy: moveAccuracy(b.wp, a.wp), evalAfter: a.cp,
-        composureLost: 0, eye: eye || undefined, before, after,
+        composureLost: 0, eye: eye || undefined, before, after, wpLoss: Math.max(0, b.wp - a.wp),
       };
       record(m, composureCost(cls, ctx()));
       if (room().status !== 'playing') return;
@@ -438,6 +469,7 @@ export const useRun = create<RunStore>((set, get) => {
       let bound = false;
       patch((r) => {
         r.room!.puzzle!.solved++;
+        (r.room!.puzzle!.outcomes ??= []).push(true);
         // Bookbinder: puzzles solved without a card earn a free Blunder Check.
         if (r.relics.includes('bookbinder') && !r.room!.puzzleCard && !r.room!.gamble) {
           r.bookbinder = (r.bookbinder ?? 0) + 1;
@@ -465,12 +497,13 @@ export const useRun = create<RunStore>((set, get) => {
       const cls = classify(b.wp, a.wp, false);
       const m: UserMove = {
         uci, san: res.move.san, fenBefore, fenAfter: res.fen, cls, accuracy: Math.min(moveAccuracy(b.wp, a.wp), sound(cls) ? 50 : 100),
-        evalAfter: a.cp, composureLost: 0, correct: false, eye: eye || undefined, before, after,
+        evalAfter: a.cp, composureLost: 0, correct: false, eye: eye || undefined, before, after, wpLoss: Math.max(0, b.wp - a.wp),
       };
-      record(m, composureCost(cls, ctx()));
+      record(m, composureCost(cls, ctx()), expected);
       patch((r) => {
         r.room!.puzzle!.lost = true;
         r.room!.puzzle!.failed++;
+        (r.room!.puzzle!.outcomes ??= []).push(false);
       });
     } catch {
       /* cancelled */
@@ -494,7 +527,18 @@ export const useRun = create<RunStore>((set, get) => {
     let pool = await loadRange(c - w, c + w);
     if (pool.length < 20) pool = await loadRange(c - 3 * w, c + 3 * w);
     pool = pool.filter((p) => !r.usedPuzzles.includes(p.id) && p.moves.length >= 2);
-    return sample(pool, n, Math.random).map(fromLichess);
+    // Grimoire: riddle themes you fail more often come up a little more.
+    const g = useMeta.getState().grimoire ?? {};
+    const tw = (p: (typeof pool)[number]) => Math.max(1, ...riddleThemes(p.themes).map((th) => scenarioWeight(g, `riddle:${th}`)));
+    const out: typeof pool = [];
+    const left = [...pool];
+    while (out.length < n && left.length) {
+      let x = Math.random() * left.reduce((a, p) => a + tw(p), 0);
+      let i = 0;
+      for (; i < left.length - 1; i++) if ((x -= tw(left[i])) <= 0) break;
+      out.push(left.splice(i, 1)[0]);
+    }
+    return out.map(fromLichess);
   };
 
   const roomElo = (r: Run, elite?: boolean) => {
@@ -543,7 +587,13 @@ export const useRun = create<RunStore>((set, get) => {
     r.goldEmbers = goldToEmbers(r.gold);
     r.embers = embersFor(r);
     useMeta.getState().finish(r, r.embers);
-    void archiveRun(clone(r));
+    const snap = clone(r);
+    // The one write into the main app: the top moments become review cards.
+    void addRunReviews(snap).then((n) => {
+      snap.reviewsAdded = n;
+      void archiveRun(snap);
+      if (get().run?.id === snap.id) patch((x) => void (x.reviewsAdded = n));
+    });
   };
 
   /** Award milestones (once ever) and remember them on the run for the debrief. */
@@ -603,7 +653,8 @@ export const useRun = create<RunStore>((set, get) => {
     async newRun() {
       token++;
       getEngine().cancelAll('run');
-      const [{ rating }, records, meta] = await Promise.all([getRating(), getOpponentRecords(), useMeta.getState().load()]);
+      const [{ rating }, records, meta, nemesis] = await Promise.all([getRating(), getOpponentRecords(), useMeta.getState().load(), readNemesis()]);
+      const grimoire: Grimoire = meta.grimoire ?? {};
       const boosts = meta.boosts;
       const locked = lockedRelics(meta);
       const lockedC = lockedCards(meta);
@@ -619,7 +670,8 @@ export const useRun = create<RunStore>((set, get) => {
         difficulty,
         bossId: boss.id,
         phase: 'start',
-        layers: buildMap(Math.random, poolSizes(), { rooms: lockedRooms(meta), events: lockedEvents(meta) }),
+        layers: buildMap(Math.random, poolSizes(), { rooms: lockedRooms(meta), events: lockedEvents(meta) }, (k) => scenarioWeight(grimoire, k)),
+        nemesis,
         path: [],
         layer: 0,
         composure: T.composure.start + (boosts.candle ?? 0),
@@ -693,19 +745,25 @@ export const useRun = create<RunStore>((set, get) => {
         if (node.kind === 'event') {
           const ev = node.event!;
           let lib: { fen: string; answer: string[]; themes: string[]; others: string[]; id: string } | null = null;
+          let shrine: { fen: string; answer: string[]; others: string[] } | null = null;
           if (ev === 'library') {
             const [p] = await pickPuzzles(r, 1);
             if (t !== token) return;
             const fen = tryMove(p.fen, p.setup!)!.fen;
             const answer = [p.solution[0]];
-            lib = { fen, answer, themes: p.themes, id: p.id, others: new Chess(fen).moves({ verbose: true }).map((m) => m.lan).filter((u) => !answer.includes(u)) };
+            const others = await wrongOptions([p.fen, fen], answer, roomElo(r));
+            if (t !== token) return;
+            lib = { fen, answer, themes: p.themes, id: p.id, others };
+          } else if (ev === 'shrine') {
+            const [fen, , accept] = WARDS[Math.floor(Math.random() * WARDS.length)];
+            const others = await wrongOptions([fen], accept, roomElo(r));
+            if (t !== token) return;
+            shrine = { fen, answer: accept, others };
           }
           patch((x) => {
             x.phase = 'event';
-            if (ev === 'shrine') {
-              const [fen, , accept] = WARDS[Math.floor(Math.random() * WARDS.length)];
-              const others = new Chess(fen).moves({ verbose: true }).map((m) => m.lan).filter((u) => !accept.includes(u));
-              x.event = { kind: 'shrine', fen, answer: accept, choices: sample([accept[0], ...sample(others, 2, Math.random)], 3, Math.random) };
+            if (ev === 'shrine' && shrine) {
+              x.event = { kind: 'shrine', fen: shrine.fen, answer: shrine.answer, choices: sample([shrine.answer[0], ...shrine.others], 3, Math.random) };
             } else if (ev === 'merchant') {
               // One uncommon and one rare, priced like the campfire stall.
               const ids = T.events.merchantRarities.map((rar) => relicOffer(unofferable(x), 1, Math.random, T.relics.rarity, rar)[0]).filter(Boolean);
@@ -713,7 +771,7 @@ export const useRun = create<RunStore>((set, get) => {
             } else if (ev === 'altar') {
               x.event = { kind: 'altar', ids: relicOffer(unofferable(x), 3, Math.random, T.relics.rarity, 'rare') };
             } else if (ev === 'library' && lib) {
-              x.event = { kind: 'library', fen: lib.fen, answer: lib.answer, themes: lib.themes, choices: sample([lib.answer[0], ...sample(lib.others, 2, Math.random)], 3, Math.random) };
+              x.event = { kind: 'library', fen: lib.fen, answer: lib.answer, themes: lib.themes, choices: sample([lib.answer[0], ...lib.others], 3, Math.random) };
               x.usedPuzzles.push(lib.id);
             } else if (ev === 'spring') {
               x.event = { kind: 'spring' };
@@ -750,7 +808,7 @@ export const useRun = create<RunStore>((set, get) => {
           const v = VAULTS[(node.pos ?? 0) % VAULTS.length];
           fen = v.fen;
           const max = T.rooms.vault.maxMoves[v.goal] - (node.elite ? T.elite.vaultMovesLess : 0);
-          extra = { vault: { goal: v.goal, maxMoves: max, title: v.title }, opp: 'engine' };
+          extra = { vault: { goal: v.goal, maxMoves: max, title: v.title, drill: v.drill }, opp: 'engine' };
         } else {
           const pool = POOLS[node.kind as 'convert' | 'hold' | 'boss'];
           [fen, ev] = pool[(node.pos ?? 0) % pool.length];
@@ -887,9 +945,10 @@ export const useRun = create<RunStore>((set, get) => {
         if (id === 'eye') set({ aids: { ...get().aids, eye: best } });
         if (id === 'cards') {
           const accept = rm.puzzle?.list[rm.puzzle.index].accept ?? [];
-          const close = new Set([...accept, ...a.lines.filter((l) => Math.abs(l.score.value - a.lines[0].score.value) < 60).map((l) => l.pv[0])]);
-          const others = new Chess(rm.fen).moves({ verbose: true }).map((m) => m.lan).filter((u) => u !== best && !close.has(u));
-          set({ aids: { ...get().aids, cards: sample([best, ...sample(others, 2, Math.random)], 3, Math.random) } });
+          const fens = [rm.startFen, ...rm.plies.map((p) => p.fen)];
+          const others = await wrongOptions(fens, [best, ...accept, ...closeMoves(a.lines, rm.me)], rm.elo);
+          if (t !== token) return;
+          set({ aids: { ...get().aids, cards: sample([best, ...others], 3, Math.random) } });
         }
       } catch {
         /* cancelled */
@@ -934,6 +993,7 @@ export const useRun = create<RunStore>((set, get) => {
         if (R.puzzle && R.puzzle.lost) {
           R.puzzle.lost = false;
           R.puzzle.failed--;
+          R.puzzle.outcomes?.pop();
         }
       });
       if (!free) fire({ kind: 'consumable', item: 'rewind' });
@@ -983,6 +1043,13 @@ export const useRun = create<RunStore>((set, get) => {
         if (won && R.node.elite) ids.push('elite');
         if (r.relics.length >= 5) ids.push('collector');
         earn(r, ids);
+        // Grimoire: the room's scenario, or each riddle's themes.
+        const notes: { key: string; won: boolean }[] = [];
+        const key = scenarioOf(R.node, R.vault?.drill);
+        if (key) notes.push({ key, won });
+        if (R.puzzle && (R.node.kind === 'puzzle' || R.gamble))
+          (R.puzzle.outcomes ?? []).forEach((ok, i) => riddleThemes(R.puzzle!.list[i]?.themes ?? []).forEach((th) => notes.push({ key: `riddle:${th}`, won: ok })));
+        useMeta.getState().noteGrimoire(notes);
         if (r.composure <= 0) {
           sfx('over');
           buzz([80, 60, 160]);

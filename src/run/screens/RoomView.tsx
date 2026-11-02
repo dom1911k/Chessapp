@@ -6,7 +6,7 @@ import { opponentById, pickLine } from '../../lib/people';
 import { useSettings } from '../../lib/settings';
 import type { CoachArrow } from '../../lib/coach/types';
 import type { Classification } from '../../lib/chess/evaluation';
-import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, bossMod, bossModText } from '../content';
+import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, rivalRule, bossModText, NEMESIS_WHY } from '../content';
 import { canTakeBack, chipTarget, fmtCp, gaugeLines, cardSlots, progress, recovery, roomCap, roomLoss, roomScore, takebacksLeft } from '../rules';
 import { explainMove } from '../../lib/coach';
 import { arrowOf, bookHint, bossOf, lensMarks, liveEval, useRun } from '../store';
@@ -56,7 +56,7 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plyCount, lastSan, lastBy]);
   const boss = isBoss ? opponentById(room.oppId) : undefined;
-  const mod = isBoss ? bossMod(run.bossId) : undefined;
+  const mod = isBoss ? rivalRule(run) : undefined;
 
   // React to effects from the store.
   const lastFx = s.fx[s.fx.length - 1];
@@ -124,7 +124,7 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
 
   return (
     <div className="flex h-full flex-col">
-      {vs && <VsIntro bossId={run.bossId} cursed={run.cursed} onDone={() => setVs(false)} />}
+      {vs && <VsIntro bossId={run.bossId} rule={rivalRule(run)} cursed={run.cursed} onDone={() => setVs(false)} />}
       {hit && !hit.insured && <div key={hit.id} className="run-redflash pointer-events-none fixed inset-0 z-50" />}
       {/* HUD */}
       <div className="safe-top px-3 pt-2">
@@ -397,9 +397,9 @@ function InfoSheet({ info, canRewind, sealed, onClose }: { info: { kind: 'relic'
   let action: { label: string; ok: boolean; why?: string } | null = null;
   if (info.kind === 'relic') {
     if (info.id === 'rival') {
-      const m = bossMod(run.bossId);
+      const m = rivalRule(run);
       title = m.name;
-      text = (MODIFIERS.rival.text || '') + ' ' + bossModTextSafe(run.bossId);
+      text = (MODIFIERS.rival.text || '') + ' ' + bossModText(m) + (m.nemesis && run.nemesis ? ` Nemesis: ${NEMESIS_WHY[run.nemesis] ?? ''}` : '');
       sprite = 'skull';
     } else {
       title = RELICS[info.id].name;
@@ -451,7 +451,6 @@ function InfoSheet({ info, canRewind, sealed, onClose }: { info: { kind: 'relic'
   );
 }
 
-const bossModTextSafe = (id: string) => bossModText(bossMod(id));
 
 function UsedCard({ item }: { item: ConsumableId }) {
   const [gone, setGone] = useState(false);
