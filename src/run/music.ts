@@ -13,6 +13,13 @@ const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 // Instruments
 // ---------------------------------------------------------------------------------------------
 
+/** A persistent voice bank (pad, choir): oscillators that are retuned instead of rebuilt. */
+interface Bank {
+  voices: { oscs: OscillatorNode[]; g: GainNode }[];
+  lp: BiquadFilterNode;
+  g: GainNode;
+}
+
 export interface Kit {
   c: AudioContext;
   /** Dry bus (into the music volume). */
@@ -22,6 +29,21 @@ export interface Kit {
   /** Echo send (lead). */
   echo: AudioNode;
   noise: AudioBuffer;
+  /** Shared vibrato (cents) for leads. */
+  vib: AudioNode;
+  bassSyn: { saw: OscillatorNode; sub: OscillatorNode; lp: BiquadFilterNode; g: GainNode };
+  padSyn: Bank;
+  choirSyn: Bank;
+  /** Persistent oscillators, stopped with the player. */
+  stops: OscillatorNode[];
+}
+
+function send(k: Kit, from: AudioNode, to: AudioNode, amount: number) {
+  if (!amount) return;
+  if (amount === 1) return void from.connect(to);
+  const g = k.c.createGain();
+  g.gain.value = amount;
+  from.connect(g).connect(to);
 }
 
 function voice(k: Kit, t: number, dur: number, a: number, peak: number, rel: number, sends: { dry?: number; verb?: number; echo?: number } = { dry: 1, verb: 0.3 }) {
@@ -30,25 +52,13 @@ function voice(k: Kit, t: number, dur: number, a: number, peak: number, rel: num
   g.gain.linearRampToValueAtTime(peak, t + a);
   g.gain.setValueAtTime(peak, t + Math.max(a, dur));
   g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(a, dur) + rel);
-  if (sends.dry) {
-    const d = k.c.createGain();
-    d.gain.value = sends.dry;
-    g.connect(d).connect(k.out);
-  }
-  if (sends.verb) {
-    const v = k.c.createGain();
-    v.gain.value = sends.verb;
-    g.connect(v).connect(k.verb);
-  }
-  if (sends.echo) {
-    const e = k.c.createGain();
-    e.gain.value = sends.echo;
-    g.connect(e).connect(k.echo);
-  }
+  send(k, g, k.out, sends.dry ?? 0);
+  send(k, g, k.verb, sends.verb ?? 0);
+  send(k, g, k.echo, sends.echo ?? 0);
   return { g, end: t + Math.max(a, dur) + rel + 0.05 };
 }
 
-/** Saw/square lead with a filter swell and late vibrato. */
+/** Saw/square lead with a filter swell (vibrato from the shared LFO on longer notes). */
 function lead(k: Kit, t: number, m: number, dur: number, gain = 0.16, type: OscillatorType = 'sawtooth', cutoff = 2400) {
   const { c } = k;
   const { g, end } = voice(k, t, dur, 0.02, gain, 0.18, { dry: 1, verb: 0.35, echo: 0.28 });
@@ -59,50 +69,27 @@ function lead(k: Kit, t: number, m: number, dur: number, gain = 0.16, type: Osci
   lp.frequency.linearRampToValueAtTime(cutoff, t + 0.06);
   lp.frequency.exponentialRampToValueAtTime(cutoff * 0.5, t + dur + 0.1);
   lp.connect(g);
-  const vib = c.createOscillator();
-  const vg = c.createGain();
-  vib.frequency.value = 5.6;
-  vg.gain.setValueAtTime(0, t);
-  vg.gain.linearRampToValueAtTime(dur > 0.3 ? 9 : 0, t + Math.min(0.35, dur));
-  vib.connect(vg);
   for (const det of [-7, 7]) {
     const o = c.createOscillator();
     o.type = type;
     o.frequency.value = mtof(m);
     o.detune.value = det;
-    vg.connect(o.detune);
+    if (dur > 0.3) k.vib.connect(o.detune);
     o.connect(lp);
     o.start(t);
     o.stop(end);
   }
-  vib.start(t);
-  vib.stop(end);
 }
 
-/** A plucked bass: saw through a resonant filter that snaps shut. */
+/** A plucked bass on the persistent mono synth: the filter snaps shut on every note. */
 function bass(k: Kit, t: number, m: number, dur: number, gain = 0.22, bright = 1) {
-  const { c } = k;
-  const { g, end } = voice(k, t, dur * 0.7, 0.005, gain, 0.09, { dry: 1 });
-  const lp = c.createBiquadFilter();
-  lp.type = 'lowpass';
-  lp.Q.value = 7;
-  lp.frequency.setValueAtTime(1100 * bright, t);
-  lp.frequency.exponentialRampToValueAtTime(160, t + dur);
-  lp.connect(g);
-  const o = c.createOscillator();
-  o.type = 'sawtooth';
-  o.frequency.value = mtof(m);
-  const sub = c.createOscillator();
-  sub.type = 'sine';
-  sub.frequency.value = mtof(m - 12);
-  const sg = c.createGain();
-  sg.gain.value = 0.8;
-  o.connect(lp);
-  sub.connect(sg).connect(g);
-  o.start(t);
-  sub.start(t);
-  o.stop(end);
-  sub.stop(end);
+  const B = k.bassSyn;
+  B.saw.frequency.setValueAtTime(mtof(m), t);
+  B.sub.frequency.setValueAtTime(mtof(m - 12), t);
+  B.lp.frequency.setValueAtTime(1100 * bright, t);
+  B.lp.frequency.setTargetAtTime(160, t + 0.005, dur / 3);
+  B.g.gain.setTargetAtTime(gain, t, 0.003);
+  B.g.gain.setTargetAtTime(0, t + dur * 0.7, 0.03);
 }
 
 /** A soft pluck (arpeggios, harp-like). */
@@ -135,60 +122,26 @@ function bell(k: Kit, t: number, m: number, gain = 0.09, decay = 1.6) {
   });
 }
 
+/** Play a chord on a persistent bank: retune, then swell in and out. */
+function bankChord(b: Bank, t: number, notes: number[], dur: number, gain: number, attack: number, rel: number) {
+  b.voices.forEach((v, i) => {
+    const n = notes[i];
+    v.g.gain.setTargetAtTime(n === undefined ? 0 : 1, t, 0.05);
+    if (n !== undefined) for (const o of v.oscs) o.frequency.setTargetAtTime(mtof(n), t, 0.04);
+  });
+  b.g.gain.setTargetAtTime(gain, t, attack / 3);
+  b.g.gain.setTargetAtTime(0, t + dur, rel / 3);
+}
+
 /** Slow detuned-saw pad on a chord. */
 function pad(k: Kit, t: number, notes: number[], dur: number, gain = 0.035, cutoff = 1300) {
-  const { c } = k;
-  const { g, end } = voice(k, t, dur, 0.5, gain, 0.8, { dry: 1, verb: 0.6 });
-  const lp = c.createBiquadFilter();
-  lp.type = 'lowpass';
-  lp.frequency.value = cutoff;
-  lp.connect(g);
-  notes.forEach((n, i) =>
-    (i === 0 ? [-9, 9] : [i % 2 ? 6 : -6]).forEach((det) => {
-      const o = c.createOscillator();
-      o.type = 'sawtooth';
-      o.frequency.value = mtof(n);
-      o.detune.value = det;
-      o.connect(lp);
-      o.start(t);
-      o.stop(end);
-    }),
-  );
+  k.padSyn.lp.frequency.setTargetAtTime(cutoff, t, 0.2);
+  bankChord(k.padSyn, t, notes, dur, gain * 1.6, 0.5, 0.8);
 }
 
 /** A choir "aah": saws through two vowel formants, with vibrato. */
 function choir(k: Kit, t: number, notes: number[], dur: number, gain = 0.05) {
-  const { c } = k;
-  const { g, end } = voice(k, t, dur, 0.45, gain, 0.9, { dry: 0.8, verb: 0.9 });
-  const f1 = c.createBiquadFilter();
-  f1.type = 'bandpass';
-  f1.frequency.value = 720;
-  f1.Q.value = 5;
-  const f2 = c.createBiquadFilter();
-  f2.type = 'bandpass';
-  f2.frequency.value = 1150;
-  f2.Q.value = 6;
-  f1.connect(g);
-  f2.connect(g);
-  const vib = c.createOscillator();
-  const vg = c.createGain();
-  vib.frequency.value = 4.8;
-  vg.gain.value = 8;
-  vib.connect(vg);
-  for (const n of notes)
-    for (const det of [-10, 10]) {
-      const o = c.createOscillator();
-      o.type = 'sawtooth';
-      o.frequency.value = mtof(n);
-      o.detune.value = det;
-      vg.connect(o.detune);
-      o.connect(f1);
-      o.connect(f2);
-      o.start(t);
-      o.stop(end);
-    }
-  vib.start(t);
-  vib.stop(end);
+  bankChord(k.choirSyn, t, notes, dur, gain * 1.5, 0.45, 0.9);
 }
 
 function noiseHit(k: Kit, t: number, dur: number, type: BiquadFilterType, freq: number, gain: number, q = 1, verb = 0.15) {
@@ -428,7 +381,7 @@ const rival: ThemeDef = {
       [0, 3, 6, 8, 11, 14].forEach((st) => kick(k, t + st * s, st === 0 ? 0.55 : 0.4));
       snare(k, t + 4 * s, 0.24);
       snare(k, t + 12 * s, 0.24);
-      for (let st = 0; st < 16; st++) hat(k, t + st * s, st % 2 ? 0.018 : 0.035);
+      for (let st = 0; st < 16; st += 2) hat(k, t + st * s, st % 4 ? 0.022 : 0.035);
       if (b % 2 === 0) taiko(k, t, 0.35);
       if (last) [12, 13, 14, 15].forEach((st, n) => tom(k, t + st * s, 190 - n * 25, 0.3));
       if (sec === 4) [2, 10].forEach((st) => snare(k, t + st * s, 0.1));
@@ -504,7 +457,84 @@ function makeKit(c: AudioContext | OfflineAudioContext, bus: AudioNode, bpm: num
   echo.connect(dl);
   dl.connect(elp).connect(fb).connect(dl);
   elp.connect(bus);
-  return { c: c as AudioContext, out: bus, verb, echo, noise: noiseBuf };
+  const stops: OscillatorNode[] = [];
+  const osc = (type: OscillatorType, det = 0) => {
+    const o = c.createOscillator();
+    o.type = type;
+    o.frequency.value = 110;
+    o.detune.value = det;
+    o.start();
+    stops.push(o);
+    return o;
+  };
+  // Shared vibrato for leads and the choir.
+  const lfo = osc('sine');
+  lfo.frequency.value = 5.4;
+  const vib = c.createGain();
+  vib.gain.value = 8;
+  lfo.connect(vib);
+  // Bass: saw + sub sine through a resonant filter.
+  const bg = c.createGain();
+  bg.gain.value = 0;
+  bg.connect(bus);
+  const blp = c.createBiquadFilter();
+  blp.type = 'lowpass';
+  blp.Q.value = 7;
+  blp.connect(bg);
+  const saw = osc('sawtooth');
+  saw.connect(blp);
+  const sub = osc('sine');
+  const subG = c.createGain();
+  subG.gain.value = 0.8;
+  sub.connect(subG).connect(bg);
+  // Banks: pad (3 voices, root doubled) and choir (3 voices through vowel formants).
+  const bank = (count: number, voiceOscs: (i: number) => OscillatorNode[], into: (g: GainNode) => void, verbAmt: number, dry: number): Bank => {
+    const g = c.createGain();
+    g.gain.value = 0;
+    send({ c } as Kit, g, bus, dry);
+    send({ c } as Kit, g, verb, verbAmt);
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1300;
+    into(g);
+    const voices = Array.from({ length: count }, (_, i) => {
+      const vg = c.createGain();
+      vg.gain.value = 0;
+      const oscs = voiceOscs(i);
+      oscs.forEach((o) => o.connect(vg));
+      vg.connect(lp);
+      return { oscs, g: vg };
+    });
+    return { voices, lp, g };
+  };
+  const padSyn = bank(3, (i) => (i === 0 ? [osc('sawtooth', -9), osc('sawtooth', 9)] : [osc('sawtooth', i % 2 ? 6 : -6)]), () => {}, 0.6, 1);
+  padSyn.lp.connect(padSyn.g);
+  const choirSyn = bank(
+    3,
+    () => {
+      const a = osc('sawtooth', -10);
+      const b = osc('sawtooth', 10);
+      vib.connect(a.detune);
+      vib.connect(b.detune);
+      return [a, b];
+    },
+    () => {},
+    0.9,
+    0.8,
+  );
+  // Vowel formants after the choir's filter.
+  const f1 = c.createBiquadFilter();
+  f1.type = 'bandpass';
+  f1.frequency.value = 720;
+  f1.Q.value = 5;
+  const f2 = c.createBiquadFilter();
+  f2.type = 'bandpass';
+  f2.frequency.value = 1150;
+  f2.Q.value = 6;
+  choirSyn.lp.frequency.value = 4000;
+  choirSyn.lp.connect(f1).connect(choirSyn.g);
+  choirSyn.lp.connect(f2).connect(choirSyn.g);
+  return { c: c as AudioContext, out: bus, verb, echo, noise: noiseBuf, vib, bassSyn: { saw, sub, lp: blp, g: bg }, padSyn, choirSyn, stops };
 }
 
 /** Schedule `bars` bars of a theme at once (offline rendering / previews). Returns the length in s. */
@@ -521,7 +551,9 @@ export function scheduleTheme(c: OfflineAudioContext, dest: AudioNode, theme: Th
     i++;
     if (i >= def.bars) i = def.loopFrom;
   }
-  return 0.05 + bars * s * 16;
+  const end = 0.05 + bars * s * 16;
+  k.stops.forEach((o) => o.stop(end + 2));
+  return end;
 }
 
 /** Start a theme on `dest` (fades in). Scheduling runs ahead, so a throttled timer is fine. */
@@ -562,7 +594,10 @@ export function playTheme(c: AudioContext, dest: AudioNode, theme: Theme, level 
       bus.gain.cancelScheduledValues(t);
       bus.gain.setValueAtTime(bus.gain.value, t);
       bus.gain.linearRampToValueAtTime(0, t + 1.2);
-      setTimeout(() => bus.disconnect(), 4000);
+      setTimeout(() => {
+        k.stops.forEach((o) => o.stop());
+        bus.disconnect();
+      }, 4000);
     },
   };
 }
