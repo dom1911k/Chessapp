@@ -23,12 +23,12 @@ import { addRunReviews, readNemesis } from './bridge';
 import { THEME_SETS } from '../lib/puzzles/themes';
 import {
   buildMap, cardSlots, composureCost, roomCap, roomLoss, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, relicOffer, shopPrice, isFinalCamp, materialOf, pickRival,
-  roomScore, sample, shopOffers, sound, diffOf, closeMoves, plausibleWrong, scenarioOf, scenarioWeight, type Grimoire, nextRestCost, stallPrice, pouchPrice, cleansePrice, rerollPrice, goldToEmbers, canTakeBack, playStrength, rivalElo, type CostCtx,
+  roomScore, sample, shopOffers, sound, diffOf, heatFor, heatRules, closeMoves, plausibleWrong, scenarioOf, scenarioWeight, type Grimoire, nextRestCost, stallPrice, pouchPrice, cleansePrice, rerollPrice, goldToEmbers, canTakeBack, playStrength, rivalElo, type CostCtx,
 } from './rules';
 import { useRunSettings } from './settings';
 import { sfx, buzz } from './sfx';
 import { ROOM_NAME, rivalRule } from './content';
-import { embersFor, lockedCards, lockedEvents, lockedRelics, lockedRooms, useMeta } from './meta';
+import { embersFor, lockedCards, lockedDrills, lockedEvents, lockedRelics, lockedRooms, useMeta } from './meta';
 import type { BossMod } from './tuning';
 import type { ConsumableId, MapNode, PuzzleProgress, RelicId, RoomKind, RoomState, Run, UserMove } from './types';
 
@@ -55,7 +55,7 @@ const DUELS: { fen: string; name: string; sans: string[] }[] = (() => {
 
 /** Endgame vault positions from the app's endgame drills. */
 const VAULTS = DRILLS.filter((d) => (T.rooms.vault.drills as readonly string[]).includes(d.id)).flatMap((d) =>
-  d.fens.map((fen) => ({ fen, drill: d.id, goal: d.goal as 'mate' | 'promote' | 'capture', title: d.title })),
+  d.fens.map((fen) => ({ fen, drill: d.id, goal: d.goal, title: d.title })),
 );
 export const poolSizes = () => ({ convert: POOLS.convert.length, hold: POOLS.hold.length, boss: POOLS.boss.length, ward: WARDS.length, duel: DUELS.length, vault: VAULTS.length, vaultDrills: VAULTS.map((v) => v.drill) });
 
@@ -194,7 +194,7 @@ function addRelic(r: Run, id: RelicId) {
 export const useRun = create<RunStore>((set, get) => {
   const run = () => get().run!;
   const room = () => get().run!.room!;
-  const ctx = (): CostCtx => ({ node: room().node, boss: bossOf(run()), curses: run().curses, diff: run().difficulty });
+  const ctx = (): CostCtx => ({ node: room().node, boss: bossOf(run()), curses: run().curses, diff: run().difficulty, heat: run().heat });
   /** Immutable update of the run (and persist). */
   const patch = (f: (r: Run) => void) => {
     const r = clone(get().run!);
@@ -334,7 +334,7 @@ export const useRun = create<RunStore>((set, get) => {
     let lost = insured ? 0 : cost;
     // Steady Nerves: the first blunder of the run costs one less.
     let nerves = false;
-    if (lost > 0 && m.cls === 'blunder' && run().meta?.boosts.nerves && !run().nervesUsed) {
+    if (lost > 0 && m.cls === 'blunder' && run().meta?.boosts.nerves && run().difficulty === 'apprentice' && !run().nervesUsed) {
       lost = Math.max(0, lost - 1);
       nerves = true;
     }
@@ -657,10 +657,15 @@ export const useRun = create<RunStore>((set, get) => {
       const grimoire: Grimoire = meta.grimoire ?? {};
       const boosts = meta.boosts;
       const locked = lockedRelics(meta);
-      const lockedC = lockedCards(meta);
+      const difficulty = useRunSettings.getState().difficulty ?? 'apprentice';
+      const heat = heatFor(difficulty, useRunSettings.getState().heat ?? 0, meta.heatUnlocked ?? 0);
+      // Heat 4: Engine's Eye is never offered.
+      const lockedC = [...lockedCards(meta), ...(heatRules(heat).noEye ? (['eye'] as ConsumableId[]) : [])];
+      // Keen Eye: a 4th, rare choice that carries the Brittle curse.
+      const start = relicOffer(locked, 3, Math.random);
+      const cursedPick = boosts.keeneye ? relicOffer([...locked, ...start], 1, Math.random, T.relics.rarity, T.sanctum.keenEyeRarity)[0] : undefined;
       const unlocked = OPPONENTS.filter((o) => isUnlocked(o.id, records));
       const boss = pickRival(unlocked.length ? unlocked : [OPPONENTS[0]], meta.rivalWins ?? {}, Math.random);
-      const difficulty = useRunSettings.getState().difficulty ?? 'apprentice';
       const r: Run = {
         version: 3,
         id: Math.random().toString(36).slice(2, 10),
@@ -668,23 +673,24 @@ export const useRun = create<RunStore>((set, get) => {
         rating: Math.round(rating),
         strength: playStrength(rating, records),
         difficulty,
+        heat,
         bossId: boss.id,
         phase: 'start',
-        layers: buildMap(Math.random, poolSizes(), { rooms: lockedRooms(meta), events: lockedEvents(meta) }, (k) => scenarioWeight(grimoire, k)),
+        layers: buildMap(Math.random, poolSizes(), { rooms: lockedRooms(meta), events: lockedEvents(meta), drills: lockedDrills(meta) }, (k) => scenarioWeight(grimoire, k)),
         nemesis,
         path: [],
         layer: 0,
-        composure: T.composure.start + (boosts.candle ?? 0),
-        gold: T.gold.start + 2 * (boosts.purse ?? 0),
+        composure: T.composure.start,
+        gold: T.gold.start,
         relics: [],
-        consumables: [...(boosts.notes ? (['cards'] as ConsumableId[]) : []), ...(boosts.satchel ? consumableOffer(1, Math.random, lockedC) : [])],
+        consumables: boosts.notes ? ['cards'] : [],
         meta: { boosts: { ...boosts }, lockedRelics: locked, lockedCards: lockedC },
         curses: [],
         room: null,
         event: null,
         results: [],
         moments: [],
-        offer: { type: 'relic', ids: relicOffer(locked, boosts.keeneye ? 4 : 3, Math.random), free: true, title: 'Choose your first relic' },
+        offer: { type: 'relic', ids: cursedPick ? [...start, cursedPick] : start, cursed: cursedPick, free: true, title: 'Choose your first relic' },
         shopStock: [],
         restBought: false,
         cursed: false,
@@ -708,6 +714,7 @@ export const useRun = create<RunStore>((set, get) => {
 
     pickStartRelic(id) {
       patch((r) => {
+        if (r.offer?.type === 'relic' && r.offer.cursed === id && !r.curses.includes('brittle')) r.curses.push('brittle');
         addRelic(r, id);
         r.offer = null;
         r.phase = 'map';
@@ -807,7 +814,7 @@ export const useRun = create<RunStore>((set, get) => {
         } else if (node.kind === 'vault') {
           const v = VAULTS[(node.pos ?? 0) % VAULTS.length];
           fen = v.fen;
-          const max = T.rooms.vault.maxMoves[v.goal] - (node.elite ? T.elite.vaultMovesLess : 0);
+          const max = T.rooms.vault.maxMoves[v.goal] - (node.elite && v.goal !== 'hold' ? T.elite.vaultMovesLess : 0);
           extra = { vault: { goal: v.goal, maxMoves: max, title: v.title, drill: v.drill }, opp: 'engine' };
         } else {
           const pool = POOLS[node.kind as 'convert' | 'hold' | 'boss'];
@@ -816,7 +823,7 @@ export const useRun = create<RunStore>((set, get) => {
         const boss = node.kind === 'boss' ? opponentById(r.bossId) : undefined;
         const rm: RoomState = {
           layer: r.layer, node, me: new Chess(fen).turn(), startFen: fen, fen, plies: [], moves: [], fires: [], startEval: ev,
-          elo: boss ? rivalElo(r) : roomElo(r, node.elite), oppId: boss?.id, opp: 'maia', status: 'playing', diff: r.difficulty, ...extra,
+          elo: boss ? rivalElo(r) : roomElo(r, node.elite), oppId: boss?.id, opp: 'maia', status: 'playing', diff: r.difficulty, heat: r.heat, ...extra,
         };
         patch((x) => {
           x.room = rm;
@@ -1031,7 +1038,7 @@ export const useRun = create<RunStore>((set, get) => {
         r.results.push({
           layer: R.layer, kind: R.node.kind as RoomKind, modifier: R.node.modifier, elite: R.node.elite, gamble: R.gamble, won: R.status === 'won',
           chips: sc.chips, target: sc.target, mult: sc.mult, score: sc.score, gold: sc.gold, fires: R.fires,
-          composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '', clean: sc.clean,
+          composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '', clean: sc.clean, evalEnd: R.puzzle ? undefined : R.moves[R.moves.length - 1]?.evalAfter,
         });
         // Milestones from this room.
         const won = R.status === 'won';

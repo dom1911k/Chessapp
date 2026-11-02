@@ -7,7 +7,7 @@ import { useSettings } from '../../lib/settings';
 import type { CoachArrow } from '../../lib/coach/types';
 import type { Classification } from '../../lib/chess/evaluation';
 import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, rivalRule, bossModText, NEMESIS_WHY } from '../content';
-import { canTakeBack, chipTarget, fmtCp, gaugeLines, cardSlots, progress, recovery, roomCap, roomLoss, roomScore, takebacksLeft } from '../rules';
+import { canTakeBack, chipTarget, fmtCp, gaugeLines, cardSlots, progress, recovery, roomCap, roomLoss, roomScore, takebacksLeft, heatRules } from '../rules';
 import { explainMove } from '../../lib/coach';
 import { arrowOf, bookHint, bossOf, lensMarks, liveEval, useRun } from '../store';
 import { Chess } from 'chess.js';
@@ -115,7 +115,8 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
 
   const playing = room.status === 'playing';
   const canRewind = run.consumables.includes('rewind') && room.moves.length > 0 && (!room.puzzle || room.puzzle.lost) && room.plies.some((p) => p.by === 'me');
-  const showGauge = !room.puzzle;
+  const hr = heatRules(run.heat);
+  const showGauge = !room.puzzle && !hr.evalHidden;
   const ev = liveEval(s.cur, room.fen, me) ?? (room.moves.length ? room.moves[room.moves.length - 1].evalAfter : room.startEval);
   // The warning follows the live position: if they missed your slip, you're already safe again.
   const rec0 = recovery(room, bossOf(run));
@@ -192,7 +193,7 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
 
       {/* Board + eval gauge */}
       <div className="relative mt-1 flex gap-1.5 px-1.5">
-        {showGauge && <EvalGauge cp={ev} {...lines} thinking={s.busy} danger={!!rec} />}
+        {showGauge && <EvalGauge cp={ev} {...lines} thinking={s.busy} danger={!!rec} noNumber={hr.evalWordsOnly} />}
         <div className="relative min-w-0 flex-1">
           <PixelCaptured pieces={mat.lost[me === 'w' ? 'b' : 'w']} color={me === 'w' ? 'b' : 'w'} lead={me === 'w' ? mat.diff : -mat.diff} />
           <div className="relative">
@@ -317,14 +318,14 @@ const barPct = (cp: number) => {
 };
 
 /** Vertical eval meter (your POV) with the room's red line and goal. Tap to show the number. */
-function EvalGauge({ cp, floor, goal, thinking, danger }: { cp: number; floor?: number; goal?: number; thinking: boolean; danger?: boolean }) {
+function EvalGauge({ cp, floor, goal, thinking, danger, noNumber }: { cp: number; floor?: number; goal?: number; thinking: boolean; danger?: boolean; noNumber?: boolean }) {
   const [num, setNum] = useState(false);
   const pos = (v: number) => 100 - barPct(v); // % from top
   const p = pos(cp);
   return (
     <button
-      onClick={() => setNum((x) => !x)}
-      aria-label={`Evaluation ${fmtCp(cp)}`}
+      onClick={() => !noNumber && setNum((x) => !x)}
+      aria-label={noNumber ? 'Evaluation' : `Evaluation ${fmtCp(cp)}`}
       className={`relative w-4 shrink-0 ${danger ? 'run-danger-bar' : ''}`}
       style={{ background: 'linear-gradient(#1b0f22,#1b0f22)', boxShadow: '0 0 0 2px #1b0f22, inset 0 0 0 1px rgba(242,199,92,.35)' }}
     >
@@ -335,7 +336,7 @@ function EvalGauge({ cp, floor, goal, thinking, danger }: { cp: number; floor?: 
         <div className={`absolute inset-x-[-3px] h-[3px] ${danger ? 'animate-pulse' : ''}`} style={{ top: `${pos(floor)}%`, background: 'var(--blood)', boxShadow: '0 0 6px var(--blood)' }} />
       )}
       {goal !== undefined && <div className="absolute inset-x-[-3px] h-[3px]" style={{ top: `${pos(goal)}%`, background: '#5ee59a', boxShadow: '0 0 6px #5ee59a' }} />}
-      {num && (
+      {num && !noNumber && (
         <div className={`run-sans absolute left-1/2 z-10 -translate-x-1/2 rounded bg-black/85 px-0.5 text-[8px] font-black whitespace-nowrap text-[var(--gold-2)] ${thinking ? 'opacity-60' : ''}`} style={{ top: `calc(${Math.max(4, Math.min(92, p))}% - 6px)` }}>
           {fmtCp(cp).replace('+', '')}
         </div>

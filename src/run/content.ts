@@ -91,6 +91,16 @@ export const rivalRule = (r: { bossId: string; nemesis?: string }): BossMod & { 
   const n = r.nemesis ? (T.nemesis.rules as Record<string, BossMod>)[r.nemesis] : undefined;
   return n ? { ...n, nemesis: true } : bossMod(r.bossId);
 };
+/** The six Heat constraints (cumulative), for the picker and the run. */
+export const HEAT_TEXT = [
+  `Rivals play ${T.heat.rivalElo} rating stronger.`,
+  'Inaccuracies cost a candle in the rival fight.',
+  'The eval bar shows words only during play (numbers in the tally).',
+  "Engine's Eye is never offered.",
+  'One move less to recover below a red line (minimum 1).',
+  'The eval bar is hidden during play.',
+];
+
 /** What the nemesis rule answers (shown under its name). */
 export const NEMESIS_WHY: Record<string, string> = {
   hangingPiece: 'You keep leaving pieces hanging in your games.',
@@ -120,13 +130,14 @@ export function bossGoal(m: BossMod) {
   return { winCp: m.winCp ?? b.winCp, endCp: m.endCp ?? b.endCp, moves: m.moves ?? b.moves, noEarlyWin: !!m.noEarlyWin };
 }
 
-export function objective(node: MapNode, boss?: BossMod, diff?: DiffId): string {
+export function objective(node: MapNode, boss?: BossMod, diff?: DiffId, heat = 0): string {
   const r = T.rooms;
   const e = node.elite;
   const d = T.difficulty[diff ?? 'adept'];
   const g = bossGoal(boss ?? T.bossMods.default);
   const pawns = (cp: number) => `${Math.round(cp) / 100}`;
-  const grace = `Slip below the line and you get ${d.grace} move${d.grace === 1 ? '' : 's'} to recover.`;
+  const gr = Math.max(1, d.grace - (heat >= 5 ? T.heat.graceLess : 0));
+  const grace = `Slip below the line and you get ${gr} move${gr === 1 ? '' : 's'} to recover.`;
   switch (node.kind) {
     case 'puzzle':
       return `Solve ${e ? T.elite.puzzleNeed : r.puzzle.needSolved} of ${r.puzzle.count} puzzles${e ? ' (harder)' : ''}.`;
@@ -139,7 +150,7 @@ export function objective(node: MapNode, boss?: BossMod, diff?: DiffId): string 
     case 'hold':
       return `You're a little worse. Survive ${r.hold.moves} moves without the eval dropping more than ${pawns((e ? T.elite.holdMaxDropCp : r.hold.maxDropCp) + d.margin)}. ${grace}`;
     case 'vault':
-      return 'A won endgame against perfect defence. Finish the job in time.';
+      return 'An endgame against perfect play: finish the job in time — or, in a defence drill, hold the draw.';
     case 'duel':
       return `An opening, fresh from the book. After ${r.duel.moves} moves, don't be more than ${pawns((e ? T.elite.duelMaxDropCp : r.duel.maxDropCp) + d.margin)} worse than at the start (${d.grace} extra move${d.grace === 1 ? '' : 's'} to fix it). The book move is shown for your first ${r.duel.hintMoves}.`;
     case 'boss': {

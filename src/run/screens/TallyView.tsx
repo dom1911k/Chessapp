@@ -3,7 +3,7 @@
 // When the room gives a free pick, its cards slide up underneath — one screen, not two.
 import { useEffect, useRef, useState } from 'react';
 import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, rivalRule } from '../content';
-import { cardSlots, goldParts } from '../rules';
+import { cardSlots, goldParts, heatRules, fmtCp } from '../rules';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
 import type { ConsumableId, Fire, RelicId } from '../types';
@@ -90,6 +90,9 @@ export function TallyView({ onShake }: { onShake: () => void }) {
       </div>
       <div className="run-title mt-0.5 text-2xl font-black">{res.gamble ? 'The Gamble' : ROOM_NAME[res.kind]}</div>
       <div className="run-sans text-xs text-[var(--ink-dim)]">{res.reason}</div>
+      {heatRules(run.heat).evalWordsOnly && res.evalEnd !== undefined && (
+        <div className="run-sans text-xs font-bold text-[var(--gold-2)]">Final eval {fmtCp(res.evalEnd)}</div>
+      )}
 
       <div className="mt-4 flex items-center gap-3">
         <div className="run-panel flex min-w-26 flex-col items-center gap-0.5 px-3 py-2" style={{ boxShadow: '0 0 30px rgba(79,179,255,.25)' }}>

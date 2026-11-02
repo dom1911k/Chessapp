@@ -209,7 +209,7 @@ function Preview({ node, onEnter, busy }: { node: MapNode; onEnter: () => void; 
           {busy ? '…' : node.kind === 'camp' ? 'Rest' : node.kind === 'event' ? 'Step in' : 'Enter'}
         </button>
       </div>
-      <div className="run-sans mt-1 text-[13px] leading-snug">{objective(node, isBoss ? mod : undefined, run.difficulty)}</div>
+      <div className="run-sans mt-1 text-[13px] leading-snug">{objective(node, isBoss ? mod : undefined, run.difficulty, run.heat)}</div>
       {room && (
         <div className="run-sans mt-1.5 space-y-1 text-xs leading-snug text-[var(--ink-dim)]">
           <div>{isBoss ? bossModText(mod) : MODIFIERS[modifier].text}{focused ? ' (the Healing Spring’s price)' : ''}</div>

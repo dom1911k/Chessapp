@@ -4,8 +4,8 @@ import { createPortal } from 'react-dom';
 import { Chess } from 'chess.js';
 import { opponentById } from '../../lib/people';
 import { uciToSan } from '../../lib/chess/game';
-import { CONSUMABLES, EVENTS, MODIFIERS, RELICS } from '../content';
-import { isFinalCamp, cardSlots, cleansePrice, goldToEmbers, maxComposure, nextRestCost, pouchPrice, rerollPrice, shopPrice, stallPrice } from '../rules';
+import { CONSUMABLES, EVENTS, HEAT_TEXT, MODIFIERS, RELICS } from '../content';
+import { heatAllowed, heatFor, playStrength, isFinalCamp, cardSlots, cleansePrice, goldToEmbers, maxComposure, nextRestCost, pouchPrice, rerollPrice, shopPrice, stallPrice } from '../rules';
 import { useRun } from '../store';
 import { TUNING as T, type DiffId } from '../tuning';
 import type { ConsumableId, RelicId } from '../types';
@@ -15,6 +15,9 @@ import { RunBoard } from '../pixel/RunBoard';
 import { runMusic, sfx } from '../sfx';
 import { useRunSettings } from '../settings';
 import { useMeta } from '../meta';
+import { allRuns } from '../db';
+import { getRating } from '../../lib/puzzles/rating';
+import { getOpponentRecords } from '../../lib/people/record';
 import { MapView } from './MapView';
 import { HistoryScreen, SanctumScreen, SettingsSheet } from './Sanctum';
 import { PixelText } from './PixelText';
@@ -167,6 +170,8 @@ function Home({ tools, onSanctum, onHistory }: { tools: Tools; onSanctum: () => 
       </p>
       <div className="mt-auto flex w-full max-w-xs flex-col gap-2">
         <DifficultyPicker />
+        <HeatPicker />
+        <StrengthLine />
         <button className="run-btn w-full text-lg" onClick={() => void s.newRun()}>
           Begin a run
         </button>
@@ -184,6 +189,64 @@ function Home({ tools, onSanctum, onHistory }: { tools: Tools; onSanctum: () => 
 }
 
 const DIFFS: DiffId[] = ['apprentice', 'adept', 'master'];
+
+/** Heat for the next run (Adept and Master; beat the rival to unlock the next level). */
+function HeatPicker() {
+  const diff = useRunSettings((x) => x.difficulty);
+  const chosen = useRunSettings((x) => x.heat ?? 0);
+  const setS = useRunSettings((x) => x.set);
+  const unlocked = useMeta((m) => m.heatUnlocked ?? 0);
+  if (!heatAllowed(diff)) return null;
+  if (unlocked <= 0) return <div className="run-sans -mt-1 mb-1 text-left text-[11px] text-[var(--ink-dim)]">Beat the rival on {T.difficulty[diff].name} to unlock Heat.</div>;
+  const h = heatFor(diff, chosen, unlocked);
+  return (
+    <div className="mb-1 text-left">
+      <div className="run-label mb-1">Heat</div>
+      <div className="flex gap-1">
+        {Array.from({ length: unlocked + 1 }, (_, i) => (
+          <button
+            key={i}
+            onClick={() => (setS({ heat: i }), sfx('card'))}
+            className={`run-sans flex-1 py-1 text-sm font-black ${i === h ? 'text-[#ffb454]' : 'text-[var(--ink-dim)]'}`}
+            style={{ background: i === h ? 'rgba(255,120,40,.16)' : 'rgba(0,0,0,.35)', boxShadow: `0 0 0 2px #1b0f22, inset 0 0 0 1px ${i === h ? '#ffb454' : 'var(--gold-dim)'}` }}
+          >
+            {i === 0 ? 'Off' : i}
+          </button>
+        ))}
+      </div>
+      <p className="run-sans mt-1 text-[11px] leading-snug text-[var(--ink-dim)]">
+        {h === 0 ? 'No extra constraints.' : <>{HEAT_TEXT.slice(0, h).map((t, i) => <span key={i} className="block">{i + 1}. {t}</span>)}<span className="text-[#ffb454]">Win: +{h * T.heat.embersPerLevel} Embers.</span></>}
+      </p>
+    </div>
+  );
+}
+
+/** "Run strength 1180 · +90 since Oct 31": how strong your opponents are now, against your first run. */
+function StrengthLine() {
+  const [line, setLine] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const [{ rating }, records, runs] = await Promise.all([getRating(), getOpponentRecords(), allRuns()]);
+        const now = playStrength(rating, records);
+        const first = runs.find((r) => r.strength !== undefined);
+        let text = `Run strength ${now}`;
+        if (first) {
+          const d = now - first.strength!;
+          const when = new Date(first.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+          text += ` · ${d >= 0 ? '+' : '−'}${Math.abs(d)} since ${when}`;
+        }
+        if (live) setLine(text);
+      } catch {
+        /* no data yet */
+      }
+    })();
+    return () => void (live = false);
+  }, []);
+  if (!line) return null;
+  return <div className="run-sans -mt-0.5 mb-1 text-center text-xs font-bold text-[var(--gold-2)]">{line}</div>;
+}
 
 /** Difficulty for the next run (remembered). */
 function DifficultyPicker() {
@@ -221,6 +284,7 @@ function TopBar({ tools }: { tools: Tools }) {
       <div {...lp} className="select-none">
         <div className="run-label">
           Act I · {T.difficulty[run.difficulty ?? 'adept'].name}
+          {run.heat ? <span className="text-[#ffb454]"> · Heat {run.heat}</span> : null}
           {run.curses.length ? ' · Brittle' : ''}
         </div>
         <div className="run-title text-lg font-bold">The Gambit</div>
@@ -278,6 +342,7 @@ function Pick({ title, tools, skip }: { title: string; tools: Tools; skip?: bool
   const offer = run.offer!;
   const [sel, setSel] = useState<string | null>(null);
   const full = offer.type === 'consumable' && run.consumables.length >= cardSlots(run);
+  const cursedId = offer.type === 'relic' ? offer.cursed : undefined;
   const choose = () => (run.phase === 'start' ? s.pickStartRelic(sel as RelicId) : s.pickReward(sel));
   return (
     <div className="flex h-full flex-col pb-5">
@@ -294,15 +359,18 @@ function Pick({ title, tools, skip }: { title: string; tools: Tools; skip?: bool
       {full && <div className="run-sans mt-1 text-center text-xs text-[var(--blood)]">Your hands are full — skip, or use a card first.</div>}
       <div className="mt-6 flex justify-center gap-2 px-2">
         {offer.ids.map((id, i) => (
-          <TarotCard
-            key={id + i}
-            info={offer.type === 'relic' ? RELICS[id as RelicId] : CONSUMABLES[id as ConsumableId]}
-            kind={offer.type}
-            selected={sel === id}
-            onClick={full ? undefined : () => (setSel(id), sfx('card'))}
-            className="run-deal"
-            style={{ animationDelay: `${i * 110}ms`, ['--r' as string]: `${(i - 1) * 5}deg` }}
-          />
+          <div key={id + i} className="flex flex-col items-center">
+            <TarotCard
+              info={offer.type === 'relic' ? RELICS[id as RelicId] : CONSUMABLES[id as ConsumableId]}
+              kind={offer.type}
+              selected={sel === id}
+              w={offer.ids.length > 3 ? 86 : undefined}
+              onClick={full ? undefined : () => (setSel(id), sfx('card'))}
+              className="run-deal"
+              style={{ animationDelay: `${i * 110}ms`, ['--r' as string]: `${(i - (offer.ids.length - 1) / 2) * 5}deg` }}
+            />
+            {cursedId === id && <span className="run-sans mt-1.5 rounded bg-[#4a1020] px-1.5 text-[10px] font-black text-[#ffb3bd]">☠ CURSED</span>}
+          </div>
         ))}
       </div>
       <div className="run-sans mx-4 mt-4 min-h-10 text-center text-sm leading-snug">
@@ -310,6 +378,7 @@ function Pick({ title, tools, skip }: { title: string; tools: Tools; skip?: bool
           <>
             <b className="text-[var(--gold-2)]">{(offer.type === 'relic' ? RELICS[sel as RelicId] : CONSUMABLES[sel as ConsumableId]).name}:</b>{' '}
             {(offer.type === 'relic' ? RELICS[sel as RelicId] : CONSUMABLES[sel as ConsumableId]).text}
+            {cursedId === sel && <span className="text-[#ff8c9a]"> Comes with a curse: Brittle (mistakes cost +{T.curses.brittleMistakeExtra} candle; cleanse it at a campfire).</span>}
           </>
         ) : (
           <span className="text-[var(--ink-dim)]">Tap a card to read it.</span>

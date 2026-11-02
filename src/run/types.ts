@@ -110,9 +110,11 @@ export interface RoomState {
   /** Duel: the book line played so far (SAN), for the opening hint. */
   book?: string[];
   /** Vault: the endgame goal and move limit. */
-  vault?: { goal: 'mate' | 'promote' | 'capture'; maxMoves: number; title: string; drill?: string };
+  vault?: { goal: 'mate' | 'promote' | 'capture' | 'hold'; maxMoves: number; title: string; drill?: string };
   /** Difficulty of the run (old saves: Adept). */
   diff?: DiffId;
+  /** Heat level of the run (0/undefined = none). */
+  heat?: number;
   /** Free take-backs used in this room. */
   takebacks?: number;
   /** Cards used in this room (Cold Read). */
@@ -143,6 +145,8 @@ export interface RoomResult {
   reason: string;
   /** No mistake or blunder (clean bonus). */
   clean?: boolean;
+  /** Eval (your POV, cp) after your last move — shown in the tally when Heat hides numbers. */
+  evalEnd?: number;
 }
 
 export interface Moment {
@@ -156,7 +160,7 @@ export interface Moment {
 }
 
 export type Offer =
-  | { type: 'relic'; ids: RelicId[]; free: boolean; title: string }
+  | { type: 'relic'; ids: RelicId[]; free: boolean; title: string; /** Keen Eye: this one carries a curse. */ cursed?: RelicId }
   | { type: 'consumable'; ids: ConsumableId[]; free: boolean; title: string };
 
 export type EventState =
@@ -187,6 +191,8 @@ export interface Run {
   /** Opponent strength (puzzle rating blended with playing results). */
   strength?: number;
   difficulty?: DiffId;
+  /** Heat level (Adept/Master; 0 or missing = none). */
+  heat?: number;
   bossId: string;
   phase: Phase;
   /** layers[0] = [room1]; middle layers = two options each; last = [boss]. */
@@ -267,6 +273,7 @@ export interface Playtest {
   composureLeft: number;
   cursed: boolean;
   difficulty?: DiffId;
+  heat?: number;
   /** Minutes spent inside rooms (the rest is map, shop, menus). */
   roomMinutes?: number;
   goldEarned?: number;

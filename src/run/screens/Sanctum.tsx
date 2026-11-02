@@ -57,7 +57,14 @@ export function SanctumScreen({ onBack }: { onBack: () => void }) {
           <Fire w={16} h={20} scale={3} logs />
         </div>
         <PixelText text="The Sanctum" size={3} className="mt-1" />
-        <div className="run-sans mt-1 px-6 text-center text-xs text-[var(--ink-dim)]">Embers from every run, won or lost, buy lasting gifts here. {m.runs} runs · {m.wins} won · best {m.best}</div>
+        <div className="run-sans mt-1 px-6 text-center text-xs text-[var(--ink-dim)]">Embers from every run, won or lost, buy lasting gifts here. {m.runs} runs · {m.wins} won · best {m.best}
+          {(m.heatBest ?? 0) > 0 && <span className="text-[#ffb454]"> · Heat {m.heatBest} cleared</span>}
+        </div>
+        {m.refundNote && (
+          <button className="run-sans mt-2 rounded bg-[#ffb454]/15 px-2 py-1 text-xs text-[#ffd9a8]" onClick={() => m.clearRefundNote()}>
+            {m.refundNote} ✕
+          </button>
+        )}
         <button className="run-btn ghost mt-2 flex items-center gap-1.5 px-3! py-1.5! text-sm" onClick={() => (setSub('grimoire'), sfx('card'))}>
           <Sprite name="book" size={16} px={12} pal={GOLD} /> Grimoire
         </button>
@@ -98,7 +105,7 @@ export function SanctumScreen({ onBack }: { onBack: () => void }) {
         {tab === 'unlocks' &&
           UNLOCKS.filter((u) => u.kind !== 'board' && u.kind !== 'pieces').map((u) => {
             const own = m.unlocked.includes(u.id);
-            const pal = u.kind === 'relic' ? (RELICS[u.ref as keyof typeof RELICS]?.rarity === 'rare' ? BLOOD : GOLD) : SPIRIT;
+            const pal = u.kind === 'drill' ? GOLD : u.kind === 'relic' ? (RELICS[u.ref as keyof typeof RELICS]?.rarity === 'rare' ? BLOOD : GOLD) : SPIRIT;
             return (
               <div key={u.id} className={`run-panel flex items-center gap-3 p-3 ${own ? 'opacity-70' : ''}`}>
                 <Sprite name={own ? u.sprite : 'lock'} size={40} px={16} pal={own ? pal : GOLD} />

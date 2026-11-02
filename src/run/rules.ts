@@ -63,6 +63,8 @@ export interface Pools {
 export interface Locks {
   rooms?: RoomKind[];
   events?: EventKind[];
+  /** Vault drills still locked. */
+  drills?: string[];
 }
 
 /**
@@ -73,7 +75,8 @@ export interface Locks {
 export function buildMap(rand: Rand, pools: Pools, locks: Locks = {}, bias: (key: string) => number = () => 1): MapNode[][] {
   const mod = (): ModifierId => pickOne<ModifierId>(['steady', 'steady', 'gilded', 'focused'], rand);
   // Grimoire: scenarios you fail most are a little likelier to show up.
-  const drills = pools.vaultDrills ?? [];
+  const allDrills = pools.vaultDrills ?? [];
+  const drills = allDrills.filter((d) => !locks.drills?.includes(d));
   const kindWeight = (k: RoomKind) =>
     k === 'convert' ? Math.max(bias('gain'), bias('keep')) : k === 'puzzle' ? bias('riddle') : k === 'vault' ? (drills.length ? Math.max(...drills.map((d) => bias(`vault:${d}`))) : 1) : bias(k);
   const pickW = <X,>(xs: X[], w: (x: X) => number): X => {
@@ -85,7 +88,7 @@ export function buildMap(rand: Rand, pools: Pools, locks: Locks = {}, bias: (key
   const posFor = (kind: RoomKind): number => {
     if (kind === 'vault' && drills.length) {
       const d = pickW([...new Set(drills)], (x) => bias(`vault:${x}`));
-      return pickOne(drills.map((x, i) => (x === d ? i : -1)).filter((i) => i >= 0), rand);
+      return pickOne(allDrills.map((x, i) => (x === d ? i : -1)).filter((i) => i >= 0), rand);
     }
     return Math.floor(rand() * Math.max(1, pools[kind as keyof Omit<Pools, 'vaultDrills'>] ?? 1));
   };
@@ -166,18 +169,37 @@ export interface CostCtx {
   boss?: BossMod;
   curses?: CurseId[];
   diff?: DiffId;
+  heat?: number;
 }
 
 export const diffOf = (id?: DiffId) => T.difficulty[id ?? 'adept'];
 
+/** Heat constraints in force at level `h` (cumulative). */
+export function heatRules(h = 0) {
+  return {
+    rivalPlus: h >= 1 ? T.heat.rivalElo : 0,
+    rivalInaccuracy: h >= 2,
+    evalWordsOnly: h >= 3,
+    noEye: h >= 4,
+    graceLess: h >= 5 ? T.heat.graceLess : 0,
+    evalHidden: h >= 6,
+  };
+}
+/** Heat only exists on Adept and Master. */
+export const heatAllowed = (d?: DiffId) => (T.heat.difficulties as DiffId[]).includes(d ?? 'adept');
+/** Heat for a new run: the chosen level, capped by what's unlocked (0 on Apprentice). */
+export const heatFor = (d: DiffId, chosen: number, unlocked: number) => (heatAllowed(d) ? Math.max(0, Math.min(chosen, unlocked, T.heat.max)) : 0);
+/** After a win at `heat`: the new unlocked level. */
+export const heatAfterWin = (heat: number, unlocked: number) => Math.min(T.heat.max, Math.max(unlocked, heat + 1));
+
 /** The room's goal numbers after the difficulty's margin (for text and judging). */
-export function limits(node: Pick<MapNode, 'kind' | 'elite'>, diff?: DiffId, boss?: BossMod) {
+export function limits(node: Pick<MapNode, 'kind' | 'elite'>, diff?: DiffId, boss?: BossMod, heat = 0) {
   const d = diffOf(diff);
   const e = node.elite;
   const r = T.rooms;
   const g = bossGoal(boss ?? T.bossMods.default);
   return {
-    grace: d.grace,
+    grace: Math.max(1, d.grace - heatRules(heat).graceLess),
     keepCp: (e ? T.elite.keepCp : r.convert.keepCp) - d.margin,
     holdDrop: (e ? T.elite.holdMaxDropCp : r.hold.maxDropCp) + d.margin,
     duelDrop: (e ? T.elite.duelMaxDropCp : r.duel.maxDropCp) + d.margin,
@@ -189,8 +211,8 @@ export function limits(node: Pick<MapNode, 'kind' | 'elite'>, diff?: DiffId, bos
 }
 
 /** A red line you must stay above during play (Hold, Keep-ahead), your POV cp. */
-export function floorLine(room: Pick<RoomState, 'node' | 'startEval' | 'diff'>): number | undefined {
-  const L = limits(room.node, room.diff);
+export function floorLine(room: Pick<RoomState, 'node' | 'startEval' | 'diff' | 'heat'>): number | undefined {
+  const L = limits(room.node, room.diff, undefined, room.heat);
   if (room.node.kind === 'hold') return room.startEval - L.holdDrop;
   if (room.node.kind === 'convert' && room.node.goal === 'keep') return L.keepCp;
   return undefined;
@@ -209,7 +231,7 @@ export function below(room: Pick<RoomState, 'moves'>, line: number): number {
  */
 export function recovery(room: RoomState, boss?: BossMod): { left: number; overtime: boolean } | null {
   if (room.status !== 'playing' || room.puzzle || !room.moves.length) return null;
-  const L = limits(room.node, room.diff, boss);
+  const L = limits(room.node, room.diff, boss, room.heat);
   const last = room.moves[room.moves.length - 1];
   const n = room.moves.length;
   const floor = floorLine(room);
@@ -227,6 +249,7 @@ export function composureCost(cls: Classification, ctx: CostCtx): number {
   const { node, boss, curses = [] } = ctx;
   let c: number = diffOf(ctx.diff).cost[cls];
   if (cls === 'inaccuracy' && boss?.inaccuracyCost) c += boss.inaccuracyCost;
+  if (cls === 'inaccuracy' && node.kind === 'boss' && heatRules(ctx.heat).rivalInaccuracy) c += T.heat.inaccuracyCost;
   if (cls === 'mistake') {
     if (boss?.mistakeExtra) c += boss.mistakeExtra;
     if (curses.includes('brittle')) c += T.curses.brittleMistakeExtra;
@@ -388,14 +411,14 @@ export function roomScore(room: RoomState) {
 export function maxConsumables(relics: RelicId[], pocket = 0) {
   return T.consumables.maxHeld + pocket - (relics.includes('spendthrift') ? T.relics.spendthriftCarryPenalty : 0);
 }
-/** Card slots for a run (relics and the Deep Pockets boost). */
-export const cardSlots = (r: Pick<Run, 'relics' | 'meta'> & { pouch?: number }) => maxConsumables(r.relics, (r.meta?.boosts.pocket ?? 0) + (r.pouch ?? 0));
+/** Card slots for a run (relics and the Bigger Pouch). */
+export const cardSlots = (r: Pick<Run, 'relics'> & { pouch?: number }) => maxConsumables(r.relics, r.pouch ?? 0);
 /** Most candles one room can take (moves + failing it). */
 export const roomCap = (room: Pick<RoomState, 'node'>) => (room.node.kind === 'boss' ? T.composure.bossCap : T.composure.roomCap);
 /** Candles already lost in this room. */
 export const roomLoss = (room: Pick<RoomState, 'moves'>) => room.moves.reduce((s, m) => s + m.composureLost, 0);
-/** Max Composure for a run (Spare Candle boost). */
-export const maxComposure = (r: Pick<Run, 'meta'>) => T.composure.max + (r.meta?.boosts.candle ?? 0);
+/** Max Composure for a run. */
+export const maxComposure = (_r?: unknown) => T.composure.max;
 /** Relics a run can't be offered: owned ones and those still locked. */
 export const unofferable = (r: Pick<Run, 'relics' | 'meta'>) => [...r.relics, ...(r.meta?.lockedRelics ?? [])];
 export function price(id: ConsumableId, relics: RelicId[]) {
@@ -408,11 +431,11 @@ export function restPrice(relics: RelicId[]) {
   if (relics.includes('spendthrift')) p = Math.round(p * T.relics.spendthriftPriceFactor);
   return Math.max(1, p);
 }
-/** Campfire prices for a run (Spendthrift, Haggler). */
-export const shopPrice = (r: Pick<Run, 'relics' | 'meta'>, id: ConsumableId) => Math.max(1, price(id, r.relics) - (r.meta?.boosts.haggler ? 1 : 0));
-export const restCost = (r: Pick<Run, 'relics' | 'meta'>) => Math.max(1, restPrice(r.relics) - (r.meta?.boosts.haggler ? 1 : 0));
+/** Campfire prices for a run (Spendthrift). */
+export const shopPrice = (r: Pick<Run, 'relics' | 'meta'>, id: ConsumableId) => Math.max(1, price(id, r.relics));
+export const restCost = (r: Pick<Run, 'relics' | 'meta'>) => Math.max(1, restPrice(r.relics));
 type Shopper = Pick<Run, 'relics' | 'meta'> & { rests?: number; rerolls?: number };
-const deal = (r: Shopper, p: number) => Math.max(1, (r.relics.includes('spendthrift') ? Math.round(p * T.relics.spendthriftPriceFactor) : p) - (r.meta?.boosts.haggler ? 1 : 0));
+const deal = (r: Shopper, p: number) => Math.max(1, (r.relics.includes('spendthrift') ? Math.round(p * T.relics.spendthriftPriceFactor) : p));
 /** The next rest at this campfire (gets dearer each time). */
 export const nextRestCost = (r: Shopper) => restCost(r) + (r.rests ?? 0) * T.shop.restStep;
 export const stallPrice = (r: Shopper, id: RelicId) => deal(r, T.shop.stallPrice[RELICS[id].rarity ?? 'common']);
@@ -444,10 +467,10 @@ export function judge(room: RoomState, stage: 'mine' | 'reply', boss?: BossMod):
     return iMated ? { status: 'won', reason: 'Checkmate!' } : { status: 'failed', reason: 'You were checkmated.' };
   }
   if (c.isDraw() || c.isStalemate()) {
-    return k === 'hold' ? { status: 'won', reason: 'A draw — you held!' } : { status: 'failed', reason: 'The game ended in a draw.' };
+    return k === 'hold' || (k === 'vault' && room.vault?.goal === 'hold') ? { status: 'won', reason: 'A draw — you held!' } : { status: 'failed', reason: 'The game ended in a draw.' };
   }
   const r = T.rooms;
-  const L = limits(room.node, room.diff, boss);
+  const L = limits(room.node, room.diff, boss, room.heat);
   if (k === 'convert' && room.node.goal === 'keep') {
     const keep = L.keepCp;
     if (stage === 'mine' && last) {
@@ -484,6 +507,13 @@ export function judge(room: RoomState, stage: 'mine' | 'reply', boss?: BossMod):
   }
   if (k === 'vault' && room.vault) {
     const v = room.vault;
+    if (v.goal === 'hold') {
+      const opp = room.me === 'w' ? 'b' : 'w';
+      if (stage === 'mine' && last && last.evalAfter < -T.rooms.vault.holdFailCp) return { status: 'failed', reason: 'The draw slipped away.' };
+      if (stage === 'reply' && count(room.fen, opp, 'q') > count(room.startFen, opp, 'q')) return { status: 'failed', reason: 'The pawn promoted.' };
+      if (stage === 'reply' && n >= v.maxMoves) return { status: 'won', reason: `Held the draw for ${n} moves.` };
+      return null;
+    }
     if (stage === 'reply') {
       const opp = room.me === 'w' ? 'b' : 'w';
       if (v.goal === 'promote' && count(room.fen, room.me, 'q') > count(room.startFen, room.me, 'q')) return { status: 'won', reason: 'Promoted, safely!' };
@@ -493,7 +523,7 @@ export function judge(room: RoomState, stage: 'mine' | 'reply', boss?: BossMod):
     return null;
   }
   // boss
-  const g = limits(room.node, room.diff, boss);
+  const g = limits(room.node, room.diff, boss, room.heat);
   if (stage === 'mine' && last) {
     if (boss?.blunderEnds && last.cls === 'blunder') return { status: 'failed', reason: 'One blunder was all it took.' };
     if (!g.noEarlyWin && last.evalAfter >= g.winCp) return { status: 'won', reason: `Reached ${fmtCp(last.evalAfter)}!` };
@@ -509,7 +539,7 @@ export const fmtCp = (cp: number) => (Math.abs(cp) >= 9000 ? (cp > 0 ? 'mate' : 
 
 /** Eval lines for the gauge: the room's floor and/or goal (your POV, cp). */
 export function gaugeLines(room: RoomState, boss?: BossMod): { floor?: number; goal?: number } {
-  const L = limits(room.node, room.diff, boss);
+  const L = limits(room.node, room.diff, boss, room.heat);
   switch (room.node.kind) {
     case 'convert':
       return room.node.goal === 'keep' ? { floor: L.keepCp } : {};
@@ -529,7 +559,7 @@ export function progress(room: RoomState, boss?: BossMod): string {
   const n = room.moves.length;
   const r = T.rooms;
   const e = room.node.elite;
-  const L = limits(room.node, room.diff, boss);
+  const L = limits(room.node, room.diff, boss, room.heat);
   if (room.puzzle) {
     const p = room.puzzle;
     return `${room.node.kind === 'ward' ? 'Threat' : 'Puzzle'} ${Math.min(p.index + 1, p.count)}/${p.count} · solved ${p.solved}/${p.need}`;
@@ -544,7 +574,7 @@ export function progress(room: RoomState, boss?: BossMod): string {
     case 'duel':
       return `Move ${n}/${r.duel.moves} · end ≥ ${fmtCp(room.startEval - L.duelDrop)}`;
     case 'vault':
-      return `Move ${n}/${room.vault?.maxMoves ?? 0} · ${room.vault?.goal === 'mate' ? 'checkmate' : room.vault?.goal === 'promote' ? 'promote' : 'win the pawn'}`;
+      return `Move ${n}/${room.vault?.maxMoves ?? 0} · ${room.vault?.goal === 'mate' ? 'checkmate' : room.vault?.goal === 'promote' ? 'promote' : room.vault?.goal === 'hold' ? 'hold the draw' : 'win the pawn'}`;
     case 'boss':
       return `Move ${n}/${L.moves} · ${L.noEarlyWin ? `end ≥ ${fmtCp(L.endCp)}` : `reach +${L.winCp / 100}`}`;
     default:
@@ -567,7 +597,7 @@ export function playStrength(puzzle: number, records: Record<string, { w: number
 export function rivalElo(r: Run): number {
   const boss = opponentById(r.bossId);
   const base = Math.min(boss?.elo ?? 1000, (r.strength ?? r.rating) + T.strength.rivalOver);
-  return Math.max(T.roomElo.min, Math.round(base + diffOf(r.difficulty).eloOffset + (r.cursed ? T.curse.ratingBoost : 0)));
+  return Math.max(T.roomElo.min, Math.round(base + diffOf(r.difficulty).eloOffset + (r.cursed ? T.curse.ratingBoost : 0) + heatRules(r.heat).rivalPlus));
 }
 
 /** Take-backs left in this room (difficulty). */

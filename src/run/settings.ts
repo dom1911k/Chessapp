@@ -15,10 +15,12 @@ export interface RunSettings {
   pieces: string;
   /** Difficulty for the next run. */
   difficulty: DiffId;
+  /** Heat for the next run (Adept/Master; capped by what's unlocked). */
+  heat: number;
 }
 
 const KEY = 'chesscoach.run.settings';
-const DEFAULTS: RunSettings = { music: 0.6, sfx: 0.9, crt: 1, reduceMotion: false, board: 'crypt', pieces: 'board', difficulty: 'apprentice' };
+const DEFAULTS: RunSettings = { music: 0.6, sfx: 0.9, crt: 1, reduceMotion: false, board: 'crypt', pieces: 'board', difficulty: 'apprentice', heat: 0 };
 
 function read(): RunSettings {
   try {

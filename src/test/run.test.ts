@@ -369,3 +369,87 @@ describe('stage B: Grimoire', () => {
     expect(biased.krk).toBeGreaterThan(plain.krk * 1.2);
   });
 });
+
+// ---------------------------------------------------------------- Stage C
+import { heatRules, heatFor, heatAfterWin, heatAllowed, limits, rivalElo, maxComposure } from '../run/rules';
+import { refundFor, BOOSTS, UNLOCKS } from '../run/meta';
+
+describe('stage C: Heat ladder', () => {
+  it('constraints stack: each level adds one', () => {
+    expect(heatRules(0)).toEqual({ rivalPlus: 0, rivalInaccuracy: false, evalWordsOnly: false, noEye: false, graceLess: 0, evalHidden: false });
+    expect(heatRules(1).rivalPlus).toBe(T.heat.rivalElo);
+    expect(heatRules(2).rivalInaccuracy).toBe(true);
+    expect(heatRules(3).evalWordsOnly && !heatRules(3).noEye).toBe(true);
+    expect(heatRules(4).noEye).toBe(true);
+    expect(heatRules(5).graceLess).toBe(T.heat.graceLess);
+    expect(heatRules(6)).toEqual({ rivalPlus: T.heat.rivalElo, rivalInaccuracy: true, evalWordsOnly: true, noEye: true, graceLess: T.heat.graceLess, evalHidden: true });
+  });
+  it('only on Adept and Master, capped by what is unlocked; a win unlocks the next, up to 6', () => {
+    expect(heatAllowed('apprentice')).toBe(false);
+    expect(heatFor('apprentice', 3, 6)).toBe(0);
+    expect(heatFor('adept', 3, 1)).toBe(1);
+    expect(heatFor('master', 2, 4)).toBe(2);
+    expect(heatAfterWin(0, 0)).toBe(1);
+    expect(heatAfterWin(3, 3)).toBe(4);
+    expect(heatAfterWin(1, 4)).toBe(4);
+    expect(heatAfterWin(6, 6)).toBe(6);
+  });
+  it('Heat 1: rivals +100; Heat 2: inaccuracies cost a candle against the rival only', () => {
+    const r = { bossId: 'tom', strength: 900, rating: 900, difficulty: 'adept', cursed: false } as unknown as Run;
+    expect(rivalElo({ ...r, heat: 1 } as Run) - rivalElo(r)).toBe(T.heat.rivalElo);
+    const boss = { node: { kind: 'boss' as const, modifier: 'rival' as const } };
+    const hold = { node: { kind: 'hold' as const, modifier: 'steady' as const } };
+    expect(composureCost('inaccuracy', { ...boss, heat: 1 })).toBe(0);
+    expect(composureCost('inaccuracy', { ...boss, heat: 2 })).toBe(T.heat.inaccuracyCost);
+    expect(composureCost('inaccuracy', { ...hold, heat: 6 })).toBe(0);
+  });
+  it('Heat 5: one move less to recover, never below 1', () => {
+    const node = { kind: 'hold' as const };
+    expect(limits(node, 'adept', undefined, 4).grace).toBe(2);
+    expect(limits(node, 'adept', undefined, 5).grace).toBe(1);
+    expect(limits(node, 'master', undefined, 6).grace).toBe(1);
+  });
+  it('a rival win pays Embers per Heat level', () => {
+    const won = { results: [{ won: true }], finalScore: 0, ended: 'won', cursed: false, difficulty: 'adept' } as unknown as Run;
+    expect(embersFor({ ...won, heat: 3 } as Run) - embersFor(won)).toBe(3 * T.heat.embersPerLevel);
+    expect(embersFor({ ...won, ended: 'lost', heat: 3 } as Run)).toBe(embersFor({ ...won, ended: 'lost' } as Run));
+  });
+});
+
+describe('stage C: Sanctum — breadth, not power', () => {
+  it('power boosts are gone and refunded in full; Vault is free from the start', () => {
+    expect(BOOSTS.map((b) => b.id).sort()).toEqual(['cartographer', 'keeneye', 'nerves', 'notes', 'reroll']);
+    expect(refundFor({ purse: 2, candle: 1, pocket: 1, notes: 1 }, ['room:vault', 'relic:tempo'])).toBe(8 + 16 + 20 + 30 + 12);
+    expect(refundFor({ notes: 1, reroll: 1 }, [])).toBe(0);
+    expect(UNLOCKS.some((u) => u.id === 'room:vault')).toBe(false);
+    expect(UNLOCKS.filter((u) => u.kind === 'drill').map((u) => [u.ref, u.cost])).toEqual(T.sanctum.lockedDrills.map((d) => [d, 12]));
+  });
+  it('no boost changes candles, card slots or prices any more', () => {
+    const r = { relics: [], meta: { boosts: { candle: 2, pocket: 1, haggler: 1 } } } as unknown as Run;
+    expect(maxComposure(r)).toBe(T.composure.max);
+    expect(cardSlots(r)).toBe(T.consumables.maxHeld);
+    expect(stallPrice(r, 'calm')).toBe(T.shop.stallPrice.common);
+  });
+  it('locked Vault drills never appear on the map', () => {
+    const pools = { convert: 10, hold: 10, boss: 10, ward: 10, duel: 10, vault: 4, vaultDrills: ['kqk', 'lucena', 'krk', 'qvp'] };
+    for (let i = 0; i < 200; i++) {
+      const m = buildMap(Math.random, pools, { drills: ['lucena', 'qvp'] });
+      for (const n of m.flat()) if (n.kind === 'vault') expect([0, 2]).toContain(n.pos);
+    }
+  });
+});
+
+describe('stage C: Vault hold-the-draw drills', () => {
+  const PHIL = '4k3/7R/r7/4PK2/8/8/8/8 b - - 0 1';
+  const vroom = (moves: number, ev: number, fen = PHIL) =>
+    room({ node: { kind: 'vault', modifier: 'steady' }, me: 'b', startFen: PHIL, fen, vault: { goal: 'hold', maxMoves: 15, title: 'Philidor' }, moves: Array.from({ length: moves }, () => mv({ evalAfter: ev })) });
+  it('holding for the move limit wins; a lost eval or a promotion fails', () => {
+    expect(judge(vroom(15, -20), 'reply')?.status).toBe('won');
+    expect(judge(vroom(10, -20), 'reply')).toBeNull();
+    expect(judge(vroom(5, -T.rooms.vault.holdFailCp - 1), 'mine')?.status).toBe('failed');
+    expect(judge(vroom(5, -50, '4k3/8/8/8/8/8/8/K3Q3 b - - 0 1'), 'reply')?.status).toBe('failed');
+  });
+  it('a drawn game counts as held', () => {
+    expect(judge(vroom(3, 0, '7k/5K2/6Q1/8/8/8/8/8 b - - 0 1'), 'reply')?.status).toBe('won');
+  });
+});

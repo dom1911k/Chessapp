@@ -212,6 +212,7 @@ function FunRating({ onSanctum }: { onSanctum: () => void }) {
       composureLeft: run.composure,
       cursed: run.cursed,
       difficulty: run.difficulty,
+      heat: run.heat,
       roomMinutes: Math.round((run.roomMs ?? 0) / 6000) / 10,
       goldEarned: run.goldEarned ?? 0,
       goldSpent: run.goldSpent ?? 0,

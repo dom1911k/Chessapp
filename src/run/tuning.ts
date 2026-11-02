@@ -203,9 +203,11 @@ export const TUNING = {
     },
     ward: { count: 3, needSolved: 2 },
     vault: {
-      /** Endgame drills used (ids from src/lib/endgames.ts) and the move limit per goal. */
-      drills: ['kqk', 'krk', 'kpk-front', 'kpk-square', 'lucena', 'qvp'],
-      maxMoves: { mate: 18, promote: 14, capture: 16 },
+      /** Endgame drills used (ids from src/lib/endgames.ts) and the move limit per goal. Lucena, Philidor and Q-vs-P start locked (Sanctum). */
+      drills: ['kqk', 'krk', 'kpk-front', 'kpk-square', 'kpk-defend', 'lucena', 'philidor', 'qvp'],
+      maxMoves: { mate: 18, promote: 14, capture: 16, hold: 15 },
+      /** Hold-the-draw drills fail when the eval after your move drops below −holdFailCp. */
+      holdFailCp: 250,
     },
     duel: {
       /** Opening lines with this many half-moves already played. */
@@ -275,8 +277,32 @@ export const TUNING = {
     brittleMistakeExtra: 1,
   },
 
-  /** Embers per finished run: base + per cleared room + per score step + rival win (+ cursed win) + 1 per `goldPer` gold left. */
-  embers: { base: 3, perRoom: 2, scoreStep: 600, bossWin: 6, cursedWin: 3, lampMinRooms: 3, lamp: 2, goldPer: 20 },
+  /** Embers per finished run: base + per cleared room + per score step + rival win (+ cursed win, + Heat) + 1 per `goldPer` gold left. */
+  embers: { base: 3, perRoom: 2, scoreStep: 600, bossWin: 6, cursedWin: 3, goldPer: 20 },
+
+  /**
+   * Heat ladder (Adept and Master only). Beating the rival at Heat N unlocks N+1. Each level
+   * adds one constraint, cumulatively:
+   * 1 rivals +rivalElo · 2 inaccuracies cost a candle vs the rival · 3 eval bar shows words only
+   * 4 no Engine's Eye offered · 5 grace −1 (min 1) · 6 eval bar hidden.
+   */
+  heat: {
+    max: 6,
+    difficulties: ['adept', 'master'] as DiffId[],
+    rivalElo: 100,
+    inaccuracyCost: 1,
+    graceLess: 1,
+    /** Embers per Heat level when you beat the rival. */
+    embersPerLevel: 2,
+  },
+
+  /** Sanctum: Vault drills that start locked, and the Keen Eye sidegrade. */
+  sanctum: {
+    drillCost: 12,
+    lockedDrills: ['lucena', 'philidor', 'qvp'],
+    /** Keen Eye: a 4th starting relic of this rarity that carries this curse. */
+    keenEyeRarity: 'rare' as 'common' | 'uncommon' | 'rare',
+  },
 
   events: {
     /** Healing Spring: pay, heal `springHeal`, but your next room gets Razor Focus. */
