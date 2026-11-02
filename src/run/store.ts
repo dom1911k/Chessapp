@@ -555,7 +555,7 @@ export const useRun = create<RunStore>((set, get) => {
   };
 
   const spend = (x: Run, n: number) => {
-    spend(x, n);
+    x.gold -= n;
     x.goldSpent = (x.goldSpent ?? 0) + n;
   };
 
