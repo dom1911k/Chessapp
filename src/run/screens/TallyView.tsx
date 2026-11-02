@@ -227,7 +227,9 @@ function BattlefieldReveal({ b }: { b: BattlefieldResult }) {
           const best = b.evals[i] === Math.max(...b.evals);
           return (
             <div key={i} className={`p-1 ${i === b.picked ? 'ring-2 ring-[var(--gold-2)]' : ''}`}>
-              <RunBoard mini fen={fen} orientation={fen.split(' ')[1] === 'w' ? 'white' : 'black'} movable={null} showCoordinates={false} />
+              <div className="pointer-events-none">
+                <RunBoard mini fen={fen} orientation={fen.split(' ')[1] === 'w' ? 'white' : 'black'} movable={null} showCoordinates={false} />
+              </div>
               <div className={`run-sans mt-0.5 text-xs font-black ${best ? 'text-[#5ee59a]' : 'text-[var(--ink-dim)]'}`}>
                 {fmtCp(b.evals[i])}
                 {i === b.picked ? ' · yours' : ''}

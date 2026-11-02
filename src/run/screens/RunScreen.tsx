@@ -377,7 +377,10 @@ function Battlefield({ tools }: { tools: Tools }) {
           const side = fen.split(' ')[1] === 'w' ? 'white' : 'black';
           return (
             <button key={j} onClick={() => (setSel(i), sfx('card'))} className={`run-panel p-1.5 text-center ${sel === i ? 'ring-2 ring-[var(--gold-2)]' : ''}`}>
-              <RunBoard mini fen={fen} orientation={side} movable={null} showCoordinates={false} />
+              {/* Display only: the board must not swallow the tap (touch drag handling). */}
+              <div className="pointer-events-none">
+                <RunBoard mini fen={fen} orientation={side} movable={null} showCoordinates={false} />
+              </div>
               <div className="run-sans mt-1 text-[11px] font-bold">{['I', 'II', 'III'][i] ?? i + 1} · you play {side === 'white' ? 'White' : 'Black'}</div>
             </button>
           );
