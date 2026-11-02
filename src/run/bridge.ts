@@ -8,13 +8,28 @@ import { gameMistakeThemes } from '../lib/report';
 import { explainMove } from '../lib/coach';
 import { TUNING as T } from './tuning';
 import { nemesisFor, topMoments } from './rules';
-import type { Moment, Run } from './types';
+import type { EchoPos, Moment, Run } from './types';
 
 /** Main mistake theme(s) of your most recent games, newest first. */
 export async function recentMistakeThemes(n: number = T.nemesis.games): Promise<string[][]> {
   try {
     const games = await db.games.orderBy('endedAt').reverse().limit(n).toArray();
     return games.map((g) => [...gameMistakeThemes(g.plies)]);
+  } catch {
+    return [];
+  }
+}
+
+/** The Echo: positions from your own recent games where you played a mistake or blunder (you to move). */
+export async function readEchoes(): Promise<EchoPos[]> {
+  try {
+    const games = await db.games.orderBy('endedAt').reverse().limit(T.rooms.echo.games).toArray();
+    const out: EchoPos[] = [];
+    for (const g of games)
+      for (const p of g.plies)
+        if (p.isUser && (p.classification === 'mistake' || p.classification === 'blunder') && p.fenBefore)
+          out.push({ fen: p.fenBefore, elo: g.elo, played: p.san, best: p.comment?.bestUci, when: g.endedAt ?? g.startedAt });
+    return out;
   } catch {
     return [];
   }

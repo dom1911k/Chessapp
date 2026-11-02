@@ -1,18 +1,18 @@
 // A room in play: HUD, relic rail (pulses when a relic fires, tap for info), eval gauge, pixel
 // board, move recap, cards (tap to read, then use), end banner.
 import { useEffect, useMemo, useState } from 'react';
-import { toUci, uciToSan } from '../../lib/chess/game';
+import { toUci, tryMove, uciToSan } from '../../lib/chess/game';
 import { opponentById, pickLine } from '../../lib/people';
 import { useSettings } from '../../lib/settings';
 import type { CoachArrow } from '../../lib/coach/types';
 import type { Classification } from '../../lib/chess/evaluation';
-import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, rivalRule, bossModText, NEMESIS_WHY } from '../content';
+import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, ROOM_SPRITE, rivalRule, bossModText, NEMESIS_WHY } from '../content';
 import { canTakeBack, chipTarget, fmtCp, gaugeLines, cardSlots, progress, recovery, roomCap, roomLoss, roomScore, takebacksLeft, heatRules } from '../rules';
 import { explainMove } from '../../lib/coach';
 import { arrowOf, bookHint, bossOf, lensMarks, liveEval, useRun } from '../store';
 import { Chess } from 'chess.js';
 import { TUNING as T } from '../tuning';
-import type { ConsumableId, RelicId, RoomKind } from '../types';
+import type { ConsumableId, RelicId, RoomKind, RoomState } from '../types';
 import { PixelCaptured, RunBoard } from '../pixel/RunBoard';
 import { material } from '../../lib/chess/material';
 import { moveSound, sfx } from '../sfx';
@@ -109,7 +109,11 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
   const bookUci = myTurn ? bookHint(room) : null;
   const book = bookUci ?? (myTurn && room.node.kind === 'duel' && room.moves.length < T.rooms.duel.hintMoves && s.cur?.fen === room.fen ? s.cur.a.bestMove : null);
   if (book) arrows.push(arrowOf(book, 'info'));
-  if (s.aids.verdict) arrows.push(arrowOf(s.aids.verdict.uci, s.aids.verdict.label === 'safe' ? 'good' : 'bad'));
+  if (s.aids.verdict) arrows.push(arrowOf(s.aids.verdict.uci, s.aids.verdict.label === 'safe' ? 'good' : s.aids.verdict.label === 'shadow' ? 'info' : 'bad'));
+  if (s.aids.verdict?.reply) arrows.push(arrowOf(s.aids.verdict.reply, 'bad'));
+  const q = room.mirror && room.mirror.fen === room.fen && room.status === 'playing' ? room.mirror : null;
+  if (q && !q.picked) q.choices.forEach((u) => arrows.push(arrowOf(u, 'info')));
+  if (q?.picked) arrows.push(arrowOf(q.answer, 'bad'));
   if (why && !s.busy) arrows.push(...why.arrows.slice(0, 2));
   const highlights = useMemo(() => (s.aids.lens ? lensMarks(room.fen, me) : []), [s.aids.lens, room.fen, me]);
 
@@ -150,6 +154,11 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
             </div>
           </div>
         </div>
+        {room.echo && (
+          <div className="run-sans mt-1.5 rounded bg-black/35 px-2 py-1 text-xs text-[var(--ink-dim)]">
+            From your game on {new Date(room.echo.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}: you played <b className="text-[var(--blood)]">{room.echo.played}</b> here. Not this time.
+          </div>
+        )}
         {boss && (
           <div className="run-panel mt-2 flex items-center gap-2 p-1.5 pr-3">
             <PixelPortrait id={boss.id} size={44} boss className="run-boss-glow" />
@@ -200,7 +209,7 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
           <RunBoard
             fen={viewing ? viewing.fenAfter : room.fen}
             orientation={me === 'w' ? 'white' : 'black'}
-            movable={!viewing && playing && !s.busy && !s.aids.verdict && !room.puzzle?.lost ? me : null}
+            movable={!viewing && playing && !s.busy && !s.asking && !s.aids.verdict && !room.puzzle?.lost && !(q && !q.picked) ? me : null}
             onMove={(m) => s.userMove(toUci(m))}
             arrows={viewing ? [] : arrows}
             highlights={viewing ? [] : highlights}
@@ -232,6 +241,8 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
             : `Below the red line! Get back above it — ${rec.left} move${rec.left === 1 ? '' : 's'} left.`}
         </div>
       )}
+      {s.asking && <div className="run-sans mx-3 mt-1.5 animate-pulse text-center text-xs text-[var(--ink-dim)]">The mirror clouds over…</div>}
+      {q && !viewingNow && <MirrorPanel q={q} fen={room.fen} onPick={s.mirrorPick} />}
       {slip && !viewingNow && (
         <SlipNote
           cls={slip.cls}
@@ -295,8 +306,7 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
   );
 }
 
-const SPRITE_OF: Record<RoomKind, string> = { puzzle: 'cards', convert: 'scythe', hold: 'tower', ward: 'shield', vault: 'chest', duel: 'swords', boss: 'skull' };
-const spriteOf = (k: RoomKind) => SPRITE_OF[k];
+const spriteOf = (k: RoomKind) => ROOM_SPRITE[k];
 
 /** Your-POV eval in plain words. */
 function evalWord(cp: number): { text: string; color: string } {
@@ -470,10 +480,68 @@ function UsedCard({ item }: { item: ConsumableId }) {
   );
 }
 
+/** The Mirror: name the opponent's most dangerous idea before your move. */
+function MirrorPanel({ q, fen, onPick }: { q: NonNullable<RoomState['mirror']>; fen: string; onPick: (u: string) => void }) {
+  const nf = fen.split(' ');
+  nf[1] = nf[1] === 'w' ? 'b' : 'w';
+  nf[3] = '-';
+  const san = (u: string) => {
+    try {
+      return uciToSan(nf.join(' '), u);
+    } catch {
+      return u;
+    }
+  };
+  if (q.picked) {
+    const ok = q.picked === q.answer;
+    return (
+      <div className={`run-sans run-fadeup mx-3 mt-1.5 px-2 py-1 text-xs font-bold ${ok ? 'text-[#9ff0c0]' : 'text-[#ffb3bd]'}`} style={{ background: ok ? 'rgba(94,229,154,.12)' : 'rgba(226,71,90,.15)' }}>
+        {ok ? `✓ Right read: their threat is ${san(q.answer)}. Now play your move.` : `✕ Misread — their real idea is ${san(q.answer)} (red arrow). This move's chips are halved.`}
+      </div>
+    );
+  }
+  return (
+    <div className="run-panel run-fadeup mx-3 mt-1.5 p-2">
+      <div className="run-label">The Mirror · if it were their move, what would hurt most?</div>
+      <div className="mt-1.5 flex gap-1.5">
+        {q.choices.map((u) => (
+          <button key={u} className="run-btn ghost flex-1 px-1! py-1.5! text-sm" onClick={() => onPick(u)}>
+            {san(u)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function VerdictPanel() {
   const s = useRun();
   const v = s.aids.verdict!;
   const room = s.run!.room!;
+  if (v.label === 'shadow') {
+    let reply = '';
+    try {
+      reply = v.reply ? uciToSan(tryMove(room.fen, v.uci)!.fen, v.reply) : '';
+    } catch {
+      /* ignore */
+    }
+    return (
+      <div className="absolute inset-x-4 bottom-4 z-30">
+        <div className="run-panel run-fadeup p-3 text-center">
+          <div className="run-label">Shadow on {uciToSan(room.fen, v.uci)}</div>
+          <div className="run-sans mt-1 text-sm">{reply ? <>Their likeliest reply: <b className="text-[var(--blood)]">{reply}</b> (red arrow)</> : 'No reply — the game would end.'}</div>
+          <div className="mt-3 flex gap-2">
+            <button className="run-btn ghost flex-1" onClick={() => s.confirmVerdict(false)}>
+              Choose again
+            </button>
+            <button className="run-btn flex-1" onClick={() => s.confirmVerdict(true)}>
+              Play it
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const color = v.label === 'safe' ? '#5ee59a' : v.label === 'risky' ? '#ffb454' : 'var(--blood)';
   return (
     <div className="absolute inset-x-4 bottom-4 z-30">

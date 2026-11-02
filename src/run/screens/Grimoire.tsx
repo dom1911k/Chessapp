@@ -24,6 +24,8 @@ const ROOMS: Entry[] = [
   { key: 'gain', name: 'Harvest: Gain', text: 'Win more material or mate in time.', sprite: ROOM_SPRITE.convert },
   { key: 'ward', name: 'The Ward', text: 'Find the move that stops the threat.', sprite: ROOM_SPRITE.ward },
   { key: 'duel', name: 'The Duel', text: 'Leave the opening without falling behind.', sprite: ROOM_SPRITE.duel },
+  { key: 'echo', name: 'The Echo', text: 'Replay your own slip — and don’t repeat it.', sprite: ROOM_SPRITE.echo },
+  { key: 'mirror', name: 'The Mirror', text: 'Read their idea first, then hold.', sprite: ROOM_SPRITE.mirror },
 ];
 const VAULTS: Entry[] = (T.rooms.vault.drills as readonly string[]).map((id) => ({
   key: `vault:${id}`,

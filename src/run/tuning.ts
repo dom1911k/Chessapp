@@ -221,6 +221,26 @@ export const TUNING = {
       /** The book move is shown as a faint arrow for your first N moves. */
       hintMoves: 2,
     },
+    /** The Echo: a position from your own games where you slipped. Don't repeat it. */
+    echo: {
+      moves: 6,
+      /** Fail when a move drops the eval more than this below the best line (your POV, cp). */
+      echoMaxDropCp: 150,
+      /** Evals are clamped to ± this before comparing (mate scores don't explode the drop). */
+      clampCp: 1500,
+      /** Fewer personal positions than this: the Echo uses Siege positions instead. */
+      minPositions: 5,
+      /** Personal positions sampled per run. */
+      sample: 12,
+      /** Look at this many of your most recent games. */
+      games: 60,
+    },
+    /** The Mirror: before each move, name the opponent's most dangerous idea. */
+    mirror: {
+      moves: 6,
+      /** A wrong pick multiplies that move's chips by this. */
+      wrongChipFactor: 0.5,
+    },
     boss: {
       moves: 15,
       /** Win at once when you reach this (your POV)… */
@@ -337,9 +357,9 @@ export const TUNING = {
 
   consumables: {
     maxHeld: 2,
-    price: { eye: 9, rewind: 5, cards: 4, lens: 3, opinion: 4, insurance: 5, check: 2 },
+    price: { eye: 9, rewind: 5, cards: 4, lens: 3, opinion: 4, insurance: 5, check: 2, shadow: 4 },
     /** Relative chance to appear in a 1-of-3 offer. */
-    weight: { eye: 1, rewind: 3, cards: 3, lens: 3, opinion: 3, insurance: 2, check: 3 },
+    weight: { eye: 1, rewind: 3, cards: 3, lens: 3, opinion: 3, insurance: 2, check: 3, shadow: 3 },
   },
 
   relics: {
@@ -364,8 +384,8 @@ export const TUNING = {
     glassComposure: 2,
     luckyExtraOffer: 1,
     luckyRestDiscount: 2,
-    /** Castle Keep: +mult per good move while your king is castled or behind 2+ own pawns. */
-    castleMult: 0.1,
+    /** Castle Keep: +mult at room end if your king was never in check nor its zone attacked. */
+    castleMult: 1,
     riteMult: 1,
     /** Promotion Rite: a passed pawn reaching your 6th rank. */
     riteRankMult: 0.5,
@@ -379,12 +399,17 @@ export const TUNING = {
     bookbinderEvery: 2,
     /** Siege Engine: chips per move survived above the red line, × moves survived so far. */
     siegeChips: 5,
+    /** Keystones (one rare per archetype). */
+    combinationX: 1.5,
+    endgameSenseX: 2,
+    asceticMult: 2,
+    /** Patron: the second stall relic costs this fraction. */
+    patronDiscount: 0.5,
   },
 
   /** After a cleared room (by map layer): what kind of free 1-of-3 pick you get. Elites always give a relic. */
   rewardAfterLayer: ['consumable', 'relic', 'consumable', 'consumable'] as ('consumable' | 'relic' | null)[],
-  /** Chance that a cleared non-elite room gives a free pick at all. */
-  rewardChance: 0.5,
+  // A cleared non-elite room gives its free pick only when you beat its blind (chip target).
 
   /** Map: one campfire in row 2 or 3 (index 1–2), plus a guaranteed one right before the rival. */
   map: { campRows: [1, 2] as number[] },

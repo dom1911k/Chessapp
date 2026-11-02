@@ -10,7 +10,7 @@ import { TUNING as T, type BossMod, type DiffId } from './tuning';
 import type { ConsumableId, CurseId, EventKind, Fire, MapNode, ModifierId, Rarity, RelicId, RoomKind, RoomState, Run, UserMove } from './types';
 
 export const ALL_RELICS = Object.keys(RELICS) as RelicId[];
-export const ALL_CONSUMABLES: ConsumableId[] = ['eye', 'rewind', 'cards', 'lens', 'opinion', 'insurance', 'check'];
+export const ALL_CONSUMABLES: ConsumableId[] = ['eye', 'rewind', 'cards', 'lens', 'opinion', 'insurance', 'check', 'shadow'];
 
 export type Rand = () => number;
 export const pickOne = <X,>(a: readonly X[], rand: Rand): X => a[Math.floor(rand() * a.length)];
@@ -55,6 +55,8 @@ export interface Pools {
   ward: number;
   duel: number;
   vault: number;
+  echo?: number;
+  mirror?: number;
   /** Drill id of each vault position (for Grimoire weighting). */
   vaultDrills?: string[];
 }
@@ -92,7 +94,7 @@ export function buildMap(rand: Rand, pools: Pools, locks: Locks = {}, bias: (key
     }
     return Math.floor(rand() * Math.max(1, pools[kind as keyof Omit<Pools, 'vaultDrills'>] ?? 1));
   };
-  const kinds = (['puzzle', 'convert', 'hold', 'ward', 'vault', 'duel'] as RoomKind[]).filter((k) => !locks.rooms?.includes(k));
+  const kinds = (['puzzle', 'convert', 'hold', 'ward', 'vault', 'duel', 'echo', 'mirror'] as RoomKind[]).filter((k) => !locks.rooms?.includes(k));
   const events = (['shrine', 'gambler', 'merchant', 'altar', 'library', 'spring'] as EventKind[]).filter((k) => !locks.events?.includes(k));
   const room = (kind: RoomKind, layer: number): MapNode => ({
     kind,
@@ -149,6 +151,23 @@ export function buildMap(rand: Rand, pools: Pools, locks: Locks = {}, bias: (key
 /** The campfire right before the rival (where the Devil's Bargain waits). */
 export const isFinalCamp = (r: Pick<Run, 'layers' | 'layer'>) => r.layers[r.layer]?.[0]?.kind === 'camp' && r.layer === r.layers.length - 2;
 
+/** Fights (rooms, rival included) left on the routes through node `i` of row `l`: [fewest, most]. */
+export function fightsLeft(layers: MapNode[][], l: number, i: number): [number, number] {
+  const memo = new Map<string, [number, number]>();
+  const go = (l: number, i: number): [number, number] => {
+    const key = `${l}:${i}`;
+    if (memo.has(key)) return memo.get(key)!;
+    const n = layers[l][i];
+    const own = n.kind === 'event' || n.kind === 'camp' ? 0 : 1;
+    const next = l + 1 < layers.length ? (n.next ?? layers[l + 1].map((_, j) => j)) : [];
+    const subs = next.map((j) => go(l + 1, j));
+    const res: [number, number] = subs.length ? [own + Math.min(...subs.map((x) => x[0])), own + Math.max(...subs.map((x) => x[1]))] : [own, own];
+    memo.set(key, res);
+    return res;
+  };
+  return go(l, i);
+}
+
 /** Which nodes of the current row can be chosen (those the last choice leads to). */
 export function reachable(r: Pick<Run, 'layers' | 'path' | 'layer'>): number[] {
   const row = r.layers[r.layer] ?? [];
@@ -170,6 +189,7 @@ export interface CostCtx {
   curses?: CurseId[];
   diff?: DiffId;
   heat?: number;
+  relics?: RelicId[];
 }
 
 export const diffOf = (id?: DiffId) => T.difficulty[id ?? 'adept'];
@@ -213,7 +233,7 @@ export function limits(node: Pick<MapNode, 'kind' | 'elite'>, diff?: DiffId, bos
 /** A red line you must stay above during play (Hold, Keep-ahead), your POV cp. */
 export function floorLine(room: Pick<RoomState, 'node' | 'startEval' | 'diff' | 'heat'>): number | undefined {
   const L = limits(room.node, room.diff, undefined, room.heat);
-  if (room.node.kind === 'hold') return room.startEval - L.holdDrop;
+  if (room.node.kind === 'hold' || room.node.kind === 'mirror') return room.startEval - L.holdDrop;
   if (room.node.kind === 'convert' && room.node.goal === 'keep') return L.keepCp;
   return undefined;
 }
@@ -251,6 +271,8 @@ export function composureCost(cls: Classification, ctx: CostCtx): number {
   if (cls === 'inaccuracy' && boss?.inaccuracyCost) c += boss.inaccuracyCost;
   if (cls === 'inaccuracy' && node.kind === 'boss' && heatRules(ctx.heat).rivalInaccuracy) c += T.heat.inaccuracyCost;
   if (cls === 'mistake') {
+    // Bulwark: mistakes in Siege and Ward rooms are free.
+    if (ctx.relics?.includes('bulwark') && (node.kind === 'hold' || node.kind === 'ward')) return 0;
     if (boss?.mistakeExtra) c += boss.mistakeExtra;
     if (curses.includes('brittle')) c += T.curses.brittleMistakeExtra;
   }
@@ -263,7 +285,6 @@ export function composureCost(cls: Classification, ctx: CostCtx): number {
 
 export const sound = (c: Classification) => c === 'best' || c === 'good';
 
-const colorOf = (fen: string): 'w' | 'b' => (fen.split(' ')[1] === 'b' ? 'b' : 'w');
 function boardAt(fen: string) {
   // FEN lists rank 8 first; returns [file][rank] (0-based) → piece letter or ''.
   const rows = fen.split(' ')[0].split('/');
@@ -336,7 +357,6 @@ export function moveFires(relics: RelicId[], room: RoomState, m: UserMove, at: n
   if (has('ironwall') && room.node.kind === 'hold') out.push({ relic: 'ironwall', mult: T.relics.ironWallMult, at });
   if (has('hunter') && capture) out.push({ relic: 'hunter', mult: T.relics.hunterMult, at });
   if (has('patience') && !capture && !check) out.push({ relic: 'patience', mult: T.relics.patienceMult, at });
-  if (has('castle') && kingSheltered(m.fenAfter || m.fenBefore, colorOf(m.fenBefore))) out.push({ relic: 'castle', mult: T.relics.castleMult, at });
   if (has('rite') && m.san.includes('=')) out.push({ relic: 'rite', mult: T.relics.riteMult, at });
   else if (has('rite') && passedToSixth(m.fenBefore, m.uci)) out.push({ relic: 'rite', mult: T.relics.riteRankMult, at });
   if (has('siege') && room.node.kind === 'hold') {
@@ -352,6 +372,32 @@ export function moveFires(relics: RelicId[], room: RoomState, m: UserMove, at: n
 }
 
 /** Relics (and the rival's rule) that fire when a room ends. */
+/** Castle Keep: in every position of the room, your king was not in check and no enemy piece attacked a square next to it. */
+export function kingUntouched(fens: string[], me: 'w' | 'b'): boolean {
+  const opp = me === 'w' ? 'b' : 'w';
+  for (const fen of fens) {
+    if (!fen) continue;
+    const c = new Chess(fen);
+    const k = c.board().flat().find((p) => p && p.type === 'k' && p.color === me);
+    if (!k) continue;
+    const f = k.square.charCodeAt(0) - 97;
+    const r = Number(k.square[1]);
+    for (let df = -1; df <= 1; df++)
+      for (let dr = -1; dr <= 1; dr++) {
+        const ff = f + df;
+        const rr = r + dr;
+        if (ff < 0 || ff > 7 || rr < 1 || rr > 8) continue;
+        if (c.isAttacked(`${String.fromCharCode(97 + ff)}${rr}` as Parameters<typeof c.isAttacked>[0], opp)) return false;
+      }
+  }
+  return true;
+}
+
+/** Tactics you played in a room (sound moves with a fork, pin, skewer or discovered attack). */
+export function tacticsIn(room: Pick<RoomState, 'moves'>): number {
+  return room.moves.filter((m) => sound(m.cls) && m.fenBefore && moveMotifs(m.fenBefore, m.uci).some((x) => x.kind === 'fork' || x.kind === 'pin' || x.kind === 'skewer' || x.kind === 'discovered')).length;
+}
+
 export function endFires(run: Run, room: RoomState, boss?: BossMod): Fire[] {
   const out: Fire[] = [];
   const cleared = run.results.filter((r) => r.won).length;
@@ -364,6 +410,13 @@ export function endFires(run: Run, room: RoomState, boss?: BossMod): Fire[] {
   if (has('coldread') && room.moves.length > 0 && !(room.cardsUsed ?? 0)) out.push({ relic: 'coldread', xmult: T.relics.coldReadX, at: -1 });
   if (has('scholar') && room.puzzle && room.puzzle.solved > 0) out.push({ relic: 'scholar', gold: T.relics.scholarGold * room.puzzle.solved, at: -1 });
   if (boss?.multBonus) out.push({ relic: 'rival', mult: boss.multBonus, at: -1 });
+  if (has('castle') && room.moves.length > 0 && kingUntouched([room.startFen, ...room.plies.map((p) => p.fen)], room.me)) out.push({ relic: 'castle', mult: T.relics.castleMult, at: -1 });
+  if (has('combination')) {
+    const n = tacticsIn(room);
+    if (n >= 2) out.push({ relic: 'combination', xmult: Math.round(T.relics.combinationX ** (n - 1) * 100) / 100, at: -1 });
+  }
+  if (has('endgamesense') && room.node.kind === 'vault') out.push({ relic: 'endgamesense', xmult: T.relics.endgameSenseX, at: -1 });
+  if (has('ascetic')) out.push({ relic: 'ascetic', mult: T.relics.asceticMult, at: -1 });
   if (has('calm') && room.moves.length > 0 && room.moves.every((m) => sound(m.cls))) out.push({ relic: 'calm', composure: T.relics.calmComposure, at: -1 });
   return out;
 }
@@ -409,6 +462,7 @@ export function roomScore(room: RoomState) {
 }
 
 export function maxConsumables(relics: RelicId[], pocket = 0) {
+  if (relics.includes('ascetic')) return 0;
   return T.consumables.maxHeld + pocket - (relics.includes('spendthrift') ? T.relics.spendthriftCarryPenalty : 0);
 }
 /** Card slots for a run (relics and the Bigger Pouch). */
@@ -489,11 +543,19 @@ export function judge(room: RoomState, stage: 'mine' | 'reply', boss?: BossMod):
     }
     return null;
   }
-  if (k === 'hold') {
+  if (k === 'hold' || k === 'mirror') {
+    const moves = k === 'mirror' ? r.mirror.moves : r.hold.moves;
     if (stage === 'mine' && last) {
       const k = below(room, room.startEval - L.holdDrop);
       if (k > L.grace) return { status: 'failed', reason: 'The position stayed below the line too long.' };
-      if (n >= r.hold.moves && k === 0) return { status: 'won', reason: `Held for ${n} moves.` };
+      if (n >= moves && k === 0) return { status: 'won', reason: `Held for ${n} moves.` };
+    }
+    return null;
+  }
+  if (k === 'echo') {
+    if (stage === 'mine' && last) {
+      if (echoDrop(last) > r.echo.echoMaxDropCp + diffOf(room.diff).margin) return { status: 'failed', reason: `That gave away ${fmtCp(echoDrop(last)).replace('+', '')} — the old slip again.` };
+      if (n >= r.echo.moves) return { status: 'won', reason: `${n} moves without repeating the slip.` };
     }
     return null;
   }
@@ -535,6 +597,13 @@ export function judge(room: RoomState, stage: 'mine' | 'reply', boss?: BossMod):
   return null;
 }
 
+/** The Echo: how much a move gave away against the best line (clamped, cp). */
+export function echoDrop(m: Pick<UserMove, 'evalBefore' | 'evalAfter'>): number {
+  if (m.evalBefore === undefined) return 0;
+  const c = (x: number) => Math.max(-T.rooms.echo.clampCp, Math.min(T.rooms.echo.clampCp, x));
+  return Math.max(0, c(m.evalBefore) - c(m.evalAfter));
+}
+
 export const fmtCp = (cp: number) => (Math.abs(cp) >= 9000 ? (cp > 0 ? 'mate' : '-mate') : `${cp >= 0 ? '+' : ''}${(cp / 100).toFixed(1)}`);
 
 /** Eval lines for the gauge: the room's floor and/or goal (your POV, cp). */
@@ -544,6 +613,7 @@ export function gaugeLines(room: RoomState, boss?: BossMod): { floor?: number; g
     case 'convert':
       return room.node.goal === 'keep' ? { floor: L.keepCp } : {};
     case 'hold':
+    case 'mirror':
       return { floor: room.startEval - L.holdDrop };
     case 'duel':
       return { floor: room.startEval - L.duelDrop };
@@ -571,6 +641,10 @@ export function progress(room: RoomState, boss?: BossMod): string {
         : `Move ${n}/${e ? T.elite.gainMoves : r.convert.gainMoves} · material ${signed(mat(room.fen, room.me) - mat(room.startFen, room.me))}/+${r.convert.gainMaterial}`;
     case 'hold':
       return `Move ${n}/${r.hold.moves} · line ${fmtCp(room.startEval - L.holdDrop)}`;
+    case 'mirror':
+      return `Move ${n}/${r.mirror.moves} · line ${fmtCp(room.startEval - L.holdDrop)}`;
+    case 'echo':
+      return `Move ${n}/${r.echo.moves} · max loss ${fmtCp(r.echo.echoMaxDropCp + diffOf(room.diff).margin).replace('+', '')}`;
     case 'duel':
       return `Move ${n}/${r.duel.moves} · end ≥ ${fmtCp(room.startEval - L.duelDrop)}`;
     case 'vault':
@@ -693,6 +767,8 @@ export function scenarioOf(node: Pick<MapNode, 'kind' | 'goal'>, drill?: string)
     case 'hold':
     case 'ward':
     case 'duel':
+    case 'echo':
+    case 'mirror':
       return node.kind;
     case 'convert':
       return node.goal ?? 'keep';
@@ -724,4 +800,22 @@ export function scenarioWeight(g: Grimoire, key: string): number {
     return ws.length ? Math.max(...ws) : 1;
   }
   return one(g[key]);
+}
+
+/** Patron: the second stall relic's price. */
+export const stallExtraPrice = (r: Pick<Run, 'relics'> & { rests?: number; rerolls?: number }, id: RelicId) => Math.max(1, Math.round(stallPrice(r, id) * T.relics.patronDiscount));
+
+/** The Mirror: the position with you passing (opponent to move), or null when you're in check. */
+export function nullMoveFen(fen: string): string | null {
+  const c = new Chess(fen);
+  if (c.inCheck()) return null;
+  const parts = fen.split(' ');
+  parts[1] = parts[1] === 'w' ? 'b' : 'w';
+  parts[3] = '-';
+  try {
+    const n = new Chess(parts.join(' '));
+    return n.moves().length ? n.fen() : null;
+  } catch {
+    return null;
+  }
 }

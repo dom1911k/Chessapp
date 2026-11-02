@@ -3,7 +3,7 @@ import type { Classification } from '../lib/chess/evaluation';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
 import type { DiffId } from './tuning';
 
-export type RoomKind = 'puzzle' | 'convert' | 'hold' | 'ward' | 'vault' | 'duel' | 'boss';
+export type RoomKind = 'puzzle' | 'convert' | 'hold' | 'ward' | 'vault' | 'duel' | 'echo' | 'mirror' | 'boss';
 export type NodeKind = RoomKind | 'event' | 'camp';
 export type EventKind = 'shrine' | 'gambler' | 'merchant' | 'altar' | 'library' | 'spring';
 export type ModifierId = 'gilded' | 'focused' | 'steady' | 'rival';
@@ -15,8 +15,10 @@ export type RelicId =
   | 'calm' | 'bloodhound' | 'forkmaster' | 'ironwall' | 'pins' | 'clean' | 'spendthrift' | 'bloomer'
   | 'hunter' | 'patience' | 'executioner' | 'secondwind' | 'scholar' | 'glass' | 'lucky'
   | 'castle' | 'rite' | 'tempo'
-  | 'perfectionist' | 'coldread' | 'watchman' | 'bookbinder' | 'siege';
-export type ConsumableId = 'eye' | 'rewind' | 'cards' | 'lens' | 'opinion' | 'insurance' | 'check';
+  | 'perfectionist' | 'coldread' | 'watchman' | 'bookbinder' | 'siege'
+  | 'combination' | 'bulwark' | 'endgamesense' | 'ascetic' | 'patron';
+export type Archetype = 'tactician' | 'fortress' | 'technician' | 'purist' | 'trader';
+export type ConsumableId = 'eye' | 'rewind' | 'cards' | 'lens' | 'opinion' | 'insurance' | 'check' | 'shadow';
 
 export interface MapNode {
   kind: NodeKind;
@@ -56,6 +58,10 @@ export interface UserMove {
   accuracy: number;
   /** Your-POV eval (cp, mate mapped to ±10000) after the move (and before the reply). */
   evalAfter: number;
+  /** Your-POV eval of the best line before the move (The Echo). */
+  evalBefore?: number;
+  /** The Mirror: you misread the opponent's idea before this move (chips halved). */
+  misread?: boolean;
   composureLost: number;
   insured?: boolean;
   eye?: boolean;
@@ -121,6 +127,10 @@ export interface RoomState {
   cardsUsed?: number;
   /** A card was used on the current puzzle (Bookbinder). */
   puzzleCard?: boolean;
+  /** The Mirror: the question before your current move. */
+  mirror?: { fen: string; choices: string[]; answer: string; picked?: string };
+  /** The Echo: where the position came from. */
+  echo?: { when: number; played: string; best?: string };
   /** Watchman: Threat Lens used at this move count with this material balance. */
   lensAt?: { moves: number; mat: number };
   status: 'playing' | 'won' | 'failed';
@@ -219,6 +229,10 @@ export interface Run {
   rerolls?: number;
   /** The campfire's relic for sale (null once bought). */
   stall?: RelicId | null;
+  /** Patron: a second stall relic at a discount (null once bought). */
+  stallExtra?: RelicId | null;
+  /** The Echo: positions from your own games where you slipped (you to move). */
+  echoes?: EchoPos[];
   /** Bigger Pouch bought (extra card slots). */
   pouch?: number;
   /** Embers that leftover gold turned into (set when the run ends). */
@@ -232,7 +246,7 @@ export interface Run {
   /** Puzzles already used this run (avoid repeats). */
   usedPuzzles: string[];
   /** Meta snapshot taken when the run started (boosts and what is still locked). */
-  meta?: { boosts: Partial<Record<string, number>>; lockedRelics: RelicId[]; lockedCards?: ConsumableId[] };
+  meta?: { boosts: Partial<Record<string, number>>; lockedRelics: RelicId[]; lockedCards?: ConsumableId[]; lockedDrills?: string[] };
   /** Steady Nerves boost used (first blunder of the run costs one less). */
   nervesUsed?: boolean;
   /** Milestones earned during this run (ids), for the debrief. */
@@ -257,6 +271,16 @@ export interface Run {
   roomStartedAt?: number;
   goldEarned?: number;
   goldSpent?: number;
+}
+
+export interface EchoPos {
+  fen: string;
+  /** Opponent rating in that game. */
+  elo: number;
+  /** The move you played (SAN) and the better one (UCI). */
+  played: string;
+  best?: string;
+  when: number;
 }
 
 export interface Playtest {

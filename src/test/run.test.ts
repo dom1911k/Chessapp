@@ -4,7 +4,7 @@ import { pickRival, endFires, isFinalCamp, kingSheltered, passedToSixth, scoreGo
 import { RELICS } from '../run/content';
 import positions from '../run/data/positions.json';
 import { TUNING as T } from '../run/tuning';
-import type { RoomState, Run, UserMove } from '../run/types';
+import type { RelicId, RoomState, Run, UserMove } from '../run/types';
 import { OPPONENTS } from '../lib/people';
 import { Chess } from 'chess.js';
 
@@ -199,7 +199,8 @@ describe('run rules', () => {
     expect(passedToSixth('4k3/2p5/8/3P4/8/8/8/4K3 w - - 0 1', 'd5d6')).toBe(false);
     expect(passedToSixth('4k3/8/8/8/3p4/8/8/4K3 b - - 0 1', 'd4d3')).toBe(true);
     const r = room({});
-    expect(moveFires(['castle'], r, mv({ cls: 'good', fenBefore: 'r3k2r/8/8/8/8/8/5PPP/R4RK1 w - - 0 1', fenAfter: 'r3k2r/8/8/8/8/8/5PPP/R4RK1 b - - 0 1' }), 0).map((f) => f.relic)).toEqual(['castle']);
+    // Castle Keep no longer fires per move (it's a room-end check now).
+    expect(moveFires(['castle'], r, mv({ cls: 'good', fenBefore: 'r3k2r/8/8/8/8/8/5PPP/R4RK1 w - - 0 1', fenAfter: 'r3k2r/8/8/8/8/8/5PPP/R4RK1 b - - 0 1' }), 0)).toEqual([]);
     expect(moveFires(['rite'], r, mv({ cls: 'good', uci: 'd5d6', san: 'd6', fenBefore: '4k3/8/8/3P4/8/8/8/4K3 w - - 0 1' }), 0)[0]?.mult).toBe(T.relics.riteRankMult);
   });
 
@@ -236,8 +237,6 @@ describe('run rules', () => {
   it('relics: Castle Keep, Promotion Rite, Tempo fire on sound moves', () => {
     const r = room({});
     const at = 0;
-    // Castle Keep now fires on king safety (castled = king on g1 after O-O).
-    expect(moveFires(['castle'], r, mv({ san: 'O-O', uci: 'e1g1', fenBefore: 'r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1', fenAfter: 'r3k2r/8/8/8/8/8/8/R4RK1 b kq - 1 1', cls: 'good' }), at).map((f) => f.relic)).toEqual(['castle']);
     expect(moveFires(['rite'], r, mv({ san: 'a8=Q', uci: 'a7a8q', fenBefore: '7k/P7/8/8/8/8/8/7K w - - 0 1', cls: 'best' }), at).map((f) => f.relic)).toEqual(['rite']);
     expect(moveFires(['tempo'], r, mv({ san: 'Ra8+', uci: 'a1a8', fenBefore: '7k/8/8/8/8/8/8/R6K w - - 0 1', cls: 'best' }), at).map((f) => f.relic)).toContain('tempo');
     expect(moveFires(['tempo'], r, mv({ san: 'Ra8+', uci: 'a1a8', fenBefore: '7k/8/8/8/8/8/8/R6K w - - 0 1', cls: 'mistake' }), at)).toEqual([]);
@@ -451,5 +450,111 @@ describe('stage C: Vault hold-the-draw drills', () => {
   });
   it('a drawn game counts as held', () => {
     expect(judge(vroom(3, 0, '7k/5K2/6Q1/8/8/8/8/8 b - - 0 1'), 'reply')?.status).toBe('won');
+  });
+});
+
+// ---------------------------------------------------------------- Stage D
+import { kingUntouched, tacticsIn, fightsLeft, echoDrop, nullMoveFen, stallExtraPrice } from '../run/rules';
+import { ARCHETYPE, nodeArchetypes } from '../run/content';
+
+describe('stage D: rewards, Castle Keep, map', () => {
+  it('free picks come from skill: beat the blind (elites always pay a relic) — no random chance left', () => {
+    expect((T as unknown as Record<string, unknown>).rewardChance).toBeUndefined();
+  });
+  it('Castle Keep: +1 mult at room end only if the king was never checked nor its zone attacked', () => {
+    const safe = 'r5k1/5ppp/8/8/8/8/5PPP/6K1 w - - 0 1';
+    const zoneHit = 'r5k1/5ppp/8/8/8/8/5PPP/r5K1 w - - 0 1'; // rook on the back rank hits f1/h1 (and checks)
+    const nearZone = '6k1/5ppp/8/8/8/8/5PPP/3r2K1 w - - 0 1';
+    const bishopEyes = '6k1/5ppp/8/8/8/8/2b2PPP/6K1 w - - 0 1'; // bishop c2 eyes ... d1/e4/f5; not the zone
+    expect(kingUntouched([safe], 'w')).toBe(true);
+    expect(kingUntouched([safe, zoneHit], 'w')).toBe(false);
+    expect(kingUntouched([nearZone], 'w')).toBe(false);
+    expect(kingUntouched([bishopEyes], 'w')).toBe(true);
+    const run = { relics: ['castle'], results: [] } as unknown as Run;
+    const rm = room({ me: 'w', startFen: safe, plies: [{ uci: 'a2a3', san: 'a3', fen: safe, by: 'me' }], moves: [mv({ fenBefore: safe })] });
+    expect(endFires(run, rm).find((f) => f.relic === 'castle')?.mult).toBe(T.relics.castleMult);
+    expect(endFires(run, { ...rm, plies: [...rm.plies, { uci: 'a8a1', san: 'Ra1+', fen: zoneHit, by: 'opp' }] }).find((f) => f.relic === 'castle')).toBeUndefined();
+  });
+  it('fights left: counts rooms (not events or camps) on the fewest and most expensive route', () => {
+    const L = [
+      [{ kind: 'hold', modifier: 'steady', next: [0, 1] }],
+      [{ kind: 'event', modifier: 'steady', next: [0] }, { kind: 'duel', modifier: 'steady', next: [0] }],
+      [{ kind: 'camp', modifier: 'steady', next: [0] }],
+      [{ kind: 'boss', modifier: 'rival' }],
+    ] as unknown as Parameters<typeof fightsLeft>[0];
+    expect(fightsLeft(L, 0, 0)).toEqual([2, 3]);
+    expect(fightsLeft(L, 1, 0)).toEqual([1, 1]);
+    expect(fightsLeft(L, 1, 1)).toEqual([2, 2]);
+  });
+  it('real maps include the Echo and the Mirror', () => {
+    let echo = 0;
+    let mirror = 0;
+    for (let i = 0; i < 100; i++) {
+      const m = buildMap(Math.random, { convert: 10, hold: 10, boss: 10, ward: 10, duel: 10, vault: 10, echo: 5, mirror: 10 });
+      echo += m.flat().filter((n) => n.kind === 'echo').length;
+      mirror += m.flat().filter((n) => n.kind === 'mirror').length;
+    }
+    expect(echo).toBeGreaterThan(20);
+    expect(mirror).toBeGreaterThan(20);
+  });
+});
+
+describe('stage D: the Echo and the Mirror', () => {
+  const echoRoom = (moves: UserMove[]) => room({ node: { kind: 'echo', modifier: 'steady' }, fen: START, moves, diff: 'adept' });
+  it('Echo: fails when one move gives away more than echoMaxDropCp; wins after its moves', () => {
+    const ok = mv({ evalBefore: 200, evalAfter: 200 - T.rooms.echo.echoMaxDropCp });
+    const bad = mv({ evalBefore: 200, evalAfter: 200 - T.rooms.echo.echoMaxDropCp - 1 });
+    expect(judge(echoRoom([ok]), 'mine')).toBeNull();
+    expect(judge(echoRoom([bad]), 'mine')?.status).toBe('failed');
+    expect(judge(echoRoom(Array(T.rooms.echo.moves).fill(ok)), 'mine')?.status).toBe('won');
+  });
+  it('Echo: mate scores are clamped, so a still-winning move from a mate line is fine', () => {
+    expect(echoDrop({ evalBefore: 10000, evalAfter: 1400 })).toBe(T.rooms.echo.clampCp - 1400);
+    expect(echoDrop({ evalBefore: -300, evalAfter: 100 })).toBe(0);
+  });
+  it('Mirror: a hold room of mirror.moves; null-move position flips the side, not when in check', () => {
+    const mr = (n: number, ev: number) => room({ node: { kind: 'mirror', modifier: 'steady' }, fen: START, startEval: 0, diff: 'adept', moves: Array(n).fill(mv({ evalAfter: ev })) });
+    expect(judge(mr(T.rooms.mirror.moves, 0), 'mine')?.status).toBe('won');
+    expect(judge(mr(3, -5000), 'mine')?.status).toBe('failed');
+    expect(nullMoveFen(START)?.split(' ')[1]).toBe('b');
+    expect(nullMoveFen('4k3/8/8/8/8/8/8/4K2r w - - 0 1')).toBeNull();
+  });
+});
+
+describe('stage D: archetypes and keystones', () => {
+  it('every relic has an archetype; nodes suit them', () => {
+    for (const id of Object.keys(RELICS)) expect(ARCHETYPE[id as keyof typeof ARCHETYPE]).toBeTruthy();
+    expect(nodeArchetypes({ kind: 'puzzle' })).toEqual(['tactician']);
+    expect(nodeArchetypes({ kind: 'ward' })).toEqual(['fortress']);
+    expect(nodeArchetypes({ kind: 'convert', goal: 'keep' })).toEqual(['technician']);
+    expect(nodeArchetypes({ kind: 'convert', goal: 'gain' })).toEqual([]);
+    for (const k of ['combination', 'bulwark', 'endgamesense', 'ascetic', 'patron'] as const) expect(RELICS[k].rarity).toBe('rare');
+  });
+  it('Combination: ×1.5 per tactic after the first', () => {
+    const fork = mv({ cls: 'best', uci: 'b5c7', san: 'Nc7+', fenBefore: 'r3k3/8/8/1N6/8/8/8/4K3 w - - 0 1' }); // royal fork: king e8 + rook a8
+    const r = { relics: ['combination'], results: [] } as unknown as Run;
+    expect(tacticsIn({ moves: [fork] })).toBe(1);
+    expect(tacticsIn({ moves: [{ ...fork, cls: 'mistake' }] })).toBe(0);
+    const f = endFires(r, room({ moves: [fork, fork, fork] })).find((x) => x.relic === 'combination');
+    expect(f?.xmult).toBeCloseTo(T.relics.combinationX ** 2);
+    expect(endFires(r, room({ moves: [fork] })).find((x) => x.relic === 'combination')).toBeUndefined();
+  });
+  it('Bulwark: mistakes free in Siege and Ward, not elsewhere; blunders still cost', () => {
+    const ctx = (kind: 'hold' | 'ward' | 'duel') => ({ node: { kind, modifier: 'steady' as const }, relics: ['bulwark'] as RelicId[] });
+    expect(composureCost('mistake', ctx('hold'))).toBe(0);
+    expect(composureCost('mistake', ctx('ward'))).toBe(0);
+    expect(composureCost('mistake', ctx('duel'))).toBe(1);
+    expect(composureCost('blunder', ctx('hold'))).toBe(2);
+  });
+  it('Endgame Sense ×2 in Vaults; Ascetic: no card slots, +2 mult everywhere', () => {
+    const r = (id: RelicId) => ({ relics: [id], results: [] }) as unknown as Run;
+    expect(endFires(r('endgamesense'), room({ node: { kind: 'vault', modifier: 'steady' } })).find((f) => f.relic === 'endgamesense')?.xmult).toBe(T.relics.endgameSenseX);
+    expect(endFires(r('endgamesense'), room({})).find((f) => f.relic === 'endgamesense')).toBeUndefined();
+    expect(maxConsumables(['ascetic'], 1)).toBe(0);
+    expect(endFires(r('ascetic'), room({})).find((f) => f.relic === 'ascetic')?.mult).toBe(T.relics.asceticMult);
+  });
+  it('Patron: the second stall relic costs half', () => {
+    const r = { relics: ['patron'] } as unknown as Run;
+    expect(stallExtraPrice(r, 'perfectionist')).toBe(Math.round(T.shop.stallPrice.rare * T.relics.patronDiscount));
   });
 });

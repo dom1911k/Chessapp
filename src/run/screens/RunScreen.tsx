@@ -5,7 +5,7 @@ import { Chess } from 'chess.js';
 import { opponentById } from '../../lib/people';
 import { uciToSan } from '../../lib/chess/game';
 import { CONSUMABLES, EVENTS, HEAT_TEXT, MODIFIERS, RELICS } from '../content';
-import { heatAllowed, heatFor, playStrength, isFinalCamp, cardSlots, cleansePrice, goldToEmbers, maxComposure, nextRestCost, pouchPrice, rerollPrice, shopPrice, stallPrice } from '../rules';
+import { heatAllowed, heatFor, playStrength, isFinalCamp, cardSlots, cleansePrice, goldToEmbers, maxComposure, nextRestCost, pouchPrice, rerollPrice, shopPrice, stallPrice, stallExtraPrice } from '../rules';
 import { useRun } from '../store';
 import { TUNING as T, type DiffId } from '../tuning';
 import type { ConsumableId, RelicId } from '../types';
@@ -707,22 +707,22 @@ function Camp({ tools }: { tools: Tools }) {
           )}
         </div>
 
-        {stall && (
-          <>
-            <div className="run-label mt-4 px-4">Relic stall</div>
-            <div className="run-panel mx-4 mt-1 flex items-center gap-3 p-2.5">
-              <Sprite name={RELICS[stall].glyph} size={40} px={14} pal={rarityPal(stall)} />
+        {(stall || run.stallExtra) && <div className="run-label mt-4 px-4">Relic stall{run.stallExtra ? ' · Patron' : ''}</div>}
+        {([[stall, false], [run.stallExtra ?? null, true]] as [RelicId | null, boolean][]).map(([id, extra]) =>
+          id ? (
+            <div key={id} className="run-panel mx-4 mt-1 flex items-center gap-3 p-2.5">
+              <Sprite name={RELICS[id].glyph} size={40} px={14} pal={rarityPal(id)} />
               <div className="min-w-0 flex-1">
                 <div className="run-title text-[15px] leading-tight font-bold">
-                  {RELICS[stall].name} <span className="run-sans text-[10px] font-bold text-[var(--ink-dim)] uppercase">{RELICS[stall].rarity}</span>
+                  {RELICS[id].name} <span className="run-sans text-[10px] font-bold text-[var(--ink-dim)] uppercase">{RELICS[id].rarity}{extra ? ' · half price' : ''}</span>
                 </div>
-                <div className="run-sans text-xs leading-snug text-[var(--ink-dim)]">{RELICS[stall].text}</div>
+                <div className="run-sans text-xs leading-snug text-[var(--ink-dim)]">{RELICS[id].text}</div>
               </div>
-              <button className="run-btn shrink-0 px-3! py-2! text-sm" disabled={run.gold < stallPrice(run, stall)} onClick={() => s.buyStall()}>
-                {stallPrice(run, stall)}g
+              <button className="run-btn shrink-0 px-3! py-2! text-sm" disabled={run.gold < (extra ? stallExtraPrice(run, id) : stallPrice(run, id))} onClick={() => s.buyStall(extra)}>
+                {extra ? stallExtraPrice(run, id) : stallPrice(run, id)}g
               </button>
             </div>
-          </>
+          ) : null,
         )}
 
         <div className="run-label mt-4 px-4">Services</div>

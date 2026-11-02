@@ -2,8 +2,8 @@
 // per room, so routes branch and merge), landmarks, fog over far rows. Tap a room to preview it.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { opponentById } from '../../lib/people';
-import { EVENTS, MODIFIERS, ROOM_NAME, ROOM_SPRITE, rivalRule, bossModText, objective, NEMESIS_WHY } from '../content';
-import { isFinalCamp, reachable, rivalElo } from '../rules';
+import { ARCHETYPE, ARCHETYPES, EVENTS, MODIFIERS, ROOM_NAME, ROOM_SPRITE, nodeArchetypes, rivalRule, bossModText, objective, NEMESIS_WHY } from '../content';
+import { fightsLeft, isFinalCamp, reachable, rivalElo } from '../rules';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
 import type { MapNode } from '../types';
@@ -162,6 +162,15 @@ export function MapView({ top }: { top: ReactNode }) {
                   {chosen && (
                     <span className={`run-sans text-[10px] font-black ${res ? (res.won ? 'text-[#5ee59a]' : 'text-[var(--blood)]') : 'text-[#6fd3ff]'}`}>{res ? (res.won ? `✓ ${res.score}` : '✕') : '✓'}</span>
                   )}
+                  {(() => {
+                    const held = new Set(run.relics.map((id) => ARCHETYPE[id]));
+                    const a = nodeArchetypes(n).find((x) => held.has(x));
+                    return a && l >= run.layer ? (
+                      <span className="absolute -top-1 left-4 flex h-5 w-5 items-center justify-center rounded-full bg-[#140d20]" style={{ boxShadow: `0 0 0 1px ${ARCHETYPES[a].color}` }} title={`Suits your ${ARCHETYPES[a].name} relics`}>
+                        <Sprite name={ARCHETYPES[a].sprite} size={14} px={10} pal={GOLD} />
+                      </span>
+                    ) : null;
+                  })()}
                   {chosen && <span className="absolute -top-1 right-5 h-3 w-3" style={{ background: '#5ee59a', boxShadow: '0 0 0 2px #1b0f22' }} />}
                 </button>
               );
@@ -171,7 +180,7 @@ export function MapView({ top }: { top: ReactNode }) {
       </div>
       {/* Preview of the selected node: everything the old intro screen said, plus Enter */}
       <div className="px-3 pt-2 pb-3">
-        {node ? <Preview key={sel} node={node} onEnter={() => s.chooseNode(sel!)} busy={s.busy} /> : (
+        {node ? <Preview key={sel} node={node} index={sel!} onEnter={() => s.chooseNode(sel!)} busy={s.busy} /> : (
           <div className="run-sans py-3 text-center text-xs text-[var(--ink-dim)]">
             Choose where to go next — {options.length} path{options.length === 1 ? '' : 's'} open. Tap a glowing room.
             {run.layer === 0 ? ` You have ${T.composure.start} candles.` : ''}
@@ -182,8 +191,11 @@ export function MapView({ top }: { top: ReactNode }) {
   );
 }
 
-function Preview({ node, onEnter, busy }: { node: MapNode; onEnter: () => void; busy: boolean }) {
+function Preview({ node, index, onEnter, busy }: { node: MapNode; index: number; onEnter: () => void; busy: boolean }) {
   const run = useRun((x) => x.run!);
+  const [fewest, most] = fightsLeft(run.layers, run.layer, index);
+  const held = new Set(run.relics.map((id) => ARCHETYPE[id]));
+  const suits = nodeArchetypes(node).filter((a) => held.has(a));
   const isBoss = node.kind === 'boss';
   const boss = isBoss ? opponentById(run.bossId) : undefined;
   const mod = rivalRule(run);
@@ -208,6 +220,10 @@ function Preview({ node, onEnter, busy }: { node: MapNode; onEnter: () => void; 
         <button className="run-btn shrink-0" disabled={busy} onClick={onEnter}>
           {busy ? '…' : node.kind === 'camp' ? 'Rest' : node.kind === 'event' ? 'Step in' : 'Enter'}
         </button>
+      </div>
+      <div className="run-sans mt-0.5 text-[11px] font-bold text-[var(--gold-2)]">
+        {fewest === most ? fewest : `${fewest}–${most}`} fight{most === 1 ? '' : 's'} left on this route (rival included)
+        {suits.length > 0 && <span className="ml-1.5 text-[#9ff0c0]">· suits your {suits.map((a) => ARCHETYPES[a].name).join(', ')}</span>}
       </div>
       <div className="run-sans mt-1 text-[13px] leading-snug">{objective(node, isBoss ? mod : undefined, run.difficulty, run.heat)}</div>
       {room && (

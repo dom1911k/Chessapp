@@ -1,7 +1,7 @@
 // Small visual pieces for Run mode: pixel numerals, tarot cards, candles (Composure).
 import type { CSSProperties, ReactNode } from 'react';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { CONSUMABLES, RARITY_COLOR, RELICS, type CardInfo } from '../content';
+import { ARCHETYPES, CONSUMABLES, RARITY_COLOR, RELICS, type CardInfo } from '../content';
 import type { ConsumableId, RelicId } from '../types';
 import { Sprite } from '../pixel/sprites';
 import { BLOOD, EMBER, GOLD, SPIRIT, type SpritePalette } from '../pixel/pixelize';
@@ -67,7 +67,10 @@ export function TarotCard({
       <div className="tarot-inner px-1.5 pt-1.5 pb-2">
         <div className="flex w-full items-center justify-between px-0.5">
           <span className="numeral text-[11px]">{info.numeral}</span>
-          {info.rarity && <span className="pixel-gem" style={{ background: RARITY_COLOR[info.rarity] }} title={info.rarity} />}
+          <span className="flex items-center gap-1">
+            {info.archetype && <Sprite name={ARCHETYPES[info.archetype].sprite} size={Math.max(12, Math.round(w * 0.13))} px={10} pal={GOLD} />}
+            {info.rarity && <span className="pixel-gem" style={{ background: RARITY_COLOR[info.rarity] }} title={info.rarity} />}
+          </span>
         </div>
         <div className="mt-1">
           <Sprite name={info.glyph} size={Math.round(w * 0.38)} pal={pal} />

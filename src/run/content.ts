@@ -1,6 +1,6 @@
 // Names, texts and glyphs for relics, consumables, rooms, events and modifiers.
 import { TUNING as T, type BossMod, type DiffId } from './tuning';
-import type { ConsumableId, EventKind, MapNode, ModifierId, Rarity, RelicId, RoomKind } from './types';
+import type { Archetype, ConsumableId, EventKind, MapNode, ModifierId, Rarity, RelicId, RoomKind } from './types';
 
 export interface CardInfo {
   name: string;
@@ -13,6 +13,8 @@ export interface CardInfo {
   /** Sprite key (see screens/sprites). */
   glyph: string;
   rarity?: Rarity;
+  /** Relics: the build direction it belongs to. */
+  archetype?: Archetype;
 }
 
 const R = T.relics;
@@ -36,9 +38,14 @@ export const RELICS: Record<RelicId, CardInfo> = {
   bookbinder: { short: `Free Blunder Check every ${R.bookbinderEvery} clean puzzles`, name: 'Bookbinder', numeral: 'XXV', glyph: 'book', rarity: 'uncommon', text: `Every ${R.bookbinderEvery} puzzles solved without a card: a free Blunder Check (if you have room).` },
   siege: { short: `Siege: +${R.siegeChips} chips × moves held`, name: 'Siege Engine', numeral: 'XXVI', glyph: 'tower', rarity: 'common', text: `Siege rooms: +${R.siegeChips} chips × moves survived above the red line.` },
   secondwind: { short: 'Once: keep your last candle', name: 'Second Wind', numeral: 'XX', glyph: 'feather', rarity: 'rare', text: 'Once per run, when your Composure would break, keep 1.' },
-  castle: { short: `+${R.castleMult} mult per good move, king safe`, name: 'Castle Keep', numeral: 'XXI', glyph: 'tower', rarity: 'common', text: `+${R.castleMult} mult for every good move while your king is castled or sheltered by 2+ of your pawns.` },
+  castle: { short: `+${R.castleMult} mult if your king stays untouched`, name: 'Castle Keep', numeral: 'XXI', glyph: 'tower', rarity: 'common', text: `+${R.castleMult} mult at the end of a room where your king was never in check and no enemy piece ever attacked the squares around it.` },
   rite: { short: `+${R.riteMult} mult per promotion`, name: 'Promotion Rite', numeral: 'XIX', glyph: 'crown', rarity: 'uncommon', text: `+${R.riteMult} mult when you promote; +${R.riteRankMult} when a passed pawn reaches your 6th rank.` },
   tempo: { short: `+${R.tempoMult} mult per good check`, name: 'Tempo', numeral: 'XVIII', glyph: 'bolt', rarity: 'uncommon', text: `+${R.tempoMult} mult for every good move that gives check.` },
+  combination: { short: `×${R.combinationX} per tactic after the first`, name: 'Combination', numeral: 'XXVII', glyph: 'swords', rarity: 'rare', text: `Keystone (Tactician): ×${R.combinationX} mult for each tactic (fork, pin, skewer, discovered attack) after the first in a room.` },
+  bulwark: { short: 'Siege & Ward: mistakes are free', name: 'Bulwark', numeral: 'XXVIII', glyph: 'shield', rarity: 'rare', text: 'Keystone (Fortress): mistakes in Siege and Ward rooms cost no candles. (Blunders still do.)' },
+  endgamesense: { short: `Vault ×${R.endgameSenseX}; +1 Vault on the map`, name: 'Endgame Sense', numeral: 'XXIX', glyph: 'chest', rarity: 'rare', text: `Keystone (Technician): ×${R.endgameSenseX} mult in Vault rooms, and one more Vault appears ahead on the map.` },
+  ascetic: { short: `No cards; +${R.asceticMult} mult every room`, name: 'Ascetic', numeral: 'XXX', glyph: 'candle', rarity: 'rare', text: `Keystone (Purist): you can't hold cards (yours are discarded), but every room gets +${R.asceticMult} mult.` },
+  patron: { short: 'Camp stall: 2 relics, one half price', name: 'Patron', numeral: 'XXXI', glyph: 'bag', rarity: 'rare', text: `Keystone (Trader): every campfire stall shows a second relic at ${Math.round(R.patronDiscount * 100)}% of its price.` },
   glass: { short: `+${R.glassMult} mult every room; −${R.glassComposure} candles`, name: 'Glass Cannon', numeral: 'XVI', glyph: 'crystal', rarity: 'rare', text: `+${R.glassMult} mult in every room. Costs ${R.glassComposure} Composure when taken.` },
 };
 
@@ -49,6 +56,7 @@ export const CONSUMABLES: Record<ConsumableId, CardInfo> = {
   lens: { short: 'Lights up all hanging pieces', name: 'Threat Lens', numeral: 'IX', glyph: 'lens', text: 'Lights up every hanging or attacked piece, both sides.' },
   opinion: { short: 'Judges your next move first', name: 'Second Opinion', numeral: 'II', glyph: 'scale', text: 'Your next move is judged before it counts: safe, risky or blunder.' },
   check: { short: 'Stops your next move if it blunders', name: 'Blunder Check', numeral: 'I', glyph: 'bell', text: 'Your next move is checked: only a blunder is stopped (you may choose again).' },
+  shadow: { short: 'Shows their likeliest reply first', name: 'Shadow', numeral: 'XII', glyph: 'moon', text: "After you pick your next move, see the opponent's most likely reply as an arrow before it counts. Play it or choose again." },
   insurance: { short: 'Next blunder costs no candle', name: 'Insurance', numeral: 'IV', glyph: 'shield', text: 'Your next blunder costs no Composure. Works by itself.' },
 };
 
@@ -59,8 +67,35 @@ export const ROOM_NAME: Record<RoomKind, string> = {
   ward: 'The Ward',
   vault: 'The Vault',
   duel: 'The Duel',
+  echo: 'The Echo',
+  mirror: 'The Mirror',
   boss: 'The Rival',
 };
+
+/** Relic archetypes (build directions). */
+export const ARCHETYPE: Record<RelicId, Archetype> = {
+  forkmaster: 'tactician', pins: 'tactician', hunter: 'tactician', tempo: 'tactician', executioner: 'tactician', bookbinder: 'tactician', combination: 'tactician',
+  ironwall: 'fortress', siege: 'fortress', castle: 'fortress', calm: 'fortress', secondwind: 'fortress', watchman: 'fortress', bulwark: 'fortress',
+  rite: 'technician', patience: 'technician', bloomer: 'technician', endgamesense: 'technician',
+  clean: 'purist', perfectionist: 'purist', coldread: 'purist', glass: 'purist', ascetic: 'purist',
+  lucky: 'trader', spendthrift: 'trader', scholar: 'trader', bloodhound: 'trader', patron: 'trader',
+};
+export const ARCHETYPES: Record<Archetype, { name: string; sprite: string; color: string; suits: string }> = {
+  tactician: { name: 'Tactician', sprite: 'swords', color: '#ff8c5a', suits: 'Riddles' },
+  fortress: { name: 'Fortress', sprite: 'shield', color: '#6fd3ff', suits: 'Sieges and Wards' },
+  technician: { name: 'Technician', sprite: 'chest', color: '#5ee59a', suits: 'Vaults and Harvest: Keep' },
+  purist: { name: 'Purist', sprite: 'star', color: '#ffe7a3', suits: 'clean play anywhere' },
+  trader: { name: 'Trader', sprite: 'coin', color: '#ffb454', suits: 'campfires and gold' },
+};
+for (const id of Object.keys(ARCHETYPE) as RelicId[]) RELICS[id].archetype = ARCHETYPE[id];
+
+/** Archetypes a map node suits (shown as a small icon when you hold one of them). */
+export function nodeArchetypes(n: Pick<MapNode, 'kind' | 'goal'>): Archetype[] {
+  if (n.kind === 'puzzle') return ['tactician'];
+  if (n.kind === 'hold' || n.kind === 'ward') return ['fortress'];
+  if (n.kind === 'vault' || (n.kind === 'convert' && n.goal === 'keep')) return ['technician'];
+  return [];
+}
 
 export const ROOM_SPRITE: Record<RoomKind | 'event' | 'camp', string> = {
   puzzle: 'cards',
@@ -69,6 +104,8 @@ export const ROOM_SPRITE: Record<RoomKind | 'event' | 'camp', string> = {
   ward: 'shield',
   vault: 'chest',
   duel: 'swords',
+  echo: 'scroll',
+  mirror: 'crystal',
   boss: 'skull',
   event: 'question',
   camp: 'flame',
@@ -153,6 +190,10 @@ export function objective(node: MapNode, boss?: BossMod, diff?: DiffId, heat = 0
       return 'An endgame against perfect play: finish the job in time — or, in a defence drill, hold the draw.';
     case 'duel':
       return `An opening, fresh from the book. After ${r.duel.moves} moves, don't be more than ${pawns((e ? T.elite.duelMaxDropCp : r.duel.maxDropCp) + d.margin)} worse than at the start (${d.grace} extra move${d.grace === 1 ? '' : 's'} to fix it). The book move is shown for your first ${r.duel.hintMoves}.`;
+    case 'echo':
+      return `A position from your own games where you slipped. Don't repeat it: ${r.echo.moves} moves, none of them more than ${pawns(r.echo.echoMaxDropCp + d.margin)} worse than the best.`;
+    case 'mirror':
+      return `Before each move, name your opponent's most dangerous idea (3 choices). Then hold the line for ${r.mirror.moves} moves. A wrong read halves that move's chips.`;
     case 'boss': {
       const end = g.endCp - d.margin;
       const endTxt = end > 0 ? `+${pawns(end)} or better` : end === 0 ? 'at least equal' : `no worse than ${pawns(end)}`;
