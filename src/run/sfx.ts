@@ -4,6 +4,7 @@
 import { marimba, tockWith } from '../lib/sound';
 import { useSettings } from '../lib/settings';
 import { useRunSettings } from './settings';
+import { playTheme, type Player, type Theme } from './music';
 
 export type RunSound =
   | 'relic' | 'hit' | 'clear' | 'over' | 'slam' | 'chip' | 'coin' | 'card' | 'fail' | 'win' | 'whoosh' | 'door'
@@ -358,4 +359,34 @@ export function moveSound(san: string): RunSound {
   if (san.startsWith('O-O')) return 'castle';
   if (san.includes('x')) return 'capture';
   return 'move';
+}
+
+// ---- Music director: ambient on the map, a battle theme in rooms --------------------------
+let battle: Player | null = null;
+
+/** What should play: 'map' = the ambient drone; a theme = that battle theme; null = silence. */
+export function runMusic(want: 'map' | Theme | null) {
+  try {
+    const on = want !== null && useSettings.getState().sound && useRunSettings.getState().music > 0;
+    if (!on) {
+      battle?.stop();
+      battle = null;
+      ambient(false);
+      return;
+    }
+    if (want === 'map') {
+      battle?.stop();
+      battle = null;
+      ambient(true, 'calm');
+      return;
+    }
+    if (battle?.theme === want) return;
+    ambient(false);
+    battle?.stop();
+    const a = audio();
+    if (!a) return;
+    battle = playTheme(a.c, a.m, want);
+  } catch (e) {
+    console.warn('run music', e);
+  }
 }

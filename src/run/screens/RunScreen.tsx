@@ -12,7 +12,7 @@ import type { ConsumableId, RelicId } from '../types';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { BLOOD, EMBER, GOLD, JADE, SPIRIT, type SpritePalette } from '../pixel/pixelize';
 import { RunBoard } from '../pixel/RunBoard';
-import { ambient, sfx } from '../sfx';
+import { runMusic, sfx } from '../sfx';
 import { useRunSettings } from '../settings';
 import { useMeta } from '../meta';
 import { MapView } from './MapView';
@@ -38,16 +38,18 @@ export function RunScreen() {
   useEffect(() => void s.load(), [s]);
   useEffect(() => void useMeta.getState().load(), []);
   const run = s.run;
-  const tense = run?.phase === 'room' && run.room?.node.kind === 'boss';
-  // Ambient music while the tab is open (and the app's sound is on); tense in the rival's room.
+  // Music: the ambient drone on the map and menus; in a room its battle theme (the rival's own
+  // theme in the boss room, a quieter one for puzzle rooms).
+  const kind = run?.phase === 'room' ? run.room?.node.kind : undefined;
+  const theme = !kind ? 'map' : kind === 'boss' ? 'rival' : kind === 'puzzle' || kind === 'ward' || run?.room?.gamble ? 'riddle' : 'battle';
   useEffect(() => {
-    const on = rs.music > 0;
-    ambient(on, tense ? 'tense' : 'calm');
-    const vis = () => ambient(on && document.visibilityState === 'visible', tense ? 'tense' : 'calm');
+    const want = rs.music > 0 ? theme : null;
+    runMusic(want);
+    const vis = () => runMusic(document.visibilityState === 'visible' ? want : null);
     document.addEventListener('visibilitychange', vis);
     return () => document.removeEventListener('visibilitychange', vis);
-  }, [rs.music, tense]);
-  useEffect(() => () => ambient(false), []);
+  }, [rs.music, theme]);
+  useEffect(() => () => runMusic(null), []);
   // First run: explain the basics once.
   useEffect(() => {
     if (run?.phase === 'start' && !tutorialSeen()) setTut(true);
