@@ -385,7 +385,7 @@ export function runMusic(want: 'map' | Theme | null) {
     battle?.stop();
     const a = audio();
     if (!a) return;
-    battle = playTheme(a.c, a.m, want);
+    battle = playTheme(a.c, a.m, want, want === 'riddle' ? 1.35 : 1);
   } catch (e) {
     console.warn('run music', e);
   }
