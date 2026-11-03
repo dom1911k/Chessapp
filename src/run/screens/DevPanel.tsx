@@ -36,6 +36,11 @@ export function DevPanel({ onClose }: { onClose: () => void }) {
             <div className="mt-1 flex flex-wrap gap-1.5">
               <button className={btn} onClick={() => s.dev.skipRoom(true)}>Skip room (win)</button>
               <button className={btn} onClick={() => s.dev.skipRoom(false)}>Fail room</button>
+              {run.phase === 'room' && (
+                <button className={btn} onClick={() => (onClose(), setTimeout(() => s.dev.fakeChain(), 150))}>
+                  Fake 12-trigger chain (×mult mid-way)
+                </button>
+              )}
             </div>
             <div className="run-label mt-3">Resources</div>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">

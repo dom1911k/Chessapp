@@ -105,6 +105,8 @@ export const MILESTONES: Milestone[] = [
   { id: 'score-5k', name: 'High Roller', text: 'Score 5,000 in one run.', embers: 4 },
   { id: 'cursed-win', name: "Devil's Due", text: "Beat the rival after taking the Devil's Bargain.", embers: 5 },
   { id: 'untouched', name: 'Untouched', text: 'Win a run without losing a single candle.', embers: 8 },
+  // Score milestones: the first room above each (a banner and its own sound in the tally).
+  ...T.crunch.milestones.map((x) => ({ id: `room-${x.score}`, name: `${x.score >= 1e6 ? `${x.score / 1e6}M` : `${x.score / 1e3}k`} Room`, text: `Score over ${x.score.toLocaleString('en-US')} in a single room.`, embers: 0, seals: x.seals })),
 ];
 
 export interface Meta {

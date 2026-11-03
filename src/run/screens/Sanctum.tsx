@@ -8,6 +8,7 @@ import { useRunSettings } from '../settings';
 import { applyVolumes, sfx } from '../sfx';
 import { useRun } from '../store';
 import type { Run } from '../types';
+import { TUNING as T } from '../tuning';
 import { BOARD_THEMES, PIECE_SETS, pieceSprite, tileSprite } from '../pixel/board';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { GOLD } from '../pixel/pixelize';
@@ -123,8 +124,19 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
             ))}
           </div>
         </div>
+        <div className="mt-3">
+          <span className="run-label">Game speed (scoring)</span>
+          <div className="mt-1 flex gap-1">
+            {T.crunch.speeds.map((v) => (
+              <button key={v} className={`run-btn flex-1 px-2! py-1.5! text-sm ${(rs.speed ?? 1) === v ? '' : 'ghost'}`} onClick={() => rs.set({ speed: v })}>
+                {v}×
+              </button>
+            ))}
+          </div>
+          <div className="run-sans mt-1 text-[11px] text-[var(--ink-dim)]">While scoring: tap for ×{T.crunch.tapSpeed}, hold to finish at once.</div>
+        </div>
         <label className="mt-3 flex items-center justify-between">
-          <span className="run-sans text-sm">Reduce motion (no shakes or pulses)</span>
+          <span className="run-sans text-sm">Reduce motion (no shakes, particles or hit-stops)</span>
           <input type="checkbox" className="h-5 w-5 accent-[#e0a93a]" checked={rs.reduceMotion} onChange={(e) => rs.set({ reduceMotion: e.target.checked })} />
         </label>
         <div className="mt-3">

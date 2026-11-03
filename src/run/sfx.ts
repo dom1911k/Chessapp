@@ -8,6 +8,8 @@ import { playTheme, type Player, type Theme } from './music';
 
 export type RunSound =
   | 'relic' | 'hit' | 'clear' | 'over' | 'slam' | 'chip' | 'coin' | 'card' | 'fail' | 'win' | 'whoosh' | 'door' | 'technique' | 'ready' | 'drip'
+  // Crunch: scoring beats (pitched by the ladder), the room-end slam and the finale.
+  | 'beatChip' | 'beatMult' | 'beatX' | 'beatGold' | 'collide' | 'tick' | 'milestone' | 'fanfare' | 'stamp' | 'ignite'
   | 'move' | 'capture' | 'check' | 'castle' | 'promote';
 
 let ctx: AudioContext | null = null;
@@ -91,23 +93,27 @@ function noise(c: AudioContext, o: AudioNode, t: number, dur: number, f0: number
   src.start(t);
 }
 
-/** Play a sound. For piece sounds, `opp` makes it a little lower (the opponent's move). */
-export function sfx(name: RunSound, n = 0, opp = false) {
+/**
+ * Play a sound. For piece sounds, `opp` makes it a little lower (the opponent's move).
+ * `pitch` shifts the crunch sounds by semitones (the scoring chain's pitch ladder).
+ */
+export function sfx(name: RunSound, n = 0, opp = false, pitch = 0) {
   // Sound must never break the game.
   try {
-    playSfx(name, n, opp);
+    playSfx(name, n, opp, pitch);
   } catch (e) {
     console.warn('run sfx', e);
   }
 }
 
-function playSfx(name: RunSound, n: number, opp: boolean) {
+function playSfx(name: RunSound, n: number, opp: boolean, pitch: number) {
   if (!useSettings.getState().sound) return;
   const a = audio();
   if (!a) return;
   const { c, o, e } = a;
   const t = c.currentTime + 0.01;
   const p = opp ? 0.86 : 1;
+  const k = Math.pow(2, pitch / 12);
   const stone = (at: number, pitch: number, weight = 1.7, gain = 1) => {
     tockWith(c, o, at, 0.55 * pitch, gain, weight);
     tockWith(c, e, at, 0.55 * pitch, gain * 0.45, weight);
@@ -191,6 +197,66 @@ function playSfx(name: RunSound, n: number, opp: boolean) {
       noise(c, o, t, 0.22, 900, 5200, 0.16, 0.9);
       [293.7, 349.2, 440, 587.3].forEach((f) => marimba(c, e, t + 0.12, f, 0.2, 0.9));
       [1174.7, 1760].forEach((f, i) => marimba(c, o, t + 0.2 + i * 0.07, f, 0.12, 0.8));
+      break;
+    // ---- Crunch ----
+    case 'beatChip':
+      // A bright poker-chip click.
+      tockWith(c, o, t, 2.2 * k, 0.35, 0.6);
+      marimba(c, o, t, 1046.5 * k, 0.11, 0.14);
+      break;
+    case 'beatMult':
+      // A warmer, rounder knock a fifth lower.
+      marimba(c, o, t, 523.3 * k, 0.16, 0.22);
+      marimba(c, e, t + 0.015, 784 * k, 0.07, 0.3);
+      tone(c, o, t, 300 * k, 180 * k, 0.12, 'triangle', 0.08);
+      break;
+    case 'beatX':
+      // Heavy: a sub thump, a crunch and a stacked stab.
+      tone(c, o, t, 120 * k, 38, 0.38, 'sine', 0.55);
+      noise(c, o, t, 0.16, 2600, 500, 0.26, 1.4);
+      [392, 587.3, 784].forEach((f) => marimba(c, e, t + 0.02, f * k, 0.18, 0.7));
+      tockWith(c, o, t, 0.5, 1.2, 2);
+      break;
+    case 'beatGold':
+      marimba(c, o, t, 1975.5 * k, 0.1, 0.12);
+      marimba(c, o, t + 0.05, 2637 * k, 0.09, 0.25);
+      break;
+    case 'collide': {
+      // The Chips and Mult boxes collide: louder for bigger scores (n = shake px, 1..4).
+      const w = 0.7 + n * 0.15;
+      tockWith(c, o, t, 0.4, 1.2 * w, 2.4);
+      tone(c, o, t, 100, 32, 0.6 + n * 0.1, 'sine', 0.45 * w);
+      noise(c, o, t, 0.35, 3200, 240, 0.22 * w, 0.9);
+      noise(c, e, t + 0.05, 0.6, 900, 140, 0.1 * w, 0.7);
+      break;
+    }
+    case 'tick':
+      tockWith(c, o, t, 2.6 * k, 0.18, 0.4);
+      break;
+    case 'stamp':
+      tockWith(c, o, t, 0.9, 1, 1.6);
+      marimba(c, e, t + 0.03, 1318.5, 0.12, 0.5);
+      break;
+    case 'ignite':
+      noise(c, o, t, 0.7, 400, 3800, 0.16, 0.6);
+      tone(c, o, t, 70, 140, 0.6, 'sawtooth', 0.05);
+      break;
+    case 'milestone':
+      // A one-off bell peal: rising fifths over a low gong.
+      tone(c, o, t, 98, 92, 2.2, 'sine', 0.3);
+      [523.3, 784, 1174.7, 1568, 2349.3].forEach((f, i) => marimba(c, e, t + 0.1 + i * 0.11, f, 0.18, i === 4 ? 1.8 : 0.6));
+      [1568, 2349.3].forEach((f) => marimba(c, e, t + 0.75, f, 0.12, 1.6));
+      break;
+    case 'fanfare':
+      // New personal best: a brass-ish triad call, then the resolution.
+      [[392, 0], [523.3, 0.14], [659.3, 0.28], [784, 0.42]].forEach(([f, d]) => {
+        tone(c, o, t + d, f, f, 0.22, 'sawtooth', 0.05);
+        marimba(c, e, t + d, f, 0.16, 0.5);
+      });
+      [523.3, 659.3, 784, 1046.5].forEach((f) => {
+        tone(c, o, t + 0.62, f, f, 0.9, 'sawtooth', 0.035);
+        marimba(c, e, t + 0.62, f, 0.18, 1.4);
+      });
       break;
     case 'door':
       // Stone door grinding open, then a thud.

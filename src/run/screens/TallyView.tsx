@@ -1,100 +1,155 @@
-// Score tally after a room: chips count up, relics add (+) and multiply (×) the mult, the score
-// slams in, then the score turns into gold (the blind stamp when the chip target was beaten).
+// Score tally after a room: the room-end triggers play on the live Chips and Mult boxes, the boxes
+// collide and the score slams in, the blind bar fills (stamp, fire), then gold coins rain into the
+// gold counter, the material burst flies into the pouch and the next-purchase bar advances.
 // When the room gives a free pick, its cards slide up underneath — one screen, not two.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, rivalRule } from '../content';
 import { cardSlots, goldParts, heatRules, fmtCp, fmtBig } from '../rules';
 import { RunBoard } from '../pixel/RunBoard';
 import { techById } from '../codex';
-import { EMBER } from '../pixel/pixelize';
 import type { BattlefieldResult } from '../types';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
 import type { ConsumableId, Fire, RelicId } from '../types';
 import { sfx, buzz } from '../sfx';
-import { MaterialRow, NextPurchaseBar, PixelNum, TarotCard } from './bits';
-import { nextPurchase, addMaterials, EMPTY_ORDER } from '../order';
-import { useMeta } from '../meta';
-import { PixelPortrait, Sprite } from '../pixel/sprites';
-import { CoinRain } from './scenes';
+import { MaterialIcon, MaterialRow, NextPurchaseBar, PixelNum, TarotCard } from './bits';
+import { nextPurchase, addMaterials, EMPTY_ORDER, MATERIAL_INFO } from '../order';
+import { MILESTONES, milestoneSeals, useMeta } from '../meta';
+import { Sprite } from '../pixel/sprites';
+import { endChain, fireIntensity, slamShake } from '../crunch';
+import { reducedMotion } from '../settings';
+import { BlindBar, ScoreBoxes, ScoreFire, Sparks, Stream, useChainPlayer, usePace } from './Crunch';
 
-export function TallyView({ onShake }: { onShake: () => void }) {
+export function TallyView({ onShake }: { onShake: (px?: number) => void }) {
   const s = useRun();
   const run = s.run!;
   const res = run.results[run.results.length - 1];
   const offer = run.offer;
   const name = (f: Fire) => (f.relic === 'rival' ? rivalRule(run).name : f.relic === 'fervor' ? 'Fervor' : f.relic === 'tech' ? techById(f.tech!).name : RELICS[f.relic].name);
-  const icon = (f: Fire) =>
-    f.relic === 'rival' ? <PixelPortrait id={run.bossId} size={28} px={24} boss /> : f.relic === 'fervor' ? <Sprite name="flame" size={28} px={14} pal={EMBER} /> : <Sprite name={f.relic === 'tech' ? techById(f.tech!).glyph : RELICS[f.relic].glyph} size={28} px={14} pal={f.relic === 'tech' ? EMBER : undefined} />;
-  // Adds first, then multipliers, then Fervor last — the same order the score uses.
   const fervorIn = res.fervorIn ?? 1;
-  const multFires: Fire[] = [...res.fires.filter((f) => f.mult), ...res.fires.filter((f) => f.xmult), ...(fervorIn > 1 ? [{ relic: 'fervor' as const, xmult: fervorIn, at: -1 }] : [])];
-  const chipFires = res.fires.reduce((a, f) => a + (f.chips ?? 0), 0);
-  const otherFires = res.fires.filter((f) => !f.mult && !f.xmult && !f.chips);
-  const baseMult = T.score.baseMult + (res.modifier === 'focused' ? T.modifiers.focused.mult : 0);
+  const otherFires = res.fires.filter((f) => !f.mult && !f.xmult && !f.chips && !f.gold);
   const blind = res.won && res.target > 0 && res.score >= res.target;
   const parts = goldParts(res.score, blind, !!res.clean);
   const gilded = res.won && res.modifier === 'gilded';
   const meta = useMeta();
-  const np = nextPurchase(meta.order ?? EMPTY_ORDER, addMaterials(meta.materials ?? {}, run.materials ?? {}));
-  // Stages: 0 = chips counting, 1..n = mult fires, n+1 = score, n+2 = gold, n+3 = cards.
-  const [stage, setStage] = useState(0);
-  const [chips, setChips] = useState(0);
-  const [mult, setMult] = useState(baseMult);
-  const [flash, setFlash] = useState<Fire | null>(null);
+  const order = meta.order ?? EMPTY_ORDER;
+  const haveNow = addMaterials(meta.materials ?? {}, run.materials ?? {});
+  const burst = res.material?.burst ?? 0;
+  const haveBefore = res.material && burst > 0 ? addMaterials(haveNow, { [res.material.id]: -burst }) : haveNow;
+  const npBefore = nextPurchase(order, haveBefore);
+  const npAfter = nextPurchase(order, haveNow);
+  const goldGain = res.gold + (res.mintGold ?? 0);
+  const goldBefore = run.gold - goldGain - (res.battlefield?.gold ?? 0);
+  const matId = res.material?.id;
+  const matBefore = matId ? Math.floor(haveBefore[matId] ?? 0) : 0;
+  const fire = fireIntensity(res.score, res.target);
+  const milestones = MILESTONES.filter((x) => x.id.startsWith('room-') && (res.milestones ?? []).includes(x.id));
+
+  const chain = useMemo(() => endChain(res), [res]);
+  const pace = usePace();
+  const player = useChainPlayer(chain.from, pace, { onShake });
+  const scoreRef = useRef<HTMLDivElement>(null);
+  const goldRef = useRef<HTMLSpanElement>(null);
+  const pouchRef = useRef<HTMLSpanElement>(null);
+  // Steps: chain → collide → score → bar → gold → material → next purchase → milestone → done.
+  const STEPS = ['chain', 'collide', 'score', 'bar', 'gold', 'mat', 'np', 'milestone', 'done'] as const;
+  const [step, setStep] = useState<(typeof STEPS)[number]>('chain');
+  const at = (x: (typeof STEPS)[number]) => STEPS.indexOf(step) >= STEPS.indexOf(x);
+  const [barScore, setBarScore] = useState(0);
+  const [goldShown, setGoldShown] = useState(goldBefore);
+  const [matShown, setMatShown] = useState(matBefore);
+  const [streams, setStreams] = useState<{ gold?: number; mat?: number }>({});
   const [sel, setSel] = useState<string | null>(null);
-  const skip = useRef(false);
-  const final = multFires.length + 1;
+  const streamDone = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let alive = true;
-    const wait = (ms: number) => new Promise((r) => setTimeout(r, skip.current ? 0 : ms));
+    const R = T.crunch.roomEnd;
+    const C = T.crunch;
+    const go = (x: (typeof STEPS)[number]) => alive && setStep(x);
+    /** Wait for a particle stream (or a skip). */
+    const stream = (key: 'gold' | 'mat', n: number, ms: number) => {
+      if (pace.ctl.current.instant || n <= 0) return Promise.resolve();
+      return new Promise<void>((done) => {
+        streamDone.current = done;
+        setStreams((x) => ({ ...x, [key]: n }));
+        void pace.wait(ms * 4).then(done);
+      });
+    };
     void (async () => {
-      const steps = 18;
-      for (let i = 1; i <= steps && alive; i++) {
-        setChips(Math.round((res.chips * i) / steps));
-        if (!skip.current && i % 2 === 0) sfx('chip', i);
-        await wait(45);
-      }
-      await wait(250);
-      let m = baseMult;
-      for (let i = 0; i < multFires.length && alive; i++) {
-        const f = multFires[i];
-        m = Math.round((f.xmult ? m * f.xmult : m + (f.mult ?? 0)) * 100) / 100;
-        setFlash(f);
-        setMult(m);
-        setStage(i + 1);
-        if (!skip.current) {
-          sfx('relic', i);
-          buzz(f.xmult ? [20, 30, 20] : 12);
-        }
-        await wait(f.xmult ? 600 : 380);
-      }
-      setFlash(null);
+      await player.play(chain);
       if (!alive) return;
-      setMult(res.mult);
-      setStage(final);
-      sfx('slam');
-      buzz([30, 20, 90]);
-      onShake();
-      await wait(550);
+      pace.begin();
+      // The boxes slide together and collide; the product slams in.
+      go('collide');
+      await pace.wait(R.slideMs);
       if (!alive) return;
-      setStage(final + 1);
-      if (res.gold > 0) sfx('coin');
-      await wait(650);
-      if (alive) setStage(final + 2);
+      go('score');
+      const px = slamShake(res.score);
+      sfx('collide', px);
+      buzz(Math.round(C.haptic.slam * px));
+      if (!reducedMotion()) onShake(px);
+      await pace.wait(420);
+      // The blind bar fills (and overflows).
+      go('bar');
+      requestAnimationFrame(() => alive && setBarScore(res.score));
+      await pace.wait(R.barMs);
+      if (blind) sfx('stamp');
+      if (fire > 0) sfx('ignite');
+      await pace.wait(blind ? 300 : 120);
+      // Gold coins rain into the gold counter.
+      go('gold');
+      if (goldGain > 0) await stream('gold', Math.min(R.coinMax, goldGain), 520 + Math.min(R.coinMax, goldGain) * R.coinStaggerMs);
+      setGoldShown(goldBefore + goldGain);
+      // The material burst flies into the pouch.
+      go('mat');
+      if (burst > 0) await stream('mat', Math.min(R.matMax, Math.ceil(burst)), 520 + Math.min(R.matMax, Math.ceil(burst)) * R.coinStaggerMs);
+      if (matId) setMatShown(Math.floor(haveNow[matId] ?? 0));
+      // The next purchase bar advances.
+      go('np');
+      if (npAfter?.ready && !npBefore?.ready) sfx('ready');
+      await pace.wait(npAfter ? 500 : 0);
+      if (milestones.length) {
+        go('milestone');
+        sfx('milestone');
+        buzz([40, 40, 80]);
+        await pace.wait(1100);
+      }
+      pace.end();
+      go('done');
     })();
     return () => {
       alive = false;
+      pace.finish();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const full = offer?.type === 'consumable' && run.consumables.length >= cardSlots(run);
-  const done = stage > final + 1;
+  const done = step === 'done';
+  const slide = at('collide') && !at('score') ? 1 : 0;
   return (
-    <div className="flex h-full flex-col items-center px-4 pt-5 pb-5 text-center" onClick={() => (skip.current = true)}>
-      <div className="run-label">
+    <div className="flex h-full flex-col items-center overflow-y-auto px-4 pt-4 pb-5 text-center">
+      {/* Counters the rewards fly into */}
+      <div className="flex w-full items-center justify-between">
+        <span ref={pouchRef} className="flex items-center gap-1">
+          {matId && (
+            <>
+              <MaterialIcon id={matId} size={16} />
+              <span key={matShown} className={`run-sans text-sm font-black tabular-nums ${matShown !== matBefore ? 'run-punch' : ''}`} style={{ color: MATERIAL_INFO[matId].color }}>
+                {matShown}
+              </span>
+            </>
+          )}
+        </span>
+        <span ref={goldRef} className="flex items-center gap-1">
+          <Sprite name="coin" size={18} px={10} stroke={5} />
+          <span key={goldShown} className={goldShown !== goldBefore ? 'run-punch' : ''}>
+            <PixelNum value={goldShown} size={3} />
+          </span>
+        </span>
+      </div>
+      <div className="run-label mt-1">
         {res.won ? 'Room cleared' : 'Room failed'} · {res.kind === 'boss' ? rivalRule(run).name : MODIFIERS[res.modifier].name}
         {res.elite ? ' · Elite' : ''}
       </div>
@@ -104,64 +159,57 @@ export function TallyView({ onShake }: { onShake: () => void }) {
         <div className="run-sans text-xs font-bold text-[var(--gold-2)]">Final eval {fmtCp(res.evalEnd)}</div>
       )}
 
-      <div className="mt-4 flex items-center gap-3">
-        <div className="run-panel flex min-w-26 flex-col items-center gap-0.5 px-3 py-2" style={{ boxShadow: '0 0 30px rgba(79,179,255,.25)' }}>
-          <span className="run-label text-[var(--chip)]!">Chips</span>
-          <PixelNum value={chips} big minChars={5} size={4.5} color="var(--chip)" />
-          {chipFires > 0 && <span className="run-sans text-[10px] text-[var(--ink-dim)]">incl. +{chipFires} Siege Engine</span>}
-        </div>
-        <PixelNum value="×" size={3.5} color="var(--ink-dim)" glow={false} />
-        <div key={stage} className={`run-panel flex min-w-22 flex-col items-center gap-0.5 px-3 py-2 ${stage > 0 && stage < final ? 'run-pulse' : ''}`} style={{ boxShadow: '0 0 30px rgba(255,93,108,.25)' }}>
-          <span className="run-label text-[var(--mult)]!">Mult</span>
-          <PixelNum value={mult} size={4.5} color="var(--mult)" />
-        </div>
-      </div>
-
-      <div className="mt-2 flex h-10 items-center justify-center">
-        {flash && (
-          <div key={stage} className={`run-slam flex items-center gap-2 rounded-xl px-3 py-1 ring-1 ${flash.xmult ? 'bg-[var(--mult)]/25 ring-[var(--mult)]' : 'bg-black/40 ring-[var(--gold-dim)]'}`}>
-            {icon(flash)}
-            <span className="run-title font-bold">{name(flash)}</span>
-            {flash.xmult ? (
-              <span className="run-title text-xl font-black text-white" style={{ textShadow: '0 0 12px var(--mult)' }}>
-                ×{flash.xmult}
-              </span>
-            ) : (
-              <span className="run-sans font-black text-[var(--mult)]">+{flash.mult}</span>
-            )}
+      {/* Chips × Mult, then they collide into the score */}
+      <div className="relative mt-4 flex h-24 w-full items-center justify-center">
+        {!at('score') ? (
+          <ScoreBoxes p={player} size={4} slide={slide} />
+        ) : (
+          <div ref={scoreRef} className="relative flex flex-col items-center">
+            <Sparks colors={['#4fb3ff', '#ff5d6c', '#fff6c8', '#e040fb']} />
+            {at('bar') && <ScoreFire intensity={fire} />}
+            <span className="run-label relative z-10">Score</span>
+            <div className="run-slam relative z-10">
+              <PixelNum value={res.score} big size={7} color={fire >= 3 ? '#ffd0f4' : fire > 0 ? '#fff0c0' : undefined} />
+            </div>
+            <span className="run-sans relative z-10 text-[10px] text-[var(--ink-dim)]">
+              {fmtBig(res.chips)} chips × {res.mult} mult
+            </span>
           </div>
         )}
       </div>
 
-      <div className="h-16">
-        {stage >= final && (
-          <div className="run-slam flex flex-col items-center">
-            <span className="run-label">Score</span>
-            <PixelNum value={res.score} big size={7} />
-            {res.target > 0 && (
-              <span className={`run-sans text-[11px] font-bold ${res.score >= res.target ? 'text-[#5ee59a]' : 'text-[var(--ink-dim)]'}`}>
-                blind {fmtBig(res.target)} {res.score >= res.target ? '✓' : ''}
-              </span>
-            )}
-          </div>
+      <div className="relative mt-1 h-9 w-full max-w-xs">
+        {at('bar') && res.target > 0 && <BlindBar score={barScore} target={res.target} animate />}
+        {at('bar') && blind && (
+          <span className="run-stamp run-sans absolute -top-8 right-0 rotate-[-10deg] px-1.5 py-0.5 text-[11px] font-black text-[#5ee59a] uppercase">
+            Blind beaten ×{T.gold.blindGoldMult}
+          </span>
         )}
       </div>
 
-      {stage > final && (
+      {at('milestone') && milestones.length > 0 && (
+        <div className="run-banner run-slam my-1 w-full py-2">
+          <div className="run-label text-[#f5b8ff]!">Milestone</div>
+          {milestones.map((x) => (
+            <div key={x.id} className="flex items-center justify-center gap-2">
+              <span className="run-title text-xl font-black text-white">{x.name}</span>
+              <span className="run-sans flex items-center gap-1 text-sm font-black" style={{ color: MATERIAL_INFO.seals.color }}>
+                <MaterialIcon id="seals" size={14} /> +{milestoneSeals(x)} Seal{milestoneSeals(x) === 1 ? '' : 's'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {at('gold') && (
         <div className="run-fadeup mt-1 flex flex-col items-center gap-1">
-          {res.won && res.gold > 0 && <CoinRain n={Math.min(res.gold, 20)} />}
-          <div className="relative flex items-center gap-2 text-[var(--gold)]">
+          <div className="flex items-center gap-2 text-[var(--gold)]">
             <Sprite name="coin" size={22} px={10} stroke={5} />
             <span className="run-title text-2xl font-black">+{res.gold} gold</span>
-            {blind && (
-              <span className="run-stamp run-sans absolute -top-3 -right-24 rotate-[-10deg] px-1.5 py-0.5 text-[11px] font-black text-[#5ee59a] uppercase">
-                Blind beaten ×{T.gold.blindGoldMult}
-              </span>
-            )}
           </div>
           {res.won && !res.gamble ? (
             <div className="run-sans text-[11px] text-[var(--ink-dim)]">
-              {T.gold.goldK}·log₂(1 + {fmtBig(res.score)} ÷ {T.gold.goldRate}) = {parts.base}g{blind ? ` · blind ×${T.gold.blindGoldMult}` : ` · blind ${fmtBig(res.target)} missed`}
+              {T.gold.goldK}·log₂(1 + {fmtBig(res.score)} ÷ {T.gold.goldRate}) = {parts.base}g{blind ? ` · blind ×${T.gold.blindGoldMult}` : res.target > 0 ? ` · blind ${fmtBig(res.target)} missed` : ''}
               {res.clean ? ` · clean +${T.gold.cleanBonus}` : ''}
               {gilded ? ` · gilded ×${T.modifiers.gilded.goldMult}` : ''}
             </div>
@@ -170,10 +218,10 @@ export function TallyView({ onShake }: { onShake: () => void }) {
           ) : null}
           {otherFires.map((f, i) => (
             <div key={i} className="run-sans text-xs text-[var(--ink-dim)]">
-              {name(f)}: {f.composure ? `+${f.composure} Composure` : f.gold ? `+${f.gold} gold` : ''}
+              {name(f)}: {f.composure ? `+${f.composure} Composure` : ''}
             </div>
           ))}
-          {(res.material || res.mintGold) && (
+          {at('mat') && (res.material || res.mintGold) && (
             <div className="run-sans flex items-center gap-2 text-xs">
               {res.material && <MaterialRow m={{ [res.material.id]: res.material.amount }} size={18} />}
               {res.material && (
@@ -185,18 +233,25 @@ export function TallyView({ onShake }: { onShake: () => void }) {
               {res.mintGold ? <span className="text-[var(--gold)]">· Mint +{res.mintGold}g</span> : null}
             </div>
           )}
-          {res.fervor !== undefined && res.fervor !== fervorIn && (
+          {at('mat') && res.fervor !== undefined && res.fervor !== fervorIn && (
             <div className="run-sans flex items-center gap-1 text-xs font-bold" style={{ color: res.fervor > fervorIn ? '#ffb454' : 'var(--blood)' }}>
               Fervor {res.fervor > fervorIn ? 'rises' : 'breaks'}: ×{fervorIn} → ×{res.fervor}
             </div>
           )}
-          {stage > final && <NextPurchaseBar np={np} className="mt-1 max-w-xs" />}
-          {res.battlefield && <BattlefieldReveal b={res.battlefield} />}
+          {at('mat') && <NextPurchaseBar np={at('np') ? npAfter : npBefore} className="mt-1 max-w-xs" />}
+          {done && res.battlefield && <BattlefieldReveal b={res.battlefield} />}
           {!res.won && res.kind !== 'boss' && res.composureLost > 0 && (
             <div className="run-sans text-xs text-[var(--blood)]">−{res.composureLost} Composure in this room</div>
           )}
         </div>
       )}
+
+      {streams.gold ? (
+        <Stream from={scoreRef} to={goldRef} n={streams.gold} color="#f2c75c" round onLand={(i) => (setGoldShown(goldBefore + Math.round((goldGain * (i + 1)) / streams.gold!)), sfx('coin'), buzz(T.crunch.haptic.chip))} onDone={() => (setStreams((x) => ({ ...x, gold: 0 })), streamDone.current?.())} />
+      ) : null}
+      {streams.mat && matId ? (
+        <Stream from={scoreRef} to={pouchRef} n={streams.mat} color={MATERIAL_INFO[matId].color} onLand={(i) => (setMatShown(matBefore + Math.floor((burst * (i + 1)) / streams.mat!)), sfx('drip', i))} onDone={() => (setStreams((x) => ({ ...x, mat: 0 })), streamDone.current?.())} />
+      ) : null}
 
       {done && offer && (
         <div className="run-fadeup mt-3 w-full">
@@ -236,7 +291,7 @@ export function TallyView({ onShake }: { onShake: () => void }) {
           </>
         ) : (
           <button className="run-btn w-full" disabled={!done} onClick={() => s.afterTally()}>
-            {res.kind === 'boss' ? 'Debrief' : 'Continue'}
+            {done ? (res.kind === 'boss' ? 'Debrief' : 'Continue') : 'Tap: faster · hold: skip'}
           </button>
         )}
       </div>

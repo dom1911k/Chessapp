@@ -27,6 +27,7 @@ import { Composure, MaterialRow, PixelNum, TarotCard } from './bits';
 import { Debrief } from './Debrief';
 import { DevPanel } from './DevPanel';
 import { RoomView } from './RoomView';
+import { Finale } from './Finale';
 import { Fire, Transition, Tutorial, tutorialSeen } from './scenes';
 import { TallyView } from './TallyView';
 import { useLongPress } from './useLongPress';
@@ -73,18 +74,20 @@ export function RunScreen() {
   const openDev = () => setDev(true);
   const tools: Tools = { onDev: openDev, onHelp: () => setTut(true), onSettings: () => setSettings(true) };
   // Screen shake without remounting anything.
-  const shake = () => {
+  // `px` = the strongest offset (the old default was 9 px).
+  const shake = (px = 9) => {
     if (rs.reduceMotion || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const k = px / 9;
     shaker.current?.animate(
       [
         { transform: 'translate(0,0)' },
-        { transform: 'translate(-9px,5px) rotate(-0.6deg)' },
-        { transform: 'translate(8px,-6px) rotate(0.5deg)' },
-        { transform: 'translate(-6px,3px)' },
-        { transform: 'translate(5px,-2px)' },
+        { transform: `translate(${-9 * k}px,${5 * k}px) rotate(${-0.6 * k}deg)` },
+        { transform: `translate(${8 * k}px,${-6 * k}px) rotate(${0.5 * k}deg)` },
+        { transform: `translate(${-6 * k}px,${3 * k}px)` },
+        { transform: `translate(${5 * k}px,${-2 * k}px)` },
         { transform: 'translate(0,0)' },
       ],
-      { duration: 450, easing: 'ease-out' },
+      { duration: Math.round(200 + 250 * Math.min(1, k)), easing: 'ease-out' },
     );
   };
 
@@ -97,13 +100,13 @@ export function RunScreen() {
   else if (run.phase === 'start') body = <Pick title="Choose your first relic" tools={tools} />;
   else if (run.phase === 'reward') body = <Pick title={run.offer?.title ?? 'Spoils'} tools={tools} skip />;
   else if (run.phase === 'map') body = <MapView top={<TopBar tools={tools} />} />;
-  else if (inRoom) body = <RoomView onDev={openDev} onSettings={() => setSettings(true)} />;
+  else if (inRoom) body = <RoomView onDev={openDev} onSettings={() => setSettings(true)} onShake={shake} />;
   else if (run.phase === 'event') body = <EventView tools={tools} />;
   else if (run.phase === 'tally') body = <TallyView onShake={shake} />;
   else if (run.phase === 'curse') body = <Curse />;
   else if (run.phase === 'battlefield') body = <Battlefield tools={tools} />;
   else if (run.phase === 'camp') body = <Camp tools={tools} />;
-  else if (run.phase === 'debrief') body = <Debrief onShake={shake} onSanctum={() => setView('sanctum')} />;
+  else if (run.phase === 'debrief') body = !run.finaleSeen && !run.abandoned && run.finalScore !== undefined ? <Finale onShake={shake} /> : <Debrief onShake={shake} onSanctum={() => setView('sanctum')} />;
 
   // In a room (and its tally/debrief) the run takes the whole screen, over the tab bar.
   const full = view === 'main' && (inRoom || run?.phase === 'tally' || run?.phase === 'debrief');

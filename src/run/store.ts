@@ -28,6 +28,7 @@ import {
 } from './rules';
 import { useRunSettings } from './settings';
 import { sfx, buzz } from './sfx';
+import { fakeChain, moveChain, scoreMilestones, type Chain } from './crunch';
 import { ROOM_NAME, rivalRule } from './content';
 import { lockedCards, lockedDrills, lockedEvents, lockedRelics, lockedRooms, perks, runSeals, useMeta } from './meta';
 import { addMaterials, dripRate, mintGold, moveDrip, nextPurchase, roomYield, runMaterialBonus, roomMaterial, type Material } from './order';
@@ -89,7 +90,9 @@ export type FxEvent =
   | { id: number; kind: 'ready'; label: string }
   | { id: number; kind: 'hit'; amount: number; insured?: boolean }
   | { id: number; kind: 'consumable'; item: ConsumableId }
-  | { id: number; kind: 'move'; cls: Classification; san: string };
+  | { id: number; kind: 'move'; cls: Classification; san: string }
+  /** The scoring chain of a move (quiet = an unsound move: the counters just update). */
+  | { id: number; kind: 'score'; chain: Chain; sq: string; quiet?: boolean; fake?: boolean };
 
 interface RunStore {
   run: Run | null;
@@ -151,7 +154,11 @@ interface RunStore {
     relic(id: RelicId): void;
     consumable(id: ConsumableId): void;
     composure(n: number): void;
+    /** Fire a fake 12-trigger scoring chain (×mult in the middle). */
+    fakeChain(): void;
   };
+  /** The run finale has been shown (the debrief follows). */
+  seeFinale(): void;
 }
 
 let token = 0;
@@ -458,13 +465,8 @@ export const useRun = create<RunStore>((set, get) => {
       if (np?.ready && !readyBefore) setTimeout(() => (fire({ kind: 'ready', label: np.label }), sfx('ready')), 500);
     }
     techs.forEach((id) => useMeta.getState().useTechnique(id));
-    techFires.forEach((f, i) =>
-      setTimeout(() => {
-        fire({ kind: 'technique', tech: f.tech, label: `×${f.xmult}` });
-        sfx('technique');
-        buzz([20, 30, 40]);
-      }, 150 + i * 700),
-    );
+    // The scoring chain: every trigger of this move, one beat at a time (the room view plays it).
+    fire({ kind: 'score', chain: moveChain(rm, room()), sq: m.uci.slice(2, 4), quiet: !sound(m.cls) });
     fire({ kind: 'move', cls: m.cls, san: m.san });
     if (lost > 0) {
       fire({ kind: 'hit', amount: lost });
@@ -476,13 +478,6 @@ export const useRun = create<RunStore>((set, get) => {
       sfx('card');
     }
     if (wind) setTimeout(() => (fire({ kind: 'relic', relic: 'secondwind', label: 'saved!' }), sfx('relic')), 200);
-    fires.forEach((f, i) =>
-      setTimeout(() => {
-        fire({ kind: 'relic', relic: f.relic, label: f.xmult ? `×${f.xmult}` : f.mult ? `+${f.mult}` : f.chips ? `+${f.chips} chips` : f.gold ? `+${f.gold}g` : '' });
-        sfx('relic', i);
-        buzz(15);
-      }, 250 + i * 260),
-    );
     if (run().composure <= 0) decide('failed', 'Too many costly moves.');
   };
 
@@ -583,8 +578,6 @@ export const useRun = create<RunStore>((set, get) => {
         }
       });
       if (bound) setTimeout(() => (fire({ kind: 'relic', relic: 'bookbinder', label: '+card' }), sfx('relic')), 250);
-      sfx('chip', 12);
-      buzz(20);
       const q = room().puzzle!;
       if (q.solved >= q.need) return decide('won', `Solved ${q.solved} of ${q.solved + q.failed}.`);
       return advancePuzzle(t);
@@ -689,6 +682,8 @@ export const useRun = create<RunStore>((set, get) => {
     if (won && r.results.every((x) => x.composureLost === 0)) ids.push('untouched');
     earn(r, ids);
     r.seals = runSeals(r);
+    // For the finale: was this a new personal best?
+    r.prevBest = useMeta.getState().best ?? 0;
     // Run-end bonus: sqrt of the run total, split like the materials you earned.
     r.materialBonus = runMaterialBonus(r.finalScore ?? 0, r.materials ?? {});
     r.materials = addMaterials(r.materials ?? {}, r.materialBonus);
@@ -703,11 +698,13 @@ export const useRun = create<RunStore>((set, get) => {
   };
 
   /** Award milestones (once ever) and remember them on the run for the debrief. */
-  const earn = (r: Run, ids: string[]) => {
+  const earn = (r: Run, ids: string[]): string[] => {
     const fresh = useMeta.getState().award(ids);
-    if (!fresh.length) return;
+    if (!fresh.length) return [];
     r.milestones = [...(r.milestones ?? []), ...fresh.map((x) => x.id)];
-    setTimeout(() => sfx('relic', 3), 300);
+    // Score milestones get their own banner and sound in the tally.
+    if (fresh.some((x) => !x.id.startsWith('room-'))) setTimeout(() => sfx('relic', 3), 300);
+    return fresh.map((x) => x.id);
   };
 
   const spend = (x: Run, n: number) => {
@@ -1257,7 +1254,10 @@ export const useRun = create<RunStore>((set, get) => {
         if (won && R.node.kind === 'ward' && R.puzzle && R.puzzle.solved >= R.puzzle.count) ids.push('perfect-ward');
         if (won && R.node.elite) ids.push('elite');
         if (r.relics.length >= 5) ids.push('collector');
-        earn(r, ids);
+        // The first room above 10k, 100k and 1M (once ever).
+        if (won) ids.push(...scoreMilestones(sc.score));
+        const fresh = earn(r, ids);
+        if (fresh.length) r.results[r.results.length - 1].milestones = fresh;
         // Codex: in a failed room, positions where an equipped technique was the best move go to your reviews.
         if (!won && r.techniques?.length)
           for (const m of R.moves) {
@@ -1544,7 +1544,13 @@ export const useRun = create<RunStore>((set, get) => {
       relic: (id) => patch((r) => addRelic(r, id)),
       consumable: (id) => patch((r) => void r.consumables.push(id)),
       composure: (n) => patch((r) => void (r.composure = Math.max(0, Math.min(maxComposure(r), n)))),
+      fakeChain() {
+        const rm = get().run?.room;
+        const sc = rm ? roomScore(rm) : { chips: 0, mult: 1 };
+        fire({ kind: 'score', chain: fakeChain(sc.chips, sc.mult), sq: rm?.plies.filter((p) => p.by === 'me').pop()?.uci.slice(2, 4) ?? 'e4', fake: true });
+      },
     },
+    seeFinale: () => patch((r) => void (r.finaleSeen = true)),
   };
 });
 

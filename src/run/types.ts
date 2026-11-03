@@ -172,6 +172,8 @@ export interface RoomResult {
   /** Fervor after this room, and the one in force during it. */
   fervor?: number;
   fervorIn?: number;
+  /** One-time milestones this room earned (score milestones get a banner in the tally). */
+  milestones?: string[];
   /** The Mint's extra gold. */
   mintGold?: number;
   /** Rival fight: the battlefield choice, revealed in the tally. */
@@ -278,6 +280,10 @@ export interface Run {
   nervesUsed?: boolean;
   /** Milestones earned during this run (ids), for the debrief. */
   milestones?: string[];
+  /** Best total before this run (for the finale's personal-best fanfare). */
+  prevBest?: number;
+  /** The run finale has played (the debrief shows straight away after a reload). */
+  finaleSeen?: boolean;
   /** The free shop reroll (Second Look) has been used at this campfire. */
   rerollUsed?: boolean;
   /** Seals earned at the end (rival win, Heat). */

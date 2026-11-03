@@ -487,4 +487,67 @@ export const TUNING = {
     oppMoveMinDelay: 250,
     puzzleSetupDelay: 450,
   },
+
+  /** Crunch: the feel of live scoring, room ends and the run finale (ms at 1× game speed). */
+  crunch: {
+    /** Each trigger is a beat: the first lasts beatFirst, each next one beatDecay as long, never under beatMin. */
+    beatFirst: 260,
+    beatDecay: 0.85,
+    beatMin: 90,
+    /** Counter scale punch: 1 → punchScale → 1 over punchMs; the value changes on the peak. */
+    punchMs: 120,
+    punchScale: 1.25,
+    /** The source icon jiggles to this scale. */
+    jiggle: 1.3,
+    /** Chips flying off the moved piece into the Chips box. */
+    chipFlyMs: 220,
+    /** ×mult: a freeze before it lands, a small shake. */
+    hitStopMs: 80,
+    xmultShakePx: 3,
+    /** Pitch ladder: semitones per consecutive trigger (reset each move), capped. */
+    semitoneStep: 1,
+    semitoneMax: 14,
+    /** Tap during scoring: this many times faster. Hold this long: finish at once. */
+    tapSpeed: 3,
+    holdMs: 350,
+    /** Game speed setting choices. */
+    speeds: [1, 1.5, 2, 3] as number[],
+    /** Haptics (ms): light for a chip, medium for +mult, heavy for ×mult and slams. */
+    haptic: { chip: 8, mult: 18, xmult: 40, slam: 30 },
+    /** Room end. Shake px = clamp(log10(score) − shakeOffset, shakeMin, shakeMax); slam haptic = slam ms × shake px. */
+    roomEnd: {
+      slideMs: 260,
+      shakeOffset: 1,
+      shakeMin: 1,
+      shakeMax: 4,
+      barMs: 600,
+      /** The score catches fire at this many times the blind; intensity = log2(score / blind), capped. */
+      fireAt: 2,
+      fireMax: 4,
+      coinMax: 14,
+      coinStaggerMs: 70,
+      matMax: 10,
+      particles: 14,
+    },
+    /** The run finale before the debrief. */
+    finale: {
+      slabMs: 70,
+      /** Slabs in a room's column: per power of ten of its score (log scale), capped. */
+      slabsPerDecade: 2,
+      slabMax: 14,
+      countMs: 2200,
+      /** Count-up ticks: the first gap, shrinking by tickDecay each tick down to tickMin. */
+      tickFirst: 140,
+      tickDecay: 0.88,
+      tickMin: 28,
+      streamMax: 30,
+      streamMs: 900,
+    },
+    /** One-time score milestones: the first room above each score pays Seals. */
+    milestones: [
+      { score: 10000, seals: 1 },
+      { score: 100000, seals: 2 },
+      { score: 1000000, seals: 3 },
+    ] as { score: number; seals: number }[],
+  },
 } as const;

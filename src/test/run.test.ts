@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { runSeals } from '../run/meta';
+import { beatMs, beatPitch, chainMs, endChain, fakeChain, finaleTicks, fireIntensity, moveChain, scoreMilestones, slabsFor, slamShake } from '../run/crunch';
 import { pickRival, endFires, isFinalCamp, kingSheltered, passedToSixth, scoreGold, canTakeBack, nextRestCost, stallPrice, cardSlots, playStrength, reachable, recovery, roomCap, roomLoss, buildMap, composureCost, judge, moveFires, roomScore, price, maxConsumables, relicOffer } from '../run/rules';
 import { RELICS } from '../run/content';
 import positions from '../run/data/positions.json';
@@ -855,5 +856,80 @@ describe('stage 3: antes, Fervor, big numbers, sublinear conversion', () => {
     expect(avg).toBeCloseTo(T.order.matK * Math.sqrt(6), 0);
     expect(big / avg).toBeCloseTo(10, 0);
     expect(Object.keys(runMaterialBonus(6000, { iron: 3 }))).toEqual(['iron']);
+  });
+});
+
+describe('crunch: the scoring chain', () => {
+  it('a move plays chips first, then +mult, then ×mult, and lands on the real score', () => {
+    const before = room({ moves: [mv({ accuracy: 80 })], fires: [{ relic: 'clean', mult: 0.5, at: 0 }], fervor: 1.5 });
+    const m = mv({ accuracy: 70 });
+    const after = room({
+      ...before,
+      moves: [...before.moves, m],
+      fires: [...before.fires, { relic: 'tempo', xmult: 2, at: 1 }, { relic: 'hunter', mult: 0.5, at: 1 }, { relic: 'siege', chips: 15, at: 1 }, { relic: 'bloodhound', gold: 1, at: 1 }],
+    });
+    const c = moveChain(before, after);
+    expect(c.beats.map((b) => b.kind)).toEqual(['chips', 'chips', 'mult', 'xmult', 'gold']);
+    expect(c.beats[0].src.relic).toBe('piece');
+    expect(c.beats.map((b) => b.label)).toEqual(['+70', '+15', '+0.5 Mult', '×2 Mult', '+1g']);
+    const a = roomScore(before);
+    const b = roomScore(after);
+    expect(c.from).toEqual({ chips: a.chips, mult: a.mult });
+    expect(c.to).toEqual({ chips: b.chips, mult: b.mult, score: b.score });
+    // Counters only grow along the chain and end on the score's numbers.
+    expect(c.beats[1].chips).toBe(a.chips + 85);
+    expect(c.beats[c.beats.length - 1]).toMatchObject({ chips: b.chips, mult: b.mult });
+  });
+  it('the tally plays only the room-end fires, from the live counters', () => {
+    const r = room({ status: 'won', moves: [mv({ accuracy: 90 })], fires: [{ relic: 'clean', mult: 0.5, at: 0 }, { relic: 'glass', mult: 1, at: -1 }, { relic: 'perfectionist', xmult: 1.5, at: -1 }], fervor: 1.25 });
+    const sc = roomScore(r);
+    const c = endChain({ chips: sc.chips, mult: sc.mult, score: sc.score, fires: r.fires, modifier: 'steady', fervorIn: 1.25 });
+    expect(c.beats.map((b) => b.kind)).toEqual(['mult', 'xmult']);
+    expect(c.from.mult).toBe(Math.round((T.score.baseMult + 0.5) * 1.25 * 100) / 100);
+    expect(c.to.mult).toBe(sc.mult);
+  });
+  it('beats: 260 ms, each 15% shorter, never under 90 ms; game speed divides', () => {
+    expect(beatMs(0)).toBe(T.crunch.beatFirst);
+    expect(beatMs(1)).toBeCloseTo(T.crunch.beatFirst * 0.85);
+    expect(beatMs(30)).toBe(T.crunch.beatMin);
+    expect(beatMs(0, 2)).toBe(T.crunch.beatFirst / 2);
+    expect(beatPitch(3)).toBe(3);
+    expect(beatPitch(99)).toBe(T.crunch.semitoneMax);
+  });
+  it('the fake chain has 12 triggers with the ×mult in the middle', () => {
+    const c = fakeChain(100, 2);
+    expect(c.beats.length).toBe(12);
+    const x = c.beats.findIndex((b) => b.kind === 'xmult');
+    expect(x).toBeGreaterThan(3);
+    expect(x).toBeLessThan(8);
+    // Even a long chain stays short enough to watch at 1×.
+    expect(chainMs(c.beats)).toBeLessThan(2500);
+  });
+  it('room-end shake = clamp(log10(score) − 1, 1, 4) px; fire from 2× the blind', () => {
+    expect(slamShake(50)).toBe(1);
+    expect(slamShake(1000)).toBe(2);
+    expect(slamShake(1e9)).toBe(4);
+    expect(fireIntensity(1500, 1000)).toBe(0);
+    expect(fireIntensity(2000, 1000)).toBe(1);
+    expect(fireIntensity(8000, 1000)).toBe(3);
+    expect(fireIntensity(1e9, 1000)).toBe(T.crunch.roomEnd.fireMax);
+  });
+  it('finale: log-scale slab columns and accelerating ticks', () => {
+    expect(slabsFor(0)).toBe(0);
+    expect(slabsFor(5)).toBe(2);
+    expect(slabsFor(1e5)).toBeGreaterThan(slabsFor(1e3));
+    expect(slabsFor(1e30)).toBe(T.crunch.finale.slabMax);
+    const t = finaleTicks();
+    expect(t[1]).toBeLessThan(t[0]);
+    expect(t[t.length - 1]).toBe(T.crunch.finale.tickMin);
+  });
+  it('score milestones: the first room above 10k, 100k and 1M (they pay Seals once)', () => {
+    expect(scoreMilestones(9999)).toEqual([]);
+    expect(scoreMilestones(150000)).toEqual(['room-10000', 'room-100000']);
+    const ids = MILESTONES.map((x) => x.id);
+    expect(ids).toContain('room-1000000');
+    expect(MILESTONES.find((x) => x.id === 'room-10000')!.name).toBe('10k Room');
+    expect(MILESTONES.find((x) => x.id === 'room-1000000')!.name).toBe('1M Room');
+    expect(milestoneSeals(MILESTONES.find((x) => x.id === 'room-100000')!)).toBe(2);
   });
 });

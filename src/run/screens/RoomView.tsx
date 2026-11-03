@@ -8,7 +8,7 @@ import { useSettings } from '../../lib/settings';
 import type { CoachArrow } from '../../lib/coach/types';
 import type { Classification } from '../../lib/chess/evaluation';
 import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, ROOM_SPRITE, rivalRule, bossModText, NEMESIS_WHY } from '../content';
-import { canTakeBack, chipTarget, fmtCp, gaugeLines, cardSlots, progress, recovery, roomCap, roomLoss, roomScore, takebacksLeft, heatRules, fmtBig } from '../rules';
+import { canTakeBack, chipTarget, fmtCp, gaugeLines, cardSlots, progress, recovery, roomCap, roomLoss, roomScore, takebacksLeft, heatRules } from '../rules';
 import { explainMove } from '../../lib/coach';
 import { arrowOf, bookHint, bossOf, lensMarks, liveEval, useRun } from '../store';
 import { Chess } from 'chess.js';
@@ -20,7 +20,9 @@ import { moveSound, sfx } from '../sfx';
 import { PixelText } from './PixelText';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { BLOOD, EMBER, GOLD } from '../pixel/pixelize';
-import { Composure, FervorFlame, MaterialIcon, PixelNum } from './bits';
+import { Composure, MaterialIcon, PixelNum } from './bits';
+import { BlindBar, CRUNCH_COLOR, ScoreBoxes, useChainPlayer, usePace } from './Crunch';
+import type { Beat } from '../crunch';
 import { MATERIAL_INFO, dripRate, roomMaterial, type Material } from '../order';
 import { reducedMotion } from '../settings';
 import { VsIntro } from './scenes';
@@ -30,12 +32,12 @@ import { techById, techLevel, type TechId } from '../codex';
 
 const CLS_COLOR: Record<Classification, string> = { best: '#5ee59a', good: '#9fd8b5', inaccuracy: '#ffd36b', mistake: '#ffb454', blunder: '#e2475a' };
 
-export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings: () => void }) {
+export function RoomView({ onDev, onSettings, onShake }: { onDev: () => void; onSettings: () => void; onShake?: (px: number) => void }) {
   const s = useRun();
   const run = s.run!;
   const room = run.room!;
   const showCoords = useSettings((x) => x.showCoordinates);
-  const [pulse, setPulse] = useState<Record<string, { id: number; label: string }>>({});
+  const [pulse, setPulse] = useState<Record<string, Pulse>>({});
   const [hit, setHit] = useState<{ id: number; insured?: boolean } | null>(null);
   const [used, setUsed] = useState<{ id: number; item: ConsumableId } | null>(null);
   const [info, setInfo] = useState<{ kind: 'relic'; id: RelicId | 'rival' } | { kind: 'card'; id: ConsumableId; index: number } | null>(null);
@@ -63,6 +65,44 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
   const boss = isBoss ? opponentById(room.oppId) : undefined;
   const mod = isBoss ? rivalRule(run) : undefined;
 
+  // The scoring chain: Chips and Mult boxes under the board, played beat by beat.
+  const live = roomScore(room);
+  const liveRef = useRef(live);
+  liveRef.current = live;
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const relicSet = new Set<string>([...run.relics, ...(isBoss ? ['rival'] : [])]);
+  const pace = usePace();
+  const player = useChainPlayer({ chips: live.chips, mult: live.mult }, pace, {
+    chipsRef,
+    onShake,
+    onBeat: (b) => {
+      const id = popSeq++;
+      if (b.src.relic === 'tech' && b.src.tech) {
+        const tech = b.src.tech;
+        setPulse((p) => ({ ...p, [`tech:${tech}`]: { id, label: '', kind: b.kind, jiggle: true } }));
+        setTechFx({ id, tech, label: b.label.replace(' Mult', '') });
+        setTimeout(() => setTechFx((x) => (x?.id === id ? null : x)), 1100);
+        return true;
+      }
+      if (relicSet.has(b.src.relic)) {
+        setPulse((p) => ({ ...p, [b.src.relic]: { id, label: b.label, kind: b.kind, jiggle: true } }));
+        if (boss) setBossLine(pickLine(boss, 'userGoodMove'));
+        return true;
+      }
+      return false;
+    },
+  });
+  /** Screen centre of a board square (where a move's chips pop off). */
+  const squareCenter = (sq: string) => {
+    const b = boardRef.current?.getBoundingClientRect();
+    if (!b) return null;
+    const f = 'abcdefgh'.indexOf(sq[0]);
+    const r = Number(sq[1]) - 1;
+    const col = room.me === 'w' ? f : 7 - f;
+    const row = room.me === 'w' ? 7 - r : r;
+    return { x: b.left + ((col + 0.5) * b.width) / 8, y: b.top + ((row + 0.5) * b.height) / 8 };
+  };
+
   // React to effects from the store.
   const lastFx = s.fx[s.fx.length - 1];
   // Every new effect since the last render (several can arrive at once: a drip, then the move).
@@ -73,6 +113,11 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
     seenFx.current = fresh[fresh.length - 1].id;
     for (const lastFx of fresh) {
     if (lastFx.kind === 'relic') setPulse((p) => ({ ...p, [lastFx.relic === 'tech' ? `tech:${lastFx.tech}` : lastFx.relic]: { id: lastFx.id, label: lastFx.label } }));
+    if (lastFx.kind === 'score') {
+      const done = player.play(lastFx.chain, { quiet: lastFx.quiet, from: lastFx.quiet ? null : squareCenter(lastFx.sq) });
+      // The dev panel's fake chain: back to the real numbers afterwards.
+      if (lastFx.fake) void done.then(() => setTimeout(() => player.snap(liveRef.current), 600));
+    }
     if (lastFx.kind === 'drip') {
       const b = boardRef.current?.getBoundingClientRect();
       const c = matRef.current?.getBoundingClientRect();
@@ -109,6 +154,11 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
     if (lastFx.kind === 'consumable') setUsed({ id: lastFx.id, item: lastFx.item });
     }
   }, [lastFx]);
+  // Outside a chain (a take-back, a new room), the counters simply follow the score.
+  useEffect(() => {
+    if (!s.fx.some((f) => f.id > seenFx.current)) player.snap({ chips: live.chips, mult: live.mult });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live.chips, live.mult]);
 
   const [techFx, setTechFx] = useState<{ id: number; tech: TechId; label: string } | null>(null);
   // The Order: this room's material, the counter and its flying coins.
@@ -146,7 +196,6 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
   const takeBack = canTakeBack(run);
   const lines = gaugeLines(room, bossOf(run));
 
-  const live = roomScore(room);
   const capReached = room.status === 'playing' && roomLoss(room) >= roomCap(room);
   const viewing = view !== null ? room.moves[view] : null;
   const mat = material(room.fen, room.startFen);
@@ -236,23 +285,7 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
           </div>
         )}
         {/* Score so far (with chip target) + goal */}
-        <div className="mt-2 flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded bg-[var(--chip)]/20 px-2 py-1 ring-1 ring-[var(--chip)]/50">
-            <PixelNum value={live.chips} big size={2.5} color="var(--chip)" />
-          </div>
-          <PixelNum value="×" size={2.5} color="var(--ink-dim)" glow={false} />
-          <div className="flex items-center gap-1 rounded bg-[var(--mult)]/20 px-2 py-1 ring-1 ring-[var(--mult)]/50">
-            <PixelNum value={live.mult} size={2.5} color="var(--mult)" />
-          </div>
-          <FervorFlame value={room.fervor ?? 1} size={0.8} />
-          {target > 0 && (
-            <div className="run-sans flex flex-col text-[9px] leading-tight font-bold">
-              <span className="text-[var(--ink-dim)]">BLIND</span>
-              <span style={{ color: live.score >= target ? '#5ee59a' : 'var(--ink)' }}>
-                {fmtBig(live.score)}/{fmtBig(target)}
-              </span>
-            </div>
-          )}
+        <div className="mt-1 flex items-center gap-2">
           <div className="run-sans ml-auto text-right text-xs leading-tight font-semibold text-[var(--ink-dim)]">
             <div>{progress(room, bossOf(run))}</div>
             {showGauge && (
@@ -281,7 +314,7 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
               const p = pulse[`tech:${id}`];
               return (
                 <span key={id} className={`tech-chip lvl-${lvl} relative flex items-center gap-1 px-1.5 py-0.5`}>
-                  <span key={p?.id} className={`flex items-center gap-1 ${p ? 'run-pulse' : ''}`}>
+                  <span key={p?.id} className={`flex items-center gap-1 ${p ? (p.jiggle ? 'run-jiggle' : 'run-pulse') : ''}`}>
                     <Sprite name={techById(id).glyph} size={16} px={10} pal={EMBER} />
                     <span className="run-sans text-[10px] font-black">{techById(id).name}</span>
                   </span>
@@ -351,6 +384,11 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
         </div>
       </div>
 
+      {/* Live scoring: Chips × Mult (with Fervor) and the blind bar */}
+      <div className="mx-3 mt-1.5 flex items-center gap-2">
+        <ScoreBoxes p={player} chipsRef={chipsRef} fervor={room.fervor ?? 1} />
+        <BlindBar score={Math.round(player.chips * player.mult)} target={target} className="min-w-0 flex-1" />
+      </div>
       {rec && (
         <div className="run-sans run-danger mx-3 mt-1.5 flex items-center gap-2 px-2 py-1 text-xs font-bold text-[#ffd0d6]">
           <Sprite name="skull" size={14} px={10} pal={BLOOD} />
@@ -501,14 +539,17 @@ function SlipNote({ cls, lost, text, best, takeBack, left, onTakeBack, onClose }
   );
 }
 
-function RelicIcon({ id, bossId, pulse, onClick }: { id: RelicId | 'rival'; bossId: string; pulse?: { id: number; label: string }; onClick: () => void }) {
+type Pulse = { id: number; label: string; kind?: Beat['kind']; jiggle?: boolean };
+let popSeq = 1;
+
+function RelicIcon({ id, bossId, pulse, onClick }: { id: RelicId | 'rival'; bossId: string; pulse?: Pulse; onClick: () => void }) {
   return (
     <button className="relative" onClick={onClick} aria-label={id === 'rival' ? 'Rival rule' : RELICS[id].name}>
-      <div key={pulse?.id} className={`flex h-9 w-9 items-center justify-center bg-black/45 ${pulse ? 'run-pulse' : ''}`} style={{ boxShadow: `0 0 0 2px #1b0f22, inset 0 0 0 1px ${id === 'rival' ? 'var(--blood)' : 'var(--gold-dim)'}` }}>
+      <div key={pulse?.id} className={`flex h-9 w-9 items-center justify-center bg-black/45 ${pulse ? (pulse.jiggle ? 'run-jiggle' : 'run-pulse') : ''}`} style={{ boxShadow: `0 0 0 2px #1b0f22, inset 0 0 0 1px ${id === 'rival' ? 'var(--blood)' : 'var(--gold-dim)'}` }}>
         {id === 'rival' ? <PixelPortrait id={bossId} size={30} px={24} boss /> : <Sprite name={RELICS[id].glyph} size={28} px={14} pal={RELICS[id].rarity === 'rare' ? BLOOD : GOLD} />}
       </div>
       {pulse?.label && (
-        <span key={`l${pulse.id}`} className="run-float run-sans pointer-events-none absolute -top-2 left-1/2 z-20 rounded bg-[var(--mult)] px-1 text-[11px] font-black whitespace-nowrap text-white">
+        <span key={`l${pulse.id}`} className="run-float run-sans pointer-events-none absolute -top-2 left-1/2 z-20 rounded px-1 text-[11px] font-black whitespace-nowrap" style={{ background: CRUNCH_COLOR[pulse.kind ?? 'mult'], color: pulse.kind === 'gold' ? '#2a1a00' : '#fff' }}>
           {pulse.label}
         </span>
       )}
