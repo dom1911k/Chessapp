@@ -3,7 +3,7 @@
 // When the room gives a free pick, its cards slide up underneath — one screen, not two.
 import { useEffect, useRef, useState } from 'react';
 import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, rivalRule } from '../content';
-import { cardSlots, goldParts, heatRules, fmtCp } from '../rules';
+import { cardSlots, goldParts, heatRules, fmtCp, fmtBig } from '../rules';
 import { RunBoard } from '../pixel/RunBoard';
 import { techById } from '../codex';
 import { EMBER } from '../pixel/pixelize';
@@ -12,7 +12,9 @@ import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
 import type { ConsumableId, Fire, RelicId } from '../types';
 import { sfx, buzz } from '../sfx';
-import { MaterialRow, PixelNum, TarotCard } from './bits';
+import { MaterialRow, NextPurchaseBar, PixelNum, TarotCard } from './bits';
+import { nextPurchase, addMaterials, EMPTY_ORDER } from '../order';
+import { useMeta } from '../meta';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { CoinRain } from './scenes';
 
@@ -21,16 +23,20 @@ export function TallyView({ onShake }: { onShake: () => void }) {
   const run = s.run!;
   const res = run.results[run.results.length - 1];
   const offer = run.offer;
-  const name = (f: Fire) => (f.relic === 'rival' ? rivalRule(run).name : f.relic === 'tech' ? techById(f.tech!).name : RELICS[f.relic].name);
-  const icon = (f: Fire) => (f.relic === 'rival' ? <PixelPortrait id={run.bossId} size={28} px={24} boss /> : <Sprite name={f.relic === 'tech' ? techById(f.tech!).glyph : RELICS[f.relic].glyph} size={28} px={14} pal={f.relic === 'tech' ? EMBER : undefined} />);
-  // Adds first, then multipliers — the same order the score uses.
-  const multFires = [...res.fires.filter((f) => f.mult), ...res.fires.filter((f) => f.xmult)];
+  const name = (f: Fire) => (f.relic === 'rival' ? rivalRule(run).name : f.relic === 'fervor' ? 'Fervor' : f.relic === 'tech' ? techById(f.tech!).name : RELICS[f.relic].name);
+  const icon = (f: Fire) =>
+    f.relic === 'rival' ? <PixelPortrait id={run.bossId} size={28} px={24} boss /> : f.relic === 'fervor' ? <Sprite name="flame" size={28} px={14} pal={EMBER} /> : <Sprite name={f.relic === 'tech' ? techById(f.tech!).glyph : RELICS[f.relic].glyph} size={28} px={14} pal={f.relic === 'tech' ? EMBER : undefined} />;
+  // Adds first, then multipliers, then Fervor last — the same order the score uses.
+  const fervorIn = res.fervorIn ?? 1;
+  const multFires: Fire[] = [...res.fires.filter((f) => f.mult), ...res.fires.filter((f) => f.xmult), ...(fervorIn > 1 ? [{ relic: 'fervor' as const, xmult: fervorIn, at: -1 }] : [])];
   const chipFires = res.fires.reduce((a, f) => a + (f.chips ?? 0), 0);
   const otherFires = res.fires.filter((f) => !f.mult && !f.xmult && !f.chips);
   const baseMult = T.score.baseMult + (res.modifier === 'focused' ? T.modifiers.focused.mult : 0);
-  const blind = res.won && res.target > 0 && res.chips >= res.target;
+  const blind = res.won && res.target > 0 && res.score >= res.target;
   const parts = goldParts(res.score, blind, !!res.clean);
   const gilded = res.won && res.modifier === 'gilded';
+  const meta = useMeta();
+  const np = nextPurchase(meta.order ?? EMPTY_ORDER, addMaterials(meta.materials ?? {}, run.materials ?? {}));
   // Stages: 0 = chips counting, 1..n = mult fires, n+1 = score, n+2 = gold, n+3 = cards.
   const [stage, setStage] = useState(0);
   const [chips, setChips] = useState(0);
@@ -101,7 +107,7 @@ export function TallyView({ onShake }: { onShake: () => void }) {
       <div className="mt-4 flex items-center gap-3">
         <div className="run-panel flex min-w-26 flex-col items-center gap-0.5 px-3 py-2" style={{ boxShadow: '0 0 30px rgba(79,179,255,.25)' }}>
           <span className="run-label text-[var(--chip)]!">Chips</span>
-          <PixelNum value={chips} size={4.5} color="var(--chip)" />
+          <PixelNum value={chips} big minChars={5} size={4.5} color="var(--chip)" />
           {chipFires > 0 && <span className="run-sans text-[10px] text-[var(--ink-dim)]">incl. +{chipFires} Siege Engine</span>}
         </div>
         <PixelNum value="×" size={3.5} color="var(--ink-dim)" glow={false} />
@@ -131,7 +137,12 @@ export function TallyView({ onShake }: { onShake: () => void }) {
         {stage >= final && (
           <div className="run-slam flex flex-col items-center">
             <span className="run-label">Score</span>
-            <PixelNum value={res.score} size={7} />
+            <PixelNum value={res.score} big size={7} />
+            {res.target > 0 && (
+              <span className={`run-sans text-[11px] font-bold ${res.score >= res.target ? 'text-[#5ee59a]' : 'text-[var(--ink-dim)]'}`}>
+                blind {fmtBig(res.target)} {res.score >= res.target ? '✓' : ''}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -150,9 +161,8 @@ export function TallyView({ onShake }: { onShake: () => void }) {
           </div>
           {res.won && !res.gamble ? (
             <div className="run-sans text-[11px] text-[var(--ink-dim)]">
-              {res.score} ÷ {T.gold.goldRate} = {parts.base}g{blind ? ` · blind ×${T.gold.blindGoldMult}` : ` · blind ${res.target} missed`}
+              {T.gold.goldK}·log₂(1 + {fmtBig(res.score)} ÷ {T.gold.goldRate}) = {parts.base}g{blind ? ` · blind ×${T.gold.blindGoldMult}` : ` · blind ${fmtBig(res.target)} missed`}
               {res.clean ? ` · clean +${T.gold.cleanBonus}` : ''}
-              {parts.capped ? ' · soft cap' : ''}
               {gilded ? ` · gilded ×${T.modifiers.gilded.goldMult}` : ''}
             </div>
           ) : !res.won ? (
@@ -166,10 +176,21 @@ export function TallyView({ onShake }: { onShake: () => void }) {
           {(res.material || res.mintGold) && (
             <div className="run-sans flex items-center gap-2 text-xs">
               {res.material && <MaterialRow m={{ [res.material.id]: res.material.amount }} size={18} />}
-              {res.material && <span className="text-[var(--ink-dim)]">for the Order</span>}
+              {res.material && (
+                <span className="text-[var(--ink-dim)]">
+                  {res.material.drip ? `${Math.round(res.material.drip * 10) / 10} from moves` : ''}
+                  {res.material.burst ? ` + ${Math.round(res.material.burst * 10) / 10} burst` : ''}
+                </span>
+              )}
               {res.mintGold ? <span className="text-[var(--gold)]">· Mint +{res.mintGold}g</span> : null}
             </div>
           )}
+          {res.fervor !== undefined && res.fervor !== fervorIn && (
+            <div className="run-sans flex items-center gap-1 text-xs font-bold" style={{ color: res.fervor > fervorIn ? '#ffb454' : 'var(--blood)' }}>
+              Fervor {res.fervor > fervorIn ? 'rises' : 'breaks'}: ×{fervorIn} → ×{res.fervor}
+            </div>
+          )}
+          {stage > final && <NextPurchaseBar np={np} className="mt-1 max-w-xs" />}
           {res.battlefield && <BattlefieldReveal b={res.battlefield} />}
           {!res.won && res.kind !== 'boss' && res.composureLost > 0 && (
             <div className="run-sans text-xs text-[var(--blood)]">−{res.composureLost} Composure in this room</div>

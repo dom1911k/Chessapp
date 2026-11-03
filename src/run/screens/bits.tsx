@@ -3,7 +3,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { ARCHETYPES, CONSUMABLES, RARITY_COLOR, RELICS, type CardInfo } from '../content';
 import type { ConsumableId, RelicId } from '../types';
-import { MATERIALS, MATERIAL_INFO, type Material, type Materials } from '../order';
+import { MATERIALS, MATERIAL_INFO, purchaseText, type Material, type Materials, type NextPurchase } from '../order';
+import { fmtBig } from '../rules';
 import { Sprite } from '../pixel/sprites';
 import { BLOOD, EMBER, GOLD, SPIRIT, type SpritePalette } from '../pixel/pixelize';
 
@@ -27,12 +28,16 @@ const FONT: Record<string, string[]> = {
   '/': ['001', '001', '010', '100', '100'],
   V: ['101', '101', '101', '010', '010'],
   S: ['111', '100', '111', '001', '111'],
+  k: ['100', '101', '110', '101', '101'],
+  M: ['101', '111', '111', '101', '101'],
+  B: ['110', '101', '110', '101', '110'],
   ' ': ['000', '000', '000', '000', '000'],
 };
 
 /** Chunky pixel numerals (SVG, crisp at any size). `size` = pixel cell in px. */
-export function PixelNum({ value, size = 4, color = 'var(--gold-2)', glow = true, className = '' }: { value: string | number; size?: number; color?: string; glow?: boolean; className?: string }) {
-  const chars = String(value).split('');
+export function PixelNum({ value, size = 4, color = 'var(--gold-2)', glow = true, className = '', minChars = 0, big = false }: { value: string | number; size?: number; color?: string; glow?: boolean; className?: string; /** Reserve this many digit widths (right-aligned) so counting never resizes. */ minChars?: number; /** Format numbers as 12.3k / 1.23M. */ big?: boolean }) {
+  const text = big && typeof value === 'number' ? fmtBig(value) : String(value);
+  const chars = text.padStart(minChars, ' ').split('');
   const w = chars.length * 4 - 1;
   return (
     <svg
@@ -42,7 +47,7 @@ export function PixelNum({ value, size = 4, color = 'var(--gold-2)', glow = true
       shapeRendering="crispEdges"
       className={className}
       style={glow ? { filter: `drop-shadow(0 0 ${size * 1.5}px ${color}) drop-shadow(0 ${size / 2}px 0 rgba(0,0,0,.6))` } : undefined}
-      aria-label={String(value)}
+      aria-label={text}
     >
       {chars.flatMap((ch, i) =>
         (FONT[ch] ?? FONT[' ']).flatMap((row, y) => row.split('').map((b, x) => (b === '1' ? <rect key={`${i}-${x}-${y}`} x={i * 4 + x} y={y} width={1} height={1} fill={color} /> : null))),
@@ -148,5 +153,36 @@ export function MaterialIcon({ id, size = 14 }: { id: Material; size?: number })
       title={MATERIAL_INFO[id].name}
       style={{ width: size * 0.75, height: size * 0.75, background: c, boxShadow: `0 0 0 2px #1b0f22, inset -2px -2px 0 rgba(0,0,0,.35), inset 2px 2px 0 rgba(255,255,255,.35)`, transform: id === 'seals' ? 'rotate(45deg)' : undefined }}
     />
+  );
+}
+
+/** Progress toward the next Order purchase: "Scriptorium II — 14 Ink to go (≈ 5 good moves)". */
+export function NextPurchaseBar({ np, className = '' }: { np: NextPurchase | null; className?: string }) {
+  if (!np) return null;
+  const pct = Math.round(np.progress * 100);
+  return (
+    <div className={`w-full ${className}`}>
+      <div className="run-sans mb-0.5 flex justify-between text-[11px]">
+        <span className="font-bold">{np.ready ? <span className="text-[#5ee59a]">READY · {np.label}</span> : purchaseText(np)}</span>
+        <span className="text-[var(--ink-dim)]">The Order</span>
+      </div>
+      <div className="h-2 w-full bg-black/50" style={{ boxShadow: '0 0 0 2px #1b0f22, inset 0 0 0 1px var(--gold-dim)' }}>
+        <div className={`h-full transition-[width] duration-700 ${np.ready ? 'run-pulse' : ''}`} style={{ width: `${pct}%`, background: np.ready ? '#5ee59a' : 'repeating-linear-gradient(90deg, #e0a93a 0 3px, #c48f2a 3px 4px)' }} />
+      </div>
+    </div>
+  );
+}
+
+/** Fervor as a flame: bigger and hotter the higher it climbs. */
+export function FervorFlame({ value, size = 1 }: { value: number; size?: number }) {
+  if (value <= 1) return null;
+  const heat = Math.min(1, (value - 1) / 3);
+  const color = value >= 3 ? '#ff6bd5' : value >= 2 ? '#ff5a3c' : '#ffb454';
+  const px = Math.round((22 + heat * 18) * size);
+  return (
+    <span className="relative inline-flex items-center" title={`Fervor ×${value}`}>
+      <span className="run-candle-big" style={{ width: px * 0.55, height: px, background: `radial-gradient(ellipse at 50% 75%, #fff6c8 0 18%, ${color} 45%, transparent 72%)`, filter: `drop-shadow(0 0 ${4 + heat * 10}px ${color})` }} />
+      <PixelNum value={`×${value}`} size={Math.max(1.6, 2 * size)} color={color} glow={false} />
+    </span>
   );
 }

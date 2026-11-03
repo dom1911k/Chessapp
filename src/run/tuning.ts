@@ -87,6 +87,12 @@ export const TUNING = {
   /** Eval bar: how soft the curve is (lower = calmer swings). */
   gauge: { softness: 0.7 },
 
+  /**
+   * Fervor: a run-long ×mult on every room (after relics). +fervorStep per room cleared above its
+   * blind; a blunder halves it (never below 1); a failed room resets it to 1.
+   */
+  fervor: { step: 0.25 },
+
   /** Composure = lives. */
   composure: {
     start: 5,
@@ -107,20 +113,21 @@ export const TUNING = {
      * (8 moves, ~85 accuracy, ×1.2, blind beaten) ≈ 9 gold; an excellent one (×2.5) ≈ 17.
      */
     goldRate: 200,
+    /** Gold per cleared room = goldK × log2(1 + score / goldRate) (× blind, + clean): sublinear, so scores can explode. */
+    goldK: 1.7,
     /** Beating the room's chip target (its "blind") multiplies the room's gold. */
     blindGoldMult: 1.5,
     /** Extra for a clean room (no mistake or blunder). */
     cleanBonus: 3,
-    /** Soft cap: gold above `softCap` per room only counts at `overCapRate`. */
-    softCap: 18,
-    overCapRate: 0.35,
   },
 
   /** Score = chips × mult. Chips = per-move accuracy (0..100) summed over the room. */
   score: {
     baseMult: 1,
-    /** Chip target = moves played × this (beat it for bonus gold). */
+    /** The blind (score target) = moves played × this × blindGrowth^row. Beat it with your score (chips × mult). */
     targetPerMove: 80,
+    /** Antes: each map row's blind is this many times the last; the rival's (last row) is the highest. */
+    blindGrowth: 1.4,
     eliteTargetPerMove: 86,
     /** End-of-run bonus chips per Composure left (only when the boss is beaten). */
     composureLeftChips: 50,
@@ -293,17 +300,25 @@ export const TUNING = {
   order: {
     /** Stone per rank-3/4 square reclaimed. */
     reclaimCost: 6,
-    /** Materials for a cleared room: base, + elite, + blind beaten, + clean. Events (Library, Shrine) pay `event`. */
-    roomYield: { base: 3, elite: 2, blind: 1, clean: 1, event: 3 },
+    /** Every sound move drips the room's material at the "rate": dripBase + building bonuses (× Empowerment). */
+    dripBase: 0.5,
+    /** Room-end burst (cleared rooms): + elite, + blind beaten, + clean. Events (Library, Shrine) pay `event`. */
+    roomYield: { base: 0, elite: 2, blind: 1, clean: 1, event: 3 },
+    /** Run-end bonus = matK × sqrt(run total / matRate), split over the materials you earned. */
+    matK: 2.5,
+    matRate: 1000,
     /** Seals: a rival win (+ per Heat level), a Codex technique reaching Adept / Master. */
     seals: { rivalWin: 1, perHeat: 1, techAdept: 1, techMaster: 2 },
     /** Empowerment: +per for each distinct building reaching it, up to max. */
     empower: { per: 0.25, max: 2 },
     /** Building effects by level (1, 2). */
     effects: {
-      inkPerPuzzle: [1, 2] as [number, number],
+      /** Scriptorium: + rate in Ink rooms (per sound move). */
+      inkPerMove: [0.5, 1] as [number, number],
+      /** Watchtower: × rate in Stone rooms. */
       stonePct: [0.25, 0.5] as [number, number],
       ironPerCleanVault: [2, 4] as [number, number],
+      /** Archive: extra Pages on a Duel move that matches the book. */
       pagesPerBook: [1, 2] as [number, number],
       goldPct: [0.15, 0.3] as [number, number],
     },

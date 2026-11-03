@@ -24,13 +24,13 @@ import { REPLACES, techAffinity, techMult, techniquesIn, type TechId } from './c
 import { THEME_SETS } from '../lib/puzzles/themes';
 import {
   buildMap, cardSlots, composureCost, roomCap, roomLoss, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, relicOffer, shopPrice, isFinalCamp, materialOf, pickRival,
-  roomScore, sample, shopOffers, sound, diffOf, judgeBattlefield, heatFor, heatRules, nullMoveFen, stallExtraPrice, closeMoves, plausibleWrong, scenarioOf, scenarioWeight, type Grimoire, nextRestCost, stallPrice, pouchPrice, cleansePrice, rerollPrice, canTakeBack, playStrength, rivalElo, type CostCtx,
+  roomScore, sample, shopOffers, sound, diffOf, fervorAfterBlunder, fervorAfterRoom, judgeBattlefield, heatFor, heatRules, nullMoveFen, stallExtraPrice, closeMoves, plausibleWrong, scenarioOf, scenarioWeight, type Grimoire, nextRestCost, stallPrice, pouchPrice, cleansePrice, rerollPrice, canTakeBack, playStrength, rivalElo, type CostCtx,
 } from './rules';
 import { useRunSettings } from './settings';
 import { sfx, buzz } from './sfx';
 import { ROOM_NAME, rivalRule } from './content';
 import { lockedCards, lockedDrills, lockedEvents, lockedRelics, lockedRooms, perks, runSeals, useMeta } from './meta';
-import { addMaterials, mintGold, roomYield } from './order';
+import { addMaterials, dripRate, mintGold, moveDrip, nextPurchase, roomYield, runMaterialBonus, roomMaterial, type Material } from './order';
 import type { BossMod } from './tuning';
 import type { ConsumableId, EchoPos, Fire, MapNode, PuzzleProgress, RelicId, RoomKind, RoomState, Run, UserMove } from './types';
 
@@ -85,6 +85,8 @@ const NO_AIDS: Aids = { eye: null, cards: null, lens: false, opinion: false, che
 export type FxEvent =
   | { id: number; kind: 'relic'; relic: RelicId | 'rival' | 'tech'; label: string; tech?: TechId }
   | { id: number; kind: 'technique'; tech: TechId; label: string }
+  | { id: number; kind: 'drip'; material: Material; amount: number; sq: string }
+  | { id: number; kind: 'ready'; label: string }
   | { id: number; kind: 'hit'; amount: number; insured?: boolean }
   | { id: number; kind: 'consumable'; item: ConsumableId }
   | { id: number; kind: 'move'; cls: Classification; san: string };
@@ -191,6 +193,15 @@ async function wrongOptions(fens: string[], answer: string[], elo: number): Prom
     /* Maia unavailable: random fallback */
   }
   return plausibleWrong(legal, [...answer, ...close], logits, 2, Math.random);
+}
+
+/** Shown on room entry when an Order upgrade changed this room's drip rate since you last saw it. */
+function rateChangeFor(r: Run, node: MapNode): { from: number; to: number } | undefined {
+  const d = dripRate(r.meta?.order, node.kind as RoomKind);
+  if (!d.material) return undefined;
+  const seen = useMeta.getState().rateSeen?.[d.material];
+  useMeta.getState().seeRate(d.material, d.rate);
+  return seen !== undefined && Math.abs(seen - d.rate) > 1e-6 ? { from: seen, to: d.rate } : undefined;
 }
 
 /** The rival's rule, when the current room is the boss. */
@@ -407,6 +418,10 @@ export const useRun = create<RunStore>((set, get) => {
     const techs = sound(m.cls) && m.fenBefore && run().techniques?.length ? techniquesIn(run().techniques!, m.fenBefore, m.uci, { kind: rm.node.kind as RoomKind, goal: rm.node.goal }) : [];
     const codex = useMeta.getState().codex ?? {};
     const techFires: Fire[] = techs.map((id) => ({ relic: 'tech', tech: id, xmult: techMult(codex[id]?.uses), at: rm.moves.length }));
+    // The Order: a sound move drips the room's material (a wrong puzzle move never does).
+    const mat = rm.gamble ? null : roomMaterial(rm.node.kind as RoomKind);
+    const drip = mat && sound(m.cls) && m.correct !== false ? moveDrip(run().meta?.order, rm.node.kind as RoomKind, { bookMove: rm.node.kind === 'duel' && bookMove(rm) === m.uci }) : 0;
+    const readyBefore = drip ? nextPurchase(useMeta.getState().order ?? { reclaimed: [], buildings: {} }, addMaterials(useMeta.getState().materials ?? {}, run().materials ?? {}))?.ready : true;
     patch((r) => {
       const R = r.room!;
       if (insured) {
@@ -427,7 +442,21 @@ export const useRun = create<RunStore>((set, get) => {
       }
       R.moves.push(m);
       R.fires.push(...fires, ...techFires);
+      if (drip && mat) {
+        r.materials = addMaterials(r.materials ?? {}, { [mat]: drip });
+        R.dripped = Math.round(((R.dripped ?? 0) + drip) * 100) / 100;
+      }
+      // Fervor: a blunder halves it (this room too).
+      if (m.cls === 'blunder' && (r.fervor ?? 1) > 1) {
+        r.fervor = fervorAfterBlunder(r.fervor ?? 1);
+        R.fervor = r.fervor;
+      }
     });
+    if (drip && mat) {
+      fire({ kind: 'drip', material: mat, amount: drip, sq: m.uci.slice(2, 4) });
+      const np = nextPurchase(useMeta.getState().order ?? { reclaimed: [], buildings: {} }, addMaterials(useMeta.getState().materials ?? {}, run().materials ?? {}));
+      if (np?.ready && !readyBefore) setTimeout(() => (fire({ kind: 'ready', label: np.label }), sfx('ready')), 500);
+    }
     techs.forEach((id) => useMeta.getState().useTechnique(id));
     techFires.forEach((f, i) =>
       setTimeout(() => {
@@ -660,6 +689,9 @@ export const useRun = create<RunStore>((set, get) => {
     if (won && r.results.every((x) => x.composureLost === 0)) ids.push('untouched');
     earn(r, ids);
     r.seals = runSeals(r);
+    // Run-end bonus: sqrt of the run total, split like the materials you earned.
+    r.materialBonus = runMaterialBonus(r.finalScore ?? 0, r.materials ?? {});
+    r.materials = addMaterials(r.materials ?? {}, r.materialBonus);
     useMeta.getState().finish(r);
     const snap = clone(r);
     // The one write into the main app: the top moments become review cards.
@@ -691,7 +723,7 @@ export const useRun = create<RunStore>((set, get) => {
 
   const puzzleRoom = (r: Run, node: MapNode, list: PuzzleProgress['list'], count: number, need: number, extra: Partial<RoomState> = {}): RoomState => ({
     layer: r.layer, node, me: 'w', startFen: list[0].fen, fen: list[0].fen, plies: [], moves: [], fires: [], startEval: 0,
-    elo: roomElo(r), opp: 'maia', status: 'playing', diff: r.difficulty, puzzle: { list, index: 0, step: 0, solved: 0, failed: 0, lost: false, count, need }, ...extra,
+    elo: roomElo(r), opp: 'maia', status: 'playing', diff: r.difficulty, fervor: r.fervor ?? 1, rateChange: rateChangeFor(r, node), puzzle: { list, index: 0, step: 0, solved: 0, failed: 0, lost: false, count, need }, ...extra,
   });
 
   const startPuzzleRoom = (t: number, rm: RoomState, used: string[]) => {
@@ -935,7 +967,7 @@ export const useRun = create<RunStore>((set, get) => {
         const boss = node.kind === 'boss' ? opponentById(r.bossId) : undefined;
         const rm: RoomState = {
           layer: r.layer, node, me: new Chess(fen).turn(), startFen: fen, fen, plies: [], moves: [], fires: [], startEval: ev,
-          elo: boss ? rivalElo(r) : roomElo(r, node.elite), oppId: boss?.id, opp: 'maia', status: 'playing', diff: r.difficulty, heat: r.heat, ...extra,
+          elo: boss ? rivalElo(r) : roomElo(r, node.elite), oppId: boss?.id, opp: 'maia', status: 'playing', diff: r.difficulty, heat: r.heat, fervor: r.fervor ?? 1, rateChange: rateChangeFor(r, node), ...extra,
         };
         patch((x) => {
           x.room = rm;
@@ -1195,20 +1227,26 @@ export const useRun = create<RunStore>((set, get) => {
         r.gold += sc.gold + mint;
         r.goldEarned = (r.goldEarned ?? 0) + sc.gold + mint;
         // The Order: a cleared room pays its material.
-        let mat: { id: import('./order').Material; amount: number } | undefined;
-        if (R.status === 'won' && !R.gamble) {
-          const y = roomYield(r.meta?.order, { kind: R.node.kind as RoomKind, elite: R.node.elite, beatBlind: sc.beatTarget, clean: sc.clean, solved: R.puzzle?.solved, bookMatched: R.bookMatched });
-          if (y.material && y.amount > 0) {
-            mat = { id: y.material, amount: y.amount };
-            r.materials = addMaterials(r.materials ?? {}, { [y.material]: y.amount });
-          }
+        // The drip already landed move by move; a cleared room adds its burst (elite, blind, clean).
+        let mat: { id: Material; amount: number; drip?: number; burst?: number } | undefined;
+        const kindMat = R.gamble ? null : roomMaterial(R.node.kind as RoomKind);
+        if (kindMat) {
+          const y = R.status === 'won' ? roomYield(r.meta?.order, { kind: R.node.kind as RoomKind, elite: R.node.elite, beatBlind: sc.beatTarget, clean: sc.clean }) : { amount: 0 };
+          if (y.amount > 0) r.materials = addMaterials(r.materials ?? {}, { [kindMat]: y.amount });
+          const total = Math.round(((R.dripped ?? 0) + y.amount) * 100) / 100;
+          if (total > 0) mat = { id: kindMat, amount: total, drip: R.dripped ?? 0, burst: y.amount };
+        }
+        // Fervor: +step for a room cleared above its blind; a failed room resets it.
+        if (!R.gamble) {
+          r.fervor = fervorAfterRoom(r.fervor ?? 1, R.status === 'won', sc.beatTarget);
+          r.fervorPeak = Math.max(r.fervorPeak ?? 1, r.fervor);
         }
         if (r.roomStartedAt) r.roomMs = (r.roomMs ?? 0) + Math.min(30 * 60000, Math.max(0, Date.now() - r.roomStartedAt));
         r.roomStartedAt = undefined;
         r.results.push({
           layer: R.layer, kind: R.node.kind as RoomKind, modifier: R.node.modifier, elite: R.node.elite, gamble: R.gamble, won: R.status === 'won',
           chips: sc.chips, target: sc.target, mult: sc.mult, score: sc.score, gold: sc.gold, fires: R.fires,
-          composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '', clean: sc.clean, battlefield: bf, material: mat, mintGold: mint || undefined, evalEnd: R.puzzle ? undefined : R.moves[R.moves.length - 1]?.evalAfter,
+          composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '', clean: sc.clean, battlefield: bf, material: mat, mintGold: mint || undefined, fervorIn: sc.fervor, fervor: r.fervor, evalEnd: R.puzzle ? undefined : R.moves[R.moves.length - 1]?.evalAfter,
         });
         // Milestones from this room.
         const won = R.status === 'won';

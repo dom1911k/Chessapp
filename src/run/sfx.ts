@@ -7,7 +7,7 @@ import { useRunSettings } from './settings';
 import { playTheme, type Player, type Theme } from './music';
 
 export type RunSound =
-  | 'relic' | 'hit' | 'clear' | 'over' | 'slam' | 'chip' | 'coin' | 'card' | 'fail' | 'win' | 'whoosh' | 'door' | 'technique'
+  | 'relic' | 'hit' | 'clear' | 'over' | 'slam' | 'chip' | 'coin' | 'card' | 'fail' | 'win' | 'whoosh' | 'door' | 'technique' | 'ready' | 'drip'
   | 'move' | 'capture' | 'check' | 'castle' | 'promote';
 
 let ctx: AudioContext | null = null;
@@ -178,6 +178,13 @@ function playSfx(name: RunSound, n: number, opp: boolean) {
       break;
     case 'whoosh':
       noise(c, e, t, 0.45, 300, 2400, 0.12, 0.7);
+      break;
+    case 'ready':
+      // A small bright chime: the next Order purchase is affordable.
+      [1318.5, 1760, 2637].forEach((f, i) => marimba(c, o, t + i * 0.07, f, 0.16, i === 2 ? 0.9 : 0.4));
+      break;
+    case 'drip':
+      marimba(c, o, t, 1568 * Math.pow(2, Math.min(n, 12) / 24), 0.06, 0.1);
       break;
     case 'technique':
       // A blade swish, then a bright stab on the Gambit's D minor.

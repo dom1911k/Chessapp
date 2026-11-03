@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { opponentById } from '../../lib/people';
 import { ARCHETYPE, ARCHETYPES, EVENTS, MODIFIERS, ROOM_NAME, ROOM_SPRITE, nodeArchetypes, rivalRule, bossModText, objective, NEMESIS_WHY } from '../content';
 import { fightsLeft, isFinalCamp, reachable, rivalElo } from '../rules';
+import { NextPurchaseBar } from './bits';
+import { nextPurchase, addMaterials, EMPTY_ORDER } from '../order';
+import { useMeta } from '../meta';
 import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
 import type { MapNode } from '../types';
@@ -44,6 +47,8 @@ export function MapView({ top }: { top: ReactNode }) {
   const run = s.run!;
   const boss = opponentById(run.bossId);
   const options = reachable(run);
+  const meta = useMeta();
+  const np = nextPurchase(meta.order ?? EMPTY_ORDER, addMaterials(meta.materials ?? {}, run.materials ?? {}));
   const [sel, setSel] = useState<number | null>(options.length === 1 ? options[0] : null);
   const scroller = useRef<HTMLDivElement>(null);
   const vellum = usePromise(() => textureTile('vellum', 16, ['#140e1f', '#181125', '#1c142b', '#221a33'], 23), 'vellum', 'tx:vellum');
@@ -180,6 +185,7 @@ export function MapView({ top }: { top: ReactNode }) {
       </div>
       {/* Preview of the selected node: everything the old intro screen said, plus Enter */}
       <div className="px-3 pt-2 pb-3">
+        <NextPurchaseBar np={np} className="mb-2" />
         {node ? <Preview key={sel} node={node} index={sel!} onEnter={() => s.chooseNode(sel!)} busy={s.busy} /> : (
           <div className="run-sans py-3 text-center text-xs text-[var(--ink-dim)]">
             Choose where to go next — {options.length} path{options.length === 1 ? '' : 's'} open. Tap a glowing room.

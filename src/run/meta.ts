@@ -136,6 +136,8 @@ export interface Meta {
   order?: OrderState;
   /** The Sanctum was migrated into the Order. */
   orderMigrated?: boolean;
+  /** The drip rate you last saw per material (to show old → new after an upgrade). */
+  rateSeen?: Partial<Record<string, number>>;
 }
 
 const EMPTY: Meta = { embers: 0, earned: 0, unlocked: [], boosts: {}, runs: 0, wins: 0, best: 0, milestones: [], rivalWins: {}, grimoire: {}, heatUnlocked: 0, heatBest: 0, codex: {}, equipped: [], materials: {}, order: EMPTY_ORDER, orderMigrated: false };
@@ -186,6 +188,8 @@ interface MetaStore extends Meta {
   moveBuilding(id: BuildingId, sq: string): boolean;
   /** Reclaim a rank-3/4 square with Stone. */
   reclaim(sq: string): boolean;
+  /** Remember the drip rate seen for a material. */
+  seeRate(m: string, rate: number): void;
   /** Gallery: buy a board theme or piece set. */
   buyCosmetic(id: string): boolean;
   dev(n: number): void;
@@ -195,7 +199,7 @@ const save = (m: Meta) => void runDb.state.put({ key: 'meta', value: m }).catch(
 const pick = (s: Meta): Meta => ({
   embers: s.embers, earned: s.earned, unlocked: s.unlocked, boosts: s.boosts, runs: s.runs, wins: s.wins, best: s.best, milestones: s.milestones ?? [], rivalWins: s.rivalWins ?? {},
   grimoire: s.grimoire ?? {}, heatUnlocked: s.heatUnlocked ?? 0, heatBest: s.heatBest ?? 0, refundNote: s.refundNote, codex: s.codex ?? {}, equipped: s.equipped ?? [],
-  materials: s.materials ?? {}, order: s.order ?? EMPTY_ORDER, orderMigrated: s.orderMigrated ?? false,
+  materials: s.materials ?? {}, order: s.order ?? EMPTY_ORDER, orderMigrated: s.orderMigrated ?? false, rateSeen: s.rateSeen ?? {},
 });
 
 /** Migrate a Sanctum-era save into the Order (once): Embers → starter pile, unlocks/perks → buildings. */
@@ -327,6 +331,10 @@ export const useMeta = create<MetaStore>((set, get) => {
       if (squareState(o, sq) !== 'reclaimable' || !canAfford(s.materials ?? {}, reclaimCost())) return false;
       commit({ materials: pay(s.materials ?? {}, reclaimCost()), order: { ...o, reclaimed: [...o.reclaimed, sq] } });
       return true;
+    },
+    seeRate(m, rate) {
+      if (get().rateSeen?.[m] === rate) return;
+      commit({ rateSeen: { ...(get().rateSeen ?? {}), [m]: rate } });
     },
     buyCosmetic(id) {
       const s = get();

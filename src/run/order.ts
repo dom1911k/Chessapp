@@ -33,8 +33,8 @@ export interface Building {
 
 const O = T.order;
 export const BUILDINGS: Record<BuildingId, Building> = {
-  scriptorium: { name: 'Scriptorium', piece: 'b', sprite: 'scroll', perks: ['notes'], effect: [`+${O.effects.inkPerPuzzle[0]} Ink per puzzle solved`, `+${O.effects.inkPerPuzzle[1]} Ink per puzzle solved`] },
-  watchtower: { name: 'Watchtower', piece: 'r', sprite: 'tower', perks: ['cartographer', 'nerves'], effect: [`+${pct(O.effects.stonePct[0])} Stone from Siege, Ward, Mirror`, `+${pct(O.effects.stonePct[1])} Stone from Siege, Ward, Mirror`] },
+  scriptorium: { name: 'Scriptorium', piece: 'b', sprite: 'scroll', perks: ['notes'], effect: [`+${O.effects.inkPerMove[0]} Ink per good move (Riddle, Echo)`, `+${O.effects.inkPerMove[1]} Ink per good move (Riddle, Echo)`] },
+  watchtower: { name: 'Watchtower', piece: 'r', sprite: 'tower', perks: ['cartographer', 'nerves'], effect: [`+${pct(O.effects.stonePct[0])} Stone rate in Siege, Ward, Mirror`, `+${pct(O.effects.stonePct[1])} Stone rate in Siege, Ward, Mirror`] },
   forge: { name: 'Forge', piece: 'n', sprite: 'axe', effect: [`+${O.effects.ironPerCleanVault[0]} Iron per clean Vault; Lucena, Philidor, Queen vs Pawn`, `+${O.effects.ironPerCleanVault[1]} Iron per clean Vault`] },
   archive: { name: 'Archive', piece: 'r', sprite: 'book', perks: ['keeneye'], effect: [`+${O.effects.pagesPerBook[0]} Pages per book move in Duels`, `+${O.effects.pagesPerBook[1]} Pages per book move in Duels`] },
   mint: { name: 'Mint', piece: 'p', sprite: 'coin', perks: ['reroll'], effect: [`+${pct(O.effects.goldPct[0])} gold from score`, `+${pct(O.effects.goldPct[1])} gold from score`] },
@@ -135,28 +135,116 @@ export function roomMaterial(kind: RoomKind | 'event', event?: EventKind): Mater
   }
 }
 
+/** The drip rate: material per sound move in a room of this kind (dripBase + buildings × Empowerment). */
+export function dripRate(o: OrderState | undefined, kind: RoomKind | 'event'): { material: Material | null; rate: number } {
+  const material = roomMaterial(kind);
+  if (!material) return { material: null, rate: 0 };
+  let r = O.dripBase;
+  if (material === 'ink') r += effect(o, 'scriptorium', O.effects.inkPerMove);
+  if (material === 'stone') r *= 1 + effect(o, 'watchtower', O.effects.stonePct);
+  return { material, rate: Math.round(r * 100) / 100 };
+}
+
+/** One sound move's drip (a Duel book move adds the Archive's bonus). */
+export function moveDrip(o: OrderState | undefined, kind: RoomKind, opts: { bookMove?: boolean } = {}): number {
+  const { rate } = dripRate(o, kind);
+  const book = kind === 'duel' && opts.bookMove ? effect(o, 'archive', O.effects.pagesPerBook) : 0;
+  return Math.round((rate + book) * 100) / 100;
+}
+
+/** The best drip rate you have for a material (over the rooms that pay it). */
+export function bestRate(o: OrderState | undefined, m: Material): number {
+  const kinds: RoomKind[] = ['puzzle', 'echo', 'hold', 'ward', 'mirror', 'convert', 'vault', 'duel'];
+  return Math.max(0, ...kinds.map((k) => dripRate(o, k)).filter((d) => d.material === m).map((d) => d.rate));
+}
+
 export interface RoomYieldCtx {
   kind: RoomKind;
   elite?: boolean;
   beatBlind?: boolean;
   clean?: boolean;
-  /** Puzzles solved (Riddle). */
-  solved?: number;
-  /** Book moves matched (Duel). */
-  bookMatched?: number;
 }
 
-/** Materials for a cleared room: base + bonuses, then buildings (× Empowerment). Rounded. */
+/** Room-end burst for a cleared room: elite, blind beaten, clean (+ the Forge's clean-Vault Iron). */
 export function roomYield(o: OrderState | undefined, c: RoomYieldCtx): { material: Material | null; amount: number } {
   const material = roomMaterial(c.kind);
   if (!material) return { material: null, amount: 0 };
   const Y = O.roomYield;
   let n = Y.base + (c.elite ? Y.elite : 0) + (c.beatBlind ? Y.blind : 0) + (c.clean ? Y.clean : 0);
-  if (c.kind === 'puzzle') n += effect(o, 'scriptorium', O.effects.inkPerPuzzle) * (c.solved ?? 0);
   if (c.kind === 'vault' && c.clean) n += effect(o, 'forge', O.effects.ironPerCleanVault);
-  if (c.kind === 'duel') n += effect(o, 'archive', O.effects.pagesPerBook) * (c.bookMatched ?? 0);
   if (material === 'stone') n *= 1 + effect(o, 'watchtower', O.effects.stonePct);
-  return { material, amount: Math.round(n) };
+  return { material, amount: Math.round(n * 100) / 100 };
+}
+
+/** Run-end materials bonus: matK × sqrt(run total / matRate), split like what you earned (sublinear). */
+export function runMaterialBonus(total: number, earned: Materials): Materials {
+  const bonus = O.matK * Math.sqrt(Math.max(0, total) / O.matRate);
+  if (bonus <= 0) return {};
+  const commons = COMMON.filter((m) => (earned[m] ?? 0) > 0);
+  const pool = commons.length ? commons : COMMON;
+  const sum = pool.reduce((a, m) => a + (earned[m] ?? 0), 0);
+  const out: Materials = {};
+  for (const m of pool) out[m] = Math.round((sum ? bonus * ((earned[m] ?? 0) / sum) : bonus / pool.length) * 10) / 10;
+  return out;
+}
+
+// ---------- the next purchase ----------
+
+export interface NextPurchase {
+  label: string;
+  cost: Materials;
+  /** What's still missing (empty = ready). */
+  missing: Materials;
+  /** 0..1 */
+  progress: number;
+  ready: boolean;
+  /** "≈ 5 good moves" (or a rival win for Seals). */
+  estimate: string;
+}
+
+/** The closest next purchase in the Order: a building, an upgrade or a square. */
+export function nextPurchase(o: OrderState, have: Materials): NextPurchase | null {
+  const cands: { label: string; cost: Materials }[] = [];
+  for (const id of BUILDING_IDS) {
+    const b = o.buildings[id];
+    if (!b) cands.push({ label: BUILDINGS[id].name, cost: buildCost(id, 1) });
+    else if (b.level < 2) cands.push({ label: `${BUILDINGS[id].name} II`, cost: buildCost(id, 2) });
+  }
+  if (SQUARES.some((sq) => squareState(o, sq) === 'reclaimable')) cands.push({ label: 'A reclaimed square', cost: reclaimCost() });
+  if (!cands.length) return null;
+  const weight = (m: Material) => (m === 'seals' ? 10 : 1);
+  const scored = cands.map((c) => {
+    const missing: Materials = {};
+    let miss = 0;
+    let total = 0;
+    for (const [m, n] of Object.entries(c.cost) as [Material, number][]) {
+      const gap = Math.max(0, n - (have[m] ?? 0));
+      if (gap > 0) missing[m] = Math.round(gap * 10) / 10;
+      miss += gap * weight(m);
+      total += n * weight(m);
+    }
+    return { ...c, missing, miss, total };
+  });
+  scored.sort((a, b) => a.miss - b.miss || a.total - b.total);
+  const best = scored[0];
+  const ready = best.miss <= 0;
+  let estimate = '';
+  if (!ready) {
+    const [m, n] = (Object.entries(best.missing) as [Material, number][]).sort((a, b) => b[1] * weight(b[0]) - a[1] * weight(a[0]))[0];
+    if (m === 'seals') estimate = '≈ a rival win';
+    else {
+      const rate = bestRate(o, m);
+      estimate = rate > 0 ? `≈ ${Math.ceil(n / rate)} good move${Math.ceil(n / rate) === 1 ? '' : 's'}` : '';
+    }
+  }
+  return { label: best.label, cost: best.cost, missing: best.missing, progress: best.total ? Math.max(0, Math.min(1, 1 - best.miss / best.total)) : 1, ready, estimate };
+}
+
+/** "Scriptorium II — 14 Ink to go (≈ 5 good moves)". */
+export function purchaseText(n: NextPurchase): string {
+  if (n.ready) return `${n.label} — READY`;
+  const parts = (Object.entries(n.missing) as [Material, number][]).map(([m, x]) => `${Math.ceil(x)} ${MATERIAL_INFO[m].name}`);
+  return `${n.label} — ${parts.join(' + ')} to go${n.estimate ? ` (${n.estimate})` : ''}`;
 }
 
 /** Mint: extra gold from a room's score-gold. */

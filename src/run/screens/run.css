@@ -382,3 +382,12 @@
 .tech-card { box-shadow: 0 0 0 2px #1b0f22, inset 0 0 0 1px #9a7a5a; }
 .tech-card.lvl-adept { box-shadow: 0 0 0 2px #1b0f22, inset 0 0 0 2px #c9d4e6, 0 0 10px rgba(201,212,230,.3); }
 .tech-card.lvl-master { box-shadow: 0 0 0 2px #1b0f22, inset 0 0 0 3px var(--gold-2), 0 0 18px rgba(242,199,92,.5); }
+
+/* Fervor flame: a flickering teardrop */
+.run-candle-big { display: inline-block; border-radius: 50% 50% 45% 45% / 65% 65% 35% 35%; animation: run-flicker 0.45s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+@keyframes run-flicker { from { transform: scaleY(0.92) skewX(-3deg); } to { transform: scaleY(1.06) skewX(3deg); } }
+/* A material coin flying from the moved piece to the HUD counter */
+.run-coin-fly { position: fixed; z-index: 70; pointer-events: none; transition: transform 0.55s cubic-bezier(.3,.7,.3,1), opacity 0.55s ease-in; }
+.run-sparkle { animation: run-sparkle 0.9s ease-out; }
+@keyframes run-sparkle { 0% { box-shadow: 0 0 0 0 rgba(94,229,154,.9); } 100% { box-shadow: 0 0 0 14px rgba(94,229,154,0); } }
+@media (prefers-reduced-motion: reduce) { .run-candle-big { animation: none; } }

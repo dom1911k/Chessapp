@@ -147,24 +147,23 @@ describe('run rules', () => {
     }
   });
 
-  it('score pays the gold: score / rate, ×blind when the chip target is beaten, + clean, soft-capped', () => {
+  it('score pays the gold: goldK·log2(1 + score/rate), ×blind when the score beats the blind, + clean (sublinear)', () => {
     const moves = [mv({ accuracy: 95 }), mv({ accuracy: 92 })];
-    const s = roomScore(room({ status: 'won', moves }));
+    const s = roomScore(room({ status: 'won', moves, layer: 0 }));
     expect(s.target).toBe(2 * T.score.targetPerMove);
     expect(s.beatTarget).toBe(true);
-    expect(s.gold).toBe(Math.round((187 / T.gold.goldRate) * T.gold.blindGoldMult + T.gold.cleanBonus));
+    expect(s.gold).toBe(Math.round(T.gold.goldK * Math.log2(1 + 187 / T.gold.goldRate) * T.gold.blindGoldMult + T.gold.cleanBonus));
     // Failed rooms pay nothing.
     expect(roomScore(room({ status: 'failed', moves })).gold).toBe(0);
-    // Average clean room ≈ 7–10 gold, an excellent one about double, a huge one soft-capped.
+    // Average clean room ≈ 7–10 gold as before; an outstanding one 2–3× that, never more.
     const avg = scoreGold(8 * 85 * 1.2, true, true);
     expect(avg).toBeGreaterThanOrEqual(7);
     expect(avg).toBeLessThanOrEqual(10);
-    const great = scoreGold(8 * 95 * 2.5, true, true);
-    expect(great).toBeGreaterThanOrEqual(avg * 1.6);
-    expect(great).toBeLessThanOrEqual(avg * 2.4);
-    expect(scoreGold(20000, true, true)).toBeLessThan(T.gold.softCap + (20000 / T.gold.goldRate) * T.gold.blindGoldMult * T.gold.overCapRate + 1);
-    // Missing the blind pays less.
-    expect(scoreGold(1000, false, true)).toBeLessThan(scoreGold(1000, true, true));
+    const huge = scoreGold(1e6, true, true);
+    expect(huge / avg).toBeGreaterThan(2);
+    expect(huge / avg).toBeLessThan(4);
+    // Doubling the score adds only a little gold.
+    expect(scoreGold(40000, true, false) - scoreGold(20000, true, false)).toBeLessThanOrEqual(3);
   });
 
   it('×mult relics multiply after the adds; Siege Engine adds chips', () => {
@@ -722,22 +721,15 @@ describe('the Order: materials from rooms, building effects', () => {
     expect(roomMaterial('event', 'shrine')).toBe('pages');
     expect(roomMaterial('boss')).toBeNull();
   });
-  it('base + elite + blind + clean, then buildings (× Empowerment)', () => {
+  it('room-end burst: elite + blind + clean (+ the Forge on a clean Vault, × the Watchtower on Stone)', () => {
     const Y = T.order.roomYield;
     expect(roomYield(undefined, { kind: 'hold' })).toEqual({ material: 'stone', amount: Y.base });
     expect(roomYield(undefined, { kind: 'hold', elite: true, beatBlind: true, clean: true }).amount).toBe(Y.base + Y.elite + Y.blind + Y.clean);
-    const o = ord({ scriptorium: { level: 2, sq: 'c1' } });
-    expect(roomYield(o, { kind: 'puzzle', solved: 3 }).amount).toBe(Y.base + 3 * T.order.effects.inkPerPuzzle[1]);
     const tower = ord({ watchtower: { level: 1, sq: 'a1' } });
-    expect(roomYield(tower, { kind: 'ward' }).amount).toBe(Math.round(Y.base * (1 + T.order.effects.stonePct[0])));
+    expect(roomYield(tower, { kind: 'ward', clean: true }).amount).toBeCloseTo((Y.base + Y.clean) * (1 + T.order.effects.stonePct[0]));
     const forge = ord({ forge: { level: 1, sq: 'b1' } });
     expect(roomYield(forge, { kind: 'vault', clean: true }).amount).toBe(Y.base + Y.clean + T.order.effects.ironPerCleanVault[0]);
     expect(roomYield(forge, { kind: 'vault', clean: false }).amount).toBe(Y.base);
-    const arch = ord({ archive: { level: 1, sq: 'h1' } });
-    expect(roomYield(arch, { kind: 'duel', bookMatched: 2 }).amount).toBe(Y.base + 2 * T.order.effects.pagesPerBook[0]);
-    // Empowered Scriptorium: +25% on its bonus.
-    const emp = ord({ scriptorium: { level: 1, sq: 'd1' }, watchtower: { level: 1, sq: 'a1' } });
-    expect(roomYield(emp, { kind: 'puzzle', solved: 4 }).amount).toBe(Math.round(Y.base + 4 * T.order.effects.inkPerPuzzle[0] * (1 + T.order.empower.per)));
   });
   it('the Mint adds a share of score-gold; nothing without it', () => {
     expect(mintGold(undefined, 20)).toBe(0);
@@ -783,5 +775,85 @@ describe('the Order: migration from the Sanctum', () => {
   });
   it('milestones pay Seals', () => {
     for (const x of MILESTONES) expect(milestoneSeals(x)).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------- Order stages 2 + 3
+import { dripRate, moveDrip, bestRate, nextPurchase, purchaseText, runMaterialBonus } from '../run/order';
+import { chipTarget, blindScale, fervorAfterRoom, fervorAfterBlunder, fmtBig } from '../run/rules';
+
+describe('stage 2: the drip, the rate, the next purchase', () => {
+  it('every sound move drips the room material at the rate: dripBase + buildings', () => {
+    expect(dripRate(undefined, 'puzzle')).toEqual({ material: 'ink', rate: T.order.dripBase });
+    expect(dripRate(undefined, 'boss')).toEqual({ material: null, rate: 0 });
+    const s2 = ord({ scriptorium: { level: 2, sq: 'c1' } });
+    expect(dripRate(s2, 'echo').rate).toBe(T.order.dripBase + T.order.effects.inkPerMove[1]);
+    expect(dripRate(s2, 'hold').rate).toBe(T.order.dripBase);
+    const tower = ord({ watchtower: { level: 2, sq: 'a1' } });
+    expect(dripRate(tower, 'mirror').rate).toBeCloseTo(T.order.dripBase * (1 + T.order.effects.stonePct[1]));
+    // Empowerment raises the building's part.
+    const emp = ord({ scriptorium: { level: 1, sq: 'd1' }, watchtower: { level: 1, sq: 'a1' } });
+    expect(dripRate(emp, 'puzzle').rate).toBeCloseTo(T.order.dripBase + T.order.effects.inkPerMove[0] * (1 + T.order.empower.per));
+    // The Archive adds Pages on a book move in a Duel.
+    const arch = ord({ archive: { level: 1, sq: 'h1' } });
+    expect(moveDrip(arch, 'duel', { bookMove: true })).toBe(T.order.dripBase + T.order.effects.pagesPerBook[0]);
+    expect(moveDrip(arch, 'duel')).toBe(T.order.dripBase);
+    expect(bestRate(s2, 'ink')).toBe(T.order.dripBase + T.order.effects.inkPerMove[1]);
+  });
+  it('the next purchase is the closest one, with an estimate at your rate', () => {
+    const o = ord({});
+    const np = nextPurchase(o, { ink: 4 })!;
+    // Scriptorium costs 8 Ink: 4 to go, at 0.5 / move = 8 moves.
+    expect(np.label).toBe('Scriptorium');
+    expect(np.missing).toEqual({ ink: 4 });
+    expect(np.estimate).toBe(`≈ ${Math.ceil(4 / T.order.dripBase)} good moves`);
+    expect(purchaseText(np)).toBe(`Scriptorium — 4 Ink to go (≈ ${Math.ceil(4 / T.order.dripBase)} good moves)`);
+    expect(np.progress).toBeCloseTo(0.5);
+    const ready = nextPurchase(o, { stone: 9 })!;
+    expect(ready.ready).toBe(true);
+    // Seals can't be dripped: the estimate says so.
+    const full = ord({ mint: { level: 1, sq: 'd2' } });
+    const seals = nextPurchase({ ...full, buildings: { ...full.buildings, scriptorium: { level: 2, sq: 'c1' }, watchtower: { level: 2, sq: 'a1' }, forge: { level: 2, sq: 'b1' }, archive: { level: 2, sq: 'h1' }, gallery: { level: 2, sq: 'e2' } }, reclaimed: ['a3','b3','c3','d3','e3','f3','g3','h3','a4','b4','c4','d4','e4','f4','g4','h4'] }, { ink: 99, stone: 99, iron: 99, pages: 99 })!;
+    expect(seals.label).toBe('Mint II');
+    expect(seals.estimate).toBe('≈ a rival win');
+  });
+});
+
+describe('stage 3: antes, Fervor, big numbers, sublinear conversion', () => {
+  it('the blind grows ×blindGrowth per map row; the rival’s row is the highest', () => {
+    const r0 = chipTarget(room({ layer: 0, moves: Array(8).fill(mv({})) }));
+    const r3 = chipTarget(room({ layer: 3, moves: Array(8).fill(mv({})) }));
+    expect(r3 / r0).toBeCloseTo(T.score.blindGrowth ** 3, 1);
+    expect(blindScale(5)).toBeGreaterThan(blindScale(3));
+  });
+  it('the blind is beaten by the score (chips × mult), not chips alone', () => {
+    const moves = Array(8).fill(mv({ accuracy: 90 }));
+    const late = roomScore(room({ status: 'won', layer: 3, moves }));
+    expect(late.beatTarget).toBe(false);
+    const hot = roomScore(room({ status: 'won', layer: 3, moves, fervor: 2.5, fires: [{ relic: 'glass', mult: 0.5, at: -1 }] }));
+    expect(hot.beatTarget).toBe(true);
+  });
+  it('Fervor: +step for a room above its blind, a blunder halves it (min 1), a failed room resets it; it multiplies the mult', () => {
+    expect(fervorAfterRoom(1, true, true)).toBe(1 + T.fervor.step);
+    expect(fervorAfterRoom(1.5, true, false)).toBe(1.5);
+    expect(fervorAfterRoom(2.25, false, false)).toBe(1);
+    expect(fervorAfterBlunder(2.5)).toBe(1.25);
+    expect(fervorAfterBlunder(1.25)).toBe(1);
+    const moves = [mv({ accuracy: 100 })];
+    expect(roomScore(room({ moves, fervor: 2 })).mult).toBe(2 * roomScore(room({ moves })).mult);
+  });
+  it('big numbers: 1,234 → 12.3k → 1.23M → 1.23B', () => {
+    expect(fmtBig(1234)).toBe('1,234');
+    expect(fmtBig(12345)).toBe('12.3k');
+    expect(fmtBig(123456)).toBe('123k');
+    expect(fmtBig(1234567)).toBe('1.23M');
+    expect(fmtBig(1234567890)).toBe('1.23B');
+  });
+  it('run-end materials = matK·√(total / matRate): 100× the score ≈ 10× the materials', () => {
+    const avg = Object.values(runMaterialBonus(6000, { ink: 5, stone: 5 })).reduce((a, b) => a + b!, 0);
+    const big = Object.values(runMaterialBonus(600000, { ink: 5, stone: 5 })).reduce((a, b) => a + b!, 0);
+    expect(avg).toBeCloseTo(T.order.matK * Math.sqrt(6), 0);
+    expect(big / avg).toBeCloseTo(10, 0);
+    expect(Object.keys(runMaterialBonus(6000, { iron: 3 }))).toEqual(['iron']);
   });
 });

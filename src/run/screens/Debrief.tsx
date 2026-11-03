@@ -66,7 +66,7 @@ export function Debrief({ onShake, onSanctum }: { onShake: () => void; onSanctum
                 {r.chips} × {r.mult}
               </span>
             </span>
-            <PixelNum value={r.score} size={2.5} />
+            <PixelNum value={r.score} big size={2.5} />
           </div>
         ))}
         {won && (
@@ -77,11 +77,19 @@ export function Debrief({ onShake, onSanctum }: { onShake: () => void; onSanctum
         )}
         <div className="mt-2 flex flex-col items-center border-t border-[var(--gold-dim)]/40 pt-3">
           <span className="run-label">Final score</span>
-          {shown > rows.length ? <PixelNum className="run-slam" value={run.finalScore ?? 0} size={8} /> : <div className="h-10" />}
+          {shown > rows.length ? <PixelNum className="run-slam" value={run.finalScore ?? 0} big size={8} /> : <div className="h-10" />}
           {shown > rows.length && (Object.keys(run.materials ?? {}).length > 0 || (run.seals ?? 0) > 0) ? (
             <div className="run-fadeup mt-3 flex flex-col items-center gap-1" style={{ animationDelay: '0.4s' }}>
               <MaterialRow m={{ ...(run.materials ?? {}), ...(run.seals ? { seals: run.seals } : {}) }} size={20} />
-              <span className="run-sans text-xs text-[var(--ink-dim)]">Materials for the Order</span>
+              <span className="run-sans text-xs text-[var(--ink-dim)]">
+                Materials for the Order
+                {run.materialBonus && Object.keys(run.materialBonus).length ? (
+                  <>
+                    {' '}· incl. run bonus <MaterialRow m={run.materialBonus} size={11} /> (√ of your total)
+                  </>
+                ) : null}
+              </span>
+              {(run.fervorPeak ?? 1) > 1 && <span className="run-sans text-xs font-bold text-[#ffb454]">Fervor peaked at ×{run.fervorPeak}</span>}
             </div>
           ) : null}
         </div>

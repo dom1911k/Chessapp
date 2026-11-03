@@ -1,13 +1,14 @@
 // A room in play: HUD, relic rail (pulses when a relic fires, tap for info), eval gauge, pixel
 // board, move recap, cards (tap to read, then use), end banner.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { toUci, tryMove, uciToSan } from '../../lib/chess/game';
 import { opponentById, pickLine } from '../../lib/people';
 import { useSettings } from '../../lib/settings';
 import type { CoachArrow } from '../../lib/coach/types';
 import type { Classification } from '../../lib/chess/evaluation';
 import { CONSUMABLES, MODIFIERS, RELICS, ROOM_NAME, ROOM_SPRITE, rivalRule, bossModText, NEMESIS_WHY } from '../content';
-import { canTakeBack, chipTarget, fmtCp, gaugeLines, cardSlots, progress, recovery, roomCap, roomLoss, roomScore, takebacksLeft, heatRules } from '../rules';
+import { canTakeBack, chipTarget, fmtCp, gaugeLines, cardSlots, progress, recovery, roomCap, roomLoss, roomScore, takebacksLeft, heatRules, fmtBig } from '../rules';
 import { explainMove } from '../../lib/coach';
 import { arrowOf, bookHint, bossOf, lensMarks, liveEval, useRun } from '../store';
 import { Chess } from 'chess.js';
@@ -19,7 +20,9 @@ import { moveSound, sfx } from '../sfx';
 import { PixelText } from './PixelText';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { BLOOD, EMBER, GOLD } from '../pixel/pixelize';
-import { Composure, PixelNum } from './bits';
+import { Composure, FervorFlame, MaterialIcon, PixelNum } from './bits';
+import { MATERIAL_INFO, dripRate, roomMaterial, type Material } from '../order';
+import { reducedMotion } from '../settings';
 import { VsIntro } from './scenes';
 import { useLongPress } from './useLongPress';
 import { useMeta } from '../meta';
@@ -62,20 +65,63 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
 
   // React to effects from the store.
   const lastFx = s.fx[s.fx.length - 1];
+  // Every new effect since the last render (several can arrive at once: a drip, then the move).
+  const seenFx = useRef(lastFx?.id ?? 0);
   useEffect(() => {
-    if (!lastFx) return;
+    const fresh = s.fx.filter((f) => f.id > seenFx.current);
+    if (!fresh.length) return;
+    seenFx.current = fresh[fresh.length - 1].id;
+    for (const lastFx of fresh) {
     if (lastFx.kind === 'relic') setPulse((p) => ({ ...p, [lastFx.relic === 'tech' ? `tech:${lastFx.tech}` : lastFx.relic]: { id: lastFx.id, label: lastFx.label } }));
+    if (lastFx.kind === 'drip') {
+      const b = boardRef.current?.getBoundingClientRect();
+      const c = matRef.current?.getBoundingClientRect();
+      if (b && c && !reducedMotion()) {
+        const f = 'abcdefgh'.indexOf(lastFx.sq[0]);
+        const r = Number(lastFx.sq[1]) - 1;
+        const col = room.me === 'w' ? f : 7 - f;
+        const row = room.me === 'w' ? 7 - r : r;
+        const x = b.left + ((col + 0.5) * b.width) / 8;
+        const y = b.top + ((row + 0.5) * b.height) / 8;
+        const coin = { id: lastFx.id, x, y, dx: c.left + c.width / 2 - x, dy: c.top + c.height / 2 - y, m: lastFx.material, go: false };
+        setCoins((cs) => [...cs.slice(-5), coin]);
+        requestAnimationFrame(() => requestAnimationFrame(() => setCoins((cs) => cs.map((k) => (k.id === coin.id ? { ...k, go: true } : k)))));
+        setTimeout(() => {
+          setCoins((cs) => cs.filter((k) => k.id !== coin.id));
+          setMatPulse(lastFx.id);
+          sfx('drip', Math.round(lastFx.amount * 4));
+        }, 560);
+      } else {
+        setMatPulse(lastFx.id);
+        sfx('drip');
+      }
+    }
+    if (lastFx.kind === 'ready') {
+      setSparkle(lastFx.id);
+      setReadyLabel(lastFx.label);
+    }
     if (lastFx.kind === 'technique') {
       setPulse((p) => ({ ...p, [`tech:${lastFx.tech}`]: { id: lastFx.id, label: lastFx.label } }));
       setTechFx({ id: lastFx.id, tech: lastFx.tech, label: lastFx.label });
-      const t = setTimeout(() => setTechFx((x) => (x?.id === lastFx.id ? null : x)), 1500);
-      return () => clearTimeout(t);
+      setTimeout(() => setTechFx((x) => (x?.id === lastFx.id ? null : x)), 1500);
     }
     if (lastFx.kind === 'hit') setHit({ id: lastFx.id, insured: lastFx.insured });
     if (lastFx.kind === 'consumable') setUsed({ id: lastFx.id, item: lastFx.item });
+    }
   }, [lastFx]);
 
   const [techFx, setTechFx] = useState<{ id: number; tech: TechId; label: string } | null>(null);
+  // The Order: this room's material, the counter and its flying coins.
+  const roomMat = room.gamble ? null : roomMaterial(room.node.kind as RoomKind);
+  const rate = dripRate(run.meta?.order, room.node.kind as RoomKind).rate;
+  const metaMats = useMeta((m) => m.materials ?? {});
+  const matTotal = roomMat ? (metaMats[roomMat] ?? 0) + (run.materials?.[roomMat] ?? 0) : 0;
+  const matRef = useRef<HTMLSpanElement>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [coins, setCoins] = useState<{ id: number; x: number; y: number; dx: number; dy: number; m: Material; go: boolean }[]>([]);
+  const [matPulse, setMatPulse] = useState(0);
+  const [sparkle, setSparkle] = useState(0);
+  const [readyLabel, setReadyLabel] = useState<string | null>(null);
   const codex = useMeta((m) => m.codex ?? {});
   const [bossLine, setBossLine] = useState(() => (boss ? pickLine(boss, 'greet') : ''));
   useEffect(() => {
@@ -156,6 +202,14 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
           <div className="flex flex-col items-end gap-0.5">
             <Composure value={run.composure} max={T.composure.start} hit={hit?.insured ? undefined : hit?.id} />
             <div className="flex items-center gap-1">
+              {roomMat && (
+                <span ref={matRef} key={sparkle} className={`mr-1 flex items-center gap-0.5 ${sparkle ? 'run-sparkle' : ''}`}>
+                  <MaterialIcon id={roomMat} size={14} />
+                  <span key={matPulse} className={`run-sans text-xs font-black tabular-nums ${matPulse ? 'run-pulse' : ''}`} style={{ color: MATERIAL_INFO[roomMat].color }}>
+                    {Math.floor(matTotal)}
+                  </span>
+                </span>
+              )}
               <Sprite name="coin" size={16} px={10} stroke={5} />
               <PixelNum value={run.gold} size={3} />
               <button onClick={onSettings} aria-label="Settings" className="ml-1">
@@ -184,13 +238,21 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
         {/* Score so far (with chip target) + goal */}
         <div className="mt-2 flex items-center gap-2">
           <div className="flex items-center gap-1 rounded bg-[var(--chip)]/20 px-2 py-1 ring-1 ring-[var(--chip)]/50">
-            <PixelNum value={live.chips} size={2.5} color="var(--chip)" />
-            {target > 0 && <PixelNum value={`/${target}`} size={1.6} color={live.chips >= target ? '#5ee59a' : 'var(--ink-dim)'} glow={false} />}
+            <PixelNum value={live.chips} big size={2.5} color="var(--chip)" />
           </div>
           <PixelNum value="×" size={2.5} color="var(--ink-dim)" glow={false} />
           <div className="flex items-center gap-1 rounded bg-[var(--mult)]/20 px-2 py-1 ring-1 ring-[var(--mult)]/50">
             <PixelNum value={live.mult} size={2.5} color="var(--mult)" />
           </div>
+          <FervorFlame value={room.fervor ?? 1} size={0.8} />
+          {target > 0 && (
+            <div className="run-sans flex flex-col text-[9px] leading-tight font-bold">
+              <span className="text-[var(--ink-dim)]">BLIND</span>
+              <span style={{ color: live.score >= target ? '#5ee59a' : 'var(--ink)' }}>
+                {fmtBig(live.score)}/{fmtBig(target)}
+              </span>
+            </div>
+          )}
           <div className="run-sans ml-auto text-right text-xs leading-tight font-semibold text-[var(--ink-dim)]">
             <div>{progress(room, bossOf(run))}</div>
             {showGauge && (
@@ -200,6 +262,17 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
             )}
           </div>
         </div>
+        {roomMat && (
+          <div className="run-sans mt-1 flex items-center gap-1.5 text-[11px] font-bold" style={{ color: MATERIAL_INFO[roomMat].color }}>
+            <MaterialIcon id={roomMat} size={11} /> {MATERIAL_INFO[roomMat].name} +{rate} / good move
+            {room.rateChange && room.moves.length < 3 && (
+              <span className="run-fadeup ml-1 rounded bg-[#5ee59a]/15 px-1.5 text-[#9ff0c0]">
+                ↑ {room.rateChange.from} → {room.rateChange.to}
+              </span>
+            )}
+            {readyLabel && <span className="run-fadeup ml-auto rounded bg-[#5ee59a]/20 px-1.5 text-[#9ff0c0]">READY: {readyLabel}</span>}
+          </div>
+        )}
         {/* Codex: equipped techniques (their own row, above the relics) */}
         {(run.techniques ?? []).length > 0 && (
           <div className="mt-2 flex items-center gap-1.5">
@@ -232,7 +305,7 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
         {showGauge && <EvalGauge cp={ev} {...lines} thinking={s.busy} danger={!!rec} noNumber={hr.evalWordsOnly} />}
         <div className="relative min-w-0 flex-1">
           <PixelCaptured pieces={mat.lost[me === 'w' ? 'b' : 'w']} color={me === 'w' ? 'b' : 'w'} lead={me === 'w' ? mat.diff : -mat.diff} />
-          <div className="relative">
+          <div className="relative" ref={boardRef}>
           <RunBoard
             fen={viewing ? viewing.fenAfter : room.fen}
             orientation={me === 'w' ? 'white' : 'black'}
@@ -254,6 +327,15 @@ export function RoomView({ onDev, onSettings }: { onDev: () => void; onSettings:
             </button>
           )}
           {used && <UsedCard key={used.id} item={used.item} />}
+          {coins.length > 0 &&
+            createPortal(
+              coins.map((k) => (
+                <span key={k.id} className="run-coin-fly" style={{ left: k.x - 7, top: k.y - 7, transform: k.go ? `translate(${k.dx}px, ${k.dy}px) scale(0.7)` : 'translate(0,0) scale(1.3)', opacity: k.go ? 0.9 : 1 }}>
+                  <MaterialIcon id={k.m} size={18} />
+                </span>
+              )),
+              document.body,
+            )}
           {techFx && (
             <div key={techFx.id} className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center">
               <div className="run-slam tech-banner flex flex-col items-center px-4 py-2">

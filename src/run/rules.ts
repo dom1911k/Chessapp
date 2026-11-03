@@ -421,9 +421,12 @@ export function endFires(run: Run, room: RoomState, boss?: BossMod): Fire[] {
   return out;
 }
 
-export function chipTarget(room: RoomState): number {
-  return room.moves.length * (room.node.elite ? T.score.eliteTargetPerMove : T.score.targetPerMove);
+/** The room's blind: a score target that grows with each map row (antes). */
+export function chipTarget(room: Pick<RoomState, 'moves' | 'node' | 'layer'>): number {
+  return Math.round(room.moves.length * (room.node.elite ? T.score.eliteTargetPerMove : T.score.targetPerMove) * blindScale(room.layer ?? 0));
 }
+/** ×blindGrowth per map row. */
+export const blindScale = (layer: number) => T.score.blindGrowth ** Math.max(0, layer);
 
 /** The additive mult before any ×mult (base + modifier + relic adds). */
 export function addMult(room: Pick<RoomState, 'node' | 'fires'>): number {
@@ -431,26 +434,27 @@ export function addMult(room: Pick<RoomState, 'node' | 'fires'>): number {
   return Math.round((T.score.baseMult + modMult + room.fires.reduce((s, f) => s + (f.mult ?? 0), 0)) * 100) / 100;
 }
 
-/** Gold for a cleared room's score: score / rate, ×blind, + clean bonus, soft-capped. */
+/** Gold for a cleared room's score: goldK × log2(1 + score / rate), ×blind, + clean bonus (sublinear). */
 export function goldParts(score: number, beatBlind: boolean, clean: boolean) {
   const G = T.gold;
-  const base = score / G.goldRate;
+  const base = G.goldK * Math.log2(1 + Math.max(0, score) / G.goldRate);
   let g = beatBlind ? base * G.blindGoldMult : base;
   if (clean) g += G.cleanBonus;
-  const capped = g > G.softCap;
-  if (capped) g = G.softCap + (g - G.softCap) * G.overCapRate;
-  return { base: Math.round(base), capped, total: Math.round(g) };
+  return { base: Math.round(base * 10) / 10, total: Math.round(g) };
 }
 export const scoreGold = (score: number, beatBlind: boolean, clean: boolean) => goldParts(score, beatBlind, clean).total;
 
 export function roomScore(room: RoomState) {
   const chips = Math.round(room.moves.reduce((s, m) => s + m.accuracy, 0) + room.fires.reduce((s, f) => s + (f.chips ?? 0), 0));
   const xmult = room.fires.reduce((s, f) => s * (f.xmult ?? 1), 1);
-  const mult = Math.round(addMult(room) * xmult * 100) / 100;
+  // Fervor is the run-long ×mult, applied after every relic.
+  const fervor = room.fervor ?? 1;
+  const mult = Math.round(addMult(room) * xmult * fervor * 100) / 100;
   const clean = room.moves.every((m) => m.cls !== 'mistake' && m.cls !== 'blunder');
   const target = chipTarget(room);
-  const beatTarget = room.moves.length > 0 && chips >= target;
   const score = Math.round(chips * mult);
+  // The blind is beaten by your score (chips × mult), so late rooms need scaling.
+  const beatTarget = room.moves.length > 0 && score >= target;
   let gold = 0;
   if (room.status === 'won' && room.node.kind !== 'event' && !room.gamble) {
     gold = scoreGold(score, beatTarget, clean);
@@ -458,7 +462,25 @@ export function roomScore(room: RoomState) {
   }
   if (room.gamble && room.status === 'won') gold += T.events.gambleWin;
   gold += room.fires.reduce((s, f) => s + (f.gold ?? 0), 0);
-  return { chips, mult, score, gold, clean, target, beatTarget };
+  return { chips, mult, score, gold, clean, target, beatTarget, fervor };
+}
+
+/** Fervor after a room: +step when cleared above its blind, back to 1 when failed. */
+export function fervorAfterRoom(f: number, won: boolean, beatBlind: boolean): number {
+  if (!won) return 1;
+  return beatBlind ? Math.round((f + T.fervor.step) * 100) / 100 : f;
+}
+/** A blunder halves Fervor (never below 1). */
+export const fervorAfterBlunder = (f: number) => Math.max(1, Math.round((f / 2) * 100) / 100);
+
+/** Big numbers: 1,234 → 12.3k → 1.23M → 1.23B. */
+export function fmtBig(n: number): string {
+  const a = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (a < 10000) return sign + Math.round(a).toLocaleString('en-US');
+  if (a < 1e6) return `${sign}${(a / 1e3).toFixed(a < 1e5 ? 1 : 0)}k`;
+  if (a < 1e9) return `${sign}${(a / 1e6).toFixed(a < 1e7 ? 2 : a < 1e8 ? 1 : 0)}M`;
+  return `${sign}${(a / 1e9).toFixed(a < 1e10 ? 2 : a < 1e11 ? 1 : 0)}B`;
 }
 
 export function maxConsumables(relics: RelicId[], pocket = 0) {

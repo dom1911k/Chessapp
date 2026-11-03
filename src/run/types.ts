@@ -38,7 +38,7 @@ export interface MapNode {
 
 /** A relic (or the rival's rule) firing during a room; shown in the tally. */
 export interface Fire {
-  relic: RelicId | 'rival' | 'tech';
+  relic: RelicId | 'rival' | 'tech' | 'fervor';
   /** A Codex technique fired (relic = 'tech'). */
   tech?: TechId;
   /** Added to the mult (+0.5). */
@@ -125,6 +125,12 @@ export interface RoomState {
   diff?: DiffId;
   /** Heat level of the run (0/undefined = none). */
   heat?: number;
+  /** Fervor (run-long ×mult) in force for this room. */
+  fervor?: number;
+  /** The Order: material dripped by your sound moves so far in this room. */
+  dripped?: number;
+  /** Shown on entry when an upgrade changed this room's drip rate. */
+  rateChange?: { from: number; to: number };
   /** Duel: your moves that matched the opening book (Archive). */
   bookMatched?: number;
   /** Free take-backs used in this room. */
@@ -161,8 +167,11 @@ export interface RoomResult {
   reason: string;
   /** No mistake or blunder (clean bonus). */
   clean?: boolean;
-  /** The Order: the material this room paid (cleared rooms only). */
-  material?: { id: Material; amount: number };
+  /** The Order: the material this room paid (drip + room-end burst). */
+  material?: { id: Material; amount: number; drip?: number; burst?: number };
+  /** Fervor after this room, and the one in force during it. */
+  fervor?: number;
+  fervorIn?: number;
   /** The Mint's extra gold. */
   mintGold?: number;
   /** Rival fight: the battlefield choice, revealed in the tally. */
@@ -250,6 +259,11 @@ export interface Run {
   pouch?: number;
   /** Materials earned this run (go to the Order when it ends). */
   materials?: Materials;
+  /** Run-end materials bonus (sqrt of the run total). */
+  materialBonus?: Materials;
+  /** Fervor: the run-long ×mult (1 = none), and its peak. */
+  fervor?: number;
+  fervorPeak?: number;
   cursed: boolean;
   curseDecided: boolean;
   secondWindUsed?: boolean;
