@@ -5,7 +5,8 @@ import { RunBoard } from '../pixel/RunBoard';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { EMBER } from '../pixel/pixelize';
 import { PixelText } from './PixelText';
-import { MILESTONES } from '../meta';
+import { MILESTONES, milestoneSeals } from '../meta';
+import { MATERIAL_INFO } from '../order';
 import { explainMove } from '../../lib/coach';
 import { CLASS_LABEL } from '../../lib/chess/evaluation';
 import { parseUci } from '../../lib/chess/game';
@@ -16,7 +17,7 @@ import { TUNING as T } from '../tuning';
 import { momentLoss, topMoments } from '../rules';
 import type { Moment } from '../types';
 import { sfx, buzz } from '../sfx';
-import { PixelNum } from './bits';
+import { MaterialRow, PixelNum } from './bits';
 
 export function Debrief({ onShake, onSanctum }: { onShake: () => void; onSanctum: () => void }) {
   const s = useRun();
@@ -77,19 +78,10 @@ export function Debrief({ onShake, onSanctum }: { onShake: () => void; onSanctum
         <div className="mt-2 flex flex-col items-center border-t border-[var(--gold-dim)]/40 pt-3">
           <span className="run-label">Final score</span>
           {shown > rows.length ? <PixelNum className="run-slam" value={run.finalScore ?? 0} size={8} /> : <div className="h-10" />}
-          {shown > rows.length && run.embers ? (
-            <div className="run-fadeup mt-3 flex items-center gap-2" style={{ animationDelay: '0.4s' }}>
-              <Sprite name="flame" size={26} px={12} pal={EMBER} />
-              <PixelNum value={`+${run.embers}`} size={3.5} color="#ffb454" />
-              <span className="run-sans text-xs text-[var(--ink-dim)]">
-                Embers for the Sanctum
-                {run.goldEmbers ? (
-                  <>
-                    <br />
-                    incl. +{run.goldEmbers} from {run.gold}g left over
-                  </>
-                ) : null}
-              </span>
+          {shown > rows.length && (Object.keys(run.materials ?? {}).length > 0 || (run.seals ?? 0) > 0) ? (
+            <div className="run-fadeup mt-3 flex flex-col items-center gap-1" style={{ animationDelay: '0.4s' }}>
+              <MaterialRow m={{ ...(run.materials ?? {}), ...(run.seals ? { seals: run.seals } : {}) }} size={20} />
+              <span className="run-sans text-xs text-[var(--ink-dim)]">Materials for the Order</span>
             </div>
           ) : null}
         </div>
@@ -102,7 +94,7 @@ export function Debrief({ onShake, onSanctum }: { onShake: () => void; onSanctum
             <div key={x.id} className="mt-1.5 flex items-center gap-2">
               <Sprite name="star" size={20} px={12} />
               <span className="run-title flex-1 text-sm font-bold">{x.name}</span>
-              <span className="run-sans text-xs font-black text-[#ffb454]">+{x.embers}</span>
+              <span className="run-sans text-xs font-black" style={{ color: MATERIAL_INFO.seals.color }}>+{milestoneSeals(x)} Seals</span>
             </div>
           ))}
         </div>

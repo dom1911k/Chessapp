@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { ARCHETYPES, CONSUMABLES, RARITY_COLOR, RELICS, type CardInfo } from '../content';
 import type { ConsumableId, RelicId } from '../types';
+import { MATERIALS, MATERIAL_INFO, type Material, type Materials } from '../order';
 import { Sprite } from '../pixel/sprites';
 import { BLOOD, EMBER, GOLD, SPIRIT, type SpritePalette } from '../pixel/pixelize';
 
@@ -120,5 +121,32 @@ function FitText({ text, max }: { text: string; max: number }) {
     <div ref={ref} className="run-sans mt-1 min-h-0 w-full flex-1 overflow-hidden leading-[1.25] text-[var(--ink-dim)]" style={{ fontSize: size }}>
       {text}
     </div>
+  );
+}
+
+/** A row of material amounts in their own colours (skips zeros unless `all`). */
+export function MaterialRow({ m, all = false, size = 14, className = '' }: { m: Materials; all?: boolean; size?: number; className?: string }) {
+  const list = MATERIALS.filter((k) => all || (m[k] ?? 0) > 0);
+  return (
+    <span className={`inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 ${className}`}>
+      {list.map((k) => (
+        <span key={k} className="run-sans inline-flex items-center gap-0.5 font-black tabular-nums" style={{ color: MATERIAL_INFO[k].color, fontSize: size * 0.8 }}>
+          <MaterialIcon id={k} size={size} />
+          {Math.floor(m[k] ?? 0)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** A material's pixel coin: a small square gem in its colour. */
+export function MaterialIcon({ id, size = 14 }: { id: Material; size?: number }) {
+  const c = MATERIAL_INFO[id].color;
+  return (
+    <span
+      className="inline-block shrink-0"
+      title={MATERIAL_INFO[id].name}
+      style={{ width: size * 0.75, height: size * 0.75, background: c, boxShadow: `0 0 0 2px #1b0f22, inset -2px -2px 0 rgba(0,0,0,.35), inset 2px 2px 0 rgba(255,255,255,.35)`, transform: id === 'seals' ? 'rotate(45deg)' : undefined }}
+    />
   );
 }

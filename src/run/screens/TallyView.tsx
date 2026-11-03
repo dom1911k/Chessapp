@@ -12,7 +12,7 @@ import { useRun } from '../store';
 import { TUNING as T } from '../tuning';
 import type { ConsumableId, Fire, RelicId } from '../types';
 import { sfx, buzz } from '../sfx';
-import { PixelNum, TarotCard } from './bits';
+import { MaterialRow, PixelNum, TarotCard } from './bits';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { CoinRain } from './scenes';
 
@@ -163,6 +163,13 @@ export function TallyView({ onShake }: { onShake: () => void }) {
               {name(f)}: {f.composure ? `+${f.composure} Composure` : f.gold ? `+${f.gold} gold` : ''}
             </div>
           ))}
+          {(res.material || res.mintGold) && (
+            <div className="run-sans flex items-center gap-2 text-xs">
+              {res.material && <MaterialRow m={{ [res.material.id]: res.material.amount }} size={18} />}
+              {res.material && <span className="text-[var(--ink-dim)]">for the Order</span>}
+              {res.mintGold ? <span className="text-[var(--gold)]">· Mint +{res.mintGold}g</span> : null}
+            </div>
+          )}
           {res.battlefield && <BattlefieldReveal b={res.battlefield} />}
           {!res.won && res.kind !== 'boss' && res.composureLost > 0 && (
             <div className="run-sans text-xs text-[var(--blood)]">−{res.composureLost} Composure in this room</div>

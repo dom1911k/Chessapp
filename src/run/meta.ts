@@ -1,11 +1,12 @@
-// Between-run progression: Embers earned every run (win or lose), spent in the Sanctum on
-// unlocks (new relics, rooms, events, board themes) and a few small permanent boosts.
-// Stored in Run mode's own database; never touches the app's XP or rewards.
+// Between-run progression: the Order. Materials from rooms you cleared (and Seals from big
+// wins) build and upgrade buildings on the Order's board; buildings unlock content and
+// carry the old Sanctum perks. Stored in Run mode's own database; never touches the app.
 import { create } from 'zustand';
 import { runDb } from './db';
 import type { ConsumableId, EventKind, RelicId, RoomKind, Run } from './types';
 import { TUNING as T } from './tuning';
 import { heatAfterWin, heatAllowed, noteScenario, type Grimoire } from './rules';
+import { EMPTY_ORDER, UNLOCK_BUILDING, addMaterials, buildCost, canAfford, cosmeticCost, migrateSanctum, pay, reclaimCost, squareState, buildingAt, perksOf, type BuildingId, type Materials, type OrderState } from './order';
 import type { TechId } from './codex';
 
 export type BoostId = 'reroll' | 'notes' | 'nerves' | 'cartographer' | 'keeneye';
@@ -73,7 +74,7 @@ export interface Boost {
   sprite: string;
 }
 
-/** Breadth, not power: what's left are conveniences and sidegrades. */
+/** The old Sanctum perks; they now come with Order buildings (see order.ts BUILDINGS.perks). */
 export const BOOSTS: Boost[] = [
   { id: 'notes', name: "Sam's Notes", text: () => 'Start every run holding a Candidate Cards.', costs: [10], sprite: 'scroll' },
   { id: 'cartographer', name: 'Cartographer', text: () => 'See one more row of the map through the fog.', costs: [10], sprite: 'compass' },
@@ -82,13 +83,17 @@ export const BOOSTS: Boost[] = [
   { id: 'reroll', name: 'Second Look', text: () => 'Reroll the campfire shop once per visit, free.', costs: [15], sprite: 'dice' },
 ];
 
-/** One-time achievements that pay Embers. */
+/** One-time achievements that pay Seals. */
 export interface Milestone {
   id: string;
   name: string;
   text: string;
+  /** Old Ember value (kept for reference); they pay `seals` now. */
   embers: number;
+  seals?: number;
 }
+/** Seals a milestone pays (bigger milestones pay more). */
+export const milestoneSeals = (x: Milestone) => x.seals ?? (x.embers >= 8 ? 3 : x.embers >= 4 ? 2 : 1);
 export const MILESTONES: Milestone[] = [
   { id: 'first-clear', name: 'First Steps', text: 'Clear your first room.', embers: 2 },
   { id: 'clean-room', name: 'Clean Hands', text: 'Clear a room with 5+ moves, all of them good or best.', embers: 3 },
@@ -103,6 +108,7 @@ export const MILESTONES: Milestone[] = [
 ];
 
 export interface Meta {
+  /** Old currency: only read once to migrate into materials. */
   embers: number;
   milestones?: string[];
   earned: number;
@@ -117,7 +123,7 @@ export interface Meta {
   heatUnlocked?: number;
   /** Highest Heat at which you beat the rival. */
   heatBest?: number;
-  /** One-line note about refunded Embers (shown once in the Sanctum). */
+  /** One-line note shown once (refunds, migration). */
   refundNote?: string;
   /** Scenario records (met / cleared / failed / clears in a row). */
   grimoire?: Grimoire;
@@ -125,38 +131,44 @@ export interface Meta {
   codex?: Partial<Record<TechId, { learned: boolean; uses: number }>>;
   /** Techniques equipped for the next run (up to codexSlots). */
   equipped?: TechId[];
+  /** The Order. */
+  materials?: Materials;
+  order?: OrderState;
+  /** The Sanctum was migrated into the Order. */
+  orderMigrated?: boolean;
 }
 
-const EMPTY: Meta = { embers: 0, earned: 0, unlocked: [], boosts: {}, runs: 0, wins: 0, best: 0, milestones: [], rivalWins: {}, grimoire: {}, heatUnlocked: 0, heatBest: 0, codex: {}, equipped: [] };
+const EMPTY: Meta = { embers: 0, earned: 0, unlocked: [], boosts: {}, runs: 0, wins: 0, best: 0, milestones: [], rivalWins: {}, grimoire: {}, heatUnlocked: 0, heatBest: 0, codex: {}, equipped: [], materials: {}, order: EMPTY_ORDER, orderMigrated: false };
 
-/** Embers for a finished run: something every time, more for progress and a win. */
-export function embersFor(r: Run): number {
-  const E = T.embers;
-  const won = r.results.filter((x) => x.won).length;
-  const beatBoss = r.ended === 'won';
-  const diff = won > 0 && r.difficulty ? T.difficulty[r.difficulty].embers : 0;
-  const heat = beatBoss ? (r.heat ?? 0) * T.heat.embersPerLevel : 0;
-  // Base Embers only once a room was cleared (abandoning at once isn't farmable).
-  return diff + Math.floor(Math.max(0, r.gold ?? 0) / E.goldPer) + (won > 0 ? E.base : 0) + won * E.perRoom + Math.floor((r.finalScore ?? 0) / E.scoreStep) + (beatBoss ? E.bossWin : 0) + (beatBoss && r.cursed ? E.cursedWin : 0) + heat;
+/** Seals for a finished run: a rival win, more per Heat level. */
+export function runSeals(r: Pick<Run, 'ended' | 'heat'>): number {
+  const S = T.order.seals;
+  return r.ended === 'won' ? S.rivalWin + (r.heat ?? 0) * S.perHeat : 0;
 }
 
-export const isUnlocked = (m: Meta, id: string) => !UNLOCKS.some((u) => u.id === id) || m.unlocked.includes(id);
-export const lockedRelics = (m: Meta): RelicId[] => UNLOCKS.filter((u) => u.kind === 'relic' && !m.unlocked.includes(u.id)).map((u) => u.ref as RelicId);
-export const lockedRooms = (m: Meta): RoomKind[] => UNLOCKS.filter((u) => u.kind === 'room' && !m.unlocked.includes(u.id)).map((u) => u.ref as RoomKind);
-export const lockedEvents = (m: Meta): EventKind[] => UNLOCKS.filter((u) => u.kind === 'event' && !m.unlocked.includes(u.id)).map((u) => u.ref as EventKind);
-export const lockedDrills = (m: Meta): string[] => UNLOCKS.filter((u) => u.kind === 'drill' && !m.unlocked.includes(u.id)).map((u) => u.ref);
-export const lockedCards = (m: Meta): ConsumableId[] => UNLOCKS.filter((u) => u.kind === 'card' && !m.unlocked.includes(u.id)).map((u) => u.ref as ConsumableId);
+/** Unlocked: bought before (legacy), or granted by an Order building's level. */
+export function isUnlocked(m: Pick<Meta, 'unlocked' | 'order'>, id: string): boolean {
+  if (!UNLOCKS.some((u) => u.id === id) || m.unlocked.includes(id)) return true;
+  const b = UNLOCK_BUILDING[id];
+  return !!b && (m.order?.buildings[b.building]?.level ?? 0) >= b.level;
+}
+const lockedOf = (m: Meta, kind: Unlock['kind']) => UNLOCKS.filter((u) => u.kind === kind && !isUnlocked(m, u.id)).map((u) => u.ref);
+export const lockedRelics = (m: Meta): RelicId[] => lockedOf(m, 'relic') as RelicId[];
+export const lockedRooms = (m: Meta): RoomKind[] => lockedOf(m, 'room') as RoomKind[];
+export const lockedEvents = (m: Meta): EventKind[] => lockedOf(m, 'event') as EventKind[];
+export const lockedDrills = (m: Meta): string[] => lockedOf(m, 'drill');
+export const lockedCards = (m: Meta): ConsumableId[] => lockedOf(m, 'card') as ConsumableId[];
 export const boardUnlocked = (m: Meta, id: string) => id === 'crypt' || m.unlocked.includes(`board:${id}`);
 export const piecesUnlocked = (m: Meta, id: string) => id === 'board' || m.unlocked.includes(`pieces:${id}`);
+/** The Sanctum perks your buildings carry (same shape as the old boosts). */
+export const perks = (m: Meta) => perksOf(m.order ?? EMPTY_ORDER);
 
 interface MetaStore extends Meta {
   loaded: boolean;
   load(): Promise<Meta>;
-  buyUnlock(id: string): boolean;
-  buyBoost(id: BoostId): boolean;
-  /** Record a finished run (Embers, stats). */
-  finish(r: Run, embers: number): void;
-  /** Award the milestones not yet earned; returns the newly earned ones. */
+  /** Record a finished run (materials, Seals, stats). */
+  finish(r: Run): void;
+  /** Award the milestones not yet earned (they pay Seals); returns the newly earned ones. */
   award(ids: string[]): Milestone[];
   /** Record scenario outcomes in the Grimoire. */
   noteGrimoire(entries: { key: string; won: boolean }[]): void;
@@ -165,108 +177,168 @@ interface MetaStore extends Meta {
   learnTechnique(id: TechId): void;
   /** Codex: equip / unequip for the next run (max codexSlots). */
   toggleEquip(id: TechId): boolean;
-  /** Codex: executions count toward mastery. */
+  /** Codex: executions count toward mastery (Adept/Master pay Seals). */
   useTechnique(id: TechId, n?: number): void;
+  /** The Order: build (level 1) on a square, or upgrade to level 2. */
+  build(id: BuildingId, sq?: string): boolean;
+  upgrade(id: BuildingId): boolean;
+  /** Move a building to an empty open square (free). */
+  moveBuilding(id: BuildingId, sq: string): boolean;
+  /** Reclaim a rank-3/4 square with Stone. */
+  reclaim(sq: string): boolean;
+  /** Gallery: buy a board theme or piece set. */
+  buyCosmetic(id: string): boolean;
   dev(n: number): void;
 }
 
 const save = (m: Meta) => void runDb.state.put({ key: 'meta', value: m }).catch(() => {});
-const pick = (s: Meta): Meta => ({ embers: s.embers, earned: s.earned, unlocked: s.unlocked, boosts: s.boosts, runs: s.runs, wins: s.wins, best: s.best, milestones: s.milestones ?? [], rivalWins: s.rivalWins ?? {}, grimoire: s.grimoire ?? {}, heatUnlocked: s.heatUnlocked ?? 0, heatBest: s.heatBest ?? 0, refundNote: s.refundNote, codex: s.codex ?? {}, equipped: s.equipped ?? [] });
+const pick = (s: Meta): Meta => ({
+  embers: s.embers, earned: s.earned, unlocked: s.unlocked, boosts: s.boosts, runs: s.runs, wins: s.wins, best: s.best, milestones: s.milestones ?? [], rivalWins: s.rivalWins ?? {},
+  grimoire: s.grimoire ?? {}, heatUnlocked: s.heatUnlocked ?? 0, heatBest: s.heatBest ?? 0, refundNote: s.refundNote, codex: s.codex ?? {}, equipped: s.equipped ?? [],
+  materials: s.materials ?? {}, order: s.order ?? EMPTY_ORDER, orderMigrated: s.orderMigrated ?? false,
+});
 
-export const useMeta = create<MetaStore>((set, get) => ({
-  ...EMPTY,
-  loaded: false,
-  async load() {
-    if (get().loaded) return pick(get());
-    let m = EMPTY;
-    try {
-      m = { ...EMPTY, ...((await runDb.state.get('meta'))?.value as Meta | undefined) };
-    } catch {
-      /* first time */
-    }
-    // Stage C: removed boosts/unlocks give their Embers back, once.
-    const refund = refundFor(m.boosts as Record<string, number>, m.unlocked);
-    if (refund > 0) {
-      const boosts = Object.fromEntries(Object.entries(m.boosts).filter(([k]) => !(k in REMOVED_BOOSTS))) as Meta['boosts'];
-      m = { ...m, boosts, unlocked: m.unlocked.filter((u) => !(u in REMOVED_UNLOCKS)), embers: m.embers + refund, refundNote: `The Sanctum changed: ${refund} Embers refunded for removed boosts.` };
-      save(pick(m));
-    }
-    set({ ...m, loaded: true });
-    return m;
-  },
-  buyUnlock(id) {
-    const u = UNLOCKS.find((x) => x.id === id);
-    const s = get();
-    if (!u || s.unlocked.includes(id) || s.embers < u.cost) return false;
-    set({ embers: s.embers - u.cost, unlocked: [...s.unlocked, id] });
+/** Migrate a Sanctum-era save into the Order (once): Embers → starter pile, unlocks/perks → buildings. */
+export function migrateMeta(m: Meta): Meta {
+  if (m.orderMigrated) return m;
+  const refund = refundFor(m.boosts as Record<string, number>, m.unlocked);
+  const embers = m.embers + refund;
+  const unlocked = m.unlocked.filter((u) => !(u in REMOVED_UNLOCKS));
+  const { materials, order } = migrateSanctum(embers, unlocked, m.boosts as Record<string, number>);
+  const had = embers > 0 || unlocked.length > 0 || Object.keys(m.boosts).length > 0;
+  return {
+    ...m,
+    unlocked,
+    boosts: {},
+    embers: 0,
+    materials: addMaterials(m.materials ?? {}, materials),
+    order,
+    orderMigrated: true,
+    refundNote: had ? `The Sanctum became the Order: your ${embers} Embers became ${embers * T.order.emberRate} of each material, and your unlocks became buildings.` : m.refundNote,
+  };
+}
+
+export const useMeta = create<MetaStore>((set, get) => {
+  const commit = (p: Partial<Meta>) => {
+    set(p);
     save(pick(get()));
-    return true;
-  },
-  buyBoost(id) {
-    const b = BOOSTS.find((x) => x.id === id)!;
-    const s = get();
-    const lvl = s.boosts[id] ?? 0;
-    const cost = b.costs[lvl];
-    if (cost === undefined || s.embers < cost) return false;
-    set({ embers: s.embers - cost, boosts: { ...s.boosts, [id]: lvl + 1 } });
-    save(pick(get()));
-    return true;
-  },
-  finish(r, embers) {
-    const s = get();
-    const rivalWins = { ...(s.rivalWins ?? {}) };
-    if (r.ended === 'won') rivalWins[r.bossId] = (rivalWins[r.bossId] ?? 0) + 1;
-    const heatWin = r.ended === 'won' && heatAllowed(r.difficulty);
-    const heatUnlocked = heatWin ? heatAfterWin(r.heat ?? 0, s.heatUnlocked ?? 0) : (s.heatUnlocked ?? 0);
-    const heatBest = heatWin ? Math.max(s.heatBest ?? 0, r.heat ?? 0) : (s.heatBest ?? 0);
-    set({ heatUnlocked, heatBest, embers: s.embers + embers, earned: s.earned + embers, runs: s.runs + 1, wins: s.wins + (r.ended === 'won' ? 1 : 0), best: Math.max(s.best, r.finalScore ?? 0), rivalWins });
-    save(pick(get()));
-  },
-  award(ids) {
-    const s = get();
-    const have = s.milestones ?? [];
-    const fresh = MILESTONES.filter((x) => ids.includes(x.id) && !have.includes(x.id));
-    if (!fresh.length) return [];
-    const n = fresh.reduce((a, x) => a + x.embers, 0);
-    set({ milestones: [...have, ...fresh.map((x) => x.id)], embers: s.embers + n, earned: s.earned + n });
-    save(pick(get()));
-    return fresh;
-  },
-  learnTechnique(id) {
-    const c = { ...(get().codex ?? {}) };
-    c[id] = { learned: true, uses: c[id]?.uses ?? 0 };
-    const eq = get().equipped ?? [];
-    set({ codex: c, equipped: eq.length < T.codex.slots && !eq.includes(id) ? [...eq, id] : eq });
-    save(pick(get()));
-  },
-  toggleEquip(id) {
-    const eq = get().equipped ?? [];
-    if (eq.includes(id)) set({ equipped: eq.filter((x) => x !== id) });
-    else if (eq.length < T.codex.slots && get().codex?.[id]?.learned) set({ equipped: [...eq, id] });
-    else return false;
-    save(pick(get()));
-    return true;
-  },
-  useTechnique(id, n = 1) {
-    const c = { ...(get().codex ?? {}) };
-    if (!c[id]) return;
-    c[id] = { ...c[id]!, uses: c[id]!.uses + n };
-    set({ codex: c });
-    save(pick(get()));
-  },
-  clearRefundNote() {
-    set({ refundNote: undefined });
-    save(pick(get()));
-  },
-  noteGrimoire(entries) {
-    if (!entries.length) return;
-    let g = get().grimoire ?? {};
-    for (const e of entries) g = noteScenario(g, e.key, e.won);
-    set({ grimoire: g });
-    save(pick(get()));
-  },
-  dev(n) {
-    set({ embers: get().embers + n });
-    save(pick(get()));
-  },
-}));
+  };
+  return {
+    ...EMPTY,
+    loaded: false,
+    async load() {
+      if (get().loaded) return pick(get());
+      let m = EMPTY;
+      try {
+        m = { ...EMPTY, ...((await runDb.state.get('meta'))?.value as Meta | undefined) };
+      } catch {
+        /* first time */
+      }
+      if (!m.orderMigrated) {
+        m = migrateMeta(m);
+        save(pick(m));
+      }
+      set({ ...m, loaded: true });
+      return m;
+    },
+    finish(r) {
+      const s = get();
+      const rivalWins = { ...(s.rivalWins ?? {}) };
+      if (r.ended === 'won') rivalWins[r.bossId] = (rivalWins[r.bossId] ?? 0) + 1;
+      const heatWin = r.ended === 'won' && heatAllowed(r.difficulty);
+      const heatUnlocked = heatWin ? heatAfterWin(r.heat ?? 0, s.heatUnlocked ?? 0) : (s.heatUnlocked ?? 0);
+      const heatBest = heatWin ? Math.max(s.heatBest ?? 0, r.heat ?? 0) : (s.heatBest ?? 0);
+      const gained = addMaterials(r.materials ?? {}, { seals: runSeals(r) });
+      commit({ heatUnlocked, heatBest, materials: addMaterials(s.materials ?? {}, gained), runs: s.runs + 1, wins: s.wins + (r.ended === 'won' ? 1 : 0), best: Math.max(s.best, r.finalScore ?? 0), rivalWins });
+    },
+    award(ids) {
+      const s = get();
+      const have = s.milestones ?? [];
+      const fresh = MILESTONES.filter((x) => ids.includes(x.id) && !have.includes(x.id));
+      if (!fresh.length) return [];
+      const n = fresh.reduce((a, x) => a + milestoneSeals(x), 0);
+      commit({ milestones: [...have, ...fresh.map((x) => x.id)], materials: addMaterials(s.materials ?? {}, { seals: n }) });
+      return fresh;
+    },
+    noteGrimoire(entries) {
+      if (!entries.length) return;
+      let g = get().grimoire ?? {};
+      for (const e of entries) g = noteScenario(g, e.key, e.won);
+      commit({ grimoire: g });
+    },
+    clearRefundNote() {
+      commit({ refundNote: undefined });
+    },
+    learnTechnique(id) {
+      const c = { ...(get().codex ?? {}) };
+      c[id] = { learned: true, uses: c[id]?.uses ?? 0 };
+      const eq = get().equipped ?? [];
+      commit({ codex: c, equipped: eq.length < T.codex.slots && !eq.includes(id) ? [...eq, id] : eq });
+    },
+    toggleEquip(id) {
+      const eq = get().equipped ?? [];
+      if (eq.includes(id)) commit({ equipped: eq.filter((x) => x !== id) });
+      else if (eq.length < T.codex.slots && get().codex?.[id]?.learned) commit({ equipped: [...eq, id] });
+      else return false;
+      return true;
+    },
+    useTechnique(id, n = 1) {
+      const c = { ...(get().codex ?? {}) };
+      if (!c[id]) return;
+      const before = c[id]!.uses;
+      const after = before + n;
+      c[id] = { ...c[id]!, uses: after };
+      // Seals when a technique reaches Adept or Master.
+      const S = T.order.seals;
+      const seals = (before < T.codex.adeptUses && after >= T.codex.adeptUses ? S.techAdept : 0) + (before < T.codex.masterUses && after >= T.codex.masterUses ? S.techMaster : 0);
+      commit({ codex: c, ...(seals ? { materials: addMaterials(get().materials ?? {}, { seals }) } : {}) });
+    },
+    build(id, sq) {
+      const s = get();
+      const o = s.order ?? EMPTY_ORDER;
+      if (o.buildings[id]) return false;
+      const spot = sq ?? ['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2', ...o.reclaimed].find((x) => squareState(o, x) === 'open' && !buildingAt(o, x));
+      if (!spot || squareState(o, spot) !== 'open' || buildingAt(o, spot)) return false;
+      const cost = buildCost(id, 1);
+      if (!canAfford(s.materials ?? {}, cost)) return false;
+      commit({ materials: pay(s.materials ?? {}, cost), order: { ...o, buildings: { ...o.buildings, [id]: { level: 1, sq: spot } } } });
+      return true;
+    },
+    upgrade(id) {
+      const s = get();
+      const o = s.order ?? EMPTY_ORDER;
+      const b = o.buildings[id];
+      if (!b || b.level >= 2) return false;
+      const cost = buildCost(id, 2);
+      if (!canAfford(s.materials ?? {}, cost)) return false;
+      commit({ materials: pay(s.materials ?? {}, cost), order: { ...o, buildings: { ...o.buildings, [id]: { ...b, level: 2 } } } });
+      return true;
+    },
+    moveBuilding(id, sq) {
+      const o = get().order ?? EMPTY_ORDER;
+      const b = o.buildings[id];
+      if (!b || squareState(o, sq) !== 'open' || buildingAt(o, sq)) return false;
+      commit({ order: { ...o, buildings: { ...o.buildings, [id]: { ...b, sq } } } });
+      return true;
+    },
+    reclaim(sq) {
+      const s = get();
+      const o = s.order ?? EMPTY_ORDER;
+      if (squareState(o, sq) !== 'reclaimable' || !canAfford(s.materials ?? {}, reclaimCost())) return false;
+      commit({ materials: pay(s.materials ?? {}, reclaimCost()), order: { ...o, reclaimed: [...o.reclaimed, sq] } });
+      return true;
+    },
+    buyCosmetic(id) {
+      const s = get();
+      const o = s.order ?? EMPTY_ORDER;
+      if (!o.buildings.gallery || s.unlocked.includes(id) || !UNLOCKS.some((u) => u.id === id && (u.kind === 'board' || u.kind === 'pieces'))) return false;
+      const cost = cosmeticCost(o);
+      if (!canAfford(s.materials ?? {}, cost)) return false;
+      commit({ materials: pay(s.materials ?? {}, cost), unlocked: [...s.unlocked, id] });
+      return true;
+    },
+    dev(n) {
+      commit({ materials: addMaterials(get().materials ?? {}, { ink: n, stone: n, iron: n, pages: n, seals: Math.ceil(n / 10) }) });
+    },
+  };
+});

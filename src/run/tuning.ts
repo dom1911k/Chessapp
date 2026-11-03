@@ -19,8 +19,6 @@ export interface Difficulty {
   margin: number;
   /** Moves you get to climb back above a red line (or overtime moves at the end). */
   grace: number;
-  /** Extra Embers for a run with at least one cleared room. */
-  embers: number;
 }
 
 
@@ -59,27 +57,24 @@ export const TUNING = {
       cost: { best: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 1 },
       margin: 100,
       grace: 3,
-      embers: 0,
     },
     adept: {
       name: 'Adept',
-      blurb: 'The intended challenge. Mistakes and blunders cost candles. +1 Ember.',
+      blurb: 'The intended challenge. Mistakes and blunders cost candles.',
       eloOffset: 0,
       takebacks: 0,
       cost: { best: 0, good: 0, inaccuracy: 0, mistake: 1, blunder: 2 },
       margin: 0,
       grace: 2,
-      embers: 1,
     },
     master: {
       name: 'Master',
-      blurb: 'Stronger opponents, tighter red lines, one move to recover. +3 Embers.',
+      blurb: 'Stronger opponents, tighter red lines, one move to recover.',
       eloOffset: 150,
       takebacks: 0,
       cost: { best: 0, good: 0, inaccuracy: 0, mistake: 1, blunder: 2 },
       margin: -50,
       grace: 1,
-      embers: 3,
     },
   } as Record<DiffId, Difficulty>,
 
@@ -291,6 +286,43 @@ export const TUNING = {
    */
   battlefield: { options: 3, bestPickGold: 8, okPickGold: 4, okPickCp: 50 },
 
+  /**
+   * The Order (replaces the Sanctum). Materials come only from rooms you cleared.
+   * Growth makes runs richer, never easier: score, materials, gold and unlocks only.
+   */
+  order: {
+    /** Stone per rank-3/4 square reclaimed. */
+    reclaimCost: 6,
+    /** Materials for a cleared room: base, + elite, + blind beaten, + clean. Events (Library, Shrine) pay `event`. */
+    roomYield: { base: 3, elite: 2, blind: 1, clean: 1, event: 3 },
+    /** Seals: a rival win (+ per Heat level), a Codex technique reaching Adept / Master. */
+    seals: { rivalWin: 1, perHeat: 1, techAdept: 1, techMaster: 2 },
+    /** Empowerment: +per for each distinct building reaching it, up to max. */
+    empower: { per: 0.25, max: 2 },
+    /** Building effects by level (1, 2). */
+    effects: {
+      inkPerPuzzle: [1, 2] as [number, number],
+      stonePct: [0.25, 0.5] as [number, number],
+      ironPerCleanVault: [2, 4] as [number, number],
+      pagesPerBook: [1, 2] as [number, number],
+      goldPct: [0.15, 0.3] as [number, number],
+    },
+    /** Build (level 1) and upgrade (level 2) costs. */
+    costs: {
+      scriptorium: [{ ink: 8 }, { ink: 24, pages: 8 }],
+      watchtower: [{ stone: 8 }, { stone: 24, iron: 8 }],
+      forge: [{ iron: 10 }, { iron: 26, stone: 8 }],
+      archive: [{ pages: 8 }, { pages: 24, ink: 8 }],
+      mint: [{ ink: 5, stone: 5, iron: 5, pages: 5 }, { ink: 12, stone: 12, iron: 12, pages: 12, seals: 2 }],
+      gallery: [{ pages: 5, stone: 5 }, { pages: 15, stone: 15, seals: 1 }],
+    } as Record<string, [Partial<Record<string, number>>, Partial<Record<string, number>>]>,
+    /** A board theme or piece set in the Gallery (level 2: × galleryL2Discount). */
+    cosmeticCost: { pages: 10, ink: 6 },
+    galleryL2Discount: 0.5,
+    /** Migration: 1 old Ember = this much of each common material. */
+    emberRate: 2,
+  },
+
   /** The Codex: techniques you learn, equip and fire. */
   codex: {
     /** Techniques you can equip for a run. */
@@ -319,8 +351,6 @@ export const TUNING = {
     brittleMistakeExtra: 1,
   },
 
-  /** Embers per finished run: base + per cleared room + per score step + rival win (+ cursed win, + Heat) + 1 per `goldPer` gold left. */
-  embers: { base: 3, perRoom: 2, scoreStep: 600, bossWin: 6, cursedWin: 3, goldPer: 20 },
 
   /**
    * Heat ladder (Adept and Master only). Beating the rival at Heat N unlocks N+1. Each level
@@ -334,8 +364,6 @@ export const TUNING = {
     rivalElo: 100,
     inaccuracyCost: 1,
     graceLess: 1,
-    /** Embers per Heat level when you beat the rival. */
-    embersPerLevel: 2,
   },
 
   /** Sanctum: Vault drills that start locked, and the Keen Eye sidegrade. */

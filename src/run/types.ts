@@ -3,6 +3,7 @@ import type { Classification } from '../lib/chess/evaluation';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
 import type { DiffId } from './tuning';
 import type { TechId } from './codex';
+import type { Material, Materials, OrderState } from './order';
 
 export type RoomKind = 'puzzle' | 'convert' | 'hold' | 'ward' | 'vault' | 'duel' | 'echo' | 'mirror' | 'boss';
 export type NodeKind = RoomKind | 'event' | 'camp';
@@ -124,6 +125,8 @@ export interface RoomState {
   diff?: DiffId;
   /** Heat level of the run (0/undefined = none). */
   heat?: number;
+  /** Duel: your moves that matched the opening book (Archive). */
+  bookMatched?: number;
   /** Free take-backs used in this room. */
   takebacks?: number;
   /** Cards used in this room (Cold Read). */
@@ -158,6 +161,10 @@ export interface RoomResult {
   reason: string;
   /** No mistake or blunder (clean bonus). */
   clean?: boolean;
+  /** The Order: the material this room paid (cleared rooms only). */
+  material?: { id: Material; amount: number };
+  /** The Mint's extra gold. */
+  mintGold?: number;
   /** Rival fight: the battlefield choice, revealed in the tally. */
   battlefield?: BattlefieldResult;
   /** Eval (your POV, cp) after your last move — shown in the tally when Heat hides numbers. */
@@ -241,8 +248,8 @@ export interface Run {
   echoes?: EchoPos[];
   /** Bigger Pouch bought (extra card slots). */
   pouch?: number;
-  /** Embers that leftover gold turned into (set when the run ends). */
-  goldEmbers?: number;
+  /** Materials earned this run (go to the Order when it ends). */
+  materials?: Materials;
   cursed: boolean;
   curseDecided: boolean;
   secondWindUsed?: boolean;
@@ -252,15 +259,15 @@ export interface Run {
   /** Puzzles already used this run (avoid repeats). */
   usedPuzzles: string[];
   /** Meta snapshot taken when the run started (boosts and what is still locked). */
-  meta?: { boosts: Partial<Record<string, number>>; lockedRelics: RelicId[]; lockedCards?: ConsumableId[]; lockedDrills?: string[] };
+  meta?: { boosts: Partial<Record<string, number>>; lockedRelics: RelicId[]; lockedCards?: ConsumableId[]; lockedDrills?: string[]; /** The Order as it was when the run started. */ order?: OrderState };
   /** Steady Nerves boost used (first blunder of the run costs one less). */
   nervesUsed?: boolean;
   /** Milestones earned during this run (ids), for the debrief. */
   milestones?: string[];
   /** The free shop reroll (Second Look) has been used at this campfire. */
   rerollUsed?: boolean;
-  /** Embers earned (set when the run ends). */
-  embers?: number;
+  /** Seals earned at the end (rival win, Heat). */
+  seals?: number;
   abandoned?: boolean;
   /** Moves played with Engine's Eye showing ("Room: Nf3"), for the debrief. */
   eyeMoves?: string[];

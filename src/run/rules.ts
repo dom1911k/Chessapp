@@ -496,8 +496,6 @@ export const stallPrice = (r: Shopper, id: RelicId) => deal(r, T.shop.stallPrice
 export const pouchPrice = (r: Shopper) => deal(r, T.shop.pouchPrice);
 export const cleansePrice = (r: Shopper) => deal(r, T.shop.cleansePrice);
 export const rerollPrice = (r: Shopper) => T.shop.rerollPrice + (r.rerolls ?? 0) * T.shop.rerollStep;
-/** Embers that leftover gold turns into at the end of a run. */
-export const goldToEmbers = (gold: number) => Math.floor(Math.max(0, gold) / T.embers.goldPer);
 export const shopOffers = (relics: RelicId[]) => T.shop.offers + (relics.includes('lucky') ? T.relics.luckyExtraOffer : 0);
 
 const mat = (fen: string, me: 'w' | 'b') => materialBalance(parseFen(fen).board, me);

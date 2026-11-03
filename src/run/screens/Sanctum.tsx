@@ -1,8 +1,8 @@
-// Between runs: the Sanctum (spend Embers on boosts, unlocks and board themes), the run
-// history, and Run mode's settings sheet (volumes, CRT, motion, board, abandon run).
+// Between runs: the run history and Run mode's settings sheet (volumes, CRT, motion, board,
+// abandon run). The old Sanctum is now the Order (screens/Order.tsx).
 import { useEffect, useState } from 'react';
 import { runDb } from '../db';
-import { BOOSTS, MILESTONES, UNLOCKS, boardUnlocked, piecesUnlocked, useMeta } from '../meta';
+import { boardUnlocked, piecesUnlocked, useMeta } from '../meta';
 import { ROOM_NAME, RELICS } from '../content';
 import { useRunSettings } from '../settings';
 import { applyVolumes, sfx } from '../sfx';
@@ -10,236 +10,15 @@ import { useRun } from '../store';
 import type { Run } from '../types';
 import { BOARD_THEMES, PIECE_SETS, pieceSprite, tileSprite } from '../pixel/board';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
-import { BLOOD, EMBER, GOLD, SPIRIT } from '../pixel/pixelize';
-import { PixelNum } from './bits';
+import { GOLD } from '../pixel/pixelize';
+import { MaterialRow, PixelNum } from './bits';
 import { PixelText } from './PixelText';
-import { Fire } from './scenes';
-import { GrimoireScreen } from './Grimoire';
-import { CodexScreen } from './Codex';
-
-function Embers({ n, size = 3 }: { n: number; size?: number }) {
-  return (
-    <span className="flex items-center gap-1">
-      <Sprite name="flame" size={size * 6} px={12} pal={EMBER} />
-      <PixelNum value={n} size={size} color="#ffb454" />
-    </span>
-  );
-}
 
 function Back({ onClick }: { onClick: () => void }) {
   return (
     <button className="run-btn ghost px-3! py-2!" onClick={onClick}>
       ← Back
     </button>
-  );
-}
-
-export function SanctumScreen({ onBack, start }: { onBack: () => void; start?: 'codex' }) {
-  const m = useMeta();
-  const [tab, setTab] = useState<'boosts' | 'unlocks' | 'boards' | 'milestones'>('boosts');
-  const [sub, setSub] = useState<null | 'grimoire' | 'codex'>(start ?? null);
-  useEffect(() => void m.load(), [m]);
-  const buy = (ok: boolean) => {
-    if (ok) {
-      sfx('coin');
-      sfx('relic');
-    } else sfx('fail');
-  };
-  if (sub === 'grimoire') return <GrimoireScreen onBack={() => setSub(null)} />;
-  if (sub === 'codex') return <CodexScreen onBack={() => (start ? onBack() : setSub(null))} />;
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between px-4 pt-3">
-        <Back onClick={onBack} />
-        <Embers n={m.embers} />
-      </div>
-      <div className="mt-2 flex flex-col items-center">
-        <div className="flex items-end gap-2">
-          <PixelPortrait id="coach" size={52} />
-          <Fire w={16} h={20} scale={3} logs />
-        </div>
-        <PixelText text="The Sanctum" size={3} className="mt-1" />
-        <div className="run-sans mt-1 px-6 text-center text-xs text-[var(--ink-dim)]">Embers from every run, won or lost, buy lasting gifts here. {m.runs} runs · {m.wins} won · best {m.best}
-          {(m.heatBest ?? 0) > 0 && <span className="text-[#ffb454]"> · Heat {m.heatBest} cleared</span>}
-        </div>
-        {m.refundNote && (
-          <button className="run-sans mt-2 rounded bg-[#ffb454]/15 px-2 py-1 text-xs text-[#ffd9a8]" onClick={() => m.clearRefundNote()}>
-            {m.refundNote} ✕
-          </button>
-        )}
-        <div className="mt-2 flex gap-2">
-          <button className="run-btn ghost flex items-center gap-1.5 px-3! py-1.5! text-sm" onClick={() => (setSub('grimoire'), sfx('card'))}>
-            <Sprite name="book" size={16} px={12} pal={GOLD} /> Grimoire
-          </button>
-          <button className="run-btn ghost flex items-center gap-1.5 px-3! py-1.5! text-sm" onClick={() => (setSub('codex'), sfx('card'))}>
-            <Sprite name="scroll" size={16} px={12} pal={EMBER} /> Codex
-          </button>
-        </div>
-      </div>
-      <div className="mt-3 flex gap-1 px-4">
-        {(['boosts', 'unlocks', 'boards', 'milestones'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`run-btn flex-1 px-1! py-2! text-xs ${tab === t ? '' : 'ghost'}`}>
-            {t === 'boosts' ? 'Boosts' : t === 'unlocks' ? 'Unlocks' : t === 'boards' ? 'Looks' : 'Goals'}
-          </button>
-        ))}
-      </div>
-      <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-6">
-        {tab === 'boosts' &&
-          BOOSTS.map((b) => {
-            const lvl = m.boosts[b.id] ?? 0;
-            const cost = b.costs[lvl];
-            return (
-              <div key={b.id} className="run-panel flex items-center gap-3 p-3">
-                <Sprite name={b.sprite} size={40} px={16} pal={GOLD} />
-                <div className="min-w-0 flex-1">
-                  <div className="run-title font-bold">
-                    {b.name} <span className="run-sans text-xs text-[var(--ink-dim)]">{b.costs.length > 1 ? `${lvl}/${b.costs.length}` : lvl ? 'owned' : ''}</span>
-                  </div>
-                  <div className="run-sans text-xs text-[var(--ink-dim)]">{b.text(lvl + (cost === undefined ? 0 : 1))}</div>
-                </div>
-                {cost !== undefined ? (
-                  <button className="run-btn px-3! py-2! text-sm" disabled={m.embers < cost} onClick={() => buy(m.buyBoost(b.id))}>
-                    <span className="flex items-center gap-1">
-                      <Sprite name="flame" size={14} px={10} pal={EMBER} /> {cost}
-                    </span>
-                  </button>
-                ) : (
-                  <span className="run-sans text-xs font-bold text-[#5ee59a]">MAX</span>
-                )}
-              </div>
-            );
-          })}
-        {tab === 'unlocks' &&
-          UNLOCKS.filter((u) => u.kind !== 'board' && u.kind !== 'pieces').map((u) => {
-            const own = m.unlocked.includes(u.id);
-            const pal = u.kind === 'drill' ? GOLD : u.kind === 'relic' ? (RELICS[u.ref as keyof typeof RELICS]?.rarity === 'rare' ? BLOOD : GOLD) : SPIRIT;
-            return (
-              <div key={u.id} className={`run-panel flex items-center gap-3 p-3 ${own ? 'opacity-70' : ''}`}>
-                <Sprite name={own ? u.sprite : 'lock'} size={40} px={16} pal={own ? pal : GOLD} />
-                <div className="min-w-0 flex-1">
-                  <div className="run-title font-bold">{u.name}</div>
-                  <div className="run-sans text-xs text-[var(--ink-dim)]">{u.text}</div>
-                </div>
-                {own ? (
-                  <span className="run-sans text-xs font-bold text-[#5ee59a]">Unlocked</span>
-                ) : (
-                  <button className="run-btn px-3! py-2! text-sm" disabled={m.embers < u.cost} onClick={() => buy(m.buyUnlock(u.id))}>
-                    <span className="flex items-center gap-1">
-                      <Sprite name="flame" size={14} px={10} pal={EMBER} /> {u.cost}
-                    </span>
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        {tab === 'boards' && (
-          <>
-            <Boards />
-            <PieceSets />
-          </>
-        )}
-        {tab === 'milestones' && (
-          <>
-            <div className="run-sans px-1 text-xs text-[var(--ink-dim)]">One-time goals. Each pays Embers the first time you reach it.</div>
-            {MILESTONES.map((x) => {
-              const done = (m.milestones ?? []).includes(x.id);
-              return (
-                <div key={x.id} className={`run-panel flex items-center gap-3 p-3 ${done ? '' : 'opacity-80'}`}>
-                  <Sprite name={done ? 'check' : 'star'} size={30} px={14} pal={done ? GOLD : SPIRIT} />
-                  <div className="min-w-0 flex-1">
-                    <div className="run-title font-bold">{x.name}</div>
-                    <div className="run-sans text-xs text-[var(--ink-dim)]">{x.text}</div>
-                  </div>
-                  <span className={`run-sans flex items-center gap-1 text-xs font-black ${done ? 'text-[#5ee59a]' : 'text-[#ffb454]'}`}>
-                    {done ? 'Done' : <><Sprite name="flame" size={14} px={10} pal={EMBER} /> {x.embers}</>}
-                  </span>
-                </div>
-              );
-            })}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Boards() {
-  const m = useMeta();
-  const rs = useRunSettings();
-  return (
-    <div className="grid grid-cols-2 gap-2">
-      {Object.values(BOARD_THEMES).map((t) => {
-        const own = boardUnlocked(m, t.id);
-        const u = UNLOCKS.find((x) => x.id === `board:${t.id}`);
-        const active = rs.board === t.id;
-        return (
-          <div key={t.id} className="run-panel p-2 text-center" style={active ? { boxShadow: '0 0 0 2px var(--gold), 0 0 18px rgba(242,199,92,.35)' } : undefined}>
-            <div className="mx-auto grid w-24 grid-cols-3" style={{ boxShadow: `0 0 0 2px #1b0f22, 0 0 0 4px ${t.frame[0]}` }}>
-              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
-                const light = i % 2 === 0;
-                const pc = i === 1 ? pieceSprite(t, 'b', 'Q') : i === 3 ? pieceSprite(t, 'w', 'N') : i === 5 ? pieceSprite(t, 'b', 'P') : i === 7 ? pieceSprite(t, 'w', 'K') : null;
-                return (
-                  <div key={i} className="pixelated aspect-square" style={{ background: `url(${tileSprite(t, light, i % 4)}) 0 0 / 100% 100%` }}>
-                    {pc && <img src={pc} alt="" className="pixelated h-full w-full" />}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="run-title mt-2 text-sm font-bold">{t.name}</div>
-            {own ? (
-              <button className={`run-btn mt-1 w-full px-2! py-1.5! text-xs ${active ? '' : 'ghost'}`} onClick={() => rs.set({ board: t.id })}>
-                {active ? 'In use' : 'Use'}
-              </button>
-            ) : (
-              <button className="run-btn mt-1 w-full px-2! py-1.5! text-xs" disabled={!u || m.embers < u.cost} onClick={() => u && m.buyUnlock(u.id) && (sfx('coin'), rs.set({ board: t.id }))}>
-                <span className="flex items-center justify-center gap-1">
-                  <Sprite name="flame" size={12} px={10} pal={EMBER} /> {u?.cost}
-                </span>
-              </button>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function PieceSets() {
-  const m = useMeta();
-  const rs = useRunSettings();
-  const theme = BOARD_THEMES[rs.board] ?? BOARD_THEMES.crypt;
-  return (
-    <>
-      <div className="run-label mt-3 px-1">Piece sets</div>
-      <div className="grid grid-cols-3 gap-2">
-        {Object.keys(PIECE_SETS).map((id) => {
-          const own = piecesUnlocked(m, id);
-          const u = UNLOCKS.find((x) => x.id === `pieces:${id}`);
-          const active = (rs.pieces ?? 'board') === id;
-          return (
-            <div key={id} className="run-panel p-2 text-center" style={active ? { boxShadow: '0 0 0 2px var(--gold), 0 0 18px rgba(242,199,92,.35)' } : undefined}>
-              <div className="flex justify-center gap-0.5">
-                {(['K', 'N'] as const).map((t, i) => (
-                  <img key={t} src={pieceSprite(theme, i ? 'b' : 'w', t, id)} alt="" className="pixelated h-9 w-9" />
-                ))}
-              </div>
-              <div className="run-title mt-1 text-xs leading-tight font-bold">{id === 'board' ? 'Match board' : PIECE_SETS[id]!.name}</div>
-              {own ? (
-                <button className={`run-btn mt-1 w-full px-1! py-1! text-[11px] ${active ? '' : 'ghost'}`} onClick={() => rs.set({ pieces: id })}>
-                  {active ? 'In use' : 'Use'}
-                </button>
-              ) : (
-                <button className="run-btn mt-1 w-full px-1! py-1! text-[11px]" disabled={!u || m.embers < u.cost} onClick={() => u && m.buyUnlock(u.id) && (sfx('coin'), rs.set({ pieces: id }))}>
-                  <span className="flex items-center justify-center gap-1">
-                    <Sprite name="flame" size={11} px={10} pal={EMBER} /> {u?.cost}
-                  </span>
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </>
   );
 }
 
@@ -287,7 +66,7 @@ export function HistoryScreen({ onBack }: { onBack: () => void }) {
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <PixelNum value={r.finalScore ?? 0} size={2.5} />
-                  {r.embers ? <Embers n={r.embers} size={1.6} /> : null}
+                  {r.materials ? <MaterialRow m={{ ...r.materials, ...(r.seals ? { seals: r.seals } : {}) }} size={12} /> : null}
                 </div>
               </div>
               <div className="run-sans mt-2 flex flex-wrap gap-1 text-[10px]">

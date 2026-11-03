@@ -24,12 +24,13 @@ import { REPLACES, techAffinity, techMult, techniquesIn, type TechId } from './c
 import { THEME_SETS } from '../lib/puzzles/themes';
 import {
   buildMap, cardSlots, composureCost, roomCap, roomLoss, consumableOffer, endFires, judge, maxComposure, moveFires, reachable, unofferable, povCp, relicOffer, shopPrice, isFinalCamp, materialOf, pickRival,
-  roomScore, sample, shopOffers, sound, diffOf, judgeBattlefield, heatFor, heatRules, nullMoveFen, stallExtraPrice, closeMoves, plausibleWrong, scenarioOf, scenarioWeight, type Grimoire, nextRestCost, stallPrice, pouchPrice, cleansePrice, rerollPrice, goldToEmbers, canTakeBack, playStrength, rivalElo, type CostCtx,
+  roomScore, sample, shopOffers, sound, diffOf, judgeBattlefield, heatFor, heatRules, nullMoveFen, stallExtraPrice, closeMoves, plausibleWrong, scenarioOf, scenarioWeight, type Grimoire, nextRestCost, stallPrice, pouchPrice, cleansePrice, rerollPrice, canTakeBack, playStrength, rivalElo, type CostCtx,
 } from './rules';
 import { useRunSettings } from './settings';
 import { sfx, buzz } from './sfx';
 import { ROOM_NAME, rivalRule } from './content';
-import { embersFor, lockedCards, lockedDrills, lockedEvents, lockedRelics, lockedRooms, useMeta } from './meta';
+import { lockedCards, lockedDrills, lockedEvents, lockedRelics, lockedRooms, perks, runSeals, useMeta } from './meta';
+import { addMaterials, mintGold, roomYield } from './order';
 import type { BossMod } from './tuning';
 import type { ConsumableId, EchoPos, Fire, MapNode, PuzzleProgress, RelicId, RoomKind, RoomState, Run, UserMove } from './types';
 
@@ -480,6 +481,9 @@ export const useRun = create<RunStore>((set, get) => {
         uci, san: res.move.san, fenBefore, fenAfter: res.fen, cls, accuracy: moveAccuracy(b.wp, a.wp), evalAfter: a.cp,
         composureLost: 0, eye: eye || undefined, before, after, wpLoss: Math.max(0, b.wp - a.wp), evalBefore: b.cp,
       };
+      // Archive: a Duel move that matches the opening book.
+      const bookMatch = rm.node.kind === 'duel' && bookMove(rm) === uci;
+      if (bookMatch) patch((r) => void (r.room!.bookMatched = (r.room!.bookMatched ?? 0) + 1));
       // The Mirror: a wrong read of their idea halves this move's chips.
       const q = rm.mirror;
       if (q && q.fen === fenBefore && q.picked && q.picked !== q.answer) {
@@ -655,9 +659,8 @@ export const useRun = create<RunStore>((set, get) => {
     if (won && r.cursed) ids.push('cursed-win');
     if (won && r.results.every((x) => x.composureLost === 0)) ids.push('untouched');
     earn(r, ids);
-    r.goldEmbers = goldToEmbers(r.gold);
-    r.embers = embersFor(r);
-    useMeta.getState().finish(r, r.embers);
+    r.seals = runSeals(r);
+    useMeta.getState().finish(r);
     const snap = clone(r);
     // The one write into the main app: the top moments become review cards.
     void addRunReviews(snap, snap.techMissed ?? []).then((n) => {
@@ -729,7 +732,8 @@ export const useRun = create<RunStore>((set, get) => {
       // The Echo: your own slips (too few: the room borrows Siege positions).
       const echoes: EchoPos[] = allEchoes.length >= T.rooms.echo.minPositions ? sample(allEchoes, T.rooms.echo.sample, Math.random) : [];
       const grimoire: Grimoire = meta.grimoire ?? {};
-      const boosts = meta.boosts;
+      // Old Sanctum perks now come with Order buildings.
+      const boosts = perks(meta);
       // Codex: equipped techniques; a learned Fork/Pin replaces its relic.
       const techniques = (meta.equipped ?? []).filter((id) => meta.codex?.[id]?.learned);
       const replaced = (Object.keys(REPLACES) as TechId[]).filter((id) => meta.codex?.[id]?.learned).map((id) => REPLACES[id]!);
@@ -763,7 +767,8 @@ export const useRun = create<RunStore>((set, get) => {
         gold: T.gold.start,
         relics: [],
         consumables: boosts.notes ? ['cards'] : [],
-        meta: { boosts: { ...boosts }, lockedRelics: locked, lockedCards: lockedC, lockedDrills: lockedDrills(meta) },
+        meta: { boosts: { ...boosts }, lockedRelics: locked, lockedCards: lockedC, lockedDrills: lockedDrills(meta), order: clone(meta.order) },
+        materials: {},
         curses: [],
         room: null,
         event: null,
@@ -1185,14 +1190,25 @@ export const useRun = create<RunStore>((set, get) => {
           r.gold += j.gold;
           r.goldEarned = (r.goldEarned ?? 0) + j.gold;
         }
-        r.gold += sc.gold;
-        r.goldEarned = (r.goldEarned ?? 0) + sc.gold;
+        // The Mint: a share of the score-gold on top.
+        const mint = mintGold(r.meta?.order, sc.gold);
+        r.gold += sc.gold + mint;
+        r.goldEarned = (r.goldEarned ?? 0) + sc.gold + mint;
+        // The Order: a cleared room pays its material.
+        let mat: { id: import('./order').Material; amount: number } | undefined;
+        if (R.status === 'won' && !R.gamble) {
+          const y = roomYield(r.meta?.order, { kind: R.node.kind as RoomKind, elite: R.node.elite, beatBlind: sc.beatTarget, clean: sc.clean, solved: R.puzzle?.solved, bookMatched: R.bookMatched });
+          if (y.material && y.amount > 0) {
+            mat = { id: y.material, amount: y.amount };
+            r.materials = addMaterials(r.materials ?? {}, { [y.material]: y.amount });
+          }
+        }
         if (r.roomStartedAt) r.roomMs = (r.roomMs ?? 0) + Math.min(30 * 60000, Math.max(0, Date.now() - r.roomStartedAt));
         r.roomStartedAt = undefined;
         r.results.push({
           layer: R.layer, kind: R.node.kind as RoomKind, modifier: R.node.modifier, elite: R.node.elite, gamble: R.gamble, won: R.status === 'won',
           chips: sc.chips, target: sc.target, mult: sc.mult, score: sc.score, gold: sc.gold, fires: R.fires,
-          composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '', clean: sc.clean, battlefield: bf, evalEnd: R.puzzle ? undefined : R.moves[R.moves.length - 1]?.evalAfter,
+          composureLost: R.moves.reduce((s, m) => s + m.composureLost, 0) + fail, reason: R.reason ?? '', clean: sc.clean, battlefield: bf, material: mat, mintGold: mint || undefined, evalEnd: R.puzzle ? undefined : R.moves[R.moves.length - 1]?.evalAfter,
         });
         // Milestones from this room.
         const won = R.status === 'won';
@@ -1452,6 +1468,7 @@ export const useRun = create<RunStore>((set, get) => {
       const ev = run().event;
       patch((x) => {
         if (ev?.kind === 'library' && ev.picked && ev.answer.includes(ev.picked)) {
+          x.materials = addMaterials(x.materials ?? {}, { ink: T.order.roomYield.event });
           x.event = null;
           x.layer++;
           x.offer = { type: 'consumable', ids: consumableOffer(3, Math.random, x.meta?.lockedCards), free: true, title: 'The Library: choose a card' };
@@ -1459,6 +1476,7 @@ export const useRun = create<RunStore>((set, get) => {
           return;
         }
         if (ev?.kind === 'shrine' && ev.picked && ev.answer.includes(ev.picked)) {
+          x.materials = addMaterials(x.materials ?? {}, { pages: T.order.roomYield.event });
           // Sam's blessing: a relic pick.
           x.event = null;
           x.layer++;
@@ -1513,7 +1531,13 @@ if (import.meta.env.DEV) (window as unknown as { __run: typeof useRun }).__run =
 
 /** The next book move for the Duel hint (UCI), while the game still follows a known line. */
 export function bookHint(room: RoomState): string | null {
-  if (room.node.kind !== 'duel' || !room.book || room.moves.length >= T.rooms.duel.hintMoves) return null;
+  if (room.moves.length >= T.rooms.duel.hintMoves) return null;
+  return bookMove(room);
+}
+
+/** The opening book's next move in a Duel (any move number), if the line is still in the book. */
+export function bookMove(room: RoomState): string | null {
+  if (room.node.kind !== 'duel' || !room.book) return null;
   const seq = [...room.book, ...room.plies.map((p) => p.san)];
   const line = ECO.map((e) => e.moves.split(' ')).find((m) => m.length > seq.length && seq.every((x, i) => m[i] === x));
   if (!line) return null;

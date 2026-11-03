@@ -5,7 +5,7 @@ import { Chess } from 'chess.js';
 import { opponentById } from '../../lib/people';
 import { uciToSan } from '../../lib/chess/game';
 import { CONSUMABLES, EVENTS, HEAT_TEXT, MODIFIERS, RELICS, objective, rivalRule, bossModText } from '../content';
-import { heatAllowed, heatFor, playStrength, isFinalCamp, cardSlots, cleansePrice, goldToEmbers, maxComposure, nextRestCost, pouchPrice, rerollPrice, shopPrice, stallPrice, stallExtraPrice } from '../rules';
+import { heatAllowed, heatFor, playStrength, isFinalCamp, cardSlots, cleansePrice, maxComposure, nextRestCost, pouchPrice, rerollPrice, shopPrice, stallPrice, stallExtraPrice } from '../rules';
 import { bossFen, useRun } from '../store';
 import { TUNING as T, type DiffId } from '../tuning';
 import type { ConsumableId, RelicId } from '../types';
@@ -20,9 +20,10 @@ import { allRuns } from '../db';
 import { getRating } from '../../lib/puzzles/rating';
 import { getOpponentRecords } from '../../lib/people/record';
 import { MapView } from './MapView';
-import { HistoryScreen, SanctumScreen, SettingsSheet } from './Sanctum';
+import { HistoryScreen, SettingsSheet } from './Sanctum';
+import { OrderScreen } from './Order';
 import { PixelText } from './PixelText';
-import { Composure, PixelNum, TarotCard } from './bits';
+import { Composure, MaterialRow, PixelNum, TarotCard } from './bits';
 import { Debrief } from './Debrief';
 import { DevPanel } from './DevPanel';
 import { RoomView } from './RoomView';
@@ -89,8 +90,8 @@ export function RunScreen() {
 
   let body;
   if (!s.loaded) body = null;
-  else if (view === 'sanctum') body = <SanctumScreen onBack={() => setView('main')} />;
-  else if (view === 'codex') body = <SanctumScreen start="codex" onBack={() => setView('main')} />;
+  else if (view === 'sanctum') body = <OrderScreen onBack={() => setView('main')} />;
+  else if (view === 'codex') body = <OrderScreen start="codex" onBack={() => setView('main')} />;
   else if (view === 'history') body = <HistoryScreen onBack={() => setView('main')} />;
   else if (!run) body = <Home tools={tools} onSanctum={() => setView('sanctum')} onHistory={() => setView('history')} onCodex={() => setView('codex')} />;
   else if (run.phase === 'start') body = <Pick title="Choose your first relic" tools={tools} />;
@@ -154,7 +155,7 @@ function IconBtn({ sprite, label, onClick, pal = GOLD }: { sprite: string; label
 
 function Home({ tools, onSanctum, onHistory, onCodex }: { tools: Tools; onSanctum: () => void; onHistory: () => void; onCodex: () => void }) {
   const s = useRun();
-  const embers = useMeta((m) => m.embers);
+  const mats = useMeta((m) => m.materials ?? {});
   return (
     <div className="flex h-full flex-col items-center px-6 pt-6 pb-6 text-center">
       <div className="flex w-full justify-end gap-2">
@@ -181,12 +182,14 @@ function Home({ tools, onSanctum, onHistory, onCodex }: { tools: Tools; onSanctu
         </button>
         <div className="flex gap-2">
           <button className="run-btn ghost flex flex-1 items-center justify-center gap-1.5" onClick={onSanctum}>
-            <Sprite name="flame" size={18} px={12} pal={EMBER} /> Sanctum <span className="text-[#ffb454]">{embers}</span>
+            <Sprite name="tower" size={18} px={12} pal={GOLD} /> The Order
           </button>
           <button className="run-btn ghost flex flex-1 items-center justify-center gap-1.5" onClick={onHistory}>
             <Sprite name="scroll" size={18} px={12} /> History
           </button>
         </div>
+        <MaterialRow m={mats} all size={13} className="justify-center" />
+        
       </div>
     </div>
   );
@@ -219,7 +222,7 @@ function HeatPicker() {
         ))}
       </div>
       <p className="run-sans mt-1 text-[11px] leading-snug text-[var(--ink-dim)]">
-        {h === 0 ? 'No extra constraints.' : <>{HEAT_TEXT.slice(0, h).map((t, i) => <span key={i} className="block">{i + 1}. {t}</span>)}<span className="text-[#ffb454]">Win: +{h * T.heat.embersPerLevel} Embers.</span></>}
+        {h === 0 ? 'No extra constraints.' : <>{HEAT_TEXT.slice(0, h).map((t, i) => <span key={i} className="block">{i + 1}. {t}</span>)}<span className="text-[#ff6bd5]">Win: +{T.order.seals.rivalWin + h * T.order.seals.perHeat} Seals.</span></>}
       </p>
     </div>
   );
@@ -814,9 +817,6 @@ function Camp({ tools }: { tools: Tools }) {
           {run.curses.length > 0 && (
             <Service sprite="flame" title="Cleansing rite" text="Lift the altar's curse (Brittle)." price={cleansePrice(run)} disabled={run.gold < cleansePrice(run)} onClick={() => s.cleanse()} />
           )}
-        </div>
-        <div className="run-sans mt-2 px-4 text-center text-[11px] text-[var(--ink-dim)]">
-          Gold you don't spend becomes Embers when the run ends: {T.embers.goldPer}g = 1 Ember{run.gold >= T.embers.goldPer ? ` (now +${goldToEmbers(run.gold)})` : ''}.
         </div>
         <div className="mt-3">
           <Inventory />

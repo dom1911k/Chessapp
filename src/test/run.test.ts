@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { embersFor } from '../run/meta';
-import { pickRival, endFires, isFinalCamp, kingSheltered, passedToSixth, scoreGold, canTakeBack, goldToEmbers, nextRestCost, stallPrice, cardSlots, playStrength, reachable, recovery, roomCap, roomLoss, buildMap, composureCost, judge, moveFires, roomScore, price, maxConsumables, relicOffer } from '../run/rules';
+import { runSeals } from '../run/meta';
+import { pickRival, endFires, isFinalCamp, kingSheltered, passedToSixth, scoreGold, canTakeBack, nextRestCost, stallPrice, cardSlots, playStrength, reachable, recovery, roomCap, roomLoss, buildMap, composureCost, judge, moveFires, roomScore, price, maxConsumables, relicOffer } from '../run/rules';
 import { RELICS } from '../run/content';
 import positions from '../run/data/positions.json';
 import { TUNING as T } from '../run/tuning';
@@ -40,16 +40,11 @@ describe('run rules', () => {
     }
   });
 
-  it('Embers: something for every run, more for progress and a win', () => {
-    const base = { results: [], finalScore: 0, ended: 'lost', cursed: false } as unknown as Parameters<typeof embersFor>[0];
-    // Base Embers only once a room was cleared (abandoning at once pays nothing).
-    expect(embersFor(base)).toBe(0);
-    const good = { ...base, results: [{ won: true }, { won: true }, { won: true }], finalScore: 3000, ended: 'won' } as unknown as Parameters<typeof embersFor>[0];
-    expect(embersFor(good)).toBe(3 + 6 + 5 + 6);
-    expect(embersFor({ ...good, difficulty: 'master' } as typeof good)).toBe(3 + 6 + 5 + 6 + T.difficulty.master.embers);
-    // Leftover gold: 1 Ember per goldPer.
-    expect(embersFor({ ...base, gold: T.embers.goldPer * 2 + 5 } as typeof base)).toBe(2);
-    expect(goldToEmbers(T.embers.goldPer - 1)).toBe(0);
+  it('Seals for a run: only a rival win pays, more per Heat level (gold no longer converts)', () => {
+    const base = { ended: 'lost', heat: 3 } as unknown as Run;
+    expect(runSeals(base)).toBe(0);
+    expect(runSeals({ ...base, ended: 'won', heat: 0 } as Run)).toBe(T.order.seals.rivalWin);
+    expect(runSeals({ ...base, ended: 'won' } as Run)).toBe(T.order.seals.rivalWin + 3 * T.order.seals.perHeat);
   });
 
   it('charges Composure by class and modifier', () => {
@@ -408,10 +403,10 @@ describe('stage C: Heat ladder', () => {
     expect(limits(node, 'adept', undefined, 5).grace).toBe(1);
     expect(limits(node, 'master', undefined, 6).grace).toBe(1);
   });
-  it('a rival win pays Embers per Heat level', () => {
+  it('a rival win pays Seals per Heat level', () => {
     const won = { results: [{ won: true }], finalScore: 0, ended: 'won', cursed: false, difficulty: 'adept' } as unknown as Run;
-    expect(embersFor({ ...won, heat: 3 } as Run) - embersFor(won)).toBe(3 * T.heat.embersPerLevel);
-    expect(embersFor({ ...won, ended: 'lost', heat: 3 } as Run)).toBe(embersFor({ ...won, ended: 'lost' } as Run));
+    expect(runSeals({ ...won, heat: 3 } as Run) - runSeals(won)).toBe(3 * T.order.seals.perHeat);
+    expect(runSeals({ ...won, ended: 'lost', heat: 3 } as Run)).toBe(0);
   });
 });
 
@@ -664,5 +659,129 @@ describe('stage F: Codex techniques', () => {
   });
   it('a learned Fork or Pin replaces its relic', () => {
     expect(REPLACES).toEqual({ fork: 'forkmaster', pin: 'pins' });
+  });
+});
+
+// ---------------------------------------------------------------- Order stage 1
+import { reach, empowerment, squareState, roomMaterial, roomYield, mintGold, migrateSanctum, canAfford, pay, perksOf, buildCost, type OrderState } from '../run/order';
+import { migrateMeta, isUnlocked, milestoneSeals, MILESTONES } from '../run/meta';
+
+const ord = (buildings: OrderState['buildings'], reclaimed: string[] = []): OrderState => ({ buildings, reclaimed });
+
+describe('the Order: board, reach and Empowerment', () => {
+  it('ranks 1–2 open, 3–4 reclaimable (open once reclaimed), 5–8 fog', () => {
+    const o = ord({}, ['c3']);
+    expect(squareState(o, 'a1')).toBe('open');
+    expect(squareState(o, 'h2')).toBe('open');
+    expect(squareState(o, 'd3')).toBe('reclaimable');
+    expect(squareState(o, 'c3')).toBe('open');
+    expect(squareState(o, 'e5')).toBe('fog');
+  });
+  it('rooks and bishops stop at the first building, like chess; knights jump; pawns reach 2 squares diagonally forward', () => {
+    const o = ord({ watchtower: { level: 1, sq: 'a1' }, forge: { level: 1, sq: 'd1' }, archive: { level: 1, sq: 'h1' }, scriptorium: { level: 1, sq: 'c1' }, mint: { level: 1, sq: 'e2' }, gallery: { level: 1, sq: 'b3' } });
+    // Watchtower a1 (rook): east hits the Scriptorium on c1 first, not the Forge on d1.
+    const w = reach(o, 'watchtower');
+    expect(w.hits.sort()).toEqual(['scriptorium']);
+    expect(w.squares).toContain('b1');
+    expect(w.squares).not.toContain('d1');
+    // Forge d1 (knight) jumps to e3/f2/c3/b2 — hits nothing; Scriptorium c1 (bishop) up-left hits the Gallery on b2? b2 is empty → a3.
+    expect(reach(o, 'forge').squares.sort()).toEqual(['b2', 'c3', 'e3', 'f2']);
+    expect(reach(o, 'scriptorium').squares).toEqual(expect.arrayContaining(['b2', 'a3', 'd2', 'e3']));
+    // Mint e2 (pawn): d3 and f3 only.
+    expect(reach(o, 'mint').squares.sort()).toEqual(['d3', 'f3']);
+    // Gallery b3 (pawn) reaches a4 / c4.
+    expect(reach(o, 'gallery').squares.sort()).toEqual(['a4', 'c4']);
+  });
+  it('a building reached by others is Empowered: +25% each, max 2', () => {
+    // Watchtower a1 and Archive h1 (rooks) both reach the Scriptorium on d1 along rank 1? a1→d1 and h1→d1.
+    const o = ord({ watchtower: { level: 1, sq: 'a1' }, archive: { level: 1, sq: 'h1' }, scriptorium: { level: 1, sq: 'd1' }, forge: { level: 1, sq: 'g2' } });
+    const e = empowerment(o, 'scriptorium');
+    expect(e.by.sort()).toEqual(['archive', 'watchtower']);
+    expect(e.mult).toBe(1 + 2 * T.order.empower.per);
+    // One reacher: +25%.
+    expect(empowerment(ord({ watchtower: { level: 1, sq: 'a1' }, scriptorium: { level: 1, sq: 'd1' } }), 'scriptorium').mult).toBe(1 + T.order.empower.per);
+    // A third reacher (the Forge's knight jump b2→d1) is capped at max.
+    const o3 = ord({ ...o.buildings, forge: { level: 1, sq: 'b2' } });
+    expect(empowerment(o3, 'scriptorium').by.length).toBe(3);
+    expect(empowerment(o3, 'scriptorium').mult).toBe(1 + T.order.empower.max * T.order.empower.per);
+    expect(empowerment(o, 'forge').by).toEqual([]);
+  });
+});
+
+describe('the Order: materials from rooms, building effects', () => {
+  it('each room pays its material', () => {
+    expect(roomMaterial('puzzle')).toBe('ink');
+    expect(roomMaterial('echo')).toBe('ink');
+    expect(roomMaterial('event', 'library')).toBe('ink');
+    expect(roomMaterial('hold')).toBe('stone');
+    expect(roomMaterial('ward')).toBe('stone');
+    expect(roomMaterial('mirror')).toBe('stone');
+    expect(roomMaterial('convert')).toBe('iron');
+    expect(roomMaterial('vault')).toBe('iron');
+    expect(roomMaterial('duel')).toBe('pages');
+    expect(roomMaterial('event', 'shrine')).toBe('pages');
+    expect(roomMaterial('boss')).toBeNull();
+  });
+  it('base + elite + blind + clean, then buildings (× Empowerment)', () => {
+    const Y = T.order.roomYield;
+    expect(roomYield(undefined, { kind: 'hold' })).toEqual({ material: 'stone', amount: Y.base });
+    expect(roomYield(undefined, { kind: 'hold', elite: true, beatBlind: true, clean: true }).amount).toBe(Y.base + Y.elite + Y.blind + Y.clean);
+    const o = ord({ scriptorium: { level: 2, sq: 'c1' } });
+    expect(roomYield(o, { kind: 'puzzle', solved: 3 }).amount).toBe(Y.base + 3 * T.order.effects.inkPerPuzzle[1]);
+    const tower = ord({ watchtower: { level: 1, sq: 'a1' } });
+    expect(roomYield(tower, { kind: 'ward' }).amount).toBe(Math.round(Y.base * (1 + T.order.effects.stonePct[0])));
+    const forge = ord({ forge: { level: 1, sq: 'b1' } });
+    expect(roomYield(forge, { kind: 'vault', clean: true }).amount).toBe(Y.base + Y.clean + T.order.effects.ironPerCleanVault[0]);
+    expect(roomYield(forge, { kind: 'vault', clean: false }).amount).toBe(Y.base);
+    const arch = ord({ archive: { level: 1, sq: 'h1' } });
+    expect(roomYield(arch, { kind: 'duel', bookMatched: 2 }).amount).toBe(Y.base + 2 * T.order.effects.pagesPerBook[0]);
+    // Empowered Scriptorium: +25% on its bonus.
+    const emp = ord({ scriptorium: { level: 1, sq: 'd1' }, watchtower: { level: 1, sq: 'a1' } });
+    expect(roomYield(emp, { kind: 'puzzle', solved: 4 }).amount).toBe(Math.round(Y.base + 4 * T.order.effects.inkPerPuzzle[0] * (1 + T.order.empower.per)));
+  });
+  it('the Mint adds a share of score-gold; nothing without it', () => {
+    expect(mintGold(undefined, 20)).toBe(0);
+    expect(mintGold(ord({ mint: { level: 1, sq: 'd2' } }), 20)).toBe(Math.round(20 * T.order.effects.goldPct[0]));
+  });
+  it('costs: canAfford and pay', () => {
+    const c = buildCost('mint', 1);
+    expect(canAfford({ ink: 5, stone: 5, iron: 5, pages: 5 }, c)).toBe(true);
+    expect(canAfford({ ink: 5, stone: 5, iron: 4, pages: 5 }, c)).toBe(false);
+    expect(pay({ ink: 9, stone: 5, iron: 5, pages: 5 }, c)).toEqual({ ink: 4, stone: 0, iron: 0, pages: 0 });
+  });
+  it('perks of the old Sanctum come with buildings; growth never touches candles or take-backs', () => {
+    expect(perksOf(ord({ scriptorium: { level: 1, sq: 'c1' }, mint: { level: 1, sq: 'd2' } }))).toEqual({ notes: 1, reroll: 1 });
+    for (const k of Object.keys(T.order.effects)) expect(k).not.toMatch(/candle|composure|takeback|elo|grace/i);
+  });
+});
+
+describe('the Order: migration from the Sanctum', () => {
+  it('Embers become a starter pile (1 Ember = 2 of each common material)', () => {
+    const { materials } = migrateSanctum(10, [], {});
+    expect(materials).toEqual({ ink: 20, stone: 20, iron: 20, pages: 20 });
+  });
+  it('unlocks, perks and cosmetics become level-1 buildings', () => {
+    const { order } = migrateSanctum(0, ['relic:tempo', 'drill:lucena', 'board:bone'], { notes: 1, reroll: 1 });
+    expect(Object.keys(order.buildings).sort()).toEqual(['archive', 'forge', 'gallery', 'mint', 'scriptorium']);
+    for (const b of Object.values(order.buildings)) expect(b!.level).toBe(1);
+    const sqs = Object.values(order.buildings).map((b) => b!.sq);
+    expect(new Set(sqs).size).toBe(sqs.length);
+    for (const sq of sqs) expect(Number(sq[1])).toBeLessThanOrEqual(2);
+  });
+  it('migrateMeta runs once, keeps what you owned unlocked, and empties Embers', () => {
+    const old = { embers: 7, earned: 40, unlocked: ['relic:executioner', 'card:check'], boosts: { purse: 1, keeneye: 1 }, runs: 3, wins: 1, best: 2000 } as unknown as Parameters<typeof migrateMeta>[0];
+    const m = migrateMeta(old);
+    // 7 Embers + the Stage C refund for Heavy Purse (8) = 15 → 30 of each.
+    expect(m.materials).toEqual({ ink: 30, stone: 30, iron: 30, pages: 30 });
+    expect(m.embers).toBe(0);
+    expect(m.orderMigrated).toBe(true);
+    expect(isUnlocked(m, 'relic:executioner')).toBe(true); // forge level 2 content, owned before
+    expect(isUnlocked(m, 'card:check')).toBe(true);
+    expect(isUnlocked(m, 'relic:rite')).toBe(true); // forge level 1 is built now
+    expect(isUnlocked(m, 'relic:glass')).toBe(false); // forge level 2, never owned
+    expect(migrateMeta(m)).toBe(m);
+  });
+  it('milestones pay Seals', () => {
+    for (const x of MILESTONES) expect(milestoneSeals(x)).toBeGreaterThanOrEqual(1);
   });
 });
