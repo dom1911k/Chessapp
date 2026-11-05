@@ -52,3 +52,41 @@ export function fmtClock(ms: number): string {
   const ss = Math.floor(s % 60);
   return `${m}:${String(ss).padStart(2, '0')}`;
 }
+
+/**
+ * How long a human-like opponent thinks (ms): quick in the opening, longer when there are many
+ * sensible moves, faster when its own clock runs low. `sensible` = moves a human would seriously
+ * consider (Maia's likely moves); `rand` in 0..1 adds a natural spread.
+ */
+export function humanThinkMs(o: { moveNo: number; sensible: number; leftMs: number; tc: string; book?: boolean; forced?: boolean }, rand = Math.random()): number {
+  const { base, inc } = parseTc(o.tc);
+  const left = Math.max(0, o.leftMs);
+  // A share of the remaining time, expecting the game to last about 40 moves (at least 10 more).
+  const budget = left / Math.max(10, 40 - o.moveNo) + inc * 0.8;
+  const phase = o.book ? 0.15 : o.moveNo <= 6 ? 0.3 : o.moveNo <= 12 ? 0.7 : 1;
+  const complexity = o.forced ? 0.25 : 0.55 + 0.15 * Math.min(6, Math.max(1, o.sensible));
+  const hurry = left < base * 0.1 ? 0.3 : left < base * 0.25 ? 0.6 : 1;
+  const spread = 0.6 + 0.8 * rand;
+  const ms = budget * phase * complexity * hurry * spread;
+  return Math.round(Math.max(350, Math.min(ms, left * 0.2, 60000)));
+}
+
+/** Moves a human would consider: Maia's moves with at least `min` probability. */
+export function sensibleMoves(logits: Map<string, number>, min = 0.05): number {
+  const vals = [...logits.values()];
+  if (!vals.length) return 1;
+  const max = Math.max(...vals);
+  const exps = vals.map((v) => Math.exp(v - max));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  return Math.max(1, exps.filter((e) => e / sum >= min).length);
+}
+
+/** Who wins on time: the flagged side loses, unless the other side can't mate (then a draw). */
+export function flagResult(fen: string, flagged: Color): { result: '1-0' | '0-1' | '1/2-1/2'; reason: string } {
+  const board = fen.split(' ')[0];
+  const winner = flagged === 'w' ? 'b' : 'w';
+  const pieces = [...board].filter((ch) => /[a-z]/i.test(ch) && (winner === 'w' ? ch === ch.toUpperCase() : ch === ch.toLowerCase()) && ch.toLowerCase() !== 'k');
+  const minorOnly = pieces.length === 0 || (pieces.length === 1 && /[nb]/i.test(pieces[0]));
+  if (minorOnly) return { result: '1/2-1/2', reason: 'time vs insufficient material' };
+  return { result: winner === 'w' ? '1-0' : '0-1', reason: 'time' };
+}

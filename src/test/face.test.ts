@@ -81,6 +81,10 @@ describe('traps library', () => {
     // Following a trap's line for a while (but not reaching its critical position) still counts.
     const fried = TRAPS.find((t) => t.id === 'fried-liver')!;
     expect(trapForLoss(game(fried.line.slice(0, 7), 'b'))?.id).toBe('fried-liver');
+    // Left the line early, or lost on time: not the trap.
+    const twoKnights = game(['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nf6', 'd3', 'Bc5', 'O-O', 'd6', 'Bg5', 'h6', 'Bxf6', 'Qxf6', 'Nc3', 'O-O', 'Nd5', 'Qd8', 'c3', 'a6'], 'w');
+    expect(trapForLoss(twoKnights)).toBeNull();
+    expect(trapForLoss({ ...g, reason: 'time' })).toBeNull();
     const card = trapCard(legal, 1000);
     expect(card).toMatchObject({ id: 't:legal', kind: 'mistake', trapId: 'legal', fen: trapFen(legal), solution: [sanToUci(trapFen(legal), 'dxe5')], playedSan: 'Bxd1' });
     expect(card.label).toBe("Trap: Légal's Mate");

@@ -11,6 +11,7 @@ import { timeControlLabel, validUsername } from '../lib/chesscom/parse';
 import { allGames } from '../lib/games';
 import { biggestMistake, gameInsights } from '../lib/games/insights';
 import { gapReport, PERIOD_DAYS } from '../lib/games/gap';
+import { timeStats } from '../lib/timestats';
 import type { GameSource } from '../lib/chesscom/analysis';
 import type { AnyGame, ImportedGame } from '../lib/store/types';
 import { THEMES } from '../lib/themes';
@@ -269,6 +270,53 @@ export function GapCard() {
         </tbody>
       </table>
       <p className="text-sm">{r.sentence}</p>
+    </div>
+  );
+}
+
+/** Time per move as a small bar chart, the longest thinks, slow easy moves, and one sentence of advice. */
+export function TimeStatsCard({ g, onPly }: { g: AnyGame; onPly: (ply: number) => void }) {
+  const st = g.clocks && g.timeControl ? timeStats(g.plies, g.clocks, g.timeControl, g.userColor, g.userResult === 'loss' && g.reason === 'time') : null;
+  if (!st) return null;
+  const max = Math.max(1, ...st.moves.map((m) => m.secs));
+  const long = new Set(st.longest.map((m) => m.ply));
+  const fmt = (x: number) => (x >= 60 ? `${Math.floor(x / 60)}:${String(Math.round(x % 60)).padStart(2, '0')}` : `${x < 10 ? x.toFixed(1) : Math.round(x)}s`);
+  return (
+    <div className="card space-y-2 !p-3">
+      <div className="flex justify-between text-sm font-semibold text-stone-500">
+        <span>Your time ({timeControlLabel(g.timeControl!)})</span>
+        <span className="font-normal">{fmt(st.total)} used</span>
+      </div>
+      <div className="flex h-20 items-end gap-px" role="img" aria-label="Seconds per move">
+        {st.moves.map((m) => (
+          <button
+            key={m.ply}
+            title={`${m.moveNo}. ${m.san}: ${fmt(m.secs)}`}
+            onClick={() => onPly(m.ply)}
+            className={`min-w-[2px] flex-1 rounded-t-sm ${long.has(m.ply) ? 'bg-amber-500' : 'bg-brand-500/70'}`}
+            style={{ height: `${Math.max(3, (m.secs / max) * 100)}%` }}
+          />
+        ))}
+      </div>
+      <div className="flex justify-between text-[10px] text-stone-400">
+        <span>move 1</span>
+        <span>move {st.moves[st.moves.length - 1].moveNo}</span>
+      </div>
+      <div className="text-sm">
+        Longest thinks:{' '}
+        {st.longest.map((m, i) => (
+          <button key={m.ply} className="font-semibold underline decoration-dotted" onClick={() => onPly(m.ply)}>
+            {i ? ', ' : ''}
+            {m.moveNo}. {m.san} ({fmt(m.secs)})
+          </button>
+        ))}
+      </div>
+      {st.slowObvious.slice(0, 2).map((m) => (
+        <div key={m.ply} className="text-sm text-amber-700 dark:text-amber-400">
+          {fmt(m.secs)} on {m.moveNo}. {m.san} — {m.why}. That one could be played at once.
+        </div>
+      ))}
+      <p className="text-sm font-semibold">{st.advice}</p>
     </div>
   );
 }

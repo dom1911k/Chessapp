@@ -27,7 +27,7 @@ import { BoardFlash } from '../components/BoardFlash';
 import { Captured } from '../components/Captured';
 import { LastChessComGames } from '../components/ChessCom';
 import { db } from '../lib/db';
-import { defaultMatchTc, mostCommonTimeControl, offeredTimeControls } from '../lib/clock';
+import { defaultMatchTc, fmtClock, lowTime, mostCommonTimeControl, offeredTimeControls, timeLeft } from '../lib/clock';
 import { timeControlLabel } from '../lib/chesscom/parse';
 import { COACH_LEVELS, aidsFor, nextLevel, stepDownSuggestion } from '../lib/coach/level';
 import { HomeHero } from '../components/HomeHero';
@@ -124,7 +124,13 @@ function SetupView() {
               <TimeControlPicker value={matchTc} options={offeredTimeControls(ccTc)} onChange={(v) => settings.set({ matchTimeControl: v })} mine={ccTc} />
             </div>
           ) : (
-            <StepDownCard />
+            <>
+              <StepDownCard />
+              <div>
+                <div className="mb-2 text-sm font-semibold text-stone-500">Clock</div>
+                <TimeControlPicker value={settings.coachedTimeControl || 'off'} options={['off', ...offeredTimeControls(ccTc)]} onChange={(v) => settings.set({ coachedTimeControl: v === 'off' ? '' : v })} mine={ccTc} />
+              </div>
+            </>
           )}
           <div>
             <div className="mb-2 text-sm font-semibold text-stone-500">You play</div>
@@ -241,6 +247,7 @@ function GameTopBar({ onMenu }: { onMenu: () => void }) {
           <div className="truncate text-xs text-stone-500">{opening ? opening.name : thinking ? 'thinking…' : g.userColor === 'w' ? 'You play white' : 'You play black'}</div>
         </div>
         <Captured fen={currentFen(g)} startFen={g.startFen} side={g.userColor === 'w' ? 'b' : 'w'} className="shrink-0" />
+        {g.clock && <ClockFace side={g.userColor === 'w' ? 'b' : 'w'} />}
         <IconButton label="Game menu" onClick={onMenu}>
           <EllipsisVertical size={21} />
         </IconButton>
@@ -382,6 +389,7 @@ function GameView() {
           </div>
           <div className="flex h-7 items-center px-3">
             <Captured fen={fen} startFen={g.startFen} side={g.userColor} />
+            {g.clock && <ClockFace side={g.userColor} className="ml-auto" />}
           </div>
           {settings.showMoveList && !coachOff && (
             <MoveList plies={g.plies} startFen={g.startFen} current={viewing ? view! : undefined} onSelect={(i) => setView(i >= g.plies.length - 1 ? null : i)} />
@@ -767,7 +775,7 @@ export function TimeControlPicker({ value, options, onChange, mine }: { value: s
           onClick={() => onChange(tc)}
           className={`rounded-xl px-3 py-1.5 text-sm font-semibold ring-1 ${value === tc ? 'bg-brand-600 text-white ring-brand-600' : 'ring-stone-200 dark:ring-stone-700'}`}
         >
-          {timeControlLabel(tc)}
+          {tc === 'off' ? 'Off' : timeControlLabel(tc)}
           {mine === tc && <span className={`ml-1 text-[10px] font-normal ${value === tc ? 'text-white/80' : 'text-stone-500'}`}>your usual</span>}
         </button>
       ))}
@@ -802,5 +810,32 @@ function StepDownCard() {
         </button>
       </div>
     </div>
+  );
+}
+
+/** A chess clock for one side: runs while it's that side's move, red under 10% of the start time. */
+function ClockFace({ side, className = '' }: { side: 'w' | 'b'; className?: string }) {
+  const g = usePlay((s) => s.game);
+  const over = usePlay((s) => s.phase === 'over');
+  const [, setTick] = useState(0);
+  const toMove = g ? turnOf(currentFen(g)) : 'w';
+  const running = !!g?.clock && !over && toMove === side;
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => setTick((x) => x + 1), 100);
+    return () => clearInterval(t);
+  }, [running]);
+  if (!g?.clock || !g.timeControl) return null;
+  const ms = timeLeft(g.clock, side, over ? (side === 'w' ? 'b' : 'w') : toMove, Date.now());
+  const low = lowTime(ms, g.timeControl) || ms <= 0;
+  return (
+    <span
+      className={`rounded-lg px-2 py-0.5 font-mono text-base font-bold tabular-nums ring-1 transition-colors ${
+        low ? 'bg-red-600 text-white ring-red-700' : running ? 'bg-stone-900 text-white ring-stone-900 dark:bg-white dark:text-stone-900' : 'bg-white/70 text-stone-500 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700'
+      } ${low && running ? 'animate-pulse' : ''} ${className}`}
+      aria-label={`${side === g.userColor ? 'Your' : "Opponent's"} clock ${fmtClock(ms)}`}
+    >
+      {fmtClock(ms)}
+    </span>
   );
 }

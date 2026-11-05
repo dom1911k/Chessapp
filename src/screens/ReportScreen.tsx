@@ -10,7 +10,7 @@ import { THEME_SETS } from '../lib/puzzles/themes';
 import { opponentById } from '../lib/people';
 import { formatDate } from '../lib/store/finish';
 import type { AnyGame, ImportedGame } from '../lib/store/types';
-import { ChessComBadge } from '../components/ChessCom';
+import { ChessComBadge, TimeStatsCard } from '../components/ChessCom';
 import { trapById, trapCard, trapForLoss } from '../lib/traps';
 import { loadAnyGame } from '../lib/games';
 import { Pin } from 'lucide-react';
@@ -58,7 +58,7 @@ export function ReportScreen({ gameId }: { gameId: number | string }) {
               {g.opening && <div className="text-sm text-stone-500">{g.opening}</div>}
             </div>
             <div className="text-right">
-              <div className="text-3xl font-bold text-brand-600">{s.accuracy}%</div>
+              <div className="text-3xl font-bold text-brand-600">{pending ? '–' : `${s.accuracy}%`}</div>
               <div className="text-xs text-stone-500">accuracy</div>
             </div>
           </div>
@@ -73,7 +73,7 @@ export function ReportScreen({ gameId }: { gameId: number | string }) {
         </div>
 
         {trap && (
-          <CoachBubble mood="concerned" actions={<button className="btn-primary" onClick={() => push({ name: 'trap', trapId: trap.id })}>Learn the {trap.name}</button>}>
+          <CoachBubble mood="concerned" actions={<button className="btn-primary" onClick={() => push({ name: 'trap', trapId: trap.id })}>Learn this trap</button>}>
             <p className="font-semibold">Lost to a known trap: {trap.name}</p>
             <p>This game ended quickly, and it follows a trick people at your level love to try. I've added it to your daily reviews.</p>
           </CoachBubble>
@@ -83,6 +83,7 @@ export function ReportScreen({ gameId }: { gameId: number | string }) {
             <p>I haven't analysed this chess.com game yet — it's in the queue (newest games first). You can already step through the moves.</p>
           </CoachBubble>
         )}
+        <TimeStatsCard g={g} onPly={(ply) => push({ name: 'review', gameId, ply })} />
         <div className="card !p-3">
           <div className="mb-2 text-sm font-semibold text-stone-500">Evaluation</div>
           <EvalGraph plies={g.plies} onSelect={(i) => push({ name: 'review', gameId, ply: i })} />

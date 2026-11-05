@@ -29,6 +29,8 @@ import { specialMove, tacticsOfMove, TACTIC_KEYS, type Special, type TacticCount
 import { checkAchievements } from '../progress/achievements';
 import { setPlayActiveCheck } from '../chesscom/store';
 import { aidsFor } from '../coach/level';
+import { flagResult, humanThinkMs, lowTime as isLowTime, newClock, pressClock, sensibleMoves, timeLeft } from '../clock';
+import { Chess } from 'chess.js';
 
 export type Phase = 'loading' | 'setup' | 'userTurn' | 'analyzing' | 'botThinking' | 'paused' | 'over';
 
@@ -76,6 +78,8 @@ interface PlayStore {
   /** Back to the menu while a game is running (the game stays saved). */
   away: boolean;
   setAway(away: boolean): void;
+  /** The clock is under 10% for you (the warning sound has played). */
+  lowTime: boolean;
   /** Set when a new game starts: the "versus" intro shows until endIntro(). */
   intro: number | null;
   endIntro(): void;
@@ -180,6 +184,37 @@ export const usePlay = create<PlayStore>((set, get) => {
     // (it would be finished — and rewarded — a second time on the next start).
     if (get().phase !== 'over') save(copy);
   };
+
+  /** Stop the clock for the side that just moved (charge its time, add the increment). */
+  const press = (gg: SavedGame, mover: Color) => {
+    if (!gg.clock || !gg.timeControl) return;
+    gg.clock = pressClock(gg.clock, mover, gg.timeControl, Date.now());
+    gg.clocks = [...(gg.clocks ?? []).slice(0, gg.plies.length - 1), Math.round(gg.clock[mover] / 100) / 10];
+  };
+
+  /** Flag fall and the low-time warning, checked a few times a second while a clocked game runs. */
+  let ticker: ReturnType<typeof setInterval> | null = null;
+  const startTicker = () => {
+    if (ticker) clearInterval(ticker);
+    ticker = setInterval(() => {
+      const { game: g, phase, lowTime } = get();
+      if (!g?.clock || !g.timeControl || phase === 'over' || phase === 'setup' || phase === 'loading') return;
+      const toMove = turnOf(currentFen(g));
+      const now = Date.now();
+      if (timeLeft(g.clock, toMove, toMove, now) <= 0) {
+        const f = flagResult(currentFen(g), toMove);
+        void endGame(f.result, f.reason);
+        return;
+      }
+      const mine = timeLeft(g.clock, g.userColor, toMove, now);
+      if (!lowTime && isLowTime(mine, g.timeControl)) {
+        set({ lowTime: true });
+        playSound('notify');
+      }
+    }, 200);
+  };
+  /** Coached games pause the clock while you're away; Match conditions keep it running. */
+  let awayAt: number | null = null;
 
   const checkOver = async (g: SavedGame): Promise<boolean> => {
     const fens = [g.startFen, ...g.plies.map((p) => p.fenAfter)];
@@ -324,7 +359,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         if (serious) say('userBlunder', gentle ? 0.5 : 0.85);
         else if (comment.ruleIds.some((r) => r === 'praise-tactic' || r === 'praise-mate' || r === 'praise-capture')) say('userGoodMove', 0.7);
       }
-      if (serious && aids.comments && useSettings.getState().pauseOnMistakes) {
+      if (serious && aids.comments && useSettings.getState().pauseOnMistakes && !get().game!.clock) {
         playSound('error');
         set({ phase: 'paused', comment: { comment, ply: i } });
         return;
@@ -347,6 +382,8 @@ export const usePlay = create<PlayStore>((set, get) => {
       // Opponents play their favourite openings from a small book first.
       const book = g.startFen === START_FEN ? bookMove(g.opponentId, g.plies.map((p) => p.san)) : null;
       let uci = book;
+      // Moves a human would weigh here (for the opponent's thinking time).
+      let sensible: number | undefined = book ? 1 : undefined;
       // Human-like (Maia) or classic (Stockfish) opponent; Stockfish also covers any Maia failure.
       if (!uci && useSettings.getState().opponentEngine === 'maia') {
         try {
@@ -359,6 +396,7 @@ export const usePlay = create<PlayStore>((set, get) => {
           const turn = turnOf(fen);
           const candidates = a ? new Map(a.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], scoreToCp(povScore(l.score, turn))])) : undefined;
           uci = chooseMaiaMove(logits, maiaTemperature(g.elo, opponentById(g.opponentId)?.style), g.elo, candidates);
+          sensible = sensibleMoves(logits);
         } catch (e) {
           console.warn('Maia failed, using Stockfish', e);
         }
@@ -368,12 +406,28 @@ export const usePlay = create<PlayStore>((set, get) => {
         const a = await analyze(fen, params.multipv, Math.max(analysisLimits().depth, params.depth));
         if (my !== token) return;
         uci = chooseBotMove(fen, a, g.elo, Math.random, opponentById(g.opponentId)?.style);
+        const top = a.lines[0] ? scoreToCp(povScore(a.lines[0].score, turnOf(fen))) : 0;
+        sensible = a.lines.filter((l) => top - scoreToCp(povScore(l.score, turnOf(fen))) <= 60).length || 1;
       }
-      await sleep(Math.max(0, (book ? 700 : 600) - (Date.now() - started)));
+      // With a clock the opponent thinks like a person; otherwise a short pause.
+      const gc = get().game!;
+      if (gc.clock && gc.timeControl) {
+        const turn = turnOf(fen);
+        const target = humanThinkMs({
+          moveNo: Math.floor(gc.plies.length / 2) + 1,
+          sensible: sensible ?? 3,
+          leftMs: timeLeft(gc.clock, turn, turn, gc.clock.turnStart),
+          tc: gc.timeControl,
+          book: !!book,
+          forced: new Chess(fen).moves().length === 1,
+        });
+        await sleep(Math.max(0, target - (Date.now() - gc.clock.turnStart)));
+      } else await sleep(Math.max(0, (book ? 700 : 600) - (Date.now() - started)));
       if (my !== token || !uci) return;
       const r = tryMove(fen, uci)!;
       update((gg) => {
         gg.plies.push({ uci, san: r.move.san, color: r.move.color, fenBefore: fen, fenAfter: r.fen, isUser: false });
+        press(gg, r.move.color as Color);
       });
       if (r.move.san.includes('+')) say('botCheck', 0.5);
       else if (r.move.captured) say('botCapture', 0.3);
@@ -436,12 +490,25 @@ export const usePlay = create<PlayStore>((set, get) => {
     flash: null,
     rewards: null,
     away: false,
+    lowTime: false,
     intro: null,
     endIntro() {
       set({ intro: null });
+      // The clock starts once the intro is over.
+      const g = get().game;
+      if (g?.clock && g.plies.length === 0) update((gg) => void (gg.clock = { ...gg.clock!, turnStart: Date.now() }));
     },
 
     setAway(away) {
+      const g = get().game;
+      if (g?.clock && !g.match && get().phase !== 'over') {
+        if (away) awayAt = Date.now();
+        else if (awayAt) {
+          const paused = Date.now() - awayAt;
+          awayAt = null;
+          update((gg) => void (gg.clock = { ...gg.clock!, turnStart: gg.clock!.turnStart + paused }));
+        }
+      }
       set({ away });
     },
 
@@ -457,7 +524,10 @@ export const usePlay = create<PlayStore>((set, get) => {
         return;
       }
       token++;
-      set({ game: saved, over: null, hint: null, message: null, comment: null });
+      // A coached game's clock was paused while the app was closed; Match conditions kept running.
+      if (saved.clock && !saved.match) saved.clock = { ...saved.clock, turnStart: Date.now() };
+      set({ game: saved, over: null, hint: null, message: null, comment: null, lowTime: false });
+      if (saved.clock) startTicker();
       const last = saved.plies[saved.plies.length - 1];
       const lastUser = [...saved.plies].reverse().findIndex((p) => p.isUser);
       if (lastUser >= 0) {
@@ -493,8 +563,12 @@ export const usePlay = create<PlayStore>((set, get) => {
         match: opts.match || undefined,
         coachLevel: opts.match ? undefined : useSettings.getState().coachLevel,
         timeControl: opts.timeControl || undefined,
+        clock: opts.timeControl ? newClock(opts.timeControl, Date.now()) : undefined,
+        clocks: opts.timeControl ? [] : undefined,
       };
-      set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: Date.now() });
+      set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: Date.now(), lowTime: false });
+      awayAt = null;
+      if (game.clock) startTicker();
       useCelebrate.getState().setMuted(false);
       save(game);
       const greetFor = game.startedAt;
@@ -538,6 +612,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       getEngine().cancelAll('import');
       update((g) => {
         g.plies.push({ uci: r.move.lan, san: r.move.san, color: r.move.color, fenBefore: fen, fenAfter: r.fen, isUser: true });
+        press(g, r.move.color as Color);
       });
       reactToUserMove(fen, r.fen, r.move);
       set({ hint: null, message: null, threat: null, botNote: null });
@@ -573,6 +648,10 @@ export const usePlay = create<PlayStore>((set, get) => {
       update((gg) => {
         gg.plies.pop();
         gg.takebacks++;
+        if (gg.clock) {
+          gg.clocks = gg.clocks?.slice(0, gg.plies.length);
+          gg.clock = { ...gg.clock, turnStart: Date.now() };
+        }
       });
       post({ kind: 'info', mood: 'thinking', text: [`Let's try that again. ${undone.comment?.classification === 'blunder' ? 'Before you move, check what each of your pieces is attacked by.' : 'Look for a safer or stronger move.'}`] });
       set({
@@ -593,6 +672,10 @@ export const usePlay = create<PlayStore>((set, get) => {
       update((gg) => {
         gg.plies = gg.plies.slice(0, lastUserIdx);
         gg.takebacks++;
+        if (gg.clock) {
+          gg.clocks = gg.clocks?.slice(0, gg.plies.length);
+          gg.clock = { ...gg.clock, turnStart: Date.now() };
+        }
       });
       set({
         phase: 'userTurn',

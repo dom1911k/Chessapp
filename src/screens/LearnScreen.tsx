@@ -112,6 +112,18 @@ export function LearnScreen() {
                 <span className="block text-xs text-stone-500">{TRAPS.length} traps people at 400–900 try — learn them, then refute them against Maia.</span>
               </span>
             </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button className="card !p-3 text-left" onClick={() => push({ name: 'timeDrill', kind: 'convert' })}>
+                <Medallion name="lightning" tint="gold" size={36} />
+                <span className="mt-1.5 block font-semibold">Convert on the clock</span>
+                <span className="block text-xs text-stone-500">A won ending, 60 seconds to mate.</span>
+              </button>
+              <button className="card !p-3 text-left" onClick={() => push({ name: 'timeDrill', kind: 'quick' })}>
+                <Medallion name="flame" tint="violet" size={36} />
+                <span className="mt-1.5 block font-semibold">Quick decisions</span>
+                <span className="block text-xs text-stone-500">10 obvious moves, 5 seconds each.</span>
+              </button>
+            </div>
           </div>
         </section>
         <section>

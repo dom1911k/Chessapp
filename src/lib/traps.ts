@@ -323,18 +323,20 @@ const sharedPrefix = (t: Trap, sans: string[]) => {
 export const shortLoss = (g: Pick<AnyGame, 'userResult' | 'plies'>) => g.userResult === 'loss' && g.plies.length < 30;
 
 /**
- * The trap behind a quick loss: one whose critical position came up with me as the victim, else
- * the trap whose line the game followed longest (at least 4 plies, my side the victim).
+ * The trap behind a quick loss: one whose critical position came up with me as the victim; else
+ * a trap whose line the game followed almost to the critical moment (within 3 plies) and that
+ * ended soon after leaving it. Losses on time or by abandoning aren't traps.
  */
-export function trapForLoss(g: Pick<AnyGame, 'plies' | 'userColor' | 'id' | 'startFen' | 'userResult'>): Trap | null {
-  if (!shortLoss(g) || g.startFen !== START_FEN) return null;
+export function trapForLoss(g: Pick<AnyGame, 'plies' | 'userColor' | 'id' | 'startFen' | 'userResult'> & { reason?: string }): Trap | null {
+  if (!shortLoss(g) || g.startFen !== START_FEN || g.reason === 'time' || g.reason === 'abandoned') return null;
   const seen = trapsInGame(g).find((s) => s.role === 'faced');
   if (seen) return trapById(seen.trapId)!;
   const sans = g.plies.map((p) => p.san);
   const best = TRAPS.filter((t) => t.victim === g.userColor)
     .map((t) => ({ t, n: sharedPrefix(t, sans) }))
+    .filter(({ t, n }) => n >= Math.max(4, t.critical - 3) && sans.length - n <= 8)
     .sort((a, b) => b.n - a.n)[0];
-  return best && best.n >= 4 ? best.t : null;
+  return best?.t ?? null;
 }
 
 /** The review card that drills a trap: its critical position, the safe move as the answer. */
