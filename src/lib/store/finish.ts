@@ -64,7 +64,10 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
   const userResult =
     result === '1/2-1/2' ? 'draw' : (result === '1-0') === (g.userColor === 'w') ? 'win' : 'loss';
   const summary = summarize(g.plies);
-  const recent = await db.games.orderBy('endedAt').reverse().limit(4).toArray();
+  // Real games count too: the latest analysed chess.com games join the app's own.
+  const recentApp = await db.games.orderBy('endedAt').reverse().limit(4).toArray();
+  const recentCc = (await db.imported.orderBy('endedAt').reverse().limit(12).toArray()).filter((x) => x.analyzed).slice(0, 4);
+  const recent = [...recentApp, ...recentCc].sort((a, b) => b.endedAt - a.endedAt).slice(0, 4);
   summary.pattern = recurringPattern([g.plies, ...recent.map((r) => r.plies)]);
   const { id: _id, ...rest } = g;
   void _id;

@@ -25,6 +25,7 @@ import { cosmeticById, type Cosmetic } from '../lib/rewards/cosmetics';
 import { CosmeticPreview } from '../components/CosmeticPreview';
 import { BoardFlash } from '../components/BoardFlash';
 import { Captured } from '../components/Captured';
+import { LastChessComGames } from '../components/ChessCom';
 import { HomeHero } from '../components/HomeHero';
 import { VersusIntro } from '../components/VersusIntro';
 import { OpponentCarousel } from '../components/OpponentCarousel';
@@ -125,6 +126,7 @@ function SetupView() {
           </button>
           {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
         </div>
+        <LastChessComGames />
         <TipOfTheDay />
         <button className="btn-ghost w-full" onClick={() => push({ name: 'history' })}>
           <History size={17} /> Past games

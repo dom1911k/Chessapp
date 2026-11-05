@@ -76,4 +76,33 @@ export interface GameRecord extends Omit<SavedGame, 'id'> {
   userResult: 'win' | 'loss' | 'draw';
   summary: GameSummary;
   opening?: string;
+  /** Where the game was played (missing = in this app). */
+  source?: 'app' | 'chess.com';
+  /** The opponent's name when it isn't one of the app's characters (chess.com username). */
+  opponentName?: string;
+  /** Time control as "seconds+increment" (e.g. "600+0"), when the game had a clock. */
+  timeControl?: string;
+  /** Seconds left on the mover's clock after each ply (same order as plies). */
+  clocks?: number[];
+  /** Match conditions: no aids during the game. */
+  match?: boolean;
 }
+
+/** A game imported from chess.com (its own table; never counted as an app game). */
+export interface ImportedGame extends Omit<GameRecord, 'id'> {
+  /** 'cc:<chess.com uuid>' */
+  id: string;
+  source: 'chess.com';
+  url: string;
+  pgn: string;
+  timeControl: string;
+  /** chess.com's class: bullet, blitz, rapid, daily. */
+  timeClass: string;
+  myRating: number;
+  opponentName: string;
+  /** Engine analysis done (summary and classifications filled in). */
+  analyzed: boolean;
+}
+
+/** Any finished game, from the app (numeric id) or imported (string id). */
+export type AnyGame = Omit<GameRecord, 'id'> & { id?: number | string };

@@ -3,6 +3,7 @@ import { useSettings } from '../lib/settings';
 import { useNav } from '../lib/nav';
 import { COSMETICS, isUnlocked, unlockContext } from '../lib/rewards/cosmetics';
 import { BackupCard } from '../components/BackupCard';
+import { ChessComCard } from '../components/ChessCom';
 import { ResetCard } from '../components/ResetCard';
 import { useRunFlag } from '../run/flag';
 import { UpdateCard } from '../components/UpdatePanel';
@@ -113,6 +114,7 @@ export function SettingsScreen() {
           <Toggle checked={s.safetyOverlay} onChange={(v) => s.set({ safetyOverlay: v })} label="Safety overlay (hanging pieces & threats)" />
           <Toggle checked={s.showEvalBar} onChange={(v) => s.set({ showEvalBar: v })} label="Show evaluation bar" />
         </div>
+        <ChessComCard />
         <ReminderCard />
         <UpdateCard />
         <BackupCard />
@@ -123,7 +125,7 @@ export function SettingsScreen() {
           <p className="mt-1 text-xs text-stone-500">A roguelike demo in its own tab. It never changes your rating, XP or reviews.</p>
         </div>
         <p className="px-2 text-xs text-stone-500">
-          Chess Coach runs fully offline. Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (GPLv3), running Leela Chess Zero networks. Puzzles: Lichess puzzle database (CC0).
+          Chess Coach runs fully offline (the optional chess.com import is the only thing that uses the internet). Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (GPLv3), running Leela Chess Zero networks. Puzzles: Lichess puzzle database (CC0).
         </p>
       </div>
     </div>

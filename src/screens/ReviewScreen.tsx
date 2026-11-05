@@ -5,20 +5,20 @@ import { CoachBubble, FlagButton } from '../components/Coach';
 import { MoveList } from '../components/MoveList';
 import { PlayFromHere } from '../components/PlayFromHere';
 import { Header, Spinner } from '../components/ui';
-import { db } from '../lib/db';
 import { useNav } from '../lib/nav';
-import type { GameRecord } from '../lib/store/types';
+import type { AnyGame } from '../lib/store/types';
+import { loadAnyGame } from '../lib/games';
 import { TriangleAlert } from 'lucide-react';
 import { shortWords } from '../lib/chess/words';
 
-export function ReviewScreen({ gameId, ply }: { gameId: number; ply?: number }) {
-  const [g, setG] = useState<GameRecord | null>(null);
+export function ReviewScreen({ gameId, ply }: { gameId: number | string; ply?: number }) {
+  const [g, setG] = useState<AnyGame | null>(null);
   const [i, setI] = useState(ply ?? -1);
   const [showBetter, setShowBetter] = useState(false);
   const push = useNav((s) => s.push);
 
   useEffect(() => {
-    void db.games.get(gameId).then((x) => setG(x ?? null));
+    void loadAnyGame(gameId).then(setG);
   }, [gameId]);
   useEffect(() => setShowBetter(false), [i]);
 

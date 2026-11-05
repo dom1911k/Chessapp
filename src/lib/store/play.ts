@@ -27,6 +27,7 @@ import type { FeedItem, SavedGame } from './types';
 import { cap, moveWords } from '../chess/words';
 import { specialMove, tacticsOfMove, TACTIC_KEYS, type Special, type TacticCounts, type TacticKey } from '../rewards/career';
 import { checkAchievements } from '../progress/achievements';
+import { setPlayActiveCheck } from '../chesscom/store';
 
 export type Phase = 'loading' | 'setup' | 'userTurn' | 'analyzing' | 'botThinking' | 'paused' | 'over';
 
@@ -471,6 +472,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     newGame(color, elo, startFen = START_FEN, opponentId) {
       token++;
       getEngine().cancelAll('play');
+      getEngine().cancelAll('import');
       const game: SavedGame = {
         id: 'play',
         userColor: color,
@@ -524,6 +526,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         }
       }
       set({ precheck: null });
+      getEngine().cancelAll('import');
       update((g) => {
         g.plies.push({ uci: r.move.lan, san: r.move.san, color: r.move.color, fenBefore: fen, fenAfter: r.fen, isUser: true });
       });
@@ -670,6 +673,12 @@ export const usePlay = create<PlayStore>((set, get) => {
       useCelebrate.getState().setMuted(false);
     },
   };
+});
+
+// Background chess.com analysis waits while a game is on the board.
+setPlayActiveCheck(() => {
+  const s = usePlay.getState();
+  return !!s.game && s.phase !== 'over' && s.phase !== 'setup' && !s.away;
 });
 
 const PRINCIPLE_IDS = new Set(['king-walk', 'early-queen', 'same-piece-twice', 'flank-pawn', 'knight-rim', 'no-castle']);

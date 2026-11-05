@@ -7,7 +7,7 @@ import { pickSettings, replaceSettings, useSettings, type Settings } from './set
 
 const FORMAT = 'chess-coach-backup';
 const VERSION = 1;
-const TABLES = ['games', 'current', 'attempts', 'cards', 'ratings', 'activity', 'kv'] as const;
+const TABLES = ['games', 'current', 'attempts', 'cards', 'ratings', 'activity', 'kv', 'imported'] as const;
 
 export interface Backup {
   format: typeof FORMAT;
@@ -59,7 +59,7 @@ export function parseBackup(text: string): Backup {
 
 export function describeBackup(b: Backup): string {
   const n = (t: keyof Backup['tables']) => b.tables[t]?.length ?? 0;
-  return `${n('games')} games, ${n('attempts')} puzzle attempts, ${n('cards')} review cards — saved ${new Date(b.exportedAt).toLocaleString()}`;
+  return `${n('games')} games${n('imported') ? ` (+${n('imported')} from chess.com)` : ''}, ${n('attempts')} puzzle attempts, ${n('cards')} review cards — saved ${new Date(b.exportedAt).toLocaleString()}`;
 }
 
 /** Replaces all current data with the backup. */

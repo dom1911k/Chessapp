@@ -36,6 +36,7 @@ import { calibrate } from './lib/engine/speed';
 import { applyReminder } from './lib/reminders';
 import { RunScreen } from './run/screens/RunScreen';
 import { useRunFlag } from './run/flag';
+import { startImports } from './lib/chesscom/store';
 
 const TABS: { tab: Tab; label: string; icon: LucideIcon }[] = [
   { tab: 'play', label: 'Play', icon: ChessKnight },
@@ -156,6 +157,8 @@ export function App() {
       if (st.reminderEnabled) void applyReminder(true, st.reminderTime);
       // Measure engine speed (cached for a month) so analysis fits this phone; runs alongside loading.
       void calibrate();
+      // chess.com: resume background analysis (and sync, if that's switched on) a little after start.
+      setTimeout(startImports, 2500);
       return usePlay.getState().load();
     });
     // Look for a new version (at most once a day, silently skipped when offline).

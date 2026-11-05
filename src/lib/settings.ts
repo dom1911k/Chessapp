@@ -43,6 +43,10 @@ export interface Settings {
   reminderEnabled: boolean;
   /** HH:MM, local time. */
   reminderTime: string;
+  /** chess.com username for importing games ('' = none). */
+  ccUsername: string;
+  /** Sync chess.com games when the app opens (only when online). */
+  ccAutoSync: boolean;
 }
 
 export type BoardTheme = string;
@@ -125,6 +129,8 @@ export const DEFAULT_SETTINGS: Settings = {
   largePieces: false,
   reminderEnabled: false,
   reminderTime: '18:00',
+  ccUsername: '',
+  ccAutoSync: false,
 };
 
 const KEY = 'settings';

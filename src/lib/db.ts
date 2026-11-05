@@ -1,7 +1,7 @@
 // IndexedDB storage (Dexie). WebView storage lives in the app's private data
 // directory, so it survives installing a newer APK signed with the same key.
 import Dexie, { type Table } from 'dexie';
-import type { GameRecord, SavedGame } from './store/types';
+import type { GameRecord, ImportedGame, SavedGame } from './store/types';
 import type { PuzzleAttempt, RatingPoint } from './puzzles/types';
 import type { Card } from './srs';
 
@@ -27,6 +27,8 @@ class ChessCoachDB extends Dexie {
   ratings!: Table<RatingPoint, number>;
   activity!: Table<Activity, string>;
   kv!: Table<KV, string>;
+  /** Games imported from chess.com (kept apart from the app's own games). */
+  imported!: Table<ImportedGame, string>;
 
   constructor() {
     super('chess-coach');
@@ -39,6 +41,7 @@ class ChessCoachDB extends Dexie {
       activity: 'day',
       kv: 'key',
     });
+    this.version(2).stores({ imported: 'id, endedAt' });
   }
 }
 

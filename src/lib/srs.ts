@@ -20,6 +20,12 @@ export interface Card {
   label: string;
   explanation?: string[];
   gameId?: number;
+  /** Where the mistake happened (missing = an app game or a puzzle). */
+  source?: 'chess.com';
+  /** The imported game it came from ('cc:…'). */
+  ccGameId?: string;
+  /** The trap from the library this card drills (Stage 3). */
+  trapId?: string;
   createdAt: number;
   due: number;
   step: number;

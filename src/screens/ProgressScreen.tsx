@@ -11,6 +11,7 @@ import { SettingsButton } from './PlayScreen';
 import { AchievementsPreview, LevelCard, WeeklyGoalCard } from '../components/Gamification';
 import { weeklySummary, type WeekStats } from '../lib/weekly';
 import { CareerCard, RewardsCards } from '../components/RewardsCards';
+import { GameInsightsCard } from '../components/ChessCom';
 
 interface Data {
   rating: number;
@@ -106,8 +107,9 @@ export function ProgressScreen() {
           <div className="mb-1 text-sm font-semibold text-stone-500">Game accuracy</div>
           <LineChart values={d.accuracy} color="#3b82f6" />
         </div>
+        <GameInsightsCard />
         <div className="grid grid-cols-2 gap-2.5">
-          <ThemeList title="Strongest themes" list={strong} />
+          <ThemeList title="Strongest puzzle themes" list={strong} />
           <ThemeList title="Work on" list={weak} />
         </div>
         <button className="btn-secondary w-full" onClick={() => push({ name: 'history' })}>

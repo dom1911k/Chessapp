@@ -9,24 +9,27 @@ import { useNav } from '../lib/nav';
 import { THEME_SETS } from '../lib/puzzles/themes';
 import { opponentById } from '../lib/people';
 import { formatDate } from '../lib/store/finish';
-import type { GameRecord } from '../lib/store/types';
+import type { AnyGame, ImportedGame } from '../lib/store/types';
+import { ChessComBadge } from '../components/ChessCom';
+import { loadAnyGame } from '../lib/games';
 import { Pin } from 'lucide-react';
 import { shortWords } from '../lib/chess/words';
 
 const ORDER: Classification[] = ['best', 'good', 'inaccuracy', 'mistake', 'blunder'];
 
-export function ReportScreen({ gameId }: { gameId: number }) {
-  const [g, setG] = useState<GameRecord | null>(null);
+export function ReportScreen({ gameId }: { gameId: number | string }) {
+  const [g, setG] = useState<AnyGame | null>(null);
   const [cards, setCards] = useState(0);
   const push = useNav((s) => s.push);
 
   useEffect(() => {
-    void db.games.get(gameId).then((x) => setG(x ?? null));
+    void loadAnyGame(gameId).then(setG);
     void db.cards.where('id').startsWith(`m:${gameId}:`).count().then(setCards);
   }, [gameId]);
 
   if (!g) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
   const s = g.summary;
+  const pending = g.source === 'chess.com' && !(g as ImportedGame).analyzed;
   const big = s.biggestMistakePly !== null ? g.plies[s.biggestMistakePly] : null;
   const lessonPuzzleTheme = s.lessonTheme ? THEMES[s.lessonTheme].puzzleThemes.find((t) => THEME_SETS.some((x) => x.id === t)) : undefined;
   const resultText = g.userResult === 'win' ? 'You won' : g.userResult === 'loss' ? 'You lost' : 'Draw';
@@ -40,7 +43,7 @@ export function ReportScreen({ gameId }: { gameId: number }) {
             <div>
               <div className="text-xl font-bold">{resultText}</div>
               <div className="text-sm text-stone-500">
-                vs {opponentById(g.opponentId)?.name ?? 'Bot'} ~{g.elo} · {g.reason} · {formatDate(g.endedAt)}
+                {g.source === 'chess.com' && <ChessComBadge />} vs {g.opponentName ?? opponentById(g.opponentId)?.name ?? 'Bot'} {g.source === 'chess.com' ? `(${g.elo})` : `~${g.elo}`} · {g.reason} · {formatDate(g.endedAt)}
               </div>
               {g.opening && <div className="text-sm text-stone-500">{g.opening}</div>}
             </div>
@@ -59,6 +62,11 @@ export function ReportScreen({ gameId }: { gameId: number }) {
           </div>
         </div>
 
+        {pending && (
+          <CoachBubble>
+            <p>I haven't analysed this chess.com game yet — it's in the queue (newest games first). You can already step through the moves.</p>
+          </CoachBubble>
+        )}
         <div className="card !p-3">
           <div className="mb-2 text-sm font-semibold text-stone-500">Evaluation</div>
           <EvalGraph plies={g.plies} onSelect={(i) => push({ name: 'review', gameId, ply: i })} />
