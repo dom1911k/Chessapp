@@ -3,6 +3,7 @@ import { CoachBubble } from '../components/Coach';
 import { Header } from '../components/ui';
 import { kvGet } from '../lib/db';
 import { DRILLS } from '../lib/endgames';
+import { TRAPS } from '../lib/traps';
 import { useNav } from '../lib/nav';
 import { DRILL_KEY, type DrillProgress } from './EndgameScreen';
 import { SettingsButton } from './PlayScreen';
@@ -94,6 +95,25 @@ export function LearnScreen() {
             </div>
           </section>
         ))}
+        <section>
+          <h2 className="mb-2 px-1 text-sm font-semibold text-stone-500">Ready for real opponents</h2>
+          <div className="space-y-2">
+            <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'face' })}>
+              <Medallion name="eye" tint="green" />
+              <span className="flex-1">
+                <span className="block font-semibold">What you face</span>
+                <span className="block text-xs text-stone-500">Your chess.com openings: your score, the line people play against you, and where you go wrong.</span>
+              </span>
+            </button>
+            <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'traps' })}>
+              <Medallion name="swords" tint="rose" />
+              <span className="flex-1">
+                <span className="block font-semibold">Traps & tricks</span>
+                <span className="block text-xs text-stone-500">{TRAPS.length} traps people at 400–900 try — learn them, then refute them against Maia.</span>
+              </span>
+            </button>
+          </div>
+        </section>
         <section>
           <h2 className="mb-2 px-1 text-sm font-semibold text-stone-500">Openings</h2>
           <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'openings' })}>

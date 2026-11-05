@@ -167,6 +167,8 @@ describe('chess.com import: sync', () => {
     expect(urls).toEqual(['https://api.chess.com/pub/player/myname/games/archives', month('2020/02'), month('2020/01')]);
     expect(await db.imported.count()).toBe(2);
     expect(useImport.getState().added).toBe(2);
+    // Both are quick losses to Scholar's Mate: that trap is now in the daily reviews.
+    expect((await db.cards.get('t:scholar'))?.trapId).toBe('scholar');
     // Both months are complete now: the next sync only asks for the archive list.
     urls.length = 0;
     await useImport.getState().sync();

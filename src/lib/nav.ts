@@ -14,7 +14,11 @@ export type Screen =
   | { name: 'openings' }
   | { name: 'rush' }
   | { name: 'achievements' }
-  | { name: 'openingPractice'; index: number }
+  | { name: 'openingPractice'; index: number; custom?: { name: string; line: string[]; side: 'w' | 'b'; idea?: string } }
+  | { name: 'face' }
+  | { name: 'traps' }
+  | { name: 'trap'; trapId: string }
+  | { name: 'timeDrill'; kind: 'convert' | 'quick' }
   | { name: 'lesson'; lessonId: string }
   | { name: 'practice'; theme: Theme }
   | { name: 'journey' }

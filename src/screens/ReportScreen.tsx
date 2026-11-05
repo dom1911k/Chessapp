@@ -11,6 +11,7 @@ import { opponentById } from '../lib/people';
 import { formatDate } from '../lib/store/finish';
 import type { AnyGame, ImportedGame } from '../lib/store/types';
 import { ChessComBadge } from '../components/ChessCom';
+import { trapById, trapCard, trapForLoss } from '../lib/traps';
 import { loadAnyGame } from '../lib/games';
 import { Pin } from 'lucide-react';
 import { shortWords } from '../lib/chess/words';
@@ -27,9 +28,18 @@ export function ReportScreen({ gameId }: { gameId: number | string }) {
     void db.cards.where('id').startsWith(`m:${gameId}:`).count().then(setCards);
   }, [gameId]);
 
+  // A quick chess.com loss to a known trap: make sure that trap is in the daily reviews.
+  const trapId = g?.source === 'chess.com' ? trapForLoss(g)?.id : undefined;
+  useEffect(() => {
+    if (!trapId || !g) return;
+    void db.cards.get(`t:${trapId}`).then(async (c) => {
+      if (!c) await db.cards.put(trapCard(trapById(trapId)!, Date.now(), g as ImportedGame));
+    });
+  }, [trapId]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!g) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
   const s = g.summary;
   const pending = g.source === 'chess.com' && !(g as ImportedGame).analyzed;
+  const trap = g.source === 'chess.com' ? trapForLoss(g) : null;
   const big = s.biggestMistakePly !== null ? g.plies[s.biggestMistakePly] : null;
   const lessonPuzzleTheme = s.lessonTheme ? THEMES[s.lessonTheme].puzzleThemes.find((t) => THEME_SETS.some((x) => x.id === t)) : undefined;
   const resultText = g.userResult === 'win' ? 'You won' : g.userResult === 'loss' ? 'You lost' : 'Draw';
@@ -62,6 +72,12 @@ export function ReportScreen({ gameId }: { gameId: number | string }) {
           </div>
         </div>
 
+        {trap && (
+          <CoachBubble mood="concerned" actions={<button className="btn-primary" onClick={() => push({ name: 'trap', trapId: trap.id })}>Learn the {trap.name}</button>}>
+            <p className="font-semibold">Lost to a known trap: {trap.name}</p>
+            <p>This game ended quickly, and it follows a trick people at your level love to try. I've added it to your daily reviews.</p>
+          </CoachBubble>
+        )}
         {pending && (
           <CoachBubble>
             <p>I haven't analysed this chess.com game yet — it's in the queue (newest games first). You can already step through the moves.</p>

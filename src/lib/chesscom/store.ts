@@ -14,6 +14,7 @@ import type { ImportedGame } from '../store/types';
 import { fetchArchives, fetchMonth, ImportError } from './api';
 import { monthComplete, monthOf, monthsToFetch, parseCcGame } from './parse';
 import { mistakeCards, multipvFor, positionsOf, withAnalysis } from './analysis';
+import { trapCard, trapForLoss } from '../traps';
 
 const SYNC_KEY = 'cc.sync';
 /** What has been synced for a username: complete months and the last sync time. */
@@ -96,6 +97,9 @@ export const useImport = create<ImportStore>((set, get) => ({
         const have = new Set(await db.imported.where('id').anyOf(parsed.map((g) => g.id)).primaryKeys());
         const fresh = parsed.filter((g) => !have.has(g.id));
         if (fresh.length) await db.imported.bulkPut(fresh);
+        // A quick loss to a known trap: that trap goes into the daily reviews (once).
+        const trapCards = fresh.map((g) => ({ g, t: trapForLoss(g) })).filter((x) => x.t);
+        for (const { g, t } of trapCards) if (!(await db.cards.get(`t:${t!.id}`))) await db.cards.put(trapCard(t!, Date.now(), g));
         added += fresh.length;
         if (monthComplete(month) && !st.full.includes(month)) st.full.push(month);
         st.lastSync = Date.now();

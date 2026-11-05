@@ -168,6 +168,9 @@ export function LastChessComGames() {
       ) : (
         <div className="text-sm text-emerald-700 dark:text-emerald-400">No mistakes or blunders in your latest game. 👏</div>
       )}
+      <button className="text-left text-sm font-semibold text-brand-700 dark:text-brand-500" onClick={() => push({ name: 'face' })}>
+        What people play against you →
+      </button>
     </div>
   );
 }

@@ -22,6 +22,8 @@ import { OpeningsScreen } from './screens/OpeningsScreen';
 import { RushScreen } from './screens/RushScreen';
 import { AchievementsScreen } from './components/Gamification';
 import { OpeningPracticeScreen } from './screens/OpeningPracticeScreen';
+import { FaceScreen } from './screens/FaceScreen';
+import { TrapScreen, TrapsScreen } from './screens/TrapsScreen';
 import { PracticeScreen } from './screens/PracticeScreen';
 import { JourneyScreen } from './screens/JourneyScreen';
 import { SkillTreeScreen } from './screens/SkillTreeScreen';
@@ -88,7 +90,15 @@ function StackScreen({ screen }: { screen: Screen }) {
     case 'achievements':
       return <AchievementsScreen />;
     case 'openingPractice':
-      return <OpeningPracticeScreen index={screen.index} />;
+      return <OpeningPracticeScreen index={screen.index} custom={screen.custom} />;
+    case 'face':
+      return <FaceScreen />;
+    case 'traps':
+      return <TrapsScreen />;
+    case 'trap':
+      return <TrapScreen trapId={screen.trapId} />;
+    case 'timeDrill':
+      return null;
     case 'lesson':
       return <LessonScreen lessonId={screen.lessonId} />;
     case 'practice':

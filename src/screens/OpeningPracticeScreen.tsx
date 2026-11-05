@@ -20,10 +20,11 @@ function sanMove(fen: string, san: string) {
 }
 
 /** Walk through an opening's moves from one side; the other side is played for you. */
-export function OpeningPracticeScreen({ index }: { index: number }) {
-  const o = ECO[index];
-  const line = useMemo(() => o.moves.split(' '), [o]);
-  const [side, setSide] = useState<'w' | 'b'>(/Defen[cs]e|Gambit Accepted|Gambit Declined/.test(o.name) && line.length > 1 ? 'b' : 'w');
+export function OpeningPracticeScreen({ index, custom }: { index: number; custom?: { name: string; line: string[]; side: 'w' | 'b'; idea?: string } }) {
+  // A custom line: the one people at your level play against you (from your chess.com games).
+  const o = custom ? { name: custom.name, idea: custom.idea ?? 'This is the line your chess.com opponents play against you most often.', moves: custom.line.join(' '), eco: '' } : ECO[index];
+  const line = useMemo(() => o.moves.split(' '), [o.moves]);
+  const [side, setSide] = useState<'w' | 'b'>(custom?.side ?? (/Defen[cs]e|Gambit Accepted|Gambit Declined/.test(o.name) && line.length > 1 ? 'b' : 'w'));
   const [ply, setPly] = useState(0);
   const [fen, setFen] = useState(START_FEN);
   const [last, setLast] = useState<{ from: string; to: string } | null>(null);
@@ -38,7 +39,7 @@ export function OpeningPracticeScreen({ index }: { index: number }) {
     setMiss(0);
     setNote(null);
   };
-  useEffect(reset, [side, index]);
+  useEffect(reset, [side, index, o.moves]);
 
   // The other side's moves are played automatically.
   useEffect(() => {
