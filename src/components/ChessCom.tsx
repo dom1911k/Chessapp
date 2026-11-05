@@ -10,6 +10,7 @@ import { clearImports, useImport } from '../lib/chesscom/store';
 import { timeControlLabel, validUsername } from '../lib/chesscom/parse';
 import { allGames } from '../lib/games';
 import { biggestMistake, gameInsights } from '../lib/games/insights';
+import { gapReport, PERIOD_DAYS } from '../lib/games/gap';
 import type { GameSource } from '../lib/chesscom/analysis';
 import type { AnyGame, ImportedGame } from '../lib/store/types';
 import { THEMES } from '../lib/themes';
@@ -225,6 +226,46 @@ export function GameInsightsCard() {
           Score: {ins.score.w}W {ins.score.d}D {ins.score.l}L
         </div>
       )}
+    </div>
+  );
+}
+
+/** Progress: coached vs Match-conditions score per opponent band, and chess.com over the same period. */
+export function GapCard() {
+  const [games, setGames] = useState<AnyGame[] | null>(null);
+  useEffect(() => void allGames({ includeUnanalyzed: true }).then(setGames), []);
+  if (!games) return null;
+  const r = gapReport(games);
+  if (r.coached.n + r.match.n === 0) return null;
+  const cell = (t: { n: number; pct: number }) => (t.n ? <><b>{t.pct}%</b> <span className="text-stone-400">({t.n})</span></> : <span className="text-stone-400">–</span>);
+  return (
+    <div className="card space-y-2 !p-3">
+      <div className="text-sm font-semibold text-stone-500">Coached vs Match conditions (last {PERIOD_DAYS} days)</div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs text-stone-500">
+            <th className="text-left font-normal">Opponents</th>
+            <th className="text-right font-normal">Coached</th>
+            <th className="text-right font-normal">Match</th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.bands.map((b) => (
+            <tr key={b.min}>
+              <td>~{b.label}</td>
+              <td className="text-right">{cell(b.coached)}</td>
+              <td className="text-right">{cell(b.match)}</td>
+            </tr>
+          ))}
+          {r.chessCom.n > 0 && (
+            <tr className="border-t border-stone-100 dark:border-stone-800">
+              <td className="pt-1"><ChessComBadge /> avg {r.chessCom.avgOpp}</td>
+              <td colSpan={2} className="pt-1 text-right">{cell(r.chessCom)}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <p className="text-sm">{r.sentence}</p>
     </div>
   );
 }

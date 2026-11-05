@@ -62,7 +62,7 @@ function Card({ o, i, rec, open, active, onTap }: { o: Opponent; i: number; rec?
   );
 }
 
-export function OpponentCarousel({ records, selected, onSelect }: { records: Record<string, OpponentRecord>; selected: string | null; onSelect: (id: string) => void }) {
+export function OpponentCarousel({ records, selected, onSelect, allOpen = false }: { records: Record<string, OpponentRecord>; selected: string | null; onSelect: (id: string) => void; /** Match conditions: every opponent can be chosen. */ allOpen?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const start = Math.max(0, OPPONENTS.findIndex((o) => o.id === selected));
   const [centered, setCentered] = useState(start);
@@ -96,7 +96,7 @@ export function OpponentCarousel({ records, selected, onSelect }: { records: Rec
         style={{ gap: GAP, paddingInline: `calc(50% - ${CARD / 2}px)` }}
       >
         {OPPONENTS.map((o, i) => (
-          <Card key={o.id} o={o} i={i} rec={records[o.id]} open={isUnlocked(o.id, records)} active={i === centered && selected !== 'custom'} onTap={() => goTo(i)} />
+          <Card key={o.id} o={o} i={i} rec={records[o.id]} open={allOpen || isUnlocked(o.id, records)} active={i === centered && selected !== 'custom'} onTap={() => goTo(i)} />
         ))}
       </div>
       <div className="flex justify-center gap-1.5">
@@ -105,7 +105,7 @@ export function OpponentCarousel({ records, selected, onSelect }: { records: Rec
             key={o.id}
             aria-label={o.name}
             onClick={() => goTo(i)}
-            className={`h-1.5 rounded-full transition-all ${i === centered ? 'w-5 bg-brand-600' : isUnlocked(o.id, records) ? 'w-1.5 bg-stone-300 dark:bg-stone-600' : 'w-1.5 bg-stone-200 dark:bg-stone-800'}`}
+            className={`h-1.5 rounded-full transition-all ${i === centered ? 'w-5 bg-brand-600' : allOpen || isUnlocked(o.id, records) ? 'w-1.5 bg-stone-300 dark:bg-stone-600' : 'w-1.5 bg-stone-200 dark:bg-stone-800'}`}
           />
         ))}
       </div>

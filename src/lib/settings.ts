@@ -47,6 +47,18 @@ export interface Settings {
   ccUsername: string;
   /** Sync chess.com games when the app opens (only when online). */
   ccAutoSync: boolean;
+  /** Coach level in normal games: full, warnings only, or silent. */
+  coachLevel: 'full' | 'warnings' | 'silent';
+  /** When the coach level was last changed (wins since then count toward stepping down). */
+  coachLevelSince: number;
+  /** Step-down suggestion dismissed for this level (until it changes). */
+  stepDownDismissed: string;
+  /** Start games in Match conditions. */
+  matchMode: boolean;
+  /** Time control for Match conditions ("600+0"); '' = my most common chess.com one, else 10+0. */
+  matchTimeControl: string;
+  /** Clock in coached games ('' = off). */
+  coachedTimeControl: string;
 }
 
 export type BoardTheme = string;
@@ -131,6 +143,12 @@ export const DEFAULT_SETTINGS: Settings = {
   reminderTime: '18:00',
   ccUsername: '',
   ccAutoSync: false,
+  coachLevel: 'full',
+  coachLevelSince: 0,
+  stepDownDismissed: '',
+  matchMode: false,
+  matchTimeControl: '',
+  coachedTimeControl: '',
 };
 
 const KEY = 'settings';

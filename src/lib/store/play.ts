@@ -28,6 +28,7 @@ import { cap, moveWords } from '../chess/words';
 import { specialMove, tacticsOfMove, TACTIC_KEYS, type Special, type TacticCounts, type TacticKey } from '../rewards/career';
 import { checkAchievements } from '../progress/achievements';
 import { setPlayActiveCheck } from '../chesscom/store';
+import { aidsFor } from '../coach/level';
 
 export type Phase = 'loading' | 'setup' | 'userTurn' | 'analyzing' | 'botThinking' | 'paused' | 'over';
 
@@ -55,7 +56,7 @@ interface PlayStore {
   /** "Are you sure?" before a risky move. */
   precheck: { move: MoveInput; uci: string; check: PreCheck; revealed: boolean } | null;
   load(): Promise<void>;
-  newGame(color: Color, elo: number, startFen?: string, opponentId?: string): void;
+  newGame(color: Color, elo: number, startFen?: string, opponentId?: string, opts?: { match?: boolean; timeControl?: string }): void;
   userMove(m: MoveInput, force?: boolean): boolean;
   /** Play the move the "are you sure?" check stopped. */
   confirmPrecheck(): void;
@@ -81,6 +82,8 @@ interface PlayStore {
 }
 
 let token = 0;
+/** The help that's on for this game (coach level, or nothing in Match conditions). */
+const aidsOf = (g: SavedGame | null) => aidsFor({ ...useSettings.getState() }, g ?? undefined);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function currentFen(g: SavedGame | null): string {
@@ -129,7 +132,7 @@ export const usePlay = create<PlayStore>((set, get) => {
   /** Announces the opening the first time its name appears. */
   const announceOpening = () => {
     const g = get().game!;
-    if (g.startFen !== START_FEN || g.plies.length > 16 || useSettings.getState().coachStyle !== 'detailed') return;
+    if (g.startFen !== START_FEN || g.plies.length > 16 || !aidsOf(g).openings) return;
     const o = detectOpening(g.plies.map((p) => p.san));
     if (!o || g.told.includes(`opening:${o.name}`)) return;
     update((gg) => void gg.told.push(`opening:${o.name}`));
@@ -269,7 +272,8 @@ export const usePlay = create<PlayStore>((set, get) => {
       });
       const style = useSettings.getState().coachStyle;
       const gentle = style === 'gentle';
-      const quiet = style === 'off';
+      const aids = aidsOf(get().game);
+      const quiet = !aids.comments;
       const cls = comment.classification;
       const loss = Math.max(0, wpB - wpA);
       const slip = cls === 'mistake' || cls === 'blunder';
@@ -300,7 +304,7 @@ export const usePlay = create<PlayStore>((set, get) => {
           mood: hurts ? 'concerned' : 'happy',
         });
       }
-      const shown = special ?? (TACTIC_KEYS.find((k) => tactics[k] && FLASHY.has(k)) as TacticKey | undefined);
+      const shown = aids.reveals ? (special ?? (TACTIC_KEYS.find((k) => tactics[k] && FLASHY.has(k)) as TacticKey | undefined)) : undefined;
       if (shown) {
         set({ flash: { id: Date.now(), kind: shown, sq: ply.uci.slice(2, 4) } });
         if (special) {
@@ -315,9 +319,12 @@ export const usePlay = create<PlayStore>((set, get) => {
         return;
       }
       const serious = hurts;
-      if (serious) say('userBlunder', gentle ? 0.5 : 0.85);
-      else if (comment.ruleIds.some((r) => r === 'praise-tactic' || r === 'praise-mate' || r === 'praise-capture')) say('userGoodMove', 0.7);
-      if (serious && useSettings.getState().pauseOnMistakes ) {
+      // The opponent's reactions would give the move's quality away in Match conditions.
+      if (aids.reveals) {
+        if (serious) say('userBlunder', gentle ? 0.5 : 0.85);
+        else if (comment.ruleIds.some((r) => r === 'praise-tactic' || r === 'praise-mate' || r === 'praise-capture')) say('userGoodMove', 0.7);
+      }
+      if (serious && aids.comments && useSettings.getState().pauseOnMistakes) {
         playSound('error');
         set({ phase: 'paused', comment: { comment, ply: i } });
         return;
@@ -372,10 +379,9 @@ export const usePlay = create<PlayStore>((set, get) => {
       else if (r.move.captured) say('botCapture', 0.3);
       announceOpening();
       if (await checkOver(get().game!)) return;
-      let note = useSettings.getState().botNotes ? botMoveNote(fen, r.fen, uci, g.userColor, opponentById(g.opponentId)?.name) : null;
+      let note = aidsOf(g).botNotes ? botMoveNote(fen, r.fen, uci, g.userColor, opponentById(g.opponentId)?.name) : null;
       // Gentle: checks speak for themselves and a threatened pawn isn't worth a message.
       // Other warnings get a few moves' break, except a checkmate threat.
-      if (useSettings.getState().coachStyle === 'off') note = null;
       if (note && useSettings.getState().coachStyle === 'gentle') {
         const lastNote = [...(g.feed ?? [])].reverse().find((f) => f.kind === 'note');
         const recent = !!lastNote && g.plies.length - lastNote.ply <= 6;
@@ -469,7 +475,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       }
     },
 
-    newGame(color, elo, startFen = START_FEN, opponentId) {
+    newGame(color, elo, startFen = START_FEN, opponentId, opts = {}) {
       token++;
       getEngine().cancelAll('play');
       getEngine().cancelAll('import');
@@ -484,6 +490,9 @@ export const usePlay = create<PlayStore>((set, get) => {
         takebacks: 0,
         hintsUsed: 0,
         told: [],
+        match: opts.match || undefined,
+        coachLevel: opts.match ? undefined : useSettings.getState().coachLevel,
+        timeControl: opts.timeControl || undefined,
       };
       set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: Date.now() });
       useCelebrate.getState().setMuted(false);
@@ -498,7 +507,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       post({
         kind: 'info',
         ply: -1,
-        text: [
+        text: opts.match ? [`Match conditions vs ${o ? o.name : 'the bot'} (~${elo}): no hints, no take-backs, no warnings. Play it like a real game — I'll go through it with you afterwards.`] : [
           o ? `You're playing ${o.name} (~${o.elo}). ${REPERTOIRES[o.id] ? `Watch out — ${o.name.split(' ').pop()} likes the ${REPERTOIRES[o.id].favourite}.` : 'Expect surprises!'}` : 'New game — good luck!',
           color === 'w' ? 'You have the white pieces, so you move first. Tap a piece, then a square.' : 'You have black, so your opponent moves first.',
         ],
@@ -517,7 +526,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       if (turnOf(fen) !== game.userColor) return false;
       const r = tryMove(fen, m);
       if (!r) return false;
-      if (!force && useSettings.getState().checkBeforeMove) {
+      if (!force && aidsOf(game).precheck) {
         const check = preMoveCheck(fen, r.move.lan);
         if (check) {
           set({ precheck: { move: m, uci: r.move.lan, check, revealed: false }, hint: null, threat: null });
@@ -559,7 +568,7 @@ export const usePlay = create<PlayStore>((set, get) => {
 
     tryAgain() {
       const g = get().game;
-      if (!g || get().phase !== 'paused') return;
+      if (!g || get().phase !== 'paused' || !aidsOf(g).requests) return;
       const undone = g.plies[g.plies.length - 1];
       update((gg) => {
         gg.plies.pop();
@@ -575,7 +584,7 @@ export const usePlay = create<PlayStore>((set, get) => {
 
     takeback() {
       const { game: g, phase } = get();
-      if (!g || !['userTurn', 'paused', 'botThinking'].includes(phase)) return;
+      if (!g || !['userTurn', 'paused', 'botThinking'].includes(phase) || !aidsOf(g).requests) return;
       const lastUserIdx = g.plies.map((p) => p.isUser).lastIndexOf(true);
       if (lastUserIdx < 0) return;
       token++;
@@ -601,7 +610,7 @@ export const usePlay = create<PlayStore>((set, get) => {
 
     async requestHint() {
       const g = get().game;
-      if (!g || get().phase !== 'userTurn') return;
+      if (!g || get().phase !== 'userTurn' || !aidsOf(g).requests) return;
       const level = Math.min(3, (get().hint?.level ?? 0) + 1) as 1 | 2 | 3;
       const fen = currentFen(g);
       try {
@@ -622,7 +631,7 @@ export const usePlay = create<PlayStore>((set, get) => {
 
     async requestThreat() {
       const g = get().game;
-      if (!g || get().phase !== 'userTurn') return;
+      if (!g || get().phase !== 'userTurn' || !aidsOf(g).requests) return;
       const fen = currentFen(g);
       const nf = nullMoveFen(fen);
       try {
@@ -639,6 +648,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     async requestExplain() {
       const g = get().game;
       if (!g || !['userTurn', 'paused', 'over'].includes(get().phase)) return;
+      if (get().phase !== 'over' && !aidsOf(g).requests) return;
       const fen = currentFen(g);
       try {
         const a = await analyze(fen, 1);

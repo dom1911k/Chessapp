@@ -11,7 +11,7 @@ import { SettingsButton } from './PlayScreen';
 import { AchievementsPreview, LevelCard, WeeklyGoalCard } from '../components/Gamification';
 import { weeklySummary, type WeekStats } from '../lib/weekly';
 import { CareerCard, RewardsCards } from '../components/RewardsCards';
-import { GameInsightsCard } from '../components/ChessCom';
+import { GameInsightsCard, GapCard } from '../components/ChessCom';
 
 interface Data {
   rating: number;
@@ -108,6 +108,7 @@ export function ProgressScreen() {
           <LineChart values={d.accuracy} color="#3b82f6" />
         </div>
         <GameInsightsCard />
+        <GapCard />
         <div className="grid grid-cols-2 gap-2.5">
           <ThemeList title="Strongest puzzle themes" list={strong} />
           <ThemeList title="Work on" list={weak} />

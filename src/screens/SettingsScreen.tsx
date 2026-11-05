@@ -4,6 +4,7 @@ import { useNav } from '../lib/nav';
 import { COSMETICS, isUnlocked, unlockContext } from '../lib/rewards/cosmetics';
 import { BackupCard } from '../components/BackupCard';
 import { ChessComCard } from '../components/ChessCom';
+import { COACH_LEVELS } from '../lib/coach/level';
 import { ResetCard } from '../components/ResetCard';
 import { useRunFlag } from '../run/flag';
 import { UpdateCard } from '../components/UpdatePanel';
@@ -88,6 +89,17 @@ export function SettingsScreen() {
                 { value: 'stockfish', label: 'Classic' },
               ]}
             />
+          </div>
+          <div className="py-2">
+            <div className="mb-1.5 text-sm">Coach level (normal games)</div>
+            <Segmented
+              value={s.coachLevel}
+              onChange={(v) => s.set({ coachLevel: v, coachLevelSince: Date.now() })}
+              options={COACH_LEVELS.map((l) => ({ value: l.id, label: l.label }))}
+            />
+            <p className="mt-1.5 text-xs text-stone-500">
+              {COACH_LEVELS.find((l) => l.id === s.coachLevel)?.text} After 5 wins at a level, I'll suggest the next one down — Match conditions after Silent. It's always your call.
+            </p>
           </div>
           <div className="py-2">
             <div className="mb-1.5 text-sm">How chatty is Coach Sam?</div>

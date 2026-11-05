@@ -56,6 +56,16 @@ export interface SavedGame {
   tactics?: TacticCounts;
   /** Your lowest winning chance during the game (for comebacks). */
   minWp?: number;
+  /** Match conditions: no take-backs, hints, coach messages, warnings or overlays. */
+  match?: boolean;
+  /** The coach level this game was played with (normal games). */
+  coachLevel?: 'full' | 'warnings' | 'silent';
+  /** Time control "seconds+increment" when the clock is on. */
+  timeControl?: string;
+  /** Clock state: ms left per side, and when the side to move started thinking. */
+  clock?: { w: number; b: number; turnStart: number };
+  /** Seconds left on the mover's clock after each ply. */
+  clocks?: number[];
 }
 
 export interface GameSummary {
@@ -80,12 +90,6 @@ export interface GameRecord extends Omit<SavedGame, 'id'> {
   source?: 'app' | 'chess.com';
   /** The opponent's name when it isn't one of the app's characters (chess.com username). */
   opponentName?: string;
-  /** Time control as "seconds+increment" (e.g. "600+0"), when the game had a clock. */
-  timeControl?: string;
-  /** Seconds left on the mover's clock after each ply (same order as plies). */
-  clocks?: number[];
-  /** Match conditions: no aids during the game. */
-  match?: boolean;
 }
 
 /** A game imported from chess.com (its own table; never counted as an app game). */

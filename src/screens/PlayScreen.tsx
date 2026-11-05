@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
+import { Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
@@ -26,6 +26,10 @@ import { CosmeticPreview } from '../components/CosmeticPreview';
 import { BoardFlash } from '../components/BoardFlash';
 import { Captured } from '../components/Captured';
 import { LastChessComGames } from '../components/ChessCom';
+import { db } from '../lib/db';
+import { defaultMatchTc, mostCommonTimeControl, offeredTimeControls } from '../lib/clock';
+import { timeControlLabel } from '../lib/chesscom/parse';
+import { COACH_LEVELS, aidsFor, nextLevel, stepDownSuggestion } from '../lib/coach/level';
 import { HomeHero } from '../components/HomeHero';
 import { VersusIntro } from '../components/VersusIntro';
 import { OpponentCarousel } from '../components/OpponentCarousel';
@@ -52,7 +56,12 @@ function SetupView() {
   useEffect(() => void getOpponentRecords().then(setRecords), []);
   const chosen = opponentById(settings.opponentId) ?? (custom ? undefined : OPPONENTS[1]);
   const opp = custom ? null : chosen ?? null;
-  const locked = !!opp && !isUnlocked(opp.id, records);
+  // Match conditions: any opponent from the ladder, no rating gate.
+  const match = settings.matchMode;
+  const locked = !match && !!opp && !isUnlocked(opp.id, records);
+  const [ccTc, setCcTc] = useState<string | null>(null);
+  useEffect(() => void db.imported.toArray().then((gs) => setCcTc(mostCommonTimeControl(gs))), []);
+  const matchTc = defaultMatchTc(settings.matchTimeControl, ccTc);
   const prevName = opp ? OPPONENTS[OPPONENTS.indexOf(opp) - 1]?.name : undefined;
   const rec = opp ? records[opp.id] : undefined;
   const running = usePlay((s) => (s.game && s.phase !== 'over' && s.phase !== 'setup' ? s.game : null));
@@ -61,7 +70,7 @@ function SetupView() {
     const color = settings.colorPref === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : settings.colorPref;
     // Starting over ends the game in progress (counts as resigned after a few moves).
     if (running) await usePlay.getState().abandon();
-    newGame(color, opp ? opp.elo : settings.botElo, undefined, opp?.id);
+    newGame(color, opp ? opp.elo : settings.botElo, undefined, opp?.id, match ? { match: true, timeControl: matchTc } : { timeControl: settings.coachedTimeControl || undefined });
   };
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -77,7 +86,7 @@ function SetupView() {
               {custom ? 'Back to opponents' : 'Custom strength'}
             </button>
           </div>
-          {!custom && <OpponentCarousel records={records} selected={settings.opponentId} onSelect={(id) => settings.set({ opponentId: id })} />}
+          {!custom && <OpponentCarousel records={records} allOpen={match} selected={settings.opponentId} onSelect={(id) => settings.set({ opponentId: id })} />}
         </div>
         {opp && !locked ? (
           <ChallengeCard opponentId={opp.id} stars={starsOf(rec)} done={!!rec?.challengeDone} />
@@ -93,6 +102,30 @@ function SetupView() {
           </div>
         ) : null}
         <div className="card space-y-3">
+          <div>
+            <div className="mb-2 text-sm font-semibold text-stone-500">Mode</div>
+            <Segmented
+              value={match ? 'match' : 'coached'}
+              onChange={(v) => settings.set({ matchMode: v === 'match' })}
+              options={[
+                { value: 'coached', label: <><MessageCircleHeart size={15} /> Coached</> },
+                { value: 'match', label: <><Swords size={15} /> Match conditions</> },
+              ]}
+            />
+            <p className="mt-1.5 px-1 text-xs text-stone-500">
+              {match
+                ? 'Like a real game on chess.com: the clock runs, and there are no take-backs, hints, warnings or coach messages until it ends. Then the full review.'
+                : `Coach level: ${COACH_LEVELS.find((l) => l.id === settings.coachLevel)?.label ?? 'Full'}. ${COACH_LEVELS.find((l) => l.id === settings.coachLevel)?.text ?? ''}`}
+            </p>
+          </div>
+          {match ? (
+            <div>
+              <div className="mb-2 text-sm font-semibold text-stone-500">Time control</div>
+              <TimeControlPicker value={matchTc} options={offeredTimeControls(ccTc)} onChange={(v) => settings.set({ matchTimeControl: v })} mine={ccTc} />
+            </div>
+          ) : (
+            <StepDownCard />
+          )}
           <div>
             <div className="mb-2 text-sm font-semibold text-stone-500">You play</div>
             <Segmented
@@ -122,7 +155,7 @@ function SetupView() {
             </p>
           </div>
           <button className="btn-primary w-full !py-3 text-base" disabled={locked} onClick={() => void start()}>
-            {locked ? <><Lock size={16} /> Beat {prevName} first</> : running ? 'Start a new game' : `Play ${opp ? opp.name : 'the bot'}`}
+            {locked ? <><Lock size={16} /> Beat {prevName} first</> : running ? 'Start a new game' : match ? `Play ${opp ? opp.name : 'the bot'} · ${timeControlLabel(matchTc)}` : `Play ${opp ? opp.name : 'the bot'}`}
           </button>
           {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
         </div>
@@ -203,6 +236,7 @@ function GameTopBar({ onMenu }: { onMenu: () => void }) {
         <div className="min-w-0 flex-1 leading-tight">
           <div className="truncate font-semibold">
             {o ? o.name : 'Bot'} <span className="font-normal text-stone-400">{g.elo}</span>
+            {g.match && <span className="chip ml-1.5 bg-brand-100 align-middle text-[10px] text-brand-700 dark:bg-brand-700/30 dark:text-brand-100">Match</span>}
           </div>
           <div className="truncate text-xs text-stone-500">{opening ? opening.name : thinking ? 'thinking…' : g.userColor === 'w' ? 'You play white' : 'You play black'}</div>
         </div>
@@ -236,6 +270,7 @@ function GameView() {
   const push = useNav((n) => n.push);
   const [menu, setMenu] = useState(false);
   const [history, setHistory] = useState(false);
+  const [confirmResign, setConfirmResign] = useState(false);
   const g = s.game!;
   const fen = currentFen(g);
   const orientation = g.userColor === 'w' ? 'white' : 'black';
@@ -246,7 +281,9 @@ function GameView() {
   useEffect(() => setView(null), [g.startedAt]);
   const viewing = view !== null && view < g.plies.length - 1;
   const viewPly = viewing && view! >= 0 ? g.plies[view!] : null;
-  const coachOff = settings.coachStyle === 'off';
+  const aids = aidsFor(settings, g);
+  // Match conditions and the quieter coach levels show the move list in the coach's place.
+  const coachOff = !aids.comments;
   const feed = g.feed ?? [];
   const latestFeed = feed[feed.length - 1];
   // With the coach off, only what you asked for (hints, threats, the result…) shows, and only while it's fresh.
@@ -272,8 +309,8 @@ function GameView() {
     highlights.push(...note.highlights);
   }
   const safety = useMemo(
-    () => (settings.safetyOverlay && myTurn ? safetyInfo(fen, g.userColor) : null),
-    [settings.safetyOverlay, myTurn, fen, g.userColor],
+    () => (aids.safetyOverlay && myTurn ? safetyInfo(fen, g.userColor) : null),
+    [aids.safetyOverlay, myTurn, fen, g.userColor],
   );
   if (safety) {
     arrows.push(...safety.arrows);
@@ -317,7 +354,7 @@ function GameView() {
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-5 land:px-3">
         <div className="land:w-[min(calc(100dvh-6rem),58vw)] land:shrink-0">
           <div className="flex gap-1.5 px-2">
-            {settings.showEvalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
+            {aids.evalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
             <div className="relative flex-1">
               <ChatBubble />
               <BoardFlash flash={s.flash} orientation={orientation} />
@@ -370,9 +407,21 @@ function GameView() {
           {!s.over && (
             <div className="safe-bottom px-3 pb-2">
               <div className="mx-auto grid max-w-md grid-cols-4 gap-1 rounded-[22px] bg-white/90 p-1.5 shadow-[0_6px_24px_rgba(60,35,15,0.12)] ring-1 ring-black/5 backdrop-blur dark:bg-stone-900/90 dark:ring-white/10">
-                <DockButton label={s.hint ? `Hint ${s.hint.level}/3` : 'Hint'} icon={<Lightbulb size={22} />} disabled={!myTurn || s.hint?.level === 3} onClick={s.requestHint} primary />
-                <DockButton label="Take back" icon={<Undo2 size={22} />} disabled={userPlies === 0 || !['userTurn', 'paused', 'botThinking'].includes(s.phase)} onClick={s.takeback} />
-                <DockButton label="Threats" icon={<Crosshair size={22} />} disabled={!myTurn} onClick={s.requestThreat} />
+                {aids.requests ? (
+                  <>
+                    <DockButton label={s.hint ? `Hint ${s.hint.level}/3` : 'Hint'} icon={<Lightbulb size={22} />} disabled={!myTurn || s.hint?.level === 3} onClick={s.requestHint} primary />
+                    <DockButton label="Take back" icon={<Undo2 size={22} />} disabled={userPlies === 0 || !['userTurn', 'paused', 'botThinking'].includes(s.phase)} onClick={s.takeback} />
+                    <DockButton label="Threats" icon={<Crosshair size={22} />} disabled={!myTurn} onClick={s.requestThreat} />
+                  </>
+                ) : (
+                  <>
+                    <div className="col-span-2 flex flex-col items-center justify-center text-[11px] leading-tight font-semibold text-stone-500">
+                      <Swords size={18} className="mb-0.5 text-brand-600" />
+                      Match conditions
+                    </div>
+                    <DockButton label="Resign" icon={<Flag size={22} />} onClick={() => setConfirmResign(true)} />
+                  </>
+                )}
                 <DockButton label="More" icon={<EllipsisVertical size={22} />} onClick={() => setMenu(true)} />
               </div>
             </div>
@@ -397,19 +446,25 @@ function GameView() {
       )}
       <Dialog open={menu} onClose={() => setMenu(false)}>
         <div className="-mx-2 space-y-0.5">
-          {!s.over && menuItem(<ScanSearch size={19} />, 'Why not my move?', whyNot)}
-          {menuItem(<Sparkles size={19} />, 'Explain this position', () => void s.requestExplain())}
+          {!s.over && aids.requests && menuItem(<ScanSearch size={19} />, 'Why not my move?', whyNot)}
+          {(aids.requests || s.over) && menuItem(<Sparkles size={19} />, 'Explain this position', () => void s.requestExplain())}
           {menuItem(<MessagesSquare size={19} />, 'Conversation', () => setHistory(true))}
-          {menuItem(
+          {!g.match && menuItem(
             <MessageCircleHeart size={19} />,
             'Coach comments',
             () => settings.set({ coachStyle: settings.coachStyle === 'gentle' ? 'detailed' : settings.coachStyle === 'detailed' ? 'off' : 'gentle' }),
             <span className="chip bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300">{settings.coachStyle === 'gentle' ? 'Gentle' : settings.coachStyle === 'detailed' ? 'Every move' : 'Off · move list'}</span>,
           )}
-          {menuItem(<ShieldCheck size={19} />, 'Safety overlay', () => settings.set({ safetyOverlay: !settings.safetyOverlay }), onOff(settings.safetyOverlay))}
+          {!g.match && menuItem(<ShieldCheck size={19} />, 'Safety overlay', () => settings.set({ safetyOverlay: !settings.safetyOverlay }), onOff(settings.safetyOverlay))}
           {menuItem(<ListOrdered size={19} />, 'Move list', () => settings.set({ showMoveList: !settings.showMoveList }), onOff(settings.showMoveList))}
-          {!s.over && menuItem(<Flag size={19} />, 'Resign', () => void s.resign())}
+          {!s.over && menuItem(<Flag size={19} />, 'Resign', () => (g.match ? setConfirmResign(true) : void s.resign()))}
           {menuItem(<RotateCcw size={19} />, 'New game', () => void (s.over ? s.leaveGame() : s.abandon()))}
+        </div>
+      </Dialog>
+      <Dialog open={confirmResign} onClose={() => setConfirmResign(false)} title="Resign this game?">
+        <div className="flex gap-2">
+          <button className="btn-secondary flex-1" onClick={() => setConfirmResign(false)}>Keep playing</button>
+          <button className="btn-primary flex-1" onClick={() => (setConfirmResign(false), void s.resign())}>Resign</button>
         </div>
       </Dialog>
       <Dialog open={history} onClose={() => setHistory(false)} title="Conversation">
@@ -698,6 +753,54 @@ function ChallengeCard({ opponentId, stars, done }: { opponentId: string; stars:
           <div className="h-full rounded-full bg-gold-400" style={{ width: `${(stars / MAX_STARS) * 100}%` }} />
         </div>
       )}
+    </div>
+  );
+}
+
+/** Time control chips; my most common chess.com one is marked. */
+export function TimeControlPicker({ value, options, onChange, mine }: { value: string; options: string[]; onChange: (v: string) => void; mine?: string | null }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((tc) => (
+        <button
+          key={tc}
+          onClick={() => onChange(tc)}
+          className={`rounded-xl px-3 py-1.5 text-sm font-semibold ring-1 ${value === tc ? 'bg-brand-600 text-white ring-brand-600' : 'ring-stone-200 dark:ring-stone-700'}`}
+        >
+          {timeControlLabel(tc)}
+          {mine === tc && <span className={`ml-1 text-[10px] font-normal ${value === tc ? 'text-white/80' : 'text-stone-500'}`}>your usual</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** After 5 wins at the current coach level: suggest one step down (never forced). */
+function StepDownCard() {
+  const settings = useSettings();
+  const [games, setGames] = useState<{ coachLevel?: 'full' | 'warnings' | 'silent'; match?: boolean; userResult: string; endedAt: number }[]>([]);
+  useEffect(() => void db.games.toArray().then(setGames), []);
+  const level = settings.coachLevel;
+  const sug = stepDownSuggestion(games, level, settings.coachLevelSince);
+  if (!sug || settings.stepDownDismissed === `${level}:${settings.coachLevelSince}`) return null;
+  const to = nextLevel(level);
+  const label = to === 'match' ? 'Match conditions' : COACH_LEVELS.find((l) => l.id === to)!.label;
+  return (
+    <div className="rounded-2xl bg-brand-50 p-3 text-sm ring-1 ring-brand-500/30 dark:bg-brand-700/15">
+      <p>
+        <b>{sug.wins} wins</b> with the coach on “{COACH_LEVELS.find((l) => l.id === level)!.label}”. Ready for a little less help? Try <b>{label}</b>.
+      </p>
+      <div className="mt-2 flex gap-2">
+        <button
+          className="btn-primary !py-1.5 text-sm"
+          onClick={() => (to === 'match' ? settings.set({ matchMode: true }) : settings.set({ coachLevel: to, coachLevelSince: Date.now() }))}
+        >
+          Try {label}
+        </button>
+        <button className="btn-secondary !py-1.5 text-sm" onClick={() => settings.set({ stepDownDismissed: `${level}:${settings.coachLevelSince}` })}>
+          Not now
+        </button>
+      </div>
     </div>
   );
 }
