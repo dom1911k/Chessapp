@@ -178,6 +178,7 @@ export function LastChessComGames() {
 
 /** Progress: recurring mistakes and the tactics you play, in all / app / chess.com games. */
 export function GameInsightsCard() {
+  const push = useNav((s) => s.push);
   const [src, setSrc] = useState<GameSource>('all');
   const [games, setGames] = useState<AnyGame[] | null>(null);
   const done = useImport((s) => s.done);
@@ -226,8 +227,11 @@ export function GameInsightsCard() {
         </div>
       )}
       {ins.games > 0 && (
-        <div className="text-xs text-stone-500">
-          Score: {ins.score.w}W {ins.score.d}D {ins.score.l}L
+        <div className="flex items-center justify-between text-xs text-stone-500">
+          <span>Score: {ins.score.w}W {ins.score.d}D {ins.score.l}L</span>
+          <button className="text-sm font-semibold text-brand-700 dark:text-brand-500" onClick={() => push({ name: 'mistakes' })}>
+            All my mistakes →
+          </button>
         </div>
       )}
     </div>

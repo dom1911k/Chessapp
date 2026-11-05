@@ -16,6 +16,7 @@ export type Screen =
   | { name: 'achievements' }
   | { name: 'openingPractice'; index: number; custom?: { name: string; line: string[]; side: 'w' | 'b'; idea?: string } }
   | { name: 'face' }
+  | { name: 'mistakes' }
   | { name: 'traps' }
   | { name: 'trap'; trapId: string }
   | { name: 'timeDrill'; kind: 'convert' | 'quick' }
