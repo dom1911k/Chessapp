@@ -1,7 +1,7 @@
 // The Puzzles hub, chess.com style: your rating with its graph and one big "Solve Puzzles" button,
 // then the modes as tiles (Rush, Daily Puzzle, Custom, Learning, your games) and your records.
 import { useEffect, useState, type ReactNode } from 'react';
-import { CalendarDays, ChevronRight, Flame, GraduationCap, Puzzle, Shield, SlidersHorizontal, Swords, Timer, Trophy, Zap } from 'lucide-react';
+import { CalendarCheck, CalendarDays, ChevronRight, Flame, GraduationCap, Puzzle, Shield, SlidersHorizontal, Swords, Timer, Trophy, Zap } from 'lucide-react';
 import { Header } from '../components/ui';
 import { LineChart } from '../components/Charts';
 import { db, kvGet, today } from '../lib/db';
@@ -11,6 +11,7 @@ import { weakestThemes } from '../lib/puzzles/select';
 import { THEME_SETS } from '../lib/puzzles/themes';
 import { dailyState, dailyStreak } from '../lib/puzzles/sources';
 import { loadIndex } from '../lib/puzzles/data';
+import { dueCount } from '../lib/store/daily';
 import { RUSH_LABEL, rushBestKey } from './RushScreen';
 import { SettingsButton } from './PlayScreen';
 
@@ -26,6 +27,7 @@ interface HubData {
   dailyStreak: number;
   weak?: string;
   total: number;
+  due: number;
 }
 
 export function PuzzlesScreen() {
@@ -54,6 +56,7 @@ export function PuzzlesScreen() {
         dailySolved: daily.solved.includes(today()),
         dailyStreak: dailyStreak(daily.solved),
         weak: attempts.length >= 5 ? weak : undefined,
+        due: await dueCount(),
         total: (await loadIndex().catch(() => ({ total: 0 }))).total,
       });
     })();
@@ -100,6 +103,19 @@ export function PuzzlesScreen() {
               <Flame size={18} className="fill-orange-400" /> {d.dailyStreak}
             </span>
           )}
+          <ChevronRight size={18} className="text-stone-400" />
+        </button>
+
+        {/* Daily training (spaced reviews of positions you missed + weak-spot puzzles) */}
+        <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'daily' })}>
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+            <CalendarCheck size={24} />
+          </span>
+          <span className="flex-1">
+            <span className="block font-semibold">Daily training</span>
+            <span className="block text-xs text-stone-500">{d?.due ? `${d.due} position${d.due === 1 ? '' : 's'} to review, then weak-spot puzzles` : 'Puzzles picked for your weak spots'}</span>
+          </span>
+          {d?.due ? <span className="chip bg-red-500 text-white">{d.due}</span> : null}
           <ChevronRight size={18} className="text-stone-400" />
         </button>
 

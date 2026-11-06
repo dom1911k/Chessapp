@@ -196,7 +196,6 @@ function SetupView() {
 /** Quiet links under the Play card, chess.com style: training due, past games. */
 function HomeLinks() {
   const push = useNav((s) => s.push);
-  const setTab = useNav((s) => s.setTab);
   const [due, setDue] = useState(0);
   useEffect(() => void dueCount().then(setDue), []);
   const row = (icon: ReactNode, title: string, sub: string, onClick: () => void, badge?: ReactNode) => (
@@ -212,7 +211,7 @@ function HomeLinks() {
   );
   return (
     <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
-      {row(<CalendarCheck size={18} />, 'Daily training', due ? `${due} position${due === 1 ? '' : 's'} from your games to review` : 'Puzzles picked for your weak spots', () => setTab('daily'), due ? <span className="chip bg-red-500 text-white">{due}</span> : null)}
+      {row(<CalendarCheck size={18} />, 'Daily training', due ? `${due} position${due === 1 ? '' : 's'} from your games to review` : 'Puzzles picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-red-500 text-white">{due}</span> : null)}
       {row(<History size={18} />, 'Past games', 'Your games and their Game Reviews', () => push({ name: 'history' }))}
     </div>
   );

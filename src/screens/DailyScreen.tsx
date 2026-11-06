@@ -11,18 +11,16 @@ import { themeLabel } from '../lib/puzzles/themes';
 import { formatDue } from '../lib/srs';
 import { currentStreak } from '../lib/stats';
 import { dueCount, MAX_REVIEWS, SESSION_SIZE, useDaily } from '../lib/store/daily';
-import { SettingsButton } from './PlayScreen';
 import { WeeklyGoalCard } from '../components/Gamification';
 
 export function DailyScreen() {
   const d = useDaily();
-  const tab = useNav((s) => s.tab);
-  const stackEmpty = useNav((s) => s.stack.length === 0);
+  const onTop = useNav((s) => s.stack[s.stack.length - 1]?.name === 'daily');
   const [inSession, setInSession] = useState(false);
   const [info, setInfo] = useState<{ due: number; streak: number; weak: string[]; doneToday: boolean; nextDue: string | null } | null>(null);
 
   useEffect(() => {
-    if (tab !== 'daily' || inSession) return;
+    if (inSession) return;
     void (async () => {
       const act = await db.activity.get(today());
       const next = await db.cards.orderBy('due').first();
@@ -34,7 +32,7 @@ export function DailyScreen() {
         nextDue: next ? formatDue(next) : null,
       });
     })();
-  }, [tab, inSession]);
+  }, [inSession]);
 
   // A session from an earlier day is stale.
   useEffect(() => {
@@ -42,7 +40,7 @@ export function DailyScreen() {
   }, [d]);
 
   const leave = () => setInSession(false);
-  useBackHandler(leave, inSession && tab === 'daily' && stackEmpty);
+  useBackHandler(leave, inSession && onTop);
 
   const start = async () => {
     if (!d.items.length || d.index >= d.items.length) await d.build();
@@ -54,7 +52,7 @@ export function DailyScreen() {
   const reviewsToday = Math.min(info?.due ?? 0, MAX_REVIEWS);
   return (
     <div className="flex h-full flex-col">
-      <Header title="Daily training" right={<SettingsButton />} />
+      <Header title="Daily training" back />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
         <WeeklyGoalCard />
         {info?.doneToday && <div className="px-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">Today's session is done — anything more is a bonus.</div>}

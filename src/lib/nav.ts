@@ -3,7 +3,8 @@
 import { create } from 'zustand';
 import type { Theme } from './coach/types';
 
-export type Tab = 'play' | 'puzzles' | 'daily' | 'learn' | 'progress' | 'run';
+/** 'play' is the Home tab. */
+export type Tab = 'play' | 'puzzles' | 'learn' | 'more' | 'run';
 
 export type Screen =
   | { name: 'report'; gameId: number | string }
@@ -27,6 +28,9 @@ export type Screen =
   | { name: 'skills' }
   | { name: 'collection' }
   | { name: 'settings' }
+  | { name: 'daily' }
+  | { name: 'profile' }
+  | { name: 'insights' }
   | { name: 'history' };
 
 export type RushMode = '3' | '5' | 'survival';

@@ -1,7 +1,7 @@
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { useEffect, useState } from 'react';
-import { CalendarCheck, ChartColumn, ChessKnight, GraduationCap, Puzzle, Sparkles, type LucideIcon } from 'lucide-react';
+import { GraduationCap, House, Menu, Puzzle, Sparkles, type LucideIcon } from 'lucide-react';
 import { requestPersistentStorage } from './lib/db';
 import { handleBack, useNav, type Screen, type Tab } from './lib/nav';
 import { useSettings } from './lib/settings';
@@ -12,7 +12,9 @@ import { PuzzlesScreen } from './screens/PuzzlesScreen';
 import { PuzzleScreen } from './screens/PuzzleScreen';
 import { DailyScreen } from './screens/DailyScreen';
 import { LearnScreen } from './screens/LearnScreen';
-import { ProgressScreen } from './screens/ProgressScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
+import { InsightsScreen } from './screens/InsightsScreen';
+import { MoreScreen } from './screens/MoreScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
 import { GameReviewScreen } from './screens/GameReviewScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
@@ -43,11 +45,10 @@ import { useRunFlag } from './run/flag';
 import { startImports } from './lib/chesscom/store';
 
 const TABS: { tab: Tab; label: string; icon: LucideIcon }[] = [
-  { tab: 'play', label: 'Play', icon: ChessKnight },
+  { tab: 'play', label: 'Home', icon: House },
   { tab: 'puzzles', label: 'Puzzles', icon: Puzzle },
-  { tab: 'daily', label: 'Daily', icon: CalendarCheck },
   { tab: 'learn', label: 'Learn', icon: GraduationCap },
-  { tab: 'progress', label: 'Progress', icon: ChartColumn },
+  { tab: 'more', label: 'More', icon: Menu },
   // Experimental Run mode (src/run), hidden by its toggle in Settings.
   { tab: 'run', label: 'Run', icon: Sparkles },
 ];
@@ -58,12 +59,10 @@ function TabScreen({ tab }: { tab: Tab }) {
       return <PlayScreen />;
     case 'puzzles':
       return <PuzzlesScreen />;
-    case 'daily':
-      return <DailyScreen />;
     case 'learn':
       return <LearnScreen />;
-    case 'progress':
-      return <ProgressScreen />;
+    case 'more':
+      return <MoreScreen />;
     case 'run':
       return <RunScreen />;
   }
@@ -73,6 +72,12 @@ function StackScreen({ screen }: { screen: Screen }) {
   switch (screen.name) {
     case 'settings':
       return <SettingsScreen />;
+    case 'daily':
+      return <DailyScreen />;
+    case 'profile':
+      return <ProfileScreen />;
+    case 'insights':
+      return <InsightsScreen />;
     case 'explore':
       return <ExploreScreen {...screen} />;
     case 'report':
