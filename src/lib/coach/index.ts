@@ -53,6 +53,8 @@ function compose(ctx: CoachContext, findings: Finding[]): CoachComment {
     highlights: findings.flatMap((f) => f.highlights ?? []),
     bestSan: ctx.bestSan,
     bestUci: ctx.bestUci ?? undefined,
+    bestLine: ctx.bestLine.length ? ctx.bestLine.slice(0, 6) : undefined,
+    replyLine: ctx.input.after?.lines[0]?.pv.length ? ctx.input.after.lines[0].pv.slice(0, 6) : undefined,
   };
 }
 

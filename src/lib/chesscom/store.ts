@@ -48,7 +48,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let loopId = 0;
 
 /** Screens that use the engine themselves: analysis waits while they're open. */
-const ENGINE_SCREENS = new Set(['explore', 'endgame', 'openingPractice', 'lesson', 'puzzle', 'rush', 'practice', 'trapDrill', 'timeDrill']);
+const ENGINE_SCREENS = new Set(['review', 'explore', 'endgame', 'openingPractice', 'lesson', 'puzzle', 'rush', 'practice', 'trapDrill', 'timeDrill']);
 function engineBusy(): boolean {
   const nav = useNav.getState();
   const top = nav.stack[nav.stack.length - 1];

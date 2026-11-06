@@ -14,8 +14,7 @@ import { DailyScreen } from './screens/DailyScreen';
 import { LearnScreen } from './screens/LearnScreen';
 import { ProgressScreen } from './screens/ProgressScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
-import { ReportScreen } from './screens/ReportScreen';
-import { ReviewScreen } from './screens/ReviewScreen';
+import { GameReviewScreen } from './screens/GameReviewScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { EndgameScreen } from './screens/EndgameScreen';
 import { OpeningsScreen } from './screens/OpeningsScreen';
@@ -76,9 +75,9 @@ function StackScreen({ screen }: { screen: Screen }) {
     case 'explore':
       return <ExploreScreen {...screen} />;
     case 'report':
-      return <ReportScreen gameId={screen.gameId} />;
+      return <GameReviewScreen key={`r${screen.gameId}`} gameId={screen.gameId} />;
     case 'review':
-      return <ReviewScreen gameId={screen.gameId} ply={screen.ply} />;
+      return <GameReviewScreen key={`v${screen.gameId}:${screen.ply}`} gameId={screen.gameId} ply={screen.ply ?? -1} />;
     case 'history':
       return <HistoryScreen />;
     case 'puzzle':

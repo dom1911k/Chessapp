@@ -45,6 +45,10 @@ export interface CoachComment {
   highlights: CoachHighlight[];
   bestSan?: string;
   bestUci?: string;
+  /** The engine's best line from the position before the move (UCI, starts with bestUci). */
+  bestLine?: string[];
+  /** The opponent's best answer to the move played, and what follows (UCI). */
+  replyLine?: string[];
 }
 
 export type FindingKind = 'problem' | 'idea' | 'principle' | 'praise';

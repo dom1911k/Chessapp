@@ -4,9 +4,9 @@ import type { PlyRecord } from '../lib/store/types';
 const MARK: Record<string, string> = { blunder: '#dc2626', mistake: '#ea580c', inaccuracy: '#d97706' };
 
 /** White's winning chances over the game; tap a point to jump to that move. */
-export function EvalGraph({ plies, current, onSelect }: { plies: PlyRecord[]; current?: number; onSelect?: (i: number) => void }) {
+export function EvalGraph({ plies, current, onSelect, height = 110 }: { plies: PlyRecord[]; current?: number; onSelect?: (i: number) => void; height?: number }) {
   const W = 320;
-  const H = 110;
+  const H = height;
   const n = Math.max(plies.length, 2);
   const pts: [number, number][] = [[0, 50]];
   let lastWp = 50;
