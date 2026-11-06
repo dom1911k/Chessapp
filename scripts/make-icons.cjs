@@ -38,7 +38,7 @@ const svg = (shape) => {
   }
   await render(svg('square'), 512, path.join(root, 'assets/icon-512.png'));
   // Web app / iPhone home-screen icons (iOS rounds the corners itself, so these are full squares).
-  const full = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="9 9 90 90" width="100%" height="100%">${bgInner}${inner}</svg>`;
+  const full = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="14 14 80 80" width="100%" height="100%">${bgInner}${inner}</svg>`;
   const maskable = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="100%" height="100%">${bgInner}${inner}</svg>`;
   await render(full, 180, path.join(root, 'public/apple-touch-icon.png'));
   await render(full, 192, path.join(root, 'public/pwa-192.png'));
