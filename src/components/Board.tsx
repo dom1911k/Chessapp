@@ -323,7 +323,8 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
       if (!d || !boardEl.current) return;
       // Moving before the long-press fires is a normal drag: stop waiting.
       if (!d.active) {
-        if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8 && d.timer) {
+        // Below the board's drag threshold (6px), so a piece drag and a drawing never overlap.
+        if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4 && d.timer) {
           clearTimeout(d.timer);
           draw.current = null;
         }
@@ -367,7 +368,15 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
           boardStyle: { borderRadius: '6px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(40,20,5,0.25)' },
           dragActivationDistance: 6,
           canDragPiece: ({ square }) => !!square && ownPiece(square) && !draw.current?.active,
-          onPieceDrag: ({ square }) => square && setSelected(square),
+          onPieceDrag: ({ square }) => {
+            // A real drag has started: it wins over a pending long-press (otherwise the drawing
+            // would swallow the pointer and leave the drag stuck).
+            if (draw.current && !draw.current.active) {
+              if (draw.current.timer) clearTimeout(draw.current.timer);
+              draw.current = null;
+            }
+            if (square) setSelected(square);
+          },
           onPieceDrop: ({ sourceSquare, targetSquare }) => {
             if (!targetSquare || sourceSquare === targetSquare) return false;
             return attempt(sourceSquare, targetSquare, true);
