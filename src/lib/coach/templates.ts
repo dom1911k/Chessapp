@@ -60,6 +60,10 @@ export const TEMPLATES = {
     'This opens up the pawns around your king. Now they can {oppMove} and start an attack.',
     'Your king gets a bit chilly after this — they can {oppMove}.',
   ],
+  losesMaterialLong: [
+    "Here's the problem: {line} — and a few moves later that costs you {victim}.",
+    'After this, {line}, and the line ends with you losing {victim}.',
+  ],
   losesMaterial: [
     'Here\'s the problem: {line}. That costs you {victim}.',
     'After this, {line} — and you lose {victim}.',
@@ -67,6 +71,18 @@ export const TEMPLATES = {
   strongReply: [
     'This gives them a strong answer: they can {oppMove}.',
     'Now they can {oppMove}, and that\'s good for them.',
+  ],
+  strongReplyPawn: [
+    'This lets them {oppMove} — after {line} you are a pawn down.',
+    'Now they can {oppMove}: {line}, and a pawn is gone.',
+  ],
+  strongReplyEdge: [
+    'You were doing well, but this lets them {oppMove} ({line}) and your advantage is gone.',
+    'This throws away your edge: they can {oppMove} ({line}).',
+  ],
+  strongReplyWorse: [
+    'After this they can {oppMove} ({line}), and your position becomes clearly worse.',
+    'This lets them {oppMove} ({line}) — from there they are much better.',
   ],
 
   allowsTrap: [
@@ -115,6 +131,14 @@ export const TEMPLATES = {
   fallbackMaterial: [
     '{move} was better: {line}, and you come out ahead.',
     'A better idea was {move}. Then {line}, and you win something.',
+  ],
+  fallbackMate: [
+    '{move} was much stronger — it leads to checkmate: {line}.',
+    'You had a checkmate here! {move} starts it: {line}.',
+  ],
+  fallbackIdea: [
+    '{move} was better: {idea} ({line}).',
+    'Better was {move} — {idea}: {line}.',
   ],
   fallbackShort: ['{move} was a better choice.', 'A better idea was {move}.', '{move} would have been safer.'],
   fallbackKeep: [

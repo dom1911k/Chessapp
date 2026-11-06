@@ -17,8 +17,7 @@ import { Dialog, EvalBar, IconButton, Segmented, Spinner, useBackHandler } from 
 import { MoveList } from '../components/MoveList';
 import { MoveHistory } from '../components/MoveHistory';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
-import type { FeedItem } from '../lib/store/types';
-import { shortWords } from '../lib/chess/words';
+import type { FeedItem, PlyRecord } from '../lib/store/types';
 import { MAX_STARS, starsOf } from '../lib/people/record';
 import { challengeFor } from '../lib/people/challenges';
 import { cosmeticById, type Cosmetic } from '../lib/rewards/cosmetics';
@@ -26,6 +25,9 @@ import { CosmeticPreview } from '../components/CosmeticPreview';
 import { BoardFlash } from '../components/BoardFlash';
 import { Captured } from '../components/Captured';
 import { LastChessComGames } from '../components/ChessCom';
+import { ReviewIcon } from '../components/ReviewIcon';
+import { isBad, RC, type ReviewClass } from '../lib/review';
+import { formatLine, lineToSan } from '../lib/chess/game';
 import { db } from '../lib/db';
 import { defaultMatchTc, fmtClock, lowTime, mostCommonTimeControl, offeredTimeControls, timeLeft } from '../lib/clock';
 import { timeControlLabel } from '../lib/chesscom/parse';
@@ -550,7 +552,7 @@ function FeedBubble({ it, compact, actions, flag, type }: { it: FeedItem; compac
   let index = 0;
   return (
     <CoachBubble compact={compact} {...FEED_LABEL[it.kind]} mood={it.mood ?? 'happy'} badge={it.classification} special={it.special} actions={actions}>
-      {it.kind === 'comment' && p && <p className="text-xs font-semibold text-stone-500">You: {shortWords(p.fenBefore, p.uci)}</p>}
+      {it.kind === 'comment' && p && <MoveVerdict p={p} />}
       <div className="space-y-1" onClick={shown < total ? skip : undefined}>
         {words.map((line, i) => (
           <p key={i} className={it.kind === 'opening' && i === 0 ? 'font-display text-[17px] font-semibold' : ''}>
@@ -564,6 +566,7 @@ function FeedBubble({ it, compact, actions, flag, type }: { it: FeedItem; compac
           </p>
         ))}
       </div>
+      {it.kind === 'comment' && p && (it.classification === 'mistake' || it.classification === 'blunder') && shown >= total && <MoveLines p={p} />}
       {flag && !gentle && it.kind === 'comment' && p?.comment && it.classification !== 'best' && it.classification !== 'good' && <FlagButton fen={p.fenBefore} uci={p.uci} comment={p.comment} />}
     </CoachBubble>
   );
@@ -616,7 +619,7 @@ function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; on
             </button>
           )}
           {s.over.gameId > 0 && (
-            <button className={s.over.practice ? 'btn-secondary' : 'btn-primary'} onClick={() => push({ name: 'report', gameId: s.over!.gameId })}>Game report</button>
+            <button className={s.over.practice ? 'btn-secondary' : 'btn-primary'} onClick={() => push({ name: 'report', gameId: s.over!.gameId })}>Game Review</button>
           )}
           <button className="btn-secondary" onClick={rematch}>Rematch</button>
           <button className="btn-ghost" onClick={s.leaveGame}>New opponent</button>
@@ -837,5 +840,37 @@ function ClockFace({ side, className = '' }: { side: 'w' | 'b'; className?: stri
     >
       {fmtClock(ms)}
     </span>
+  );
+}
+
+/** "Qh5 is an inaccuracy" with the class icon, like the Game Review. */
+function MoveVerdict({ p }: { p: PlyRecord }) {
+  const cls: ReviewClass = p.special ?? (p.classification === 'good' ? ((p.wpLoss ?? 0) <= 2.5 ? 'excellent' : 'good') : (p.classification ?? 'good'));
+  return (
+    <p className="mb-1 flex items-center gap-1.5 text-[15px] font-semibold" style={{ color: isBad(cls) ? RC[cls].color : undefined }}>
+      <ReviewIcon cls={cls} size={18} />
+      {p.san} {RC[cls].verdict}
+    </p>
+  );
+}
+
+/** After a mistake: the better move and what yours allows (the opponent's best reply). */
+function MoveLines({ p }: { p: PlyRecord }) {
+  const c = p.comment;
+  const reply = c?.replyLine?.length ? formatLine(p.fenAfter, lineToSan(p.fenAfter, c.replyLine, 3)) : null;
+  if (!c?.bestSan && !reply) return null;
+  return (
+    <div className="mt-1.5 space-y-0.5 rounded-xl bg-stone-50 px-2.5 py-1.5 text-[13px] dark:bg-stone-800/60">
+      {c?.bestSan && (
+        <p>
+          <span className="text-stone-500">Better:</span> <b className="text-emerald-700 dark:text-emerald-400">{c.bestSan}</b>
+        </p>
+      )}
+      {reply && (
+        <p>
+          <span className="text-stone-500">It allows:</span> <b>{reply}</b>
+        </p>
+      )}
+    </div>
   );
 }

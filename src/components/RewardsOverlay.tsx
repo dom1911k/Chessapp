@@ -223,7 +223,7 @@ export function RewardsOverlay({ r, onClose, onReport }: { r: GameRewards; onClo
           <div className="mt-4 flex gap-2">
             {onReport && (
               <button className="btn-secondary flex-1" onClick={onReport}>
-                Game report
+                Game Review
               </button>
             )}
             <button className="btn-primary flex-1" onClick={onClose}>

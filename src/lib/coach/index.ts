@@ -72,7 +72,8 @@ export function explainMove(input: CoachInput): CoachComment {
     if (problem.length && idea[0]?.rule === 'engine-prefers' && ctx.bestSan)
       idea = [{ ...idea[0], text: t('fallbackShort', { move: ctx.bestGer }, ctx.seed) }];
     findings.push(...problem, ...idea);
-    if (findings.length < 3) findings.push(...run(ctx, 'principle'));
+    // A general principle only when nothing concrete explains the mistake (it would distract).
+    if (findings.length === 0) findings.push(...run(ctx, 'principle'));
   } else if (cls === 'inaccuracy') {
     const principle = run(ctx, 'principle');
     const problem = run(ctx, 'problem').filter((f) => f.rule !== 'strong-reply');

@@ -208,7 +208,12 @@ export const ideaRules: Rule[] = [
       const line = c.line(c.input.fenBefore, c.bestLine, 4);
       if (info && info.materialGain >= 1 && (c.refInfo()?.materialGain ?? 0) <= 0)
         return { text: t('fallbackMaterial', { move: c.bestGer, doMove: c.bestInf, line }, c.seed), arrows: bestArrow(c) };
+      if (info?.matesIn) return { text: t('fallbackMate', { move: c.bestGer, line }, c.seed), arrows: bestArrow(c) };
       const wp = c.wpBefore ?? 50;
+      // Name the idea of the better move when it has an obvious one (a check).
+      const san = info?.san[0] ?? '';
+      const idea = san.includes('+') ? 'it comes with check and keeps the initiative' : null;
+      if (idea && wp >= 45) return { text: t('fallbackIdea', { move: c.bestGer, idea, line }, c.seed), arrows: bestArrow(c) };
       const state = wp > 70 ? 'clearly better' : wp > 55 ? 'a bit better' : wp >= 45 ? 'balanced' : 'as solid as possible';
       return { text: t('fallbackKeep', { move: c.bestGer, doMove: c.bestInf, state, line }, c.seed), arrows: bestArrow(c) };
     },

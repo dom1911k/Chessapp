@@ -222,8 +222,9 @@ export const problemRules: Rule[] = [
       // Is anything of ours hanging right away? Point at it.
       const hang = hangingPieces(c.boardAfter, c.mover)[0];
       return {
-        text: t('losesMaterial', {
-          line: c.line(c.fenAfter, c.refLine, Math.min(info.plies, 5)),
+        // Long lines are hard to follow in words: the first two moves, then the outcome.
+        text: t(info.plies > 3 ? 'losesMaterialLong' : 'losesMaterial', {
+          line: c.line(c.fenAfter, c.refLine, info.plies > 3 ? 2 : info.plies),
           victim: victimText(info.victim, info.materialGain),
           opp: c.oppName,
           oppMove: c.refInf,
@@ -239,8 +240,17 @@ export const problemRules: Rule[] = [
     theme: 'material',
     detect(c) {
       if (!c.refLine.length) return null;
+      // Say what the reply actually does: a pawn lost, an edge thrown away, or a much worse game.
+      const info = c.refInfo();
+      const b = c.wpBefore ?? 50;
+      const a = c.wpAfter ?? b;
+      const key =
+        info && info.materialGain >= 1 && info.victim === 'p' ? 'strongReplyPawn'
+        : b >= 60 && a < 55 ? 'strongReplyEdge'
+        : a < 35 ? 'strongReplyWorse'
+        : 'strongReply';
       return {
-        text: t('strongReply', { opp: c.oppName, line: c.line(c.fenAfter, c.refLine, 3), oppMove: c.refInf }, c.seed),
+        text: t(key, { opp: c.oppName, line: c.line(c.fenAfter, c.refLine, 3), oppMove: c.refInf }, c.seed),
         arrows: [{ from: c.refLine[0].slice(0, 2), to: c.refLine[0].slice(2, 4), tone: 'bad' }],
       };
     },
