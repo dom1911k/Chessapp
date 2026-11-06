@@ -18,7 +18,7 @@ export function SettingsScreen() {
   const s = useSettings();
   const push = useNav((n) => n.push);
   const runMode = useRunFlag();
-  const [unlockedSounds, setUnlockedSounds] = useState<string[]>(['wood', 'felt', 'deep', 'clack', 'marble', 'minimal']);
+  const [unlockedSounds, setUnlockedSounds] = useState<string[]>(['standard', 'wood', 'felt', 'deep', 'clack', 'marble', 'minimal']);
   useEffect(() => void unlockContext().then((ctx) => setUnlockedSounds(COSMETICS.filter((c) => c.kind === 'snd' && isUnlocked(c, ctx)).map((c) => c.key))), []);
   return (
     <div className="flex h-full flex-col">
@@ -76,6 +76,22 @@ export function SettingsScreen() {
             </div>
           )}
           <Toggle checked={s.confirmMoves} onChange={(v) => s.set({ confirmMoves: v })} label="Confirm each move (prevents slips)" />
+          <Toggle checked={s.showLegalMoves} onChange={(v) => s.set({ showLegalMoves: v })} label="Show legal moves" />
+          <Toggle checked={s.premoves} onChange={(v) => s.set({ premoves: v })} label="Premoves (queue a move while the opponent thinks)" />
+          <div className="py-2">
+            <div className="mb-1.5 text-sm">Piece animation</div>
+            <Segmented
+              value={s.moveSpeed}
+              onChange={(v) => s.set({ moveSpeed: v })}
+              options={[
+                { value: 'slow', label: 'Slow' },
+                { value: 'normal', label: 'Normal' },
+                { value: 'fast', label: 'Fast' },
+                { value: 'instant', label: 'None' },
+              ]}
+            />
+            <p className="mt-1.5 text-xs text-stone-500">Long-press a square (or right-click) and drag to draw an arrow; release on the same square for a circle. Tap the board to clear.</p>
+          </div>
         </div>
         <div className="card divide-y divide-stone-100 dark:divide-stone-800">
           <div className="pb-1 text-sm font-semibold text-stone-500">Coaching</div>

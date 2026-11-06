@@ -4,6 +4,7 @@ import { Chessboard, defaultPieces, type PieceRenderObject } from 'react-chessbo
 import { isPromotion, tryMove, type MoveInput } from '../lib/chess/game';
 import { BOARD_THEMES, useSettings } from '../lib/settings';
 import { playSound } from '../lib/sound';
+import { moveSound, premoveTargets as premoveTargetsFor, squareAtPoint } from '../lib/chess/boardfeel';
 import type { CoachArrow, CoachHighlight, Tone } from '../lib/coach/types';
 import { Check, X } from 'lucide-react';
 import { shortWords } from '../lib/chess/words';
@@ -32,7 +33,15 @@ interface Props {
   showCoordinates?: boolean;
   /** Ask for a confirmation tap before passing the move on (setting "confirm moves"). */
   confirm?: boolean;
+  /** While it's the opponent's turn: the colour that may queue a premove (played when its turn comes). */
+  premoveColor?: 'w' | 'b' | null;
 }
+
+/** Animation length per speed setting (ms). */
+export const MOVE_MS = { slow: 420, normal: 220, fast: 110, instant: 0 } as const;
+/** Arrows and circles you draw yourself (long-press or right-click and drag), chess.com orange. */
+const DRAW_COLOR = 'rgba(255, 170, 0, 0.85)';
+const LONG_PRESS_MS = 420;
 
 /** Piece set (see PIECE_SETS), optionally larger. Cached per combination. */
 const pieceCache = new Map<string, PieceRenderObject>();
@@ -64,21 +73,23 @@ function pieceSet(style: string, large: boolean): PieceRenderObject | undefined 
   return set;
 }
 
-const pieceCount = (fen: string) => fen.split(' ')[0].replace(/[^a-zA-Z]/g, '').length;
-
-/** Plays a sound whenever the position changes by one move. */
-function useMoveSounds(fen: string, lastMove: { from: string; to: string } | null | undefined) {
+/** Plays a sound whenever the position changes by one move (yours and the opponent's differ). */
+function useMoveSounds(fen: string, lastMove: { from: string; to: string } | null | undefined, orientation: 'white' | 'black') {
   const prev = useRef(fen);
   useEffect(() => {
     const before = prev.current;
     prev.current = fen;
     if (before === fen || !lastMove) return;
-    const c = new Chess(fen);
-    const moved = c.get(lastMove.to as Square);
-    const castle = moved?.type === 'k' && Math.abs(lastMove.to.charCodeAt(0) - lastMove.from.charCodeAt(0)) === 2;
-    playSound(c.inCheck() ? 'check' : pieceCount(fen) < pieceCount(before) ? 'capture' : castle ? 'castle' : 'move');
-  }, [fen, lastMove]);
+    try {
+      playSound(moveSound(before, fen, lastMove, orientation === 'white' ? 'w' : 'b'));
+    } catch {
+      /* unreadable position: stay quiet */
+    }
+  }, [fen, lastMove, orientation]);
 }
+
+/** The square under a screen point on a board element. */
+const squareAt = (el: HTMLElement, x: number, y: number, orientation: 'white' | 'black') => squareAtPoint(el.getBoundingClientRect(), x, y, orientation);
 
 const PROMO = ['q', 'r', 'b', 'n'] as const;
 const PROMO_GLYPH: Record<string, [string, string]> = { q: ['♕', '♛'], r: ['♖', '♜'], b: ['♗', '♝'], n: ['♘', '♞'] };
@@ -110,7 +121,7 @@ class BoardErrorBoundary extends Component<{ children: ReactNode; onError: () =>
   }
 }
 
-function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove: realOnMove, arrows = [], highlights = [], lastMove: realLast, showCoordinates = true, confirm = false }: Props & { animate?: boolean }) {
+function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove: realOnMove, arrows = [], highlights = [], lastMove: realLast, showCoordinates = true, confirm = false, premoveColor = null }: Props & { animate?: boolean }) {
   // Each board needs its own id: the library looks squares up by id across the whole page.
   const [boardId] = useState(() => `board${++boardCount}`);
   const [selected, setSelected] = useState<string | null>(null);
@@ -121,11 +132,24 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   const pieceStyle = useSettings((s) => s.pieceStyle);
   const pieces = pieceSet(pieceStyle, large);
   const hl = useSettings((s) => (HIGHLIGHTS[s.highlight] ?? HIGHLIGHTS.classic).color);
-  useEffect(() => setPending(null), [realFen]);
+  const showDots = useSettings((s) => s.showLegalMoves);
+  const speed = useSettings((s) => s.moveSpeed);
+  const premovesOn = useSettings((s) => s.premoves);
+  const [premove, setPremove] = useState<MoveInput | null>(null);
+  // Your own arrows and circles: cleared by the next move.
+  const [drawn, setDrawn] = useState<{ arrows: { from: string; to: string }[]; circles: string[] }>({ arrows: [], circles: [] });
+  const boardEl = useRef<HTMLDivElement>(null);
+  const draw = useRef<{ from: string; timer: ReturnType<typeof setTimeout> | null; active: boolean; x: number; y: number } | null>(null);
+  const suppressClick = useRef(false);
+  const [drawPreview, setDrawPreview] = useState<{ from: string; to: string } | null>(null);
+  useEffect(() => {
+    setPending(null);
+    setDrawn({ arrows: [], circles: [] });
+  }, [realFen]);
   // With confirmation on, show the move on the board but only submit it after a tap on ✓.
   const fen = pending ? pending.fen : realFen;
   const lastMove = pending ? { from: pending.move.from, to: pending.move.to } : realLast;
-  useMoveSounds(fen, lastMove);
+  useMoveSounds(fen, lastMove, orientation);
   const onMove = (m: MoveInput): boolean => {
     if (!realOnMove) return false;
     if (!confirm) return realOnMove(m);
@@ -137,16 +161,44 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   const chess = useMemo(() => new Chess(fen), [fen]);
   const turn = chess.turn();
   const canMove = !pending && (movable === 'both' || movable === turn);
+  // Premoves: while the opponent thinks, your own pieces can be picked up and a move queued.
+  const premoving = !canMove && !pending && premovesOn && !!premoveColor && premoveColor !== turn;
+  // Play a queued premove as soon as it's your turn (if it's still legal), else drop it.
+  useEffect(() => {
+    if (!premove || !canMove) return;
+    const m = premove;
+    setPremove(null);
+    const legal = chess.moves({ square: m.from as Square, verbose: true }).some((x) => x.to === m.to);
+    if (!legal) return;
+    onMove({ ...m, promotion: isPromotion(fen, m.from, m.to) ? 'q' : undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canMove, fen]);
+  useEffect(() => {
+    if (!premoveColor) setPremove(null);
+  }, [premoveColor]);
+  const premoveTargets = (from: string) => (premoveColor ? premoveTargetsFor(fen, premoveColor, from) : []);
 
   const targets = useMemo(() => {
     if (!selected) return [];
+    if (premoving) return premoveTargets(selected).map((to) => ({ to, captured: chess.get(to as Square) ? 'x' : undefined }));
     return chess.moves({ square: selected as Square, verbose: true });
-  }, [chess, selected]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chess, selected, premoving]);
 
-  const attempt = (from: string, to: string): boolean => {
+  const attempt = (from: string, to: string, dropped = false): boolean => {
+    if (premoving) {
+      if (!premoveTargets(from).includes(to)) return false;
+      setPremove({ from, to });
+      setSelected(null);
+      playSound('premove');
+      return false;
+    }
     if (!canMove || !onMove) return false;
     const legal = chess.moves({ square: from as Square, verbose: true }).some((m) => m.to === to);
-    if (!legal) return false;
+    if (!legal) {
+      if (dropped) playSound('illegal');
+      return false;
+    }
     if (isPromotion(fen, from, to)) {
       setPromo({ from, to });
       return false;
@@ -157,11 +209,22 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
 
   const ownPiece = (sq: string) => {
     const p = chess.get(sq as Square);
+    if (premoving) return !!p && p.color === premoveColor;
     return !!p && p.color === turn && canMove;
   };
 
   const onSquareClick = ({ square }: { square: string }) => {
+    if (suppressClick.current) {
+      suppressClick.current = false;
+      return;
+    }
     if (promo) return;
+    // A plain tap clears your drawings (and a queued premove), like chess.com.
+    if (drawn.arrows.length || drawn.circles.length) setDrawn({ arrows: [], circles: [] });
+    if (premove && !selected) {
+      setPremove(null);
+      return;
+    }
     if (selected && selected !== square && targets.some((m) => m.to === square)) {
       attempt(selected, square);
       return;
@@ -192,9 +255,14 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
     const k = chess.board().flat().find((p) => p?.type === 'k' && p.color === turn);
     if (k) add(k.square, 'radial-gradient(circle, rgba(239,68,68,0.9) 0%, rgba(239,68,68,0.4) 55%, transparent 75%)');
   }
+  if (premove) {
+    add(premove.from, tint('rgba(220, 60, 60, 0.45)'));
+    add(premove.to, tint('rgba(220, 60, 60, 0.55)'));
+  }
+  for (const sq of drawn.circles) shadows[sq] = `inset 0 0 0 4px ${DRAW_COLOR}`;
   if (selected) {
-    add(selected, tint('rgba(250, 204, 21, 0.55)'));
-    for (const m of targets)
+    add(selected, tint(premoving ? 'rgba(220, 60, 60, 0.4)' : 'rgba(250, 204, 21, 0.55)'));
+    if (showDots) for (const m of targets)
       add(
         m.to,
         m.captured
@@ -208,28 +276,101 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
     if (shadows[sq]) squareStyles[sq].boxShadow = shadows[sq];
   }
 
+  // Long-press (touch) or right-click and drag: draw an arrow; release where you started: a circle.
+  const endDraw = (x: number, y: number) => {
+    const d = draw.current;
+    draw.current = null;
+    setDrawPreview(null);
+    if (!d) return;
+    if (d.timer) clearTimeout(d.timer);
+    if (!d.active || !boardEl.current) return;
+    suppressClick.current = true;
+    setTimeout(() => (suppressClick.current = false), 400);
+    const to = squareAt(boardEl.current, x, y, orientation);
+    if (!to) return;
+    setDrawn((cur) => {
+      if (to === d.from) {
+        const has = cur.circles.includes(to);
+        return { ...cur, circles: has ? cur.circles.filter((c) => c !== to) : [...cur.circles, to] };
+      }
+      const has = cur.arrows.some((a) => a.from === d.from && a.to === to);
+      return { ...cur, arrows: has ? cur.arrows.filter((a) => !(a.from === d.from && a.to === to)) : [...cur.arrows, { from: d.from, to }] };
+    });
+  };
+  const drawHandlers = {
+    onPointerDown: (e: React.PointerEvent) => {
+      if (!boardEl.current) return;
+      const from = squareAt(boardEl.current, e.clientX, e.clientY, orientation);
+      if (!from) return;
+      const right = e.button === 2;
+      draw.current = { from, active: right, x: e.clientX, y: e.clientY, timer: right ? null : setTimeout(() => {
+        if (!draw.current) return;
+        draw.current.active = true;
+        setSelected(null);
+        // Cancel the piece drag the board may be waiting to start (drag-and-drop listens for Escape).
+        const esc = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true });
+        document.dispatchEvent(esc);
+        window.dispatchEvent(esc);
+        try {
+          navigator.vibrate?.(12);
+        } catch {
+          /* no vibration */
+        }
+      }, LONG_PRESS_MS) };
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      const d = draw.current;
+      if (!d || !boardEl.current) return;
+      // Moving before the long-press fires is a normal drag: stop waiting.
+      if (!d.active) {
+        if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8 && d.timer) {
+          clearTimeout(d.timer);
+          draw.current = null;
+        }
+        return;
+      }
+      // While drawing, the board's own drag-and-drop must not see the pointer.
+      e.stopPropagation();
+      const to = squareAt(boardEl.current, e.clientX, e.clientY, orientation);
+      setDrawPreview(to && to !== d.from ? { from: d.from, to } : null);
+    },
+    onPointerUp: (e: React.PointerEvent) => endDraw(e.clientX, e.clientY),
+    onPointerCancel: () => {
+      if (draw.current?.timer) clearTimeout(draw.current.timer);
+      draw.current = null;
+      setDrawPreview(null);
+    },
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+  };
+  const allArrows = [
+    ...arrows.map((a) => ({ startSquare: a.from, endSquare: a.to, color: TONE_COLOR[a.tone] })),
+    ...drawn.arrows.map((a) => ({ startSquare: a.from, endSquare: a.to, color: DRAW_COLOR })),
+    ...(drawPreview ? [{ startSquare: drawPreview.from, endSquare: drawPreview.to, color: DRAW_COLOR }] : []),
+    ...(premove ? [{ startSquare: premove.from, endSquare: premove.to, color: 'rgba(220, 60, 60, 0.7)' }] : []),
+  ];
+
   return (
-    <div className="relative w-full touch-none select-none">
+    <div ref={boardEl} className="relative w-full touch-none select-none" {...drawHandlers}>
       <Chessboard
         options={{
           position: fen,
           boardOrientation: orientation,
           showNotation: showCoordinates,
           allowDrawingArrows: false,
-          arrows: arrows.map((a) => ({ startSquare: a.from, endSquare: a.to, color: TONE_COLOR[a.tone] })),
+          arrows: allArrows,
           squareStyles,
           id: boardId,
-          animationDurationInMs: animate ? 260 : 0,
+          animationDurationInMs: animate ? MOVE_MS[speed] ?? 220 : 0,
           darkSquareStyle: theme.darkBg ? { background: theme.darkBg } : { backgroundColor: theme.dark },
           lightSquareStyle: theme.lightBg ? { background: theme.lightBg } : { backgroundColor: theme.light },
           ...(pieces ? { pieces } : {}),
           boardStyle: { borderRadius: '6px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(40,20,5,0.25)' },
           dragActivationDistance: 6,
-          canDragPiece: ({ square }) => !!square && ownPiece(square),
+          canDragPiece: ({ square }) => !!square && ownPiece(square) && !draw.current?.active,
           onPieceDrag: ({ square }) => square && setSelected(square),
           onPieceDrop: ({ sourceSquare, targetSquare }) => {
             if (!targetSquare || sourceSquare === targetSquare) return false;
-            return attempt(sourceSquare, targetSquare);
+            return attempt(sourceSquare, targetSquare, true);
           },
           onSquareClick,
         }}

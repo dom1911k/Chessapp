@@ -6,7 +6,9 @@
 // Chimes (success, check) use a soft marimba voice — also wood.
 import { useSettings } from './settings';
 
-export type SoundName = 'move' | 'capture' | 'check' | 'castle' | 'success' | 'error' | 'notify' | 'win' | 'brilliant' | 'reward' | 'type' | 'versus' | 'combo';
+export type SoundName =
+  | 'move' | 'moveOpp' | 'capture' | 'check' | 'castle' | 'promote' | 'gameStart' | 'gameEnd' | 'illegal' | 'premove'
+  | 'success' | 'error' | 'notify' | 'win' | 'brilliant' | 'reward' | 'type' | 'versus' | 'combo';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -74,9 +76,19 @@ export interface SoundPack {
   contact: { amp: number; freq: number };
   /** Low-pass cutoff — lower is softer/warmer. */
   warmth: number;
+  /** Packs with their own recipe for every board event (instead of the generic tock). */
+  recipe?: 'standard';
 }
 
 export const SOUND_PACKS: Record<string, SoundPack> = {
+  standard: {
+    label: 'Standard',
+    description: 'Short, dry, crisp knocks — the sound online players know.',
+    modes: [[462, 0.6, 0.0052], [920, 0.28, 0.0045]],
+    contact: { amp: 0.12, freq: 1700 },
+    warmth: 7000,
+    recipe: 'standard',
+  },
   wood: {
     label: 'Soft wood',
     description: 'Warm wooden pieces on a wooden board.',
@@ -136,7 +148,7 @@ export const SOUND_PACKS: Record<string, SoundPack> = {
 };
 
 function currentPack(): SoundPack {
-  return SOUND_PACKS[useSettings.getState().soundPack] ?? SOUND_PACKS.wood;
+  return SOUND_PACKS[useSettings.getState().soundPack] ?? SOUND_PACKS.standard;
 }
 
 /** A piece set down on the board. `pitch` ~1, `weight` ~1 (heavier = more body). */
@@ -159,10 +171,133 @@ export function marimba(c: BaseAudioContext, out: AudioNode, t: number, freq: nu
   contact(c, out, t, gain * 0.15, freq * 2);
 }
 
+/** A short pitched tone with an exponential decay (time constant `tau`). */
+function tone(c: BaseAudioContext, out: AudioNode, t: number, freq: number, amp: number, tau: number, type: OscillatorType = 'sine') {
+  const o = c.createOscillator();
+  const g = c.createGain();
+  o.type = type;
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(amp, t + 0.0015);
+  g.gain.setTargetAtTime(0, t + 0.0015, tau);
+  o.connect(g).connect(out);
+  o.start(t);
+  o.stop(t + tau * 9 + 0.03);
+}
+
+/**
+ * The "Standard" pack: modelled on the sounds of the big online chess sites — very short, dry
+ * knocks with almost no tail (they die within ~30 ms). Tuned by measuring pitch, decay and
+ * brightness against reference recordings; synthesised here, no recordings are shipped.
+ */
+function standardSound(c: BaseAudioContext, out: AudioNode, name: SoundName, t: number): boolean {
+  const knock = (at: number, f: number, gain = 1, bright = 1) => {
+    const j = 0.985 + Math.random() * 0.03;
+    tone(c, out, at, f * j, 0.62 * gain, 0.0052);
+    tone(c, out, at, f * 1.99 * j, 0.32 * gain * bright, 0.0045);
+    tone(c, out, at, f * 3.02 * j, 0.42 * gain * bright, 0.0038);
+    tone(c, out, at, f * 2.6 * j, 0.16 * gain * bright, 0.003);
+    tone(c, out, at, f * 0.5 * j, 0.06 * gain, 0.006);
+    contact(c, out, at, 0.45 * gain * bright, 1750 * bright);
+  };
+  /** A short percussive note with its harmonics (the start/end chimes). */
+  const pluck = (at: number, f: number, gain: number) => {
+    tone(c, out, at, f, 0.3 * gain, 0.006);
+    tone(c, out, at, f * 2, 0.22 * gain, 0.005);
+    tone(c, out, at, f * 3, 0.12 * gain, 0.004);
+  };
+  switch (name) {
+    case 'move':
+      knock(t, 462);
+      return true;
+    case 'moveOpp':
+      // The opponent's move: the same knock, brighter and a little quieter.
+      tone(c, out, t, 452, 0.24, 0.005);
+      tone(c, out, t, 902, 0.36, 0.0048);
+      tone(c, out, t, 1360, 0.32, 0.0038);
+      contact(c, out, t, 0.4, 2100);
+      return true;
+    case 'capture':
+      // Two quick clacks a few ms apart, higher and brighter than a move.
+      tone(c, out, t, 1240, 0.36, 0.0075);
+      tone(c, out, t + 0.007, 1455, 0.42, 0.0085);
+      tone(c, out, t + 0.007, 620, 0.34, 0.007);
+      tone(c, out, t + 0.007, 2900, 0.05, 0.004);
+      contact(c, out, t, 0.2, 2600);
+      contact(c, out, t + 0.007, 0.16, 3200);
+      return true;
+    case 'castle':
+      knock(t, 462, 0.85, 1.1);
+      knock(t + 0.092, 450, 1, 1.1);
+      tone(c, out, t + 0.092, 233, 0.12, 0.007);
+      return true;
+    case 'check':
+      // A bright knock with a short high ping.
+      tone(c, out, t, 905, 0.4, 0.0055);
+      tone(c, out, t, 1010, 0.22, 0.006);
+      tone(c, out, t, 1850, 0.2, 0.0045);
+      tone(c, out, t, 3400, 0.06, 0.012);
+      contact(c, out, t, 0.22, 4200);
+      return true;
+    case 'promote':
+      knock(t, 516, 0.8, 1.3);
+      knock(t + 0.06, 525, 0.9, 1.5);
+      return true;
+    case 'premove':
+      tone(c, out, t, 552, 0.16, 0.01);
+      tone(c, out, t, 1108, 0.15, 0.008);
+      tone(c, out, t, 200, 0.03, 0.012);
+      return true;
+    case 'illegal':
+      // A low, buzzy "no".
+      tone(c, out, t, 116, 0.12, 0.016, 'square');
+      tone(c, out, t, 583, 0.1, 0.014);
+      tone(c, out, t, 700, 0.06, 0.012);
+      contact(c, out, t, 0.08, 9000);
+      return true;
+    case 'notify':
+      tone(c, out, t, 391, 0.2, 0.03);
+      tone(c, out, t, 258, 0.04, 0.034);
+      tone(c, out, t, 650, 0.08, 0.02);
+      return true;
+    case 'gameStart':
+      pluck(t, 366, 0.8);
+      pluck(t + 0.124, 400, 1);
+      return true;
+    case 'gameEnd':
+      pluck(t, 700, 0.8);
+      pluck(t + 0.126, 583, 1);
+      return true;
+  }
+  return false;
+}
+
 /** Schedules the named sound on any (live or offline) audio context. */
 export function renderSound(c: BaseAudioContext, out: AudioNode, name: SoundName, t: number, pack = currentPack()) {
   const tock = (c: BaseAudioContext, out: AudioNode, t: number, pitch = 1, gain = 1, weight = 1) => tockWith(c, out, t, pitch, gain, weight, pack);
+  if (pack.recipe === 'standard' && standardSound(c, out, name, t)) return;
   switch (name) {
+    case 'moveOpp':
+      tock(c, out, t, 0.92, 0.8);
+      break;
+    case 'promote':
+      tock(c, out, t, 1, 0.9);
+      marimba(c, out, t + 0.05, 784, 0.14, 0.4);
+      break;
+    case 'premove':
+      tock(c, out, t, 1.6, 0.25, 0.5);
+      break;
+    case 'illegal':
+      marimba(c, out, t, 220, 0.16, 0.2);
+      break;
+    case 'gameStart':
+      marimba(c, out, t, 392, 0.16, 0.35);
+      marimba(c, out, t + 0.12, 523.3, 0.16, 0.45);
+      break;
+    case 'gameEnd':
+      marimba(c, out, t, 523.3, 0.16, 0.35);
+      marimba(c, out, t + 0.12, 392, 0.16, 0.5);
+      break;
     case 'move':
       tock(c, out, t, 1, 0.9);
       break;

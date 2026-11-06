@@ -231,6 +231,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     token++;
     getEngine().cancelAll('play');
     set({ phase: 'over', hint: null });
+    playSound('gameEnd');
     const botWon = result !== '1/2-1/2' && (result === '1-0') !== (g.userColor === 'w');
     say(reason === 'resignation' ? 'userResigned' : result === '1/2-1/2' ? 'draw' : botWon ? 'botWins' : 'botLoses');
     if (!botWon && result !== '1/2-1/2') setTimeout(() => playSound('win'), 350);
@@ -494,6 +495,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     intro: null,
     endIntro() {
       set({ intro: null });
+      playSound('gameStart');
       // The clock starts once the intro is over.
       const g = get().game;
       if (g?.clock && g.plies.length === 0) update((gg) => void (gg.clock = { ...gg.clock!, turnStart: Date.now() }));

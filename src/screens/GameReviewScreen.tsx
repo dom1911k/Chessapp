@@ -2,7 +2,7 @@
 // move classes, phases, key moments), then a steady step-through: eval bar + board, a move strip,
 // a fixed-size coach panel, Best / Retry / Next, and the arrows at the bottom.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, Sparkles, TriangleAlert, Lightbulb } from 'lucide-react';
+import { FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, Sparkles, TriangleAlert, Lightbulb } from 'lucide-react';
 import { Board } from '../components/Board';
 import { EvalGraph } from '../components/Charts';
 import { CoachAvatar, Portrait } from '../components/Coach';
@@ -187,7 +187,8 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
   const n = g.plies.length;
   const p = i >= 0 ? g.plies[i] : null;
   const rp = i >= 0 ? r.plies[i] : null;
-  const orientation = g.userColor === 'w' ? 'white' : 'black';
+  const [flipped, setFlipped] = useState(false);
+  const orientation = (g.userColor === 'w') !== flipped ? 'white' : 'black';
   useEffect(() => {
     setBest(false);
     setRetry(null);
@@ -236,7 +237,12 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
 
   return (
     <div className="flex h-full flex-col">
-      <Header title="Game Review" back subtitle={`vs ${oppName(g)} · ${formatDate(g.endedAt)}`} right={<button className="text-sm font-semibold text-brand-700 dark:text-brand-500" onClick={onSummary}>Summary</button>} />
+      <Header title="Game Review" back subtitle={`vs ${oppName(g)} · ${formatDate(g.endedAt)}`} right={
+        <span className="flex items-center gap-2">
+          <button aria-label="Flip board" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300" onClick={() => setFlipped((f) => !f)}><FlipVertical2 size={19} /></button>
+          <button className="text-sm font-semibold text-brand-700 dark:text-brand-500" onClick={onSummary}>Summary</button>
+        </span>
+      } />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-4 land:px-3">
         <div className="flex gap-1.5 px-1.5 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0">
           <ReviewEvalBar wpWhite={evalNow} orientation={orientation} text={evalText} />

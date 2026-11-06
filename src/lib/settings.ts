@@ -47,6 +47,14 @@ export interface Settings {
   ccUsername: string;
   /** Sync chess.com games when the app opens (only when online). */
   ccAutoSync: boolean;
+  /** Set once the 'Standard' sounds became the default (players still on the old default move over). */
+  soundsV2: boolean;
+  /** Dots on the squares a selected piece can go to. */
+  showLegalMoves: boolean;
+  /** Piece animation speed. */
+  moveSpeed: 'slow' | 'normal' | 'fast' | 'instant';
+  /** Queue a move while the opponent is thinking. */
+  premoves: boolean;
   /** Coach level in normal games: full, warnings only, or silent. */
   coachLevel: 'full' | 'warnings' | 'silent';
   /** When the coach level was last changed (wins since then count toward stepping down). */
@@ -131,7 +139,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showCoordinates: true,
   sound: true,
   soundVolume: 0.7,
-  soundPack: 'wood',
+  soundPack: 'standard',
   pieceStyle: 'wood',
   celebration: 'confetti',
   highlight: 'classic',
@@ -143,6 +151,10 @@ export const DEFAULT_SETTINGS: Settings = {
   reminderTime: '18:00',
   ccUsername: '',
   ccAutoSync: false,
+  soundsV2: true,
+  showLegalMoves: true,
+  moveSpeed: 'normal',
+  premoves: true,
   coachLevel: 'full',
   coachLevelSince: 0,
   stepDownDismissed: '',
@@ -165,7 +177,15 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   async load() {
     try {
       const { value } = await Preferences.get({ key: KEY });
-      if (value) set({ ...DEFAULT_SETTINGS, ...JSON.parse(value) });
+      if (value) {
+        const saved = JSON.parse(value);
+        // One-time move to the new Standard sounds for anyone still on the old default.
+        if (!saved.soundsV2) {
+          if (!saved.soundPack || saved.soundPack === 'wood') saved.soundPack = 'standard';
+          saved.soundsV2 = true;
+        }
+        set({ ...DEFAULT_SETTINGS, ...saved });
+      }
     } catch {
       /* first run */
     }

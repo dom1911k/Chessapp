@@ -45,7 +45,7 @@ const FREE: Record<CosmeticKind, string[]> = {
   pieces: ['wood', 'classic'],
   fx: ['confetti'],
   hl: ['classic'],
-  snd: ['wood', 'felt', 'deep', 'clack', 'marble', 'minimal'],
+  snd: ['standard', 'wood', 'felt', 'deep', 'clack', 'marble', 'minimal'],
 };
 
 const SPECIAL: Record<string, Unlock> = {

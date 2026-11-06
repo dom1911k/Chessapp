@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { User, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
+import { FlipVertical2, User, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
@@ -339,7 +339,8 @@ function GameView() {
   const [confirmResign, setConfirmResign] = useState(false);
   const g = s.game!;
   const fen = currentFen(g);
-  const orientation = g.userColor === 'w' ? 'white' : 'black';
+  const [flipped, setFlipped] = useState(false);
+  const orientation = (g.userColor === 'w') !== flipped ? 'white' : 'black';
   const last = g.plies[g.plies.length - 1];
   const myTurn = s.phase === 'userTurn' && turnOf(fen) === g.userColor;
   // Looking back at an earlier position (index of the ply shown, -1 = start); null follows the game.
@@ -419,7 +420,7 @@ function GameView() {
       <GameTopBar onMenu={() => setMenu(true)} />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-5 land:px-3">
         <div className="land:w-[min(calc(100dvh-6rem),58vw)] land:shrink-0">
-          <PlayerBar me={false} />
+          <PlayerBar me={flipped} />
           <div className="flex gap-1.5 px-2">
             {aids.evalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
             <div className="relative flex-1">
@@ -435,6 +436,7 @@ function GameView() {
                 lastMove={viewing ? (viewPly ? { from: viewPly.uci.slice(0, 2), to: viewPly.uci.slice(2, 4) } : null) : last ? { from: last.uci.slice(0, 2), to: last.uci.slice(2, 4) } : null}
                 showCoordinates={settings.showCoordinates}
                 confirm={settings.confirmMoves}
+                premoveColor={!viewing && !s.over && !myTurn && !s.precheck ? g.userColor : null}
               />
               {viewing && (
                 <button
@@ -447,7 +449,7 @@ function GameView() {
               )}
             </div>
           </div>
-          <PlayerBar me />
+          <PlayerBar me={!flipped} />
           {settings.showMoveList && !coachOff && (
             <MoveList plies={g.plies} startFen={g.startFen} current={viewing ? view! : undefined} onSelect={(i) => setView(i >= g.plies.length - 1 ? null : i)} />
           )}
@@ -514,6 +516,7 @@ function GameView() {
           {!s.over && aids.requests && menuItem(<ScanSearch size={19} />, 'Why not my move?', whyNot)}
           {(aids.requests || s.over) && menuItem(<Sparkles size={19} />, 'Explain this position', () => void s.requestExplain())}
           {menuItem(<MessagesSquare size={19} />, 'Conversation', () => setHistory(true))}
+          {menuItem(<FlipVertical2 size={19} />, 'Flip board', () => setFlipped((f) => !f))}
           {!g.match && menuItem(
             <MessageCircleHeart size={19} />,
             'Coach comments',
