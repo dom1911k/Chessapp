@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
+import { User, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
@@ -11,7 +11,6 @@ import { currentFen, turnOf, usePlay } from '../lib/store/play';
 import { Board } from '../components/Board';
 import { CoachBubble, FlagButton, Portrait } from '../components/Coach';
 import { OPPONENTS, opponentById, type Mood } from '../lib/people';
-import { tipOfTheDay, type Tip } from '../lib/coach/tips';
 import { getOpponentRecords, isUnlocked, type OpponentRecord } from '../lib/people/record';
 import { Dialog, EvalBar, IconButton, Segmented, Spinner, useBackHandler } from '../components/ui';
 import { MoveList } from '../components/MoveList';
@@ -25,6 +24,7 @@ import { CosmeticPreview } from '../components/CosmeticPreview';
 import { BoardFlash } from '../components/BoardFlash';
 import { Captured } from '../components/Captured';
 import { LastChessComGames } from '../components/ChessCom';
+import { dueCount } from '../lib/store/daily';
 import { ReviewIcon } from '../components/ReviewIcon';
 import { isBad, RC, type ReviewClass } from '../lib/review';
 import { formatLine, lineToSan } from '../lib/chess/game';
@@ -52,7 +52,6 @@ export function PlayScreen() {
 function SetupView() {
   const settings = useSettings();
   const newGame = usePlay((s) => s.newGame);
-  const push = useNav((s) => s.push);
   const custom = settings.opponentId === 'custom';
   const [records, setRecords] = useState<Record<string, OpponentRecord>>({});
   useEffect(() => void getOpponentRecords().then(setRecords), []);
@@ -74,68 +73,80 @@ function SetupView() {
     if (running) await usePlay.getState().abandon();
     newGame(color, opp ? opp.elo : settings.botElo, undefined, opp?.id, match ? { match: true, timeControl: matchTc } : { timeControl: settings.coachedTimeControl || undefined });
   };
+  const [sheet, setSheet] = useState<'opponent' | 'options' | null>(null);
+  const tc = match ? matchTc : settings.coachedTimeControl;
+  const stars = starsOf(rec);
+  const colorLabel = settings.colorPref === 'w' ? 'White' : settings.colorPref === 'b' ? 'Black' : 'Random colour';
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <HomeHero right={<SettingsButton />} />
-      <div className="mx-auto w-full max-w-md flex-1 space-y-4 p-4">
+      <div className="mx-auto w-full max-w-md flex-1 space-y-3 p-4">
         {running && <ResumeCard />}
         <HomeScreenHint />
-        <div>
-          <div className="flex items-baseline justify-between px-1">
-            <span className="section-title">Choose your opponent</span>
-            <button className={`text-xs font-semibold ${custom ? 'text-brand-700 dark:text-brand-500' : 'text-stone-500'}`} onClick={() => settings.set({ opponentId: custom ? OPPONENTS[1].id : 'custom' })}>
-              <SlidersHorizontal size={13} className="mr-1 inline -translate-y-px" />
-              {custom ? 'Back to opponents' : 'Custom strength'}
-            </button>
-          </div>
+        {!match && <StepDownCard />}
+        {/* The one card that starts a game. */}
+        <div className="card space-y-3 !p-3">
+          <Segmented
+            value={match ? 'match' : 'coached'}
+            onChange={(v) => settings.set({ matchMode: v === 'match' })}
+            options={[
+              { value: 'coached', label: <><MessageCircleHeart size={15} /> Coached</> },
+              { value: 'match', label: <><Swords size={15} /> Match conditions</> },
+            ]}
+          />
+          <button className="flex w-full items-center gap-3 rounded-2xl p-1 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={() => setSheet('opponent')}>
+            {opp ? <Portrait id={opp.id} size={56} /> : <span className="flex h-14 w-14 items-center justify-center rounded-[30%] bg-stone-200 dark:bg-stone-800"><Bot size={26} /></span>}
+            <span className="min-w-0 flex-1">
+              <span className="block text-lg leading-tight font-semibold">{opp ? opp.name : 'Custom bot'} <span className="text-base font-normal text-stone-400">{opp ? opp.elo : settings.botElo}</span></span>
+              <span className="block truncate text-xs text-stone-500">{opp ? opp.tagline : eloLabel(settings.botElo)}</span>
+              {opp && <span className="mt-0.5 block"><Stars n={stars} of={MAX_STARS} size={12} /></span>}
+            </span>
+            <span className="flex items-center text-sm font-semibold text-brand-700 dark:text-brand-500">Change <ChevronRight size={16} /></span>
+          </button>
+          <button className="flex w-full flex-wrap items-center gap-1.5 rounded-2xl p-1 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={() => setSheet('options')}>
+            <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">
+              {settings.colorPref === 'random' ? <Shuffle size={12} /> : <span className={`h-3 w-3 rounded-full ring-1 ${settings.colorPref === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-600'}`} />} {colorLabel}
+            </span>
+            <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200"><Timer size={12} /> {tc ? timeControlLabel(tc) : 'No clock'}</span>
+            <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">{settings.opponentEngine === 'maia' ? <><Brain size={12} /> Human-like</> : <><Bot size={12} /> Classic</>}</span>
+            {!match && <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">Coach: {COACH_LEVELS.find((l) => l.id === settings.coachLevel)?.label}</span>}
+            <span className="ml-auto text-sm font-semibold text-brand-700 dark:text-brand-500">Options</span>
+          </button>
+          {match && <p className="px-1 text-xs text-stone-500">Like a real chess.com game: clock on, no help until it ends — then the full Game Review.</p>}
+          <button className="btn-primary w-full !py-3.5 text-lg" disabled={locked} onClick={() => void start()}>
+            {locked ? <><Lock size={16} /> Beat {prevName} first</> : running ? 'Start a new game' : 'Play'}
+          </button>
+          {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
+        </div>
+        {opp && !locked && stars >= MAX_STARS && <ChallengeCard opponentId={opp.id} stars={stars} done={!!rec?.challengeDone} />}
+        <HomeLinks />
+        <LastChessComGames />
+      </div>
+      <Dialog open={sheet === 'opponent'} onClose={() => setSheet(null)} title="Choose your opponent">
+        <div className="-mx-4">
           {!custom && <OpponentCarousel records={records} allOpen={match} selected={settings.opponentId} onSelect={(id) => settings.set({ opponentId: id })} />}
         </div>
-        {opp && !locked ? (
-          <ChallengeCard opponentId={opp.id} stars={starsOf(rec)} done={!!rec?.challengeDone} />
-        ) : custom ? (
-          <div className="card">
+        {custom && (
+          <div className="py-2">
             <div className="mb-1 flex items-baseline justify-between">
               <span className="text-sm font-semibold text-stone-500">Bot strength</span>
-              <span className="text-sm font-bold">
-                ~{settings.botElo} <span className="font-normal text-stone-500">· {eloLabel(settings.botElo)}</span>
-              </span>
+              <span className="text-sm font-bold">~{settings.botElo} <span className="font-normal text-stone-500">· {eloLabel(settings.botElo)}</span></span>
             </div>
             <input type="range" min={MIN_ELO} max={MAX_ELO} step={50} value={settings.botElo} onChange={(e) => settings.set({ botElo: Number(e.target.value) })} className="w-full accent-brand-600" />
           </div>
-        ) : null}
-        <div className="card space-y-3">
+        )}
+        {opp && !locked && stars < MAX_STARS && <ChallengeCard opponentId={opp.id} stars={stars} done={!!rec?.challengeDone} />}
+        <div className="mt-3 flex gap-2">
+          <button className="btn-ghost flex-1 text-sm" onClick={() => settings.set({ opponentId: custom ? OPPONENTS[1].id : 'custom' })}>
+            <SlidersHorizontal size={14} /> {custom ? 'Back to opponents' : 'Custom strength'}
+          </button>
+          <button className="btn-primary flex-1" onClick={() => setSheet(null)}>Done</button>
+        </div>
+      </Dialog>
+      <Dialog open={sheet === 'options'} onClose={() => setSheet(null)} title="Game options">
+        <div className="space-y-4">
           <div>
-            <div className="mb-2 text-sm font-semibold text-stone-500">Mode</div>
-            <Segmented
-              value={match ? 'match' : 'coached'}
-              onChange={(v) => settings.set({ matchMode: v === 'match' })}
-              options={[
-                { value: 'coached', label: <><MessageCircleHeart size={15} /> Coached</> },
-                { value: 'match', label: <><Swords size={15} /> Match conditions</> },
-              ]}
-            />
-            <p className="mt-1.5 px-1 text-xs text-stone-500">
-              {match
-                ? 'Like a real game on chess.com: the clock runs, and there are no take-backs, hints, warnings or coach messages until it ends. Then the full review.'
-                : `Coach level: ${COACH_LEVELS.find((l) => l.id === settings.coachLevel)?.label ?? 'Full'}. ${COACH_LEVELS.find((l) => l.id === settings.coachLevel)?.text ?? ''}`}
-            </p>
-          </div>
-          {match ? (
-            <div>
-              <div className="mb-2 text-sm font-semibold text-stone-500">Time control</div>
-              <TimeControlPicker value={matchTc} options={offeredTimeControls(ccTc)} onChange={(v) => settings.set({ matchTimeControl: v })} mine={ccTc} />
-            </div>
-          ) : (
-            <>
-              <StepDownCard />
-              <div>
-                <div className="mb-2 text-sm font-semibold text-stone-500">Clock</div>
-                <TimeControlPicker value={settings.coachedTimeControl || 'off'} options={['off', ...offeredTimeControls(ccTc)]} onChange={(v) => settings.set({ coachedTimeControl: v === 'off' ? '' : v })} mine={ccTc} />
-              </div>
-            </>
-          )}
-          <div>
-            <div className="mb-2 text-sm font-semibold text-stone-500">You play</div>
+            <div className="mb-1.5 text-sm font-semibold text-stone-500">You play</div>
             <Segmented
               value={settings.colorPref}
               onChange={(v) => settings.set({ colorPref: v })}
@@ -147,7 +158,15 @@ function SetupView() {
             />
           </div>
           <div>
-            <div className="mb-2 text-sm font-semibold text-stone-500">Opponent style</div>
+            <div className="mb-1.5 text-sm font-semibold text-stone-500">Clock</div>
+            {match ? (
+              <TimeControlPicker value={matchTc} options={offeredTimeControls(ccTc)} onChange={(v) => settings.set({ matchTimeControl: v })} mine={ccTc} />
+            ) : (
+              <TimeControlPicker value={settings.coachedTimeControl || 'off'} options={['off', ...offeredTimeControls(ccTc)]} onChange={(v) => settings.set({ coachedTimeControl: v === 'off' ? '' : v })} mine={ccTc} />
+            )}
+          </div>
+          <div>
+            <div className="mb-1.5 text-sm font-semibold text-stone-500">Opponent style</div>
             <Segmented
               value={settings.opponentEngine}
               onChange={(v) => settings.set({ opponentEngine: v })}
@@ -157,22 +176,44 @@ function SetupView() {
               ]}
             />
             <p className="mt-1.5 px-1 text-xs text-stone-500">
-              {settings.opponentEngine === 'maia'
-                ? 'Plays like real people at that level (Maia AI, trained on millions of human games). Its mistakes are human mistakes.'
-                : 'A chess engine made weaker with random slips. Often easier for complete beginners — it sometimes gives pieces away.'}
+              {settings.opponentEngine === 'maia' ? 'Plays like real people at that level (Maia). Its mistakes are human mistakes.' : 'An engine made weaker with random slips.'}
             </p>
           </div>
-          <button className="btn-primary w-full !py-3 text-base" disabled={locked} onClick={() => void start()}>
-            {locked ? <><Lock size={16} /> Beat {prevName} first</> : running ? 'Start a new game' : match ? `Play ${opp ? opp.name : 'the bot'} · ${timeControlLabel(matchTc)}` : `Play ${opp ? opp.name : 'the bot'}`}
-          </button>
-          {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
+          {!match && (
+            <div>
+              <div className="mb-1.5 text-sm font-semibold text-stone-500">Coach</div>
+              <Segmented value={settings.coachLevel} onChange={(v) => settings.set({ coachLevel: v, coachLevelSince: Date.now() })} options={COACH_LEVELS.map((l) => ({ value: l.id, label: l.label }))} />
+              <p className="mt-1.5 px-1 text-xs text-stone-500">{COACH_LEVELS.find((l) => l.id === settings.coachLevel)?.text}</p>
+            </div>
+          )}
+          <button className="btn-primary w-full" onClick={() => setSheet(null)}>Done</button>
         </div>
-        <LastChessComGames />
-        <TipOfTheDay />
-        <button className="btn-ghost w-full" onClick={() => push({ name: 'history' })}>
-          <History size={17} /> Past games
-        </button>
-      </div>
+      </Dialog>
+    </div>
+  );
+}
+
+/** Quiet links under the Play card, chess.com style: training due, past games. */
+function HomeLinks() {
+  const push = useNav((s) => s.push);
+  const setTab = useNav((s) => s.setTab);
+  const [due, setDue] = useState(0);
+  useEffect(() => void dueCount().then(setDue), []);
+  const row = (icon: ReactNode, title: string, sub: string, onClick: () => void, badge?: ReactNode) => (
+    <button className="flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={onClick}>
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-semibold">{title}</span>
+        <span className="block truncate text-xs text-stone-500">{sub}</span>
+      </span>
+      {badge}
+      <ChevronRight size={18} className="text-stone-400" />
+    </button>
+  );
+  return (
+    <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
+      {row(<CalendarCheck size={18} />, 'Daily training', due ? `${due} position${due === 1 ? '' : 's'} from your games to review` : 'Puzzles picked for your weak spots', () => setTab('daily'), due ? <span className="chip bg-red-500 text-white">{due}</span> : null)}
+      {row(<History size={18} />, 'Past games', 'Your games and their Game Reviews', () => push({ name: 'history' }))}
     </div>
   );
 }
@@ -215,46 +256,62 @@ function useOpponentMood(): Mood {
   return recent ? recent.mood : botCp > 150 ? 'happy' : botCp < -150 ? 'worried' : 'neutral';
 }
 
-/** Slim top row: back to menu, opponent, opening name, game menu. */
+/** Slim top row: back to menu, the opening (or the mode), game menu. */
 function GameTopBar({ onMenu }: { onMenu: () => void }) {
   const s = usePlay();
   const g = s.game!;
-  const o = opponentById(g.opponentId);
-  const mood = useOpponentMood();
   const opening = useMemo(() => (g.startFen === START_FEN ? detectOpening(g.plies.map((p) => p.san)) : null), [g.plies, g.startFen]);
-  const thinking = s.phase === 'botThinking';
+  const sub = [g.match ? 'Match conditions' : 'Coached', g.timeControl ? timeControlLabel(g.timeControl) : null].filter(Boolean).join(' · ');
   return (
     <header className="safe-top relative z-20">
-      <div className="mx-auto flex h-14 max-w-xl items-center gap-2 px-2 land:max-w-6xl">
+      <div className="mx-auto flex h-12 max-w-xl items-center gap-2 px-2 land:max-w-6xl">
         <IconButton label="Back to menu" onClick={() => s.setAway(true)}>
           <ChevronLeft size={24} strokeWidth={2.2} />
         </IconButton>
-        <div className="relative">
-          {o ? (
-            <Portrait id={o.id} mood={mood} size={38} />
-          ) : (
-            <span className="flex h-[38px] w-[38px] items-center justify-center rounded-[30%] bg-stone-200 text-stone-600 dark:bg-stone-800"><Bot size={20} /></span>
-          )}
-          {thinking && (
-            <span className="absolute -right-1 -bottom-1 flex h-4 items-center gap-0.5 rounded-full bg-white px-1 shadow ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
-              {[0, 1, 2].map((i) => <span key={i} className="h-1 w-1 animate-bounce rounded-full bg-stone-500" style={{ animationDelay: `${i * 120}ms` }} />)}
-            </span>
-          )}
+        <div className="min-w-0 flex-1 text-center leading-tight">
+          <div className="truncate text-sm font-semibold">{opening ? opening.name : `vs ${opponentById(g.opponentId)?.name ?? 'Bot'}`}</div>
+          <div className="truncate text-[11px] text-stone-500">{sub}</div>
         </div>
-        <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate font-semibold">
-            {o ? o.name : 'Bot'} <span className="font-normal text-stone-400">{g.elo}</span>
-            {g.match && <span className="chip ml-1.5 bg-brand-100 align-middle text-[10px] text-brand-700 dark:bg-brand-700/30 dark:text-brand-100">Match</span>}
-          </div>
-          <div className="truncate text-xs text-stone-500">{opening ? opening.name : thinking ? 'thinking…' : g.userColor === 'w' ? 'You play white' : 'You play black'}</div>
-        </div>
-        <Captured fen={currentFen(g)} startFen={g.startFen} side={g.userColor === 'w' ? 'b' : 'w'} className="shrink-0" />
-        {g.clock && <ClockFace side={g.userColor === 'w' ? 'b' : 'w'} />}
         <IconButton label="Game menu" onClick={onMenu}>
           <EllipsisVertical size={21} />
         </IconButton>
       </div>
     </header>
+  );
+}
+
+/** A player bar above or below the board, chess.com style: avatar, name, material, clock. */
+function PlayerBar({ me }: { me: boolean }) {
+  const s = usePlay();
+  const g = s.game!;
+  const o = opponentById(g.opponentId);
+  const mood = useOpponentMood();
+  const side = me ? g.userColor : g.userColor === 'w' ? 'b' : 'w';
+  const thinking = !me && s.phase === 'botThinking';
+  return (
+    <div className="flex h-11 items-center gap-2 px-2">
+      <span className="relative">
+        {me ? (
+          <span className="flex h-9 w-9 items-center justify-center rounded-[30%] bg-brand-600 text-white"><User size={20} /></span>
+        ) : o ? (
+          <Portrait id={o.id} mood={mood} size={36} />
+        ) : (
+          <span className="flex h-9 w-9 items-center justify-center rounded-[30%] bg-stone-200 text-stone-600 dark:bg-stone-800"><Bot size={18} /></span>
+        )}
+        {thinking && (
+          <span className="absolute -right-1 -bottom-1 flex h-3.5 items-center gap-0.5 rounded-full bg-white px-1 shadow ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
+            {[0, 1, 2].map((i) => <span key={i} className="h-1 w-1 animate-bounce rounded-full bg-stone-500" style={{ animationDelay: `${i * 120}ms` }} />)}
+          </span>
+        )}
+      </span>
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="truncate text-sm font-semibold">
+          {me ? 'You' : o ? o.name : 'Bot'} {!me && <span className="font-normal text-stone-400">({g.elo})</span>}
+        </div>
+        <Captured fen={currentFen(g)} startFen={g.startFen} side={side} />
+      </div>
+      {g.clock && <ClockFace side={side} />}
+    </div>
   );
 }
 
@@ -362,6 +419,7 @@ function GameView() {
       <GameTopBar onMenu={() => setMenu(true)} />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-5 land:px-3">
         <div className="land:w-[min(calc(100dvh-6rem),58vw)] land:shrink-0">
+          <PlayerBar me={false} />
           <div className="flex gap-1.5 px-2">
             {aids.evalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
             <div className="relative flex-1">
@@ -389,10 +447,7 @@ function GameView() {
               )}
             </div>
           </div>
-          <div className="flex h-7 items-center px-3">
-            <Captured fen={fen} startFen={g.startFen} side={g.userColor} />
-            {g.clock && <ClockFace side={g.userColor} className="ml-auto" />}
-          </div>
+          <PlayerBar me />
           {settings.showMoveList && !coachOff && (
             <MoveList plies={g.plies} startFen={g.startFen} current={viewing ? view! : undefined} onSelect={(i) => setView(i >= g.plies.length - 1 ? null : i)} />
           )}
@@ -676,17 +731,6 @@ function CoachHistory() {
 export function resultFor(result: string, userColor: 'w' | 'b') {
   const userResult = result === '1/2-1/2' ? 'draw' : (result === '1-0') === (userColor === 'w') ? 'win' : 'loss';
   return { userResult };
-}
-
-function TipOfTheDay() {
-  const [tip, setTip] = useState<Tip | null>(null);
-  useEffect(() => void tipOfTheDay().then(setTip), []);
-  if (!tip) return null;
-  return (
-    <CoachBubble label={tip.personal ? 'Coach Sam · just for you' : 'Coach Sam · tip of the day'} icon={<Sparkles size={12} />}>
-      <p>{tip.text}</p>
-    </CoachBubble>
-  );
 }
 
 export function Stars({ n, size = 12, of = 3 }: { n: number; size?: number; of?: number }) {

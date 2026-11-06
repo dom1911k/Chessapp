@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BarChart, LineChart } from '../components/Charts';
-import { Header } from '../components/ui';
+import { Header, Segmented } from '../components/ui';
 import { db } from '../lib/db';
 import { useNav } from '../lib/nav';
 import { getRating, START_RATING } from '../lib/puzzles/rating';
@@ -31,6 +31,7 @@ export function ProgressScreen() {
   const tab = useNav((s) => s.tab);
   const push = useNav((s) => s.push);
   const [d, setD] = useState<Data | null>(null);
+  const [view, setView] = useState<'overview' | 'games' | 'puzzles'>('overview');
 
   useEffect(() => {
     if (tab !== 'progress') return;
@@ -75,44 +76,57 @@ export function ProgressScreen() {
     <div className="flex h-full flex-col">
       <Header title="Progress" right={<SettingsButton />} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
-        <LevelCard />
-        <RewardsCards />
-        <WeeklyGoalCard editable />
-        <AchievementsPreview />
-        <CareerCard />
-        <div className="grid grid-cols-3 gap-2.5">
-          <Stat label="Puzzle rating" value={d.rating} />
-          <Stat label="Days in a row" value={d.streak} sub={`longest ${d.best}`} />
-          <Stat label="Games" value={d.games.w + d.games.d + d.games.l} sub={`${d.games.w}W ${d.games.d}D ${d.games.l}L`} />
-        </div>
-        <WeekCard week={d.week} />
-        <div className="card !p-3">
-          <div className="mb-1 text-sm font-semibold text-stone-500">Puzzle rating over time</div>
-          <LineChart values={d.ratings} />
-          <div className="text-xs text-stone-500">{d.puzzles.solved} of {d.puzzles.total} puzzles solved</div>
-        </div>
-        <div className="card !p-3">
-          <div className="mb-1 text-sm font-semibold text-stone-500">Last 14 days</div>
-          <div className="flex h-16 items-end gap-1">
-            {d.days.map((x) => (
-              <div key={x.day} className="flex-1 rounded-t bg-brand-500" style={{ height: `${Math.max(4, (x.n / maxDay) * 100)}%`, opacity: x.n ? 1 : 0.15 }} title={`${x.day}: ${x.n}`} />
-            ))}
-          </div>
-        </div>
-        <div className="card !p-3">
-          <div className="mb-1 text-sm font-semibold text-stone-500">Blunders per game (last {d.blunders.length})</div>
-          <BarChart values={d.blunders} />
-        </div>
-        <div className="card !p-3">
-          <div className="mb-1 text-sm font-semibold text-stone-500">Game accuracy</div>
-          <LineChart values={d.accuracy} color="#3b82f6" />
-        </div>
-        <GameInsightsCard />
-        <GapCard />
-        <div className="grid grid-cols-2 gap-2.5">
-          <ThemeList title="Strongest puzzle themes" list={strong} />
-          <ThemeList title="Work on" list={weak} />
-        </div>
+        <Segmented value={view} onChange={setView} options={[{ value: 'overview', label: 'Overview' }, { value: 'games', label: 'Games' }, { value: 'puzzles', label: 'Puzzles' }]} />
+        {view === 'overview' && (
+          <>
+            <div className="grid grid-cols-3 gap-2.5">
+              <Stat label="Puzzle rating" value={d.rating} />
+              <Stat label="Days in a row" value={d.streak} sub={`longest ${d.best}`} />
+              <Stat label="Games" value={d.games.w + d.games.d + d.games.l} sub={`${d.games.w}W ${d.games.d}D ${d.games.l}L`} />
+            </div>
+            <LevelCard />
+            <WeeklyGoalCard editable />
+            <WeekCard week={d.week} />
+            <RewardsCards />
+            <AchievementsPreview />
+            <CareerCard />
+          </>
+        )}
+        {view === 'games' && (
+          <>
+            <GameInsightsCard />
+            <GapCard />
+            <div className="card !p-3">
+              <div className="mb-1 text-sm font-semibold text-stone-500">Game accuracy</div>
+              <LineChart values={d.accuracy} color="#3b82f6" />
+            </div>
+            <div className="card !p-3">
+              <div className="mb-1 text-sm font-semibold text-stone-500">Blunders per game (last {d.blunders.length})</div>
+              <BarChart values={d.blunders} />
+            </div>
+          </>
+        )}
+        {view === 'puzzles' && (
+          <>
+            <div className="card !p-3">
+              <div className="mb-1 text-sm font-semibold text-stone-500">Puzzle rating over time</div>
+              <LineChart values={d.ratings} />
+              <div className="text-xs text-stone-500">{d.puzzles.solved} of {d.puzzles.total} puzzles solved</div>
+            </div>
+            <div className="card !p-3">
+              <div className="mb-1 text-sm font-semibold text-stone-500">Last 14 days</div>
+              <div className="flex h-16 items-end gap-1">
+                {d.days.map((x) => (
+                  <div key={x.day} className="flex-1 rounded-t bg-brand-500" style={{ height: `${Math.max(4, (x.n / maxDay) * 100)}%`, opacity: x.n ? 1 : 0.15 }} title={`${x.day}: ${x.n}`} />
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <ThemeList title="Strongest puzzle themes" list={strong} />
+              <ThemeList title="Work on" list={weak} />
+            </div>
+          </>
+        )}
         <button className="btn-secondary w-full" onClick={() => push({ name: 'history' })}>
           All past games
         </button>
