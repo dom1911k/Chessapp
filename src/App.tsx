@@ -22,6 +22,7 @@ import { RushScreen } from './screens/RushScreen';
 import { AchievementsScreen } from './components/Gamification';
 import { OpeningPracticeScreen } from './screens/OpeningPracticeScreen';
 import { FaceScreen } from './screens/FaceScreen';
+import { CustomPuzzlesScreen } from './screens/CustomPuzzlesScreen';
 import { MistakesScreen } from './screens/MistakesScreen';
 import { TimeDrillScreen } from './screens/TimeDrillScreen';
 import { TrapScreen, TrapsScreen } from './screens/TrapsScreen';
@@ -87,13 +88,15 @@ function StackScreen({ screen }: { screen: Screen }) {
     case 'openings':
       return <OpeningsScreen />;
     case 'rush':
-      return <RushScreen />;
+      return <RushScreen mode={screen.mode} />;
     case 'achievements':
       return <AchievementsScreen />;
     case 'openingPractice':
       return <OpeningPracticeScreen index={screen.index} custom={screen.custom} />;
     case 'face':
       return <FaceScreen />;
+    case 'customPuzzles':
+      return <CustomPuzzlesScreen />;
     case 'mistakes':
       return <MistakesScreen />;
     case 'traps':

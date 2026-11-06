@@ -9,6 +9,8 @@ export interface AttemptOutcome {
   ratingBefore?: number;
   ratingAfter?: number;
   xp?: number;
+  /** A new highest puzzle rating (after the first 10 rated puzzles). */
+  newPeak?: boolean;
 }
 
 /**
@@ -19,9 +21,9 @@ export async function recordAttempt(spec: PuzzleSpec, success: boolean, hintsUse
   const clean = success && hintsUsed === 0;
   let out: AttemptOutcome = {};
   const isNew = spec.kind === 'lichess' && !(await db.attempts.where('puzzleId').equals(spec.id).count());
-  if (isNew && spec.rating && source !== 'review') {
+  if (isNew && spec.rating && source !== 'review' && source !== 'learn') {
     const r = await applyResult(spec.rating, clean);
-    out = { ratingBefore: r.before, ratingAfter: r.after };
+    out = { ratingBefore: r.before, ratingAfter: r.after, newPeak: r.newPeak };
   }
   await db.attempts.add({
     puzzleId: spec.id,

@@ -12,7 +12,8 @@ export type Screen =
   | { name: 'puzzle'; mode: PuzzleMode }
   | { name: 'endgame'; drillId: string }
   | { name: 'openings' }
-  | { name: 'rush' }
+  | { name: 'rush'; mode?: RushMode }
+  | { name: 'customPuzzles' }
   | { name: 'achievements' }
   | { name: 'openingPractice'; index: number; custom?: { name: string; line: string[]; side: 'w' | 'b'; idea?: string } }
   | { name: 'face' }
@@ -28,9 +29,17 @@ export type Screen =
   | { name: 'settings' }
   | { name: 'history' };
 
+export type RushMode = '3' | '5' | 'survival';
+
 export type PuzzleMode =
   | { kind: 'rated' }
-  | { kind: 'theme'; theme: string }
+  | { kind: 'theme'; theme: string; difficulty?: number }
+  /** Unrated practice near your rating ("learning mode"). */
+  | { kind: 'learn' }
+  /** Positions from your own games: blunders you could have punished. */
+  | { kind: 'yours' }
+  /** One puzzle a day (the same all day). */
+  | { kind: 'dailyPuzzle' }
   | { kind: 'daily' }
   | { kind: 'course'; theme: string; count: number; stepId: string; label: string }
   /** A short, slightly easier set right after a game ("practise what went wrong"). */

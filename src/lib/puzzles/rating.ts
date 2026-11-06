@@ -7,7 +7,11 @@ const KEY = 'puzzleRating';
 export interface RatingState {
   rating: number;
   games: number;
+  /** Highest rating reached. */
+  peak?: number;
 }
+/** Rated puzzles before "highest rating" starts to count. */
+export const PEAK_AFTER = 10;
 
 export async function getRating(): Promise<RatingState> {
   return kvGet<RatingState>(KEY, { rating: START_RATING, games: 0 });
@@ -26,10 +30,13 @@ export function newRating(state: RatingState, puzzleRating: number, success: boo
   return Math.round(Math.max(400, Math.min(2800, state.rating + delta)));
 }
 
-export async function applyResult(puzzleRating: number, success: boolean): Promise<{ before: number; after: number }> {
+export async function applyResult(puzzleRating: number, success: boolean): Promise<{ before: number; after: number; newPeak: boolean }> {
   const s = await getRating();
   const after = newRating(s, puzzleRating, success);
-  await kvSet(KEY, { rating: after, games: s.games + 1 });
+  const games = s.games + 1;
+  const peak = Math.max(s.peak ?? s.rating, after);
+  const newPeak = games > PEAK_AFTER && after > (s.peak ?? s.rating);
+  await kvSet(KEY, { rating: after, games, peak });
   await db.ratings.add({ at: Date.now(), rating: after });
-  return { before: s.rating, after };
+  return { before: s.rating, after, newPeak };
 }

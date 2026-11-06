@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Board } from './Board';
-import { CoachBubble } from './Coach';
 import { Spinner } from './ui';
 import { PlayFromHere } from './PlayFromHere';
 import { tryMove, type MoveInput } from '../lib/chess/game';
@@ -13,7 +12,7 @@ import { MoveMark, SolveBurst, type SquareMark } from './PuzzleFx';
 import { analysisLimits } from '../lib/engine/speed';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
 import { themeLabel } from '../lib/puzzles/themes';
-import { Lightbulb } from 'lucide-react';
+import { Check, ChevronRight, Lightbulb, RotateCcw, X } from 'lucide-react';
 
 type State = 'intro' | 'solving' | 'wrong' | 'checking' | 'solved' | 'failed';
 
@@ -37,9 +36,11 @@ interface Props {
   combo?: number;
   /** Extra layer over the board (streak banners…). */
   overlay?: React.ReactNode;
+  /** Rated puzzles: the first wrong move ends the attempt (you can still retry to learn). */
+  failOnWrong?: boolean;
 }
 
-export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle', footer, fast = false, combo = 0, overlay }: Props) {
+export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle', footer, fast = false, combo = 0, overlay, failOnWrong = false }: Props) {
   const startFen = useMemo(() => (spec.setup ? tryMove(spec.fen, spec.setup)!.fen : spec.fen), [spec]);
   const userColor = startFen.split(' ')[1] as 'w' | 'b';
   const [fen, setFen] = useState(spec.setup ? spec.fen : startFen);
@@ -143,6 +144,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     playSound('error');
     setMark({ id: Date.now(), sq: m.to, ok: false });
     setShake((n) => n + 1);
+    if (failOnWrong && !fast) finish(false);
     if (fast) {
       if (!finished.current) {
         finished.current = true;
@@ -223,9 +225,20 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
   );
   const done = state === 'solved' || state === 'failed';
 
+  const side = userColor === 'w' ? 'White' : 'Black';
+  const [why, setWhy] = useState(false);
   return (
-    <div className="board-split space-y-3">
+    <div className="board-split">
       <div className="board-cell px-1.5">
+        {!fast && (
+          <div
+            className={`mb-1.5 flex h-9 items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors ${
+              state === 'solved' ? 'bg-emerald-600 text-white' : state === 'wrong' || state === 'failed' ? 'bg-red-500 text-white' : userColor === 'w' ? 'bg-white text-stone-900 ring-1 ring-stone-200 dark:ring-stone-700' : 'bg-stone-900 text-white dark:bg-black'
+            }`}
+          >
+            {state === 'solved' ? <><Check size={18} strokeWidth={3} /> Correct</> : state === 'wrong' ? <><X size={18} strokeWidth={3} /> Incorrect</> : state === 'failed' ? 'Solution' : state === 'intro' ? 'Watch the move…' : <><span className={`h-3.5 w-3.5 rounded-sm ring-1 ${userColor === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-500'}`} /> {side} to move</>}
+          </div>
+        )}
         <div ref={boardBox} className="relative">
         {mark && <MoveMark key={mark.id} mark={mark} orientation={userColor === 'w' ? 'white' : 'black'} />}
         {burst && <SolveBurst key={burst.id} id={burst.id} sq={burst.sq} power={combo + 1} orientation={userColor === 'w' ? 'white' : 'black'} />}
@@ -242,71 +255,75 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
         </div>
       </div>
       {fast ? (
-        <div className="px-3 text-center text-sm font-semibold text-stone-500">
-          {state === 'solving' ? `${userColor === 'w' ? 'White' : 'Black'} to move` : state === 'wrong' ? 'Missed' : state === 'solved' ? 'Solved' : '…'}
+        <div className="px-3 pt-2 text-center text-sm font-semibold text-stone-500">
+          {state === 'solving' ? `${side} to move` : state === 'wrong' ? 'Missed' : state === 'solved' ? 'Solved' : '…'}
         </div>
       ) : (
-      <div className="space-y-3 px-3">
-        {state === 'intro' && <CoachBubble mood="thinking"><p>Watch your opponent's move…</p></CoachBubble>}
-        {state === 'solving' && (
-          <CoachBubble mood={hint ? 'thinking' : 'happy'}>
-            <p className="font-semibold">{userColor === 'w' ? 'White' : 'Black'} to move.</p>
-            <p>{hint ? hint.text : spec.kind === 'mistake' ? `In your game you played ${spec.playedSan}. Find a better move!` : 'Find the best move.'}</p>
-          </CoachBubble>
-        )}
-        {state === 'checking' && (
-          <CoachBubble mood="thinking">
-            <p className="flex items-center gap-2"><Spinner /> Hmm, let me check that move…</p>
-          </CoachBubble>
-        )}
-        {state === 'wrong' && (
-          <CoachBubble
-            mood="concerned"
-            actions={
-              <>
-                <button className="btn-primary" onClick={retry}>Try again</button>
-                <button className="btn-secondary" onClick={showSolution}>Show solution</button>
-              </>
-            }
-          >
-            <p>Not quite — that's not the strongest move here.</p>
-          </CoachBubble>
-        )}
-        {done && explanation && (
-          <CoachBubble
-            mood={state === 'solved' ? 'happy' : 'concerned'}
-            actions={
-              <>
-                {onNext && <button className="btn-primary" onClick={onNext}>{nextLabel}</button>}
-                <PlayFromHere fen={startFen} color={userColor} label="▶ Play it out" />
-              </>
-            }
-          >
-            <p className="font-semibold">{state === 'solved' ? (failed || hints ? 'Solved — with a little help.' : 'Correct!') : "Here's the solution."}</p>
-            {note && <p>{note}</p>}
-            {explanation.text.map((t, i) => <p key={i}>{t}</p>)}
-            {spec.kind === 'mistake' && spec.explanation?.length ? (
-              <p className="text-sm text-stone-500">In the game: {spec.explanation[0]}</p>
-            ) : null}
-            {footer}
-          </CoachBubble>
-        )}
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="space-y-2 px-3 pt-2">
+        {/* Status panel: steady height, the result lands here. */}
+        <div className={`card min-h-[104px] !p-3 ${state === 'solved' ? 'ring-2 ring-emerald-500/60' : state === 'wrong' || state === 'failed' ? 'ring-2 ring-red-400/60' : ''}`}>
+          {state === 'intro' && <p className="text-stone-500">Your opponent moves first…</p>}
           {state === 'solving' && (
-            <button className="btn-secondary" disabled={hint?.level === 3} onClick={askHint}>
-              <Lightbulb size={16} className="mr-1 inline -translate-y-px" />{hint ? `Hint ${hint.level}/3` : 'Hint'}
-            </button>
+            <>
+              <p className="font-semibold">Your turn</p>
+              <p className="text-[15px] text-stone-600 dark:text-stone-300">{hint ? hint.text : spec.kind === 'mistake' ? `In your game you played ${spec.playedSan}. Find a better move for ${side}.` : `Find the best move for ${side}.`}</p>
+            </>
           )}
+          {state === 'checking' && <p className="flex items-center gap-2"><Spinner /> Checking that move…</p>}
+          {state === 'wrong' && (
+            <>
+              <p className="flex items-center gap-2 text-lg font-bold text-red-600"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white"><X size={17} strokeWidth={3} /></span> Incorrect</p>
+              <p className="mt-1 text-[15px]">That's not the best move. {failOnWrong ? 'Retry to learn it, or see the solution.' : 'Try again!'}</p>
+              {footer}
+            </>
+          )}
+          {done && (
+            <>
+              <p className={`flex items-center gap-2 text-lg font-bold ${state === 'solved' ? 'text-emerald-600' : 'text-red-600'}`}>
+                <span className={`flex h-7 w-7 items-center justify-center rounded-full text-white ${state === 'solved' ? 'bg-emerald-600' : 'bg-red-500'}`}>{state === 'solved' ? <Check size={17} strokeWidth={3} /> : <X size={17} strokeWidth={3} />}</span>
+                {state === 'solved' ? (failed || hints ? 'Solved, with help' : 'Correct!') : 'Solution'}
+              </p>
+              {note && <p className="mt-1 text-[15px]">{note}</p>}
+              {footer}
+              {explanation && (
+                <button className="mt-1.5 text-left text-sm text-stone-600 dark:text-stone-300" onClick={() => setWhy(!why)}>
+                  {why ? explanation.text.join(' ') : <><span className="font-semibold text-brand-700 dark:text-brand-500">Why it works ›</span> <span className="text-stone-400">{explanation.text[0]?.slice(0, 60)}…</span></>}
+                </button>
+              )}
+              {why && spec.kind === 'mistake' && spec.explanation?.length ? <p className="mt-1 text-sm text-stone-500">In the game: {spec.explanation[0]}</p> : null}
+            </>
+          )}
+        </div>
+        {/* Actions */}
+        <div className="flex gap-2">
           {state === 'solving' && (
-            <button className="btn-ghost" onClick={showSolution}>Give up</button>
+            <>
+              <button className="btn-secondary flex-1" disabled={hint?.level === 3} onClick={askHint}>
+                <Lightbulb size={16} /> {hint ? `Hint ${hint.level}/3` : 'Hint'}
+              </button>
+              <button className="btn-secondary flex-1" onClick={showSolution}>Solution</button>
+            </>
           )}
-          <div className="ml-auto flex flex-wrap justify-end gap-1">
-            {spec.label && <span className="chip bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300">{spec.label}</span>}
-            {done && spec.rating ? <span className="chip bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300">Rating {spec.rating}</span> : null}
-            {done && spec.themes.filter((t) => themeLabel(t) !== t).slice(0, 3).map((t) => (
-              <span key={t} className="chip bg-brand-100 text-brand-700 dark:bg-brand-700/30 dark:text-brand-100">{themeLabel(t)}</span>
-            ))}
-          </div>
+          {state === 'wrong' && (
+            <>
+              <button className="btn-primary flex-1" onClick={retry}><RotateCcw size={16} /> Retry</button>
+              <button className="btn-secondary flex-1" onClick={showSolution}>Solution</button>
+              {failOnWrong && onNext && <button className="btn-secondary flex-1" onClick={onNext}>Next</button>}
+            </>
+          )}
+          {done && (
+            <>
+              <PlayFromHere fen={startFen} color={userColor} label="Play it out" />
+              {onNext && <button className="btn-primary flex-1 !py-3 text-base" onClick={onNext}>{nextLabel} <ChevronRight size={18} /></button>}
+            </>
+          )}
+        </div>
+        <div className="flex flex-wrap justify-end gap-1">
+          {spec.label && <span className="chip bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300">{spec.label}</span>}
+          {done && spec.rating ? <span className="chip bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300">Puzzle {spec.rating}</span> : null}
+          {done && spec.themes.filter((t) => themeLabel(t) !== t).slice(0, 3).map((t) => (
+            <span key={t} className="chip bg-brand-100 text-brand-700 dark:bg-brand-700/30 dark:text-brand-100">{themeLabel(t)}</span>
+          ))}
         </div>
       </div>
       )}

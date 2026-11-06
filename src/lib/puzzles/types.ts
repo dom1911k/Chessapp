@@ -8,7 +8,8 @@ export interface Puzzle {
   themes: string[];
 }
 
-export type PuzzleSource = 'rated' | 'theme' | 'daily' | 'review';
+/** 'learn' = unrated (custom, learning mode, your games, the daily puzzle). */
+export type PuzzleSource = 'rated' | 'theme' | 'daily' | 'review' | 'learn';
 
 export interface PuzzleAttempt {
   id?: number;

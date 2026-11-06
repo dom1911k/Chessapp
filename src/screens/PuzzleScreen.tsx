@@ -15,8 +15,15 @@ import { DRILLS_KEY } from './PracticeScreen';
 import { awardXp } from '../lib/progress/xp';
 import { ComboBanner } from '../components/PuzzleFx';
 import { Flame, Timer, Trophy, Zap } from 'lucide-react';
+import { dailyPick, gamePuzzles, markDailySolved } from '../lib/puzzles/sources';
+import { loadRange } from '../lib/puzzles/data';
+import { allGames } from '../lib/games';
 
 const BEST_KEY = 'puzzleBestStreak';
+const YOURS_KEY = 'yourPuzzlesDone';
+/** The daily puzzle comes from this rating range (the same for everyone on a given day). */
+export const DAILY_RANGE = [1000, 1500] as const;
+const MODE_TITLE: Partial<Record<PuzzleMode['kind'], string>> = { rated: 'Puzzles', learn: 'Learning mode', yours: 'From your games', dailyPuzzle: 'Daily Puzzle' };
 /** Streak lengths that get a banner. */
 const isMilestone = (n: number) => n === 3 || n === 5 || (n >= 10 && n % 5 === 0);
 
@@ -64,6 +71,11 @@ function StreakFlame({ streak, best }: { streak: number; best: number }) {
 /** Endless rated or themed puzzle training. */
 export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   const theme = mode.kind === 'theme' || mode.kind === 'course' || mode.kind === 'drill' ? mode.theme : undefined;
+  // Rated: the classic rated stream (and course/drill sets, as before). Everything else is unrated.
+  const rated = mode.kind === 'rated' || mode.kind === 'course' || mode.kind === 'drill';
+  const source = mode.kind === 'rated' ? 'rated' : rated ? 'theme' : 'learn';
+  const yours = useRef<PuzzleSpec[] | null>(null);
+  const [dailyDone, setDailyDone] = useState(false);
   const drill = mode.kind === 'drill' ? mode : null;
   const [drillSolved, setDrillSolved] = useState(0);
   const pop = useNav((n) => n.pop);
@@ -91,13 +103,28 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
     setBanner(null);
     const r = await getRating();
     setRating(r.rating);
-    const p = await nextPuzzle(theme, drill ? r.rating - 150 : r.rating);
-    if (!p) setEmpty(true);
+    let next: PuzzleSpec | null = null;
+    if (mode.kind === 'yours') {
+      // Your own games: the blunders you could have punished, not yet solved.
+      if (!yours.current) {
+        const done = new Set(await kvGet<string[]>(YOURS_KEY, []));
+        yours.current = gamePuzzles(await allGames()).filter((x) => !done.has(x.id)).sort(() => Math.random() - 0.5);
+      }
+      next = yours.current.shift() ?? null;
+    } else if (mode.kind === 'dailyPuzzle') {
+      const p = dailyPick(await loadRange(DAILY_RANGE[0], DAILY_RANGE[1]));
+      next = p ? { ...fromLichess(p), label: 'Daily Puzzle' } : null;
+    } else {
+      const offset = mode.kind === 'theme' ? (mode.difficulty ?? 0) : drill ? -150 : 0;
+      const p = await nextPuzzle(theme, r.rating + offset);
+      next = p ? fromLichess(p) : null;
+    }
+    if (!next) setEmpty(true);
     else {
-      setSpec(fromLichess(p));
+      setSpec(next);
       setN((x) => x + 1);
     }
-  }, [theme, drill]);
+  }, [theme, drill, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     void load();
@@ -105,7 +132,14 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
 
   const onFinish = async (r: PuzzleResult) => {
     if (!spec) return;
-    const o = await recordAttempt(spec, r.success, r.hintsUsed, theme ? 'theme' : 'rated');
+    const o = await recordAttempt(spec, r.success, r.hintsUsed, source);
+    if (mode.kind === 'yours' && r.success) void kvGet<string[]>(YOURS_KEY, []).then((d) => kvSet(YOURS_KEY, [...d, spec.id].slice(-2000)));
+    if (mode.kind === 'dailyPuzzle' && r.success) {
+      await markDailySolved();
+      setDailyDone(true);
+      useCelebrate.getState().toast({ icon: 'calendar', title: 'Daily Puzzle solved!', text: 'Come back tomorrow to keep your streak.' });
+    }
+    if (o.newPeak) useCelebrate.getState().toast({ icon: 'trophy', title: `New highest rating: ${o.ratingAfter}!`, text: 'Your best puzzle rating so far.' });
     if (course && r.success) {
       const n = await addCoursePuzzle(course.stepId);
       setSolvedInStep(n);
@@ -154,7 +188,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   return (
     <div className="flex h-full flex-col">
       <Header
-        title={drill ? `${drill.label} · ${Math.min(drillSolved, drill.count)}/${drill.count}` : course ? `${course.label}${solvedInStep !== null ? ` · ${Math.min(solvedInStep, course.count)}/${course.count}` : ''}` : theme ? themeLabel(theme) : 'Rated puzzles'}
+        title={drill ? `${drill.label} · ${Math.min(drillSolved, drill.count)}/${drill.count}` : course ? `${course.label}${solvedInStep !== null ? ` · ${Math.min(solvedInStep, course.count)}/${course.count}` : ''}` : theme ? themeLabel(theme) : MODE_TITLE[mode.kind] ?? 'Puzzles'}
         back
         right={
           <div className="flex items-center gap-3 pr-2">
@@ -167,7 +201,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
         }
       />
       <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto pb-4 land:max-w-6xl">
-        {empty && <p className="p-6 text-center text-stone-500">You've done every puzzle in this set. Amazing!</p>}
+        {empty && <p className="p-6 text-center text-stone-500">{mode.kind === 'yours' ? 'No positions from your games yet — they appear once your games are analysed and your opponents slip.' : "You've done every puzzle in this set. Amazing!"}</p>}
         {!spec && !empty && (
           <div className="flex justify-center p-10">
             <Spinner />
@@ -180,16 +214,19 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
             onFinish={onFinish}
             combo={streak}
             overlay={banner && <ComboBanner key={banner.id} id={banner.id} streak={banner.streak} />}
-            onNext={drill && drillSolved >= drill.count ? pop : load}
-            nextLabel={drill && drillSolved >= drill.count ? 'Back to practice' : course && solvedInStep !== null && solvedInStep >= course.count ? 'Keep practising' : 'Next puzzle'}
+            failOnWrong={rated}
+            onNext={(drill && drillSolved >= drill.count) || (mode.kind === 'dailyPuzzle' && (dailyDone || outcome)) ? pop : load}
+            nextLabel={drill && drillSolved >= drill.count ? 'Back to practice' : mode.kind === 'dailyPuzzle' ? 'Done' : course && solvedInStep !== null && solvedInStep >= course.count ? 'Keep practising' : 'Next'}
             footer={
               <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm font-semibold">
                 {delta !== null && (
-                  <span className={`chip !text-sm ${delta >= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300'}`}>
-                    {delta >= 0 ? '▲' : '▼'} <CountUp from={outcome!.ratingBefore!} to={outcome!.ratingAfter!} />
-                    <span className="opacity-70">({delta >= 0 ? '+' : ''}{delta})</span>
+                  <span className="flex w-full items-baseline gap-2">
+                    <span className={`text-2xl font-black tabular-nums ${delta >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{delta >= 0 ? '+' : ''}{delta}</span>
+                    <span className="text-sm text-stone-500">rating <b className="text-stone-800 dark:text-stone-100"><CountUp from={outcome!.ratingBefore!} to={outcome!.ratingAfter!} /></b></span>
+                    {outcome?.newPeak && <span className="chip bg-gold-300/50 text-stone-800"><Trophy size={12} /> Highest</span>}
                   </span>
                 )}
+                {!rated && mode.kind !== 'dailyPuzzle' && outcome && <span className="text-xs font-normal text-stone-500">Unrated</span>}
                 {outcome?.xp ? <span className="chip animate-count-pop !text-sm bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">+{outcome.xp + (bonus ? bonus.streakXp + bonus.speedXp : 0)} XP</span> : null}
                 {bonus?.lightning && (
                   <span className="chip bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
