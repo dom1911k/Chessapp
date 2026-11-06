@@ -3,7 +3,7 @@
 //
 //   npm run puzzles                      # downloads lichess_db_puzzle.csv.zst (~300 MB)
 //   npm run puzzles -- --input file.zst  # use an already downloaded file (.csv or .csv.zst)
-//   npm run puzzles -- --count 20000 --min 600 --max 1800
+//   npm run puzzles -- --count 100000 --min 400 --max 2600
 //
 // Output: public/puzzles/index.json + one JSON shard per rating band.
 // Selection is balanced across training themes and rating bands, and seeded,
@@ -21,17 +21,19 @@ const URL_DB = 'https://database.lichess.org/lichess_db_puzzle.csv.zst';
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((acc, a, i, arr) => (a.startsWith('--') ? [...acc, [a.slice(2), arr[i + 1]]] : acc), []),
 );
-const COUNT = Number(args.count ?? 20000);
-const MIN = Number(args.min ?? 600);
-const MAX = Number(args.max ?? 1800);
+const COUNT = Number(args.count ?? 100000);
+const MIN = Number(args.min ?? 400);
+const MAX = Number(args.max ?? 2600);
 const BAND = 200;
 const OUT = join(root, args.out ?? 'public/puzzles');
 const SEED = Number(args.seed ?? 42);
 
 // Training themes we balance across (Lichess theme names).
 const TRAINING_THEMES = [
-  'mateIn1', 'mateIn2', 'fork', 'pin', 'skewer', 'discoveredAttack', 'backRankMate', 'hangingPiece',
+  'mateIn1', 'mateIn2', 'mateIn3', 'fork', 'pin', 'skewer', 'discoveredAttack', 'backRankMate', 'hangingPiece',
   'endgame', 'trappedPiece', 'attackingF2F7', 'promotion', 'defensiveMove', 'deflection', 'doubleCheck', 'kingsideAttack',
+  'sacrifice', 'attraction', 'clearance', 'interference', 'xRayAttack', 'intermezzo', 'quietMove', 'capturingDefender',
+  'exposedKing', 'smotheredMate', 'zugzwang', 'opening', 'rookEndgame', 'pawnEndgame', 'queenEndgame', 'advancedPawn',
 ];
 // Themes that don't help a learner and only cost bytes.
 const DROP_THEMES = new Set(['short', 'long', 'veryLong', 'oneMove', 'master', 'masterVsMaster', 'superGM', 'mix', 'playerGames']);
@@ -76,7 +78,8 @@ function handleLine(line) {
   if (r < MIN || r >= MAX) return;
   if (Number(rd) > 90 || Number(popularity) < 80 || Number(plays) < 300) return;
   const mv = moves.split(' ');
-  if (mv.length > 8) return; // at most 4 moves for the solver: beginner friendly
+  // Beginner-friendly lengths at lower ratings (at most 4 solver moves); longer lines above 1600.
+  if (mv.length > (r < 1600 ? 8 : 12)) return;
   const th = themes.split(' ').filter((t) => t && !DROP_THEMES.has(t));
   kept++;
   const band = Math.floor((r - MIN) / BAND) * BAND + MIN;
