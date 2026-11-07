@@ -210,7 +210,7 @@ export function App() {
         )}
       </main>
       {!top && !(inGame && tab === 'play') && (
-        <nav className="safe-bottom border-t border-stone-200/80 bg-[#fffdf9]/95 backdrop-blur-md dark:border-stone-800 dark:bg-stone-900/95">
+        <nav className="safe-bottom border-t border-stone-200/70 bg-[#fffdf9]/90 shadow-[0_-8px_24px_-18px_rgba(40,25,10,0.25)] backdrop-blur-xl backdrop-saturate-150 dark:border-white/[0.06] dark:bg-[#1a1612]/90 dark:shadow-none">
           <div className="mx-auto flex max-w-xl px-2 pt-1.5 pb-1">
             {tabs.map((t) => {
               const active = shownTab === t.tab;
@@ -219,7 +219,7 @@ export function App() {
                 <button key={t.tab} onClick={() => setTab(t.tab)} className="flex flex-1 flex-col items-center gap-0.5 py-1">
                   <span
                     className={`flex h-8 w-14 items-center justify-center rounded-full transition-colors duration-200 ${
-                      active ? 'bg-brand-100 text-brand-700 dark:bg-brand-700/30 dark:text-brand-100' : 'text-stone-500'
+                      active ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-100' : 'text-stone-500 active:bg-stone-200/60 dark:active:bg-white/[0.05]'
                     }`}
                   >
                     <Icon size={22} strokeWidth={active ? 2.3 : 1.8} />

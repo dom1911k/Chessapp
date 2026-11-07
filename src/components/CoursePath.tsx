@@ -77,7 +77,7 @@ export function CoursePath() {
                 <Medallion name={isOpen ? ch.icon : 'trap'} tint={isDone ? 'green' : 'gold'} muted={!isOpen} />
                 <span className="flex-1">
                   <span className="block font-semibold leading-tight">{ch.title}</span>
-                  <span className="block text-xs text-stone-500">{isOpen ? ch.intro : 'Finish the chapter before to open this one.'}</span>
+                  <span className="block text-xs text-stone-500">{isOpen ? ch.intro : 'Unlocks when you finish the chapter before.'}</span>
                 </span>
                 <span className="text-xs font-semibold text-stone-500">{stepsDone}/{ch.steps.length}</span>
               </button>

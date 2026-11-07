@@ -114,14 +114,14 @@ export function HomeHero({ right }: { right?: ReactNode }) {
         <div className="min-w-0 flex-1 leading-tight">
           <div className="truncate font-display text-[19px] font-semibold">{sky.greeting}</div>
           <div className="mt-0.5 truncate text-xs text-white/85">
-            <b className="font-semibold text-white">Level {l.level}</b> · {l.title} · {l.span - l.into} XP to go
+            <b className="font-semibold text-white">{l.title}</b> · {l.span - l.into} XP to go
           </div>
         </div>
         <span title={line} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-bold ${streak ? 'bg-white text-orange-600' : 'bg-white/15 text-white/90'}`}>
           <Flame size={15} className={streak ? 'fill-orange-400 text-orange-500' : ''} /> {streak}
         </span>
         {week && (
-          <span className="hidden shrink-0 gap-0.5 min-[380px]:flex" title={`${week.days}/${week.goal} days this week`}>
+          <span className="hidden shrink-0 gap-0.5 min-[420px]:flex" title={`${week.days}/${week.goal} days this week`}>
             {Array.from({ length: week.goal }, (_, i) => (
               <span key={i} className={`h-1.5 w-1.5 rounded-full ${i < week.days ? 'bg-amber-300' : 'bg-white/25'}`} />
             ))}

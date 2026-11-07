@@ -75,7 +75,7 @@ export function PuzzlesScreen() {
             </div>
             <div className="text-right text-xs text-stone-500">
               <div>Highest <b className="text-stone-800 dark:text-stone-100">{d?.peak ?? '…'}</b></div>
-              <div>{d ? `${d.solved} of ${d.played} solved` : ''}</div>
+              <div>{d ? (d.played ? `${d.solved} of ${d.played} solved` : 'No puzzles yet') : ''}</div>
             </div>
           </div>
           {d && d.ratings.length > 1 && (
