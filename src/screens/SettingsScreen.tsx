@@ -153,7 +153,7 @@ export function SettingsScreen() {
           <p className="mt-1 text-xs text-stone-500">A roguelike demo in its own tab. It never changes your rating, XP or reviews.</p>
         </div>
         <p className="px-2 text-xs text-stone-500">
-          Chess Coach runs fully offline (the optional chess.com import is the only thing that uses the internet). Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (GPLv3), running Leela Chess Zero networks. Puzzles: Lichess puzzle database (CC0).
+          Chess Coach runs fully offline (the optional chess.com import is the only thing that uses the internet). Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (GPLv3), running Leela Chess Zero networks. Puzzles: Lichess puzzle database (CC0). Standard piece sounds: recordings from Lichess (AGPLv3+).
         </p>
       </div>
     </div>

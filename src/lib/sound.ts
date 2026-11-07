@@ -1,4 +1,6 @@
-// Soft, warm, wooden sound effects synthesised with Web Audio (no audio files).
+// Sound effects. The "Standard" pack plays real recordings of wooden pieces (from Lichess,
+// AGPLv3+, shaped toward the chess.com feel by scripts/make-sounds.sh); everything else, and
+// Standard until its files have loaded, is synthesised with Web Audio:
 //
 // A piece landing on a wooden board is modelled as a few damped "modes":
 // a low body thump plus inharmonic wood resonances that die away within a few
@@ -83,7 +85,7 @@ export interface SoundPack {
 export const SOUND_PACKS: Record<string, SoundPack> = {
   standard: {
     label: 'Standard',
-    description: 'Short, dry, crisp knocks — the sound online players know.',
+    description: 'Real wooden pieces on a board — short, crisp and natural, like playing online.',
     modes: [[462, 0.6, 0.0052], [920, 0.28, 0.0045]],
     contact: { amp: 0.12, freq: 1700 },
     warmth: 7000,
@@ -273,9 +275,49 @@ function standardSound(c: BaseAudioContext, out: AudioNode, name: SoundName, t: 
 }
 
 /** Schedules the named sound on any (live or offline) audio context. */
+/** Recorded sounds of the Standard pack (public/sounds/standard). */
+const SAMPLED: SoundName[] = ['move', 'moveOpp', 'capture', 'check', 'castle', 'promote', 'premove', 'illegal'];
+const samples = new Map<SoundName, AudioBuffer>();
+let loading: Promise<void> | null = null;
+
+/** Decodes the Standard recordings once (at start-up; no user gesture needed). */
+export function preloadSounds(): Promise<void> {
+  if (loading) return loading;
+  loading = (async () => {
+    try {
+      const dec = new OfflineAudioContext(1, 1, 44100);
+      await Promise.all(
+        SAMPLED.map(async (n) => {
+          const res = await fetch(`./sounds/standard/${n}.mp3`);
+          if (!res.ok) return;
+          samples.set(n, await dec.decodeAudioData(await res.arrayBuffer()));
+        }),
+      );
+    } catch {
+      /* no audio decoding here: the synthesised sounds stand in */
+    }
+  })();
+  return loading;
+}
+
+/** Plays a recording; a hair of random speed so repeated moves don't sound copy-pasted. */
+function playSample(c: BaseAudioContext, out: AudioNode, buf: AudioBuffer, t: number) {
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.playbackRate.value = 0.985 + Math.random() * 0.03;
+  const g = c.createGain();
+  g.gain.value = 0.9;
+  src.connect(g).connect(out);
+  src.start(t);
+}
+
 export function renderSound(c: BaseAudioContext, out: AudioNode, name: SoundName, t: number, pack = currentPack()) {
   const tock = (c: BaseAudioContext, out: AudioNode, t: number, pitch = 1, gain = 1, weight = 1) => tockWith(c, out, t, pitch, gain, weight, pack);
-  if (pack.recipe === 'standard' && standardSound(c, out, name, t)) return;
+  if (pack.recipe === 'standard') {
+    const buf = samples.get(name);
+    if (buf) return playSample(c, out, buf, t);
+    if (standardSound(c, out, name, t)) return;
+  }
   switch (name) {
     case 'moveOpp':
       tock(c, out, t, 0.92, 0.8);

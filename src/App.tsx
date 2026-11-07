@@ -43,6 +43,7 @@ import { applyReminder } from './lib/reminders';
 import { RunScreen } from './run/screens/RunScreen';
 import { useRunFlag } from './run/flag';
 import { startImports } from './lib/chesscom/store';
+import { preloadSounds } from './lib/sound';
 
 const TABS: { tab: Tab; label: string; icon: LucideIcon }[] = [
   { tab: 'play', label: 'Home', icon: House },
@@ -173,6 +174,7 @@ export function App() {
 
   useEffect(() => {
     requestPersistentStorage();
+    void preloadSounds();
     void useSettings.getState().load().then(() => {
       const st = useSettings.getState();
       if (st.reminderEnabled) void applyReminder(true, st.reminderTime);
