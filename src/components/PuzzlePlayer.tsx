@@ -236,7 +236,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
               state === 'solved' ? 'bg-emerald-600 text-white' : state === 'wrong' || state === 'failed' ? 'bg-red-500 text-white' : userColor === 'w' ? 'bg-white text-stone-900 ring-1 ring-stone-200 dark:ring-stone-700' : 'bg-stone-900 text-white dark:bg-black'
             }`}
           >
-            {state === 'solved' ? <><Check size={18} strokeWidth={3} /> Correct</> : state === 'wrong' ? <><X size={18} strokeWidth={3} /> Incorrect</> : state === 'failed' ? 'Solution' : state === 'intro' ? 'Watch the move…' : <><span className={`h-3.5 w-3.5 rounded-sm ring-1 ${userColor === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-500'}`} /> {side} to move</>}
+            {state === 'solved' ? <><Check size={18} strokeWidth={3} /> Correct</> : state === 'wrong' ? <><X size={18} strokeWidth={3} /> Incorrect</> : state === 'failed' ? 'Solution' : state === 'intro' ? 'Watch the move…' : <><span className={`h-3.5 w-3.5 rounded-full shadow-sm ring-1 ${userColor === 'w' ? 'bg-white ring-stone-300' : 'bg-stone-900 ring-stone-500'}`} /> {side} to move</>}
           </div>
         )}
         <div ref={boardBox} className="relative">

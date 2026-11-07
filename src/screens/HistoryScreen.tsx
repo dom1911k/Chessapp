@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { History } from 'lucide-react';
 import { Header, Segmented } from '../components/ui';
 import { Portrait } from '../components/Coach';
 import { opponentById } from '../lib/people';
@@ -38,7 +39,15 @@ export function HistoryScreen() {
             <ImportProgress />
           </>
         )}
-        {shown?.length === 0 && <p className="text-center text-stone-500">No finished games yet.</p>}
+        {shown?.length === 0 && (
+          <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-200/70 text-stone-500 dark:bg-stone-800">
+              <History size={26} />
+            </span>
+            <p className="font-semibold">No finished games yet</p>
+            <p className="text-sm text-stone-500">Every game you finish — here or imported from chess.com — shows up with its Game Review.</p>
+          </div>
+        )}
         {shown?.map((g) => {
           const cc = g.source === 'chess.com';
           const imported = g as ImportedGame;

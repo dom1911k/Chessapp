@@ -71,12 +71,12 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 
 export function Segmented<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: ReactNode }[]; onChange: (v: T) => void }) {
   return (
-    <div className="flex rounded-2xl bg-stone-200/80 p-1 dark:bg-stone-800">
+    <div className="flex rounded-2xl bg-stone-200/70 p-1 ring-1 ring-black/[0.03] dark:bg-black/30 dark:ring-white/[0.05]">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition ${value === o.value ? 'bg-white text-stone-900 shadow-[0_1px_3px_rgba(40,25,10,0.15)] dark:bg-stone-600 dark:text-white' : 'text-stone-500 dark:text-stone-400'}`}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition ${value === o.value ? 'bg-white text-stone-900 shadow-[0_1px_3px_rgba(40,25,10,0.15)] dark:bg-stone-700 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_1px_3px_rgba(0,0,0,0.4)]' : 'text-stone-500 active:text-stone-700 dark:text-stone-400'}`}
         >
           {o.label}
         </button>

@@ -42,24 +42,25 @@ const SKY: Record<Daypart, { bg: string; orb: string; greeting: string; icon: Re
   },
 };
 
-/** A circular level meter. */
+/** A circular level meter: the level number sits inside the ring with room to spare. */
 function LevelRing({ level, pct, size = 64 }: { level: number; pct: number; size?: number }) {
-  const r = size / 2 - 4;
+  const stroke = Math.max(3.5, size / 13);
+  const r = size / 2 - stroke / 2 - 0.5;
   const c = 2 * Math.PI * r;
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
+    <div className="relative shrink-0" style={{ width: size, height: size }} aria-label={`Level ${level}`}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="rgba(0,0,0,0.18)" stroke="rgba(255,255,255,0.22)" strokeWidth={5} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="rgba(0,0,0,0.22)" stroke="rgba(255,255,255,0.2)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
           r={r}
           fill="none"
           stroke="url(#ring-gold)"
-          strokeWidth={5}
+          strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
-          strokeDashoffset={c * (1 - pct)}
+          strokeDashoffset={c * (1 - Math.max(0.02, pct))}
           style={{ transition: 'stroke-dashoffset 1s cubic-bezier(0.2,0.8,0.2,1)' }}
         />
         <defs>
@@ -69,10 +70,9 @@ function LevelRing({ level, pct, size = 64 }: { level: number; pct: number; size
           </linearGradient>
         </defs>
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none text-white">
-        <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">Level</span>
-        <span className="text-[22px] font-black">{level}</span>
-      </div>
+      <span className="absolute inset-0 flex items-center justify-center font-black text-white tabular-nums" style={{ fontSize: Math.round(size * (level >= 10 ? 0.36 : 0.42)) }}>
+        {level}
+      </span>
     </div>
   );
 }
@@ -110,11 +110,11 @@ export function HomeHero({ right }: { right?: ReactNode }) {
       </svg>
 
       <div className="relative mx-auto flex max-w-md items-center gap-3 px-4 pt-2 pb-3">
-        <LevelRing level={l.level} pct={xp === null ? 0 : l.into / l.span} size={46} />
+        <LevelRing level={l.level} pct={xp === null ? 0 : l.into / l.span} size={44} />
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="font-display text-[19px] font-semibold">{sky.greeting}</div>
-          <div className="truncate text-xs text-white/85">
-            {l.title} · {l.span - l.into} XP to level {l.level + 1}
+          <div className="truncate font-display text-[19px] font-semibold">{sky.greeting}</div>
+          <div className="mt-0.5 truncate text-xs text-white/85">
+            <b className="font-semibold text-white">Level {l.level}</b> · {l.title} · {l.span - l.into} XP to go
           </div>
         </div>
         <span title={line} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-bold ${streak ? 'bg-white text-orange-600' : 'bg-white/15 text-white/90'}`}>
