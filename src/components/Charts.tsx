@@ -1,3 +1,4 @@
+import { useId, useState } from 'react';
 import { povScore, winPct } from '../lib/chess/evaluation';
 import type { PlyRecord } from '../lib/store/types';
 
@@ -41,28 +42,83 @@ export function EvalGraph({ plies, current, onSelect, height = 110 }: { plies: P
   );
 }
 
-/** Minimal line chart for progress stats. */
-export function LineChart({ values, labels, height = 120, color = '#2f9e63' }: { values: number[]; labels?: [string, string]; height?: number; color?: string }) {
+/** A smooth path through points (monotone cubic, so it never overshoots between values). */
+function smoothPath(pts: [number, number][]): string {
+  if (pts.length < 3) return pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const n = pts.length;
+  const d = pts.slice(1).map(([x, y], i) => (y - pts[i][1]) / (x - pts[i][0]));
+  const m = pts.map((_, i) => (i === 0 ? d[0] : i === n - 1 ? d[n - 2] : d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2));
+  let out = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const [x0, y0] = pts[i];
+    const [x1, y1] = pts[i + 1];
+    const h = (x1 - x0) / 3;
+    out += ` C${(x0 + h).toFixed(1)},${(y0 + m[i] * h).toFixed(1)} ${(x1 - h).toFixed(1)},${(y1 - m[i + 1] * h).toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
+  }
+  return out;
+}
+
+/**
+ * Line chart for progress stats: a smooth line with a soft fill underneath. Press and drag on it
+ * to read an exact value (and its date, when `dates` are given).
+ */
+export function LineChart({ values, labels, height = 120, color = '#2f9e63', dates, suffix = '' }: { values: number[]; labels?: [string, string]; height?: number; color?: string; dates?: number[]; suffix?: string }) {
+  const id = useId().replace(/:/g, '');
+  const [hover, setHover] = useState<number | null>(null);
   const W = 320;
   const H = height;
   if (values.length < 2) return <div className="flex h-24 items-center justify-center text-sm text-stone-400">Not enough data yet</div>;
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const pad = Math.max(10, (max - min) * 0.1);
+  const pad = Math.max(4, (max - min) * 0.12);
   const lo = min - pad;
   const hi = max + pad;
-  const x = (i: number) => (i / (values.length - 1)) * (W - 8) + 4;
-  const y = (v: number) => H - 14 - ((v - lo) / (hi - lo)) * (H - 24);
-  const d = values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const x = (i: number) => (i / (values.length - 1)) * (W - 12) + 6;
+  const y = (v: number) => H - 16 - ((v - lo) / (hi - lo)) * (H - 28);
+  const pts = values.map((v, i) => [x(i), y(v)] as [number, number]);
+  const line = smoothPath(pts);
+  const area = `${line} L${x(values.length - 1).toFixed(1)},${H - 14} L${x(0).toFixed(1)},${H - 14} Z`;
+  const pick = (e: React.PointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const fx = ((e.clientX - r.left) / r.width) * W;
+    setHover(Math.max(0, Math.min(values.length - 1, Math.round(((fx - 6) / (W - 12)) * (values.length - 1)))));
+  };
+  const hi_ = hover ?? values.length - 1;
+  const tipX = Math.max(30, Math.min(W - 30, x(hi_)));
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-      <path d={d} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={x(values.length - 1)} cy={y(values[values.length - 1])} r="4" fill={color} />
-      <text x="4" y="10" fontSize="10" fill="currentColor" opacity="0.6">{Math.round(max)}</text>
-      <text x="4" y={H - 2} fontSize="10" fill="currentColor" opacity="0.6">{Math.round(min)}</text>
-      {labels && (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="w-full touch-none select-none"
+      onPointerDown={(e) => (e.currentTarget.setPointerCapture(e.pointerId), pick(e))}
+      onPointerMove={(e) => hover !== null && pick(e)}
+      onPointerUp={() => setHover(null)}
+      onPointerCancel={() => setHover(null)}
+      onPointerLeave={() => setHover(null)}
+    >
+      <defs>
+        <linearGradient id={`fill${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={color} stopOpacity="0.28" />
+          <stop offset="1" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {[0.25, 0.5, 0.75].map((f) => (
+        <line key={f} x1="6" x2={W - 6} y1={6 + f * (H - 22)} y2={6 + f * (H - 22)} stroke="currentColor" strokeOpacity="0.07" strokeDasharray="2 4" />
+      ))}
+      <path d={area} fill={`url(#fill${id})`} />
+      <path d={line} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {hover !== null && <line x1={x(hover)} x2={x(hover)} y1="4" y2={H - 14} stroke="currentColor" strokeOpacity="0.25" strokeDasharray="3 3" />}
+      <circle cx={x(hi_)} cy={y(values[hi_])} r={hover !== null ? 5 : 4} fill={color} stroke="var(--chart-dot, #fff)" strokeWidth="2" className="[--chart-dot:#fffdf9] dark:[--chart-dot:#1d1915]" />
+      {hover !== null ? (
+        <g>
+          <rect x={tipX - 28} y="0" width="56" height={dates ? 26 : 16} rx="6" fill="currentColor" opacity="0.9" />
+          <text x={tipX} y="11.5" fontSize="10.5" fontWeight="700" textAnchor="middle" className="fill-white dark:fill-stone-900">{Math.round(values[hover])}{suffix}</text>
+          {dates && <text x={tipX} y="22" fontSize="8.5" textAnchor="middle" className="fill-white/80 dark:fill-stone-900/80">{new Date(dates[hover]).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</text>}
+        </g>
+      ) : (
         <>
-          <text x={W / 2} y={H - 2} fontSize="10" fill="currentColor" opacity="0.6" textAnchor="middle">{labels[0]} → {labels[1]}</text>
+          <text x="6" y="10" fontSize="10" fill="currentColor" opacity="0.5">{Math.round(max)}{suffix}</text>
+          <text x="6" y={H - 2} fontSize="10" fill="currentColor" opacity="0.5">{Math.round(min)}{suffix}</text>
+          {labels && <text x={W / 2} y={H - 2} fontSize="10" fill="currentColor" opacity="0.5" textAnchor="middle">{labels[0]} → {labels[1]}</text>}
         </>
       )}
     </svg>

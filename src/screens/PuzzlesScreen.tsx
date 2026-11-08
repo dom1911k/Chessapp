@@ -19,6 +19,7 @@ interface HubData {
   rating: number;
   peak: number;
   ratings: number[];
+  ratingDates: number[];
   solved: number;
   played: number;
   bestStreak: number;
@@ -40,7 +41,8 @@ export function PuzzlesScreen() {
     void (async () => {
       const r = await getRating();
       const attempts = await db.attempts.toArray();
-      const ratings = (await db.ratings.orderBy('at').toArray()).map((x) => x.rating).slice(-40);
+      const rows = (await db.ratings.orderBy('at').toArray()).slice(-40);
+      const ratings = rows.map((x) => x.rating);
       const daily = await dailyState();
       const rush = {} as Record<RushMode, number>;
       for (const m of ['3', '5', 'survival'] as RushMode[]) rush[m] = await kvGet<number>(rushBestKey(m), 0);
@@ -49,6 +51,7 @@ export function PuzzlesScreen() {
         rating: r.rating,
         peak: Math.max(r.peak ?? r.rating, r.rating),
         ratings,
+        ratingDates: rows.map((x) => x.at),
         solved: attempts.filter((a) => a.success).length,
         played: attempts.length,
         bestStreak: await kvGet<number>('puzzleBestStreak', 0),
@@ -80,7 +83,7 @@ export function PuzzlesScreen() {
           </div>
           {d && d.ratings.length > 1 && (
             <div className="mt-2">
-              <LineChart values={d.ratings} height={70} />
+              <LineChart values={d.ratings} dates={d.ratingDates} height={78} />
             </div>
           )}
           <button className="btn-primary mt-3 w-full !py-4 text-lg" onClick={() => push({ name: 'puzzle', mode: { kind: 'rated' } })}>

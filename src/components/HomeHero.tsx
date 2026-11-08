@@ -3,7 +3,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Flame, Moon, Sun, Sunrise, Sunset } from 'lucide-react';
 import { getXp, levelFor } from '../lib/progress/xp';
 import { weeklyGoal } from '../lib/progress/weekly';
-import { currentStreak } from '../lib/stats';
+import { currentStreak, trainedToday } from '../lib/stats';
+import { useNav } from '../lib/nav';
 import { useCelebrate } from '../lib/celebrate';
 
 type Daypart = 'morning' | 'afternoon' | 'evening' | 'night';
@@ -83,10 +84,24 @@ export function HomeHero({ right }: { right?: ReactNode }) {
   const burst = useCelebrate((s) => s.burst);
   const [xp, setXp] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
+  const [doneToday, setDoneToday] = useState(true);
+  const [grew, setGrew] = useState(false);
+  const push = useNav((s) => s.push);
   const [week, setWeek] = useState<{ days: number; goal: number } | null>(null);
   useEffect(() => {
     void getXp().then(setXp);
-    void currentStreak().then(setStreak);
+    void Promise.all([currentStreak(), trainedToday()]).then(([n, done]) => {
+      setStreak(n);
+      setDoneToday(done);
+      // The flame hops once when the streak has grown since you last saw it.
+      try {
+        const seen = Number(localStorage.getItem('seenStreak') ?? 0);
+        if (done && n > seen) setGrew(true);
+        localStorage.setItem('seenStreak', String(n));
+      } catch {
+        /* no storage: no hop */
+      }
+    });
     void weeklyGoal().then((w) => setWeek({ days: w.days, goal: w.goal }));
   }, [burst]);
   const l = levelFor(xp ?? 0);
@@ -117,8 +132,17 @@ export function HomeHero({ right }: { right?: ReactNode }) {
             <b className="font-semibold text-white">{l.title}</b> · {l.span - l.into} XP to go
           </div>
         </div>
-        <span title={line} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-bold ${streak ? 'bg-white text-orange-600' : 'bg-white/15 text-white/90'}`}>
-          <Flame size={15} className={streak ? 'fill-orange-400 text-orange-500' : ''} /> {streak}
+        <span
+          title={line}
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-bold tabular-nums transition-colors ${
+            streak && doneToday ? 'bg-white text-orange-600 shadow-[0_4px_14px_-4px_rgba(234,88,12,0.6)]' : streak ? 'bg-white/20 text-white ring-1 ring-white/50' : 'bg-white/15 text-white/90'
+          }`}
+        >
+          <Flame
+            size={15}
+            className={`${streak && doneToday ? 'fill-orange-400 text-orange-500' : streak ? 'fill-orange-300/60 text-orange-200' : ''} ${grew ? 'animate-flame-pop' : streak && !doneToday ? 'animate-flame-breathe' : ''}`}
+          />{' '}
+          {streak}
         </span>
         {week && (
           <span className="hidden shrink-0 gap-0.5 min-[420px]:flex" title={`${week.days}/${week.goal} days this week`}>
@@ -129,6 +153,18 @@ export function HomeHero({ right }: { right?: ReactNode }) {
         )}
         <div className="flex items-center text-white [&_button]:text-white">{right}</div>
       </div>
+      {streak > 0 && !doneToday && (
+        <button
+          className="animate-fade-in relative mx-auto -mt-1 mb-2.5 flex w-[calc(100%-2rem)] max-w-md items-center gap-2 rounded-2xl bg-black/20 px-3 py-2 text-left text-[13px] backdrop-blur-sm active:bg-black/30"
+          onClick={() => push({ name: 'puzzle', mode: { kind: 'rated' } })}
+        >
+          <Flame size={16} className="animate-flame-breathe shrink-0 fill-orange-300 text-orange-300" />
+          <span className="flex-1">
+            Keep your <b>{streak}-day streak</b> going
+          </span>
+          <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-bold text-stone-900">Go</span>
+        </button>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 // The results screen after a game, revealed step by step like the end of a level:
 // result banner → stars → XP → rating → tactics → new achievements, unlocks and milestones.
 import { useEffect, useState, type ReactNode } from 'react';
-import { Star, TrendingUp, X } from 'lucide-react';
+import { RotateCcw, Star, TrendingDown, TrendingUp, User, Users, X } from 'lucide-react';
 import { useCelebrate } from '../lib/celebrate';
 import { opponentById } from '../lib/people';
 import { challengeFor } from '../lib/people/challenges';
@@ -57,7 +57,14 @@ function RewardCard({ icon, title, text, tint = 'gold', badge }: { icon: ReactNo
   );
 }
 
-export function RewardsOverlay({ r, onClose, onReport }: { r: GameRewards; onClose: () => void; onReport?: () => void }) {
+/** "by checkmate", "on time", "by resignation"… */
+export function reasonText(reason: string): string {
+  if (reason === 'time') return 'on time';
+  if (reason === 'time vs insufficient material') return 'timeout vs insufficient material';
+  return `by ${reason}`;
+}
+
+export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent }: { r: GameRewards; onClose: () => void; onReport?: () => void; onRematch?: () => void; onNewOpponent?: () => void }) {
   const [step, setStep] = useState(0);
   const o = opponentById(r.opponentId);
   const lvBefore = levelFor(r.xpBefore);
@@ -89,10 +96,10 @@ export function RewardsOverlay({ r, onClose, onReport }: { r: GameRewards; onClo
   const delta = r.ratingAfter - r.ratingBefore;
   const banner =
     r.userResult === 'win'
-      ? { text: 'Victory!', bg: 'from-gold-300 via-gold-400 to-gold-500', sub: r.reason === 'checkmate' ? 'by checkmate' : `by ${r.reason}` }
+      ? { text: 'You won!', bg: 'from-gold-300 via-gold-400 to-gold-500' }
       : r.userResult === 'draw'
-        ? { text: 'Draw', bg: 'from-slate-300 via-slate-400 to-slate-500', sub: r.reason }
-        : { text: 'Good fight!', bg: 'from-sky-400 via-sky-500 to-blue-600', sub: 'Every game makes you stronger' };
+        ? { text: 'Draw', bg: 'from-slate-300 via-slate-400 to-slate-500' }
+        : { text: 'You lost', bg: 'from-slate-500 via-slate-600 to-slate-700' };
   const ch = challengeFor(r.opponentId);
 
   return (
@@ -101,14 +108,28 @@ export function RewardsOverlay({ r, onClose, onReport }: { r: GameRewards; onClo
         <button className="absolute top-3 right-3 rounded-full p-1.5 text-stone-400" onClick={onClose} aria-label="Close">
           <X size={20} />
         </button>
-        {/* Banner */}
+        {/* Banner: you vs them (the winner ringed in gold), the result and how it ended. */}
         <div className="flex flex-col items-center pt-2">
-          {o && <Portrait id={o.id} mood={r.userResult === 'win' ? 'worried' : r.userResult === 'loss' ? 'happy' : 'neutral'} size={72} />}
-          <div className={`animate-banner -mt-3 rounded-2xl bg-gradient-to-r px-7 py-2 shadow-lg ${banner.bg}`}>
+          <div className="flex items-center gap-3">
+            <span className={`flex h-[60px] w-[60px] items-center justify-center rounded-[30%] bg-brand-600 text-white ${r.userResult === 'win' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''}`}>
+              <User size={30} />
+            </span>
+            <span className="text-xs font-bold tracking-widest text-stone-400 uppercase">vs</span>
+            <span className={`rounded-[30%] ${r.userResult === 'loss' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''}`}>
+              {o ? (
+                <Portrait id={o.id} mood={r.userResult === 'win' ? 'worried' : r.userResult === 'loss' ? 'happy' : 'neutral'} size={60} />
+              ) : (
+                <span className="flex h-[60px] w-[60px] items-center justify-center rounded-[30%] bg-stone-200 text-stone-500 dark:bg-stone-800">
+                  <Users size={26} />
+                </span>
+              )}
+            </span>
+          </div>
+          <div className={`animate-banner mt-3 rounded-2xl bg-gradient-to-r px-7 py-2 shadow-lg ${banner.bg}`}>
             <div className="font-display text-3xl leading-none font-bold text-white drop-shadow">{banner.text}</div>
           </div>
           <div className="mt-1.5 text-sm text-stone-500">
-            {o ? `vs ${o.name}` : 'vs the bot'} · {banner.sub} · {r.accuracy}% accuracy
+            {reasonText(r.reason)} · {o ? `vs ${o.name}` : 'vs the bot'} · <b className="text-stone-700 tabular-nums dark:text-stone-200">{r.accuracy}%</b> accuracy
           </div>
         </div>
 
@@ -153,10 +174,10 @@ export function RewardsOverlay({ r, onClose, onReport }: { r: GameRewards; onClo
             <div className="rounded-2xl bg-stone-100 p-3 dark:bg-stone-800">
               <div className="flex items-baseline justify-between">
                 <span className="text-[10px] font-bold tracking-wider text-stone-500 uppercase">Rating</span>
-                <span className={`flex items-center gap-0.5 text-sm font-bold ${delta >= 0 ? 'text-brand-600' : 'text-stone-500'}`}>
-                  {delta >= 0 && <TrendingUp size={14} />}
-                  {delta >= 0 ? '+' : ''}
-                  {delta}
+                <span className={`flex items-center gap-0.5 rounded-full px-1.5 text-sm font-bold tabular-nums ${delta > 0 ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-100' : delta < 0 ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300' : 'text-stone-500'}`}>
+                  {delta > 0 ? <TrendingUp size={14} /> : delta < 0 ? <TrendingDown size={14} /> : null}
+                  {delta > 0 ? '+' : delta < 0 ? '−' : '±'}
+                  {Math.abs(delta)}
                 </span>
               </div>
               <div className="font-display text-2xl leading-tight font-semibold">{rating}</div>
@@ -220,15 +241,31 @@ export function RewardsOverlay({ r, onClose, onReport }: { r: GameRewards; onClo
         </div>
 
         <Reveal show={step >= LAST}>
-          <div className="mt-4 flex gap-2">
-            {onReport && (
-              <button className="btn-secondary flex-1" onClick={onReport}>
+          <div className="mt-5 space-y-2">
+            {onReport ? (
+              <button className="btn-primary w-full !py-3.5 text-base" onClick={onReport}>
                 Game Review
               </button>
+            ) : (
+              <button className="btn-primary w-full !py-3.5 text-base" onClick={onClose}>
+                Continue
+              </button>
             )}
-            <button className="btn-primary flex-1" onClick={onClose}>
-              Continue
-            </button>
+            <div className="grid grid-cols-3 gap-2">
+              {onRematch && (
+                <button className="btn-secondary !px-2" onClick={onRematch}>
+                  <RotateCcw size={16} /> Rematch
+                </button>
+              )}
+              {onNewOpponent && (
+                <button className="btn-secondary !px-2" onClick={onNewOpponent}>
+                  New bot
+                </button>
+              )}
+              <button className="btn-secondary !px-2" onClick={onClose}>
+                View board
+              </button>
+            </div>
           </div>
         </Reveal>
         {step < LAST && <p className="mt-4 text-center text-xs text-stone-400">Tap to skip</p>}

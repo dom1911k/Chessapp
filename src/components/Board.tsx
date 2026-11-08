@@ -244,8 +244,9 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   const add = (sq: string, layer: string) => (layers[sq] ??= []).push(layer);
   const shadows: Record<string, string> = {};
   if (lastMove) {
-    add(lastMove.from, tint(`rgba(${hl}, 0.32)`));
-    add(lastMove.to, tint(`rgba(${hl}, 0.42)`));
+    // Soft and even, like chess.com: both squares tinted, the arrival square a touch stronger.
+    add(lastMove.from, tint(`rgba(${hl}, 0.28)`));
+    add(lastMove.to, tint(`rgba(${hl}, 0.36)`));
   }
   for (const h of highlights) {
     add(h.sq, tint(TONE_BG[h.tone]));
@@ -253,7 +254,14 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   }
   if (chess.inCheck()) {
     const k = chess.board().flat().find((p) => p?.type === 'k' && p.color === turn);
-    if (k) add(k.square, 'radial-gradient(circle, rgba(239,68,68,0.9) 0%, rgba(239,68,68,0.4) 55%, transparent 75%)');
+    // A red glow under the king in check (fuller and with a rim on checkmate).
+    const mate = chess.isCheckmate();
+    if (k) {
+      add(k.square, mate
+        ? 'radial-gradient(circle at center, rgba(255,40,40,1) 0%, rgba(220,20,20,0.85) 35%, rgba(170,0,0,0.25) 80%, transparent 95%)'
+        : 'radial-gradient(circle at center, rgba(255,60,60,0.95) 0%, rgba(231,30,30,0.6) 32%, rgba(169,0,0,0) 78%)');
+      if (mate) shadows[k.square] = 'inset 0 0 0 3px rgba(185,28,28,0.85)';
+    }
   }
   if (premove) {
     add(premove.from, tint('rgba(220, 60, 60, 0.45)'));

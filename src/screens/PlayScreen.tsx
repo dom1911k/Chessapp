@@ -329,6 +329,12 @@ function ChatBubble() {
   );
 }
 
+/** Same opponent, colour, strength, time control and mode (match or coached). */
+function rematch(s: ReturnType<typeof usePlay.getState>) {
+  const g = s.game!;
+  s.newGame(g.userColor, g.elo, undefined, g.opponentId, g.match ? { match: true, timeControl: g.timeControl } : { timeControl: g.timeControl });
+}
+
 function GameView() {
   const s = usePlay();
   const settings = useSettings();
@@ -472,7 +478,7 @@ function GameView() {
           )}
           {!s.over && (
             <div className="safe-bottom px-3 pb-2">
-              <div className="mx-auto grid max-w-md grid-cols-4 gap-1 rounded-[22px] bg-white/90 p-1.5 shadow-[0_6px_24px_rgba(60,35,15,0.12)] ring-1 ring-black/5 backdrop-blur dark:bg-stone-900/90 dark:ring-white/10">
+              <div className="mx-auto grid max-w-md grid-cols-4 gap-1 rounded-[22px] bg-white/90 p-1.5 shadow-[0_6px_24px_rgba(60,35,15,0.12)] ring-1 ring-black/5 backdrop-blur-xl dark:bg-[#1d1915]/90 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_24px_rgba(0,0,0,0.5)] dark:ring-white/[0.07]">
                 {aids.requests ? (
                   <>
                     <DockButton label={s.hint ? `Hint ${s.hint.level}/3` : 'Hint'} icon={<Lightbulb size={22} />} disabled={!myTurn || s.hint?.level === 3} onClick={s.requestHint} primary />
@@ -499,6 +505,8 @@ function GameView() {
         <RewardsOverlay
           r={s.rewards}
           onClose={s.closeRewards}
+          onRematch={() => (s.closeRewards(), rematch(s))}
+          onNewOpponent={() => (s.closeRewards(), s.leaveGame())}
           onReport={
             s.over?.gameId
               ? () => {
@@ -638,7 +646,6 @@ function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; on
   const feed = g.feed ?? [];
   const latest = feed[feed.length - 1];
   const paused = s.phase === 'paused';
-  const rematch = () => s.newGame(g.userColor, g.elo, undefined, g.opponentId);
   const earlier = feed.length - 1;
   useTypedBaseline(g.startedAt, feed);
 
@@ -678,7 +685,7 @@ function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; on
           {s.over.gameId > 0 && (
             <button className={s.over.practice ? 'btn-secondary' : 'btn-primary'} onClick={() => push({ name: 'report', gameId: s.over!.gameId })}>Game Review</button>
           )}
-          <button className="btn-secondary" onClick={rematch}>Rematch</button>
+          <button className="btn-secondary" onClick={() => rematch(s)}>Rematch</button>
           <button className="btn-ghost" onClick={s.leaveGame}>New opponent</button>
         </>
       ) : undefined;
@@ -876,14 +883,21 @@ function ClockFace({ side, className = '' }: { side: 'w' | 'b'; className?: stri
   }, [running]);
   if (!g?.clock || !g.timeControl) return null;
   const ms = timeLeft(g.clock, side, over ? (side === 'w' ? 'b' : 'w') : toMove, Date.now());
-  const low = lowTime(ms, g.timeControl) || ms <= 0;
+  const low = lowTime(ms, g.timeControl) || ms < 20_000;
+  const critical = running && ms < 10_000;
+  const tone = low
+    ? running
+      ? 'bg-red-600 text-white shadow-[0_4px_14px_-4px_rgba(220,38,38,0.7)] ring-red-700'
+      : 'bg-red-50 text-red-600 ring-red-200 dark:bg-red-950/50 dark:text-red-400 dark:ring-red-900'
+    : running
+      ? 'bg-stone-900 text-white shadow-[0_4px_14px_-6px_rgba(0,0,0,0.6)] ring-stone-900 dark:bg-stone-50 dark:text-stone-900 dark:ring-white'
+      : 'bg-white/60 text-stone-400 ring-stone-200 dark:bg-white/[0.04] dark:text-stone-500 dark:ring-white/[0.06]';
   return (
     <span
-      className={`rounded-lg px-2 py-0.5 font-mono text-base font-bold tabular-nums ring-1 transition-colors ${
-        low ? 'bg-red-600 text-white ring-red-700' : running ? 'bg-stone-900 text-white ring-stone-900 dark:bg-white dark:text-stone-900' : 'bg-white/70 text-stone-500 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700'
-      } ${low && running ? 'animate-pulse' : ''} ${className}`}
+      className={`inline-flex min-w-[84px] items-center justify-end gap-1.5 rounded-xl px-2.5 py-1 text-[17px] font-bold tracking-tight tabular-nums ring-1 transition-[background-color,color,box-shadow] duration-300 ${tone} ${critical ? 'animate-pulse' : ''} ${className}`}
       aria-label={`${side === g.userColor ? 'Your' : "Opponent's"} clock ${fmtClock(ms)}`}
     >
+      {running && <span className={`h-1.5 w-1.5 rounded-full ${low ? 'bg-white' : 'bg-emerald-400 dark:bg-emerald-600'} animate-pulse`} />}
       {fmtClock(ms)}
     </span>
   );

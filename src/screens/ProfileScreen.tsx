@@ -151,7 +151,7 @@ export function ProfileScreen() {
                 {p.accuracy !== null && <span className="text-xs text-stone-500">average {p.accuracy}%</span>}
               </div>
               {p.accuracyByWeek.length > 1 ? (
-                <LineChart values={p.accuracyByWeek.map((w) => w.accuracy)} labels={[`${p.accuracyByWeek[0].week} wk ago`, 'this week']} color="#3b82f6" height={90} />
+                <LineChart values={p.accuracyByWeek.map((w) => w.accuracy)} labels={[`${p.accuracyByWeek[0].week} wk ago`, 'this week']} color="#3b82f6" height={90} suffix="%" />
               ) : (
                 <p className="text-xs text-stone-500">Play over a couple of weeks to see your trend.</p>
               )}
@@ -194,7 +194,7 @@ export function ProfileScreen() {
             <GapCard />
             <div className="card !p-3">
               <div className="mb-1 text-sm font-semibold text-stone-500">Game accuracy</div>
-              <LineChart values={d.accuracy} color="#3b82f6" />
+              <LineChart values={d.accuracy} color="#3b82f6" suffix="%" />
             </div>
             <div className="card !p-3">
               <div className="mb-1 text-sm font-semibold text-stone-500">Blunders per game (last {d.blunders.length})</div>

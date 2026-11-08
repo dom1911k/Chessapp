@@ -49,6 +49,8 @@ export interface Settings {
   ccAutoSync: boolean;
   /** Set once the 'Standard' sounds became the default (players still on the old default move over). */
   soundsV2: boolean;
+  /** Set once the move strip under the board became the default. */
+  moveStripV1: boolean;
   /** Dots on the squares a selected piece can go to. */
   showLegalMoves: boolean;
   /** Piece animation speed. */
@@ -132,7 +134,7 @@ export const DEFAULT_SETTINGS: Settings = {
   colorPref: 'w',
   safetyOverlay: false,
   showEvalBar: false,
-  showMoveList: false,
+  showMoveList: true,
   pauseOnMistakes: true,
   coachStyle: 'gentle',
   checkBeforeMove: true,
@@ -152,6 +154,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ccUsername: '',
   ccAutoSync: false,
   soundsV2: true,
+  moveStripV1: true,
   showLegalMoves: true,
   moveSpeed: 'normal',
   premoves: true,
@@ -183,6 +186,11 @@ export const useSettings = create<SettingsStore>((set, get) => ({
         if (!saved.soundsV2) {
           if (!saved.soundPack || saved.soundPack === 'wood') saved.soundPack = 'standard';
           saved.soundsV2 = true;
+        }
+        // One-time: the move strip under the board is on by default now.
+        if (!saved.moveStripV1) {
+          saved.showMoveList = true;
+          saved.moveStripV1 = true;
         }
         set({ ...DEFAULT_SETTINGS, ...saved });
       }

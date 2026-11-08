@@ -13,6 +13,12 @@ export async function currentStreak(): Promise<number> {
   return n;
 }
 
+/** Whether anything was trained today (so the streak is safe). */
+export async function trainedToday(): Promise<boolean> {
+  const a = await db.activity.get(today());
+  return !!a && a.puzzles + a.games + a.reviews > 0;
+}
+
 export async function bestStreak(): Promise<number> {
   const days = (await db.activity.toArray()).filter((a) => a.puzzles + a.games + a.reviews > 0).map((a) => a.day).sort();
   let best = 0;
