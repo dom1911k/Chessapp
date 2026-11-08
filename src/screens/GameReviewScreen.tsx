@@ -9,12 +9,15 @@ import { CoachAvatar, Portrait } from '../components/Coach';
 import { Header, Spinner } from '../components/ui';
 import { ReviewIcon } from '../components/ReviewIcon';
 import { ExplainSheet } from '../components/ExplainSheet';
+import { CauseBreakdown, CauseIcon } from '../components/Causes';
+import { CAUSE_INFO, causeTotals, missedChances, mistakeCauses, type MistakeCause } from '../lib/games/causes';
 import { ChessComBadge, TimeStatsCard } from '../components/ChessCom';
 import { useNav } from '../lib/nav';
 import { loadAnyGame } from '../lib/games';
 import { opponentById } from '../lib/people';
 import { formatDate } from '../lib/store/finish';
 import { db } from '../lib/db';
+import { getGameRating } from '../lib/rewards/rating';
 import { formatLine, lineToSan, tryMove, type MoveInput } from '../lib/chess/game';
 import { classify, formatScore, povScore, winPct } from '../lib/chess/evaluation';
 import { shortWords } from '../lib/chess/words';
@@ -73,6 +76,11 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
   );
   const lesson = g.summary.pattern?.theme ?? g.summary.lessonTheme;
   const firstBad = r.plies.findIndex((p, i) => g.plies[i].isUser && isBad(p.cls));
+  const cls = useMemo(() => r.plies.map((x) => x.cls), [r]);
+  const causes = useMemo(() => (pending(g) ? [] : mistakeCauses(g, cls)), [g, cls]);
+  const missed = useMemo(() => (pending(g) ? [] : missedChances(g, cls)), [g, cls]);
+  const totals = causeTotals(causes);
+  const topCause = causes.length ? (Object.keys(CAUSE_INFO) as (keyof typeof CAUSE_INFO)[]).filter((k) => k !== 'fast' && k !== 'timeTrouble').reduce((a, b) => (totals[b] > totals[a] ? b : a)) : null;
   return (
     <div className="flex h-full flex-col">
       <Header title="Game Review" back subtitle={`${resultText} · ${g.reason} · ${formatDate(g.endedAt)}`} />
@@ -150,6 +158,47 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
           </div>
         )}
 
+        {causes.length > 0 && (
+          <>
+            <CauseBreakdown r={{ mistakes: causes.length, totals, top: topCause ? { cause: topCause as MistakeCause['cause'], share: totals[topCause] / causes.length } : null }} />
+            <div className="card !p-0">
+              <div className="px-3 pt-3 pb-1 text-sm font-semibold text-stone-500">Your mistakes, one by one</div>
+              {causes.map((m) => (
+                <button key={m.ply} className="flex w-full items-start gap-2.5 px-3 py-2 text-left text-sm active:bg-stone-100 dark:active:bg-white/5" onClick={() => onStart(m.ply)}>
+                  <ReviewIcon cls={r.plies[m.ply].cls} size={20} className="mt-0.5" />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      {moveNo(g.plies, m.ply)} {g.plies[m.ply].san}
+                      <span className="chip bg-stone-100 !px-2 !text-[11px] text-stone-600 dark:bg-white/[0.06] dark:text-stone-300"><CauseIcon c={m.cause} /> {CAUSE_INFO[m.cause].label}</span>
+                    </span>
+                    <span className="mt-0.5 block text-[13px] leading-snug text-stone-600 dark:text-stone-300">
+                      {m.text}
+                      {m.secs !== undefined && <span className={m.fast || m.timeTrouble ? ' font-semibold text-amber-700 dark:text-amber-400' : ' text-stone-400'}> · {m.secs < 10 ? m.secs.toFixed(1) : Math.round(m.secs)} s{m.timeTrouble ? ', in time trouble' : m.fast ? ', played fast' : ''}</span>}
+                    </span>
+                  </span>
+                  <ChevronRight size={16} className="mt-0.5 text-stone-400" />
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {missed.length > 0 && (
+          <div className="card !p-0">
+            <div className="px-3 pt-3 pb-1 text-sm font-semibold text-stone-500">Missed chances</div>
+            {missed.map((m) => (
+              <button key={m.ply} className="flex w-full items-start gap-2.5 px-3 py-2 text-left text-sm active:bg-stone-100 dark:active:bg-white/5" onClick={() => onStart(m.ply)}>
+                <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-black text-white">!</span>
+                <span className="flex-1 leading-snug">
+                  <b>{moveNo(g.plies, m.ply)} {m.bestSan}</b> would have {m.what.startsWith('mate') ? `forced ${m.what}` : m.what.replace(/^win/, 'won')}
+                  <span className="text-stone-500"> — you played {m.played}</span>
+                </span>
+                <ChevronRight size={16} className="mt-0.5 text-stone-400" />
+              </button>
+            ))}
+          </div>
+        )}
+
         <TimeStatsCard g={g} onPly={onStart} />
 
         {lesson && !pending(g) && (
@@ -185,6 +234,13 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
   const [best, setBest] = useState(false);
   const [retry, setRetry] = useState<Retry | null>(null);
   const [explain, setExplain] = useState(false);
+  const causeAt = useMemo(() => new Map(mistakeCauses(g, r.plies.map((x) => x.cls)).map((c) => [c.ply, c])), [g, r]);
+  const [myRating, setMyRating] = useState<number | null>(null);
+  const history = useMemo(() => [g.startFen, ...g.plies.slice(0, Math.max(0, i)).map((q) => q.fenAfter)], [g, i]);
+  useEffect(() => {
+    if (g.source === 'chess.com') setMyRating((g as ImportedGame).myRating || null);
+    else void getGameRating().then((x) => setMyRating(x.rating));
+  }, [g]);
   const strip = useRef<HTMLDivElement>(null);
   const n = g.plies.length;
   const p = i >= 0 ? g.plies[i] : null;
@@ -277,7 +333,7 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
           <div className="mx-3 flex h-[156px] shrink-0 gap-2.5 overflow-hidden">
             <CoachAvatar mood={rp && isBad(rp.cls) && p?.isUser ? 'concerned' : 'happy'} size={38} />
             <div className="card min-w-0 flex-1 overflow-y-auto !rounded-[18px] !rounded-tl-md !p-3 text-[14.5px] leading-snug">
-              <CoachText g={g} r={r} i={i} best={best} retry={retry} />
+              <CoachText g={g} r={r} i={i} best={best} retry={retry} cause={causeAt.get(i)} />
             </div>
           </div>
           {/* Actions */}
@@ -307,7 +363,18 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
           </div>
         </div>
       </div>
-      {explain && p && rp && <ExplainSheet p={p} cls={rp.cls} isUser={p.isUser} orientation={orientation} onClose={() => setExplain(false)} />}
+      {explain && p && rp && (
+        <ExplainSheet
+          p={p}
+          cls={rp.cls}
+          isUser={p.isUser}
+          orientation={orientation}
+          history={history}
+          rating={p.isUser ? myRating : g.elo || null}
+          cause={causeAt.get(i)}
+          onClose={() => setExplain(false)}
+        />
+      )}
     </div>
   );
 }
@@ -359,7 +426,7 @@ function SquareIcon({ sq, cls, orientation }: { sq: string; cls: ReviewClass; or
 }
 
 /** Coach Sam on the move being viewed: a one-line verdict, why, and the concrete lines. */
-function CoachText({ g, r, i, best, retry }: { g: AnyGame; r: Review; i: number; best: boolean; retry: Retry | null }) {
+function CoachText({ g, r, i, best, retry, cause }: { g: AnyGame; r: Review; i: number; best: boolean; retry: Retry | null; cause?: MistakeCause }) {
   if (i < 0) {
     return (
       <>
@@ -392,6 +459,12 @@ function CoachText({ g, r, i, best, retry }: { g: AnyGame; r: Review; i: number;
     return (
       <>
         {headline}
+        {cause && (
+          <p className="mt-1 flex flex-wrap items-center gap-1 text-[12.5px] text-stone-600 dark:text-stone-300">
+            <span className="chip bg-stone-100 !px-2 !text-[11px] dark:bg-white/[0.06]"><CauseIcon c={cause.cause} /> {CAUSE_INFO[cause.cause].label}</span>
+            {cause.secs !== undefined && <span className={cause.fast || cause.timeTrouble ? 'font-semibold text-amber-700 dark:text-amber-400' : ''}>{cause.secs < 10 ? cause.secs.toFixed(1) : Math.round(cause.secs)} s{cause.timeTrouble ? ' · time trouble' : cause.fast ? ' · played fast' : ''}</span>}
+          </p>
+        )}
         {rp.cls === 'book' ? (
           <p className="mt-1">{g.opening ? `A known move in the ${g.opening}.` : 'A known opening move.'}</p>
         ) : (

@@ -14,11 +14,15 @@ import { annotateLine, explainInDepth, type DeepExplanation, type ExplainLine } 
 import { parseUci } from '../lib/chess/game';
 import { RC, isBad, type ReviewClass } from '../lib/review';
 import { useNav } from '../lib/nav';
+import { maiaLogits, maiaParams } from '../lib/maia';
+import { difficultyOf, difficultySentence, moveShare, DIFFICULTY_LABEL } from '../lib/coach/difficulty';
+import { CAUSE_INFO, type MistakeCause } from '../lib/games/causes';
+import { CauseIcon } from './Causes';
 import type { PlyRecord } from '../lib/store/types';
 
 const OWNER = 'explain';
 
-export function ExplainSheet({ p, cls, isUser, orientation, onClose }: { p: PlyRecord; cls: ReviewClass; isUser: boolean; orientation: 'white' | 'black'; onClose: () => void }) {
+export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, rating, cause }: { p: PlyRecord; cls: ReviewClass; isUser: boolean; orientation: 'white' | 'black'; onClose: () => void; history?: string[]; rating?: number | null; cause?: MistakeCause }) {
   useBackHandler(onClose, true);
   const push = useNav((s) => s.push);
   const [e, setE] = useState<DeepExplanation | null>(null);
@@ -48,6 +52,24 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose }: { p: PlyR
       eng.cancelAll(OWNER);
     };
   }, [p, cls, isUser]);
+
+  // How hard was it? Maia's estimate of how many players at this rating find each move.
+  const [hard, setHard] = useState<{ best: number; played: number; bestSan: string; same: boolean; rating: number } | null>(null);
+  useEffect(() => {
+    if (!e || !rating || !history?.length) return;
+    let live = true;
+    const best = e.lines.find((l) => l.id === 'best');
+    const bestUci = best?.uci[0] ?? p.uci;
+    const bestSan = best?.san[0] ?? p.san;
+    maiaLogits(history, rating)
+      .then((logits) => {
+        if (live && logits.size) setHard({ best: moveShare(logits, bestUci), played: moveShare(logits, p.uci), bestSan, same: bestUci === p.uci, rating: maiaParams(rating).rating });
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [e, rating, history, p]);
 
   const line: ExplainLine | undefined = e?.lines.find((l) => l.id === lineId);
   const notes = useMemo(() => (line ? annotateLine(line.fen, line.uci, you) : []), [line, you]);
@@ -182,6 +204,39 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose }: { p: PlyR
                   </div>
                   <Swing wpBefore={e.swing.wpBefore} wpAfter={e.swing.wpAfter} before={e.swing.before} after={e.swing.after} you={isUser} />
                 </div>
+                {cause && isUser && (
+                  <section className="card !p-4">
+                    <h3 className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">
+                      <CauseIcon c={cause.cause} /> Why it happened · {CAUSE_INFO[cause.cause].label}
+                    </h3>
+                    <p className="text-[14.5px] leading-snug">{cause.text}</p>
+                    {cause.secs !== undefined && (
+                      <p className={`mt-1 text-[13px] ${cause.fast || cause.timeTrouble ? 'font-semibold text-amber-700 dark:text-amber-400' : 'text-stone-500'}`}>
+                        You spent {cause.secs < 10 ? cause.secs.toFixed(1) : Math.round(cause.secs)} seconds on it{cause.timeTrouble ? ' — with very little time left.' : cause.fast ? ' — a quick safety check would likely have caught it.' : '.'}
+                      </p>
+                    )}
+                    <p className="mt-1.5 text-[13px] text-stone-600 dark:text-stone-300">{CAUSE_INFO[cause.cause].tip}</p>
+                  </section>
+                )}
+                {hard && (
+                  <section className="card !p-4">
+                    <h3 className="mb-1.5 flex items-center justify-between text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">
+                      How hard was it to find?
+                      <span className={`chip !text-[11px] normal-case tracking-normal ${difficultyOf(hard.best) === 'easy' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : difficultyOf(hard.best) === 'moderate' ? 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300' : 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300'}`}>
+                        {DIFFICULTY_LABEL[difficultyOf(hard.best)]}
+                      </span>
+                    </h3>
+                    <div className="mb-2 h-2 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(2, hard.best * 100)}%` }} />
+                    </div>
+                    <ul className="space-y-1 text-[14px] leading-snug">
+                      {difficultySentence({ bestSan: hard.bestSan, bestShare: hard.best, playedSan: p.san, playedShare: hard.played, rating: hard.rating, isUser, same: hard.same }).map((t, i) => (
+                        <li key={i}>{t}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-1.5 text-[11px] text-stone-400">Estimated with Maia, a network trained on millions of human games.</p>
+                  </section>
+                )}
                 {notes.length > 0 && line && (
                   <section className="card !p-4">
                     <h3 className="mb-1.5 text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">Move by move · {line.label}</h3>

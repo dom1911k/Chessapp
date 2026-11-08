@@ -1,6 +1,10 @@
 // My mistakes: every recorded and imported game, the mistake types that come up most, when they
 // happen, whether they're getting rarer, example positions, and practice for each.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { CauseBreakdown } from '../components/Causes';
+import { causeReport } from '../lib/games/causes';
+import { reviewGame } from '../lib/review';
+import { bySource } from '../lib/chesscom/analysis';
 import { ChevronDown, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
 import { Header, Segmented, Spinner } from '../components/ui';
 import { Board } from '../components/Board';
@@ -25,6 +29,12 @@ export function MistakesScreen() {
   const [open, setOpen] = useState<string | null>(null);
   const done = useImport((s) => s.done);
   useEffect(() => void allGames().then(setGames), [done]);
+  const causes = useMemo(() => {
+    if (!games) return null;
+    const since = PERIODS[period] ? Date.now() - PERIODS[period] * 864e5 : 0;
+    const list = bySource(games, src).filter((g) => g.endedAt >= since && (g.source !== 'chess.com' || (g as { analyzed?: boolean }).analyzed));
+    return causeReport(list, (g) => reviewGame(g).plies.map((x) => x.cls));
+  }, [games, src, period]);
   if (!games) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
   const hasImports = games.some((g) => g.source === 'chess.com');
   const r = mistakeReport(games, { src, sinceDays: PERIODS[period] || undefined });
@@ -49,6 +59,7 @@ export function MistakesScreen() {
               </p>
               <p className="text-sm">{THEMES[top.theme].lesson}</p>
             </CoachBubble>
+            {causes && <CauseBreakdown r={causes} title="Why your mistakes happen" />}
             <PhaseBar phases={r.phases} />
             {r.themes.map((t) => (
               <ThemeRow key={t.theme} t={t} total={r.games} max={maxShare} open={open === t.theme} onToggle={() => setOpen(open === t.theme ? null : t.theme)} />
