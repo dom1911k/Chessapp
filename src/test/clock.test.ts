@@ -7,6 +7,22 @@ import type { PlyRecord } from '../lib/store/types';
 import type { Color } from '../lib/chess/pos';
 import type { Puzzle } from '../lib/puzzles/types';
 
+/** Seeded random numbers (mulberry32), so the statistics below are stable. */
+function seeded(seed: number) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const sample = (o: Parameters<typeof humanThinkMs>[0], n = 4000) => {
+  const rng = seeded(7);
+  return Array.from({ length: n }, () => humanThinkMs(o, rng));
+};
+const pct = (xs: number[], q: number) => [...xs].sort((a, b) => a - b)[Math.floor(q * (xs.length - 1))];
+const share = (xs: number[], f: (x: number) => boolean) => xs.filter(f).length / xs.length;
+
 describe('chess clock', () => {
   it('offers the six time controls and runs the side to move, with increment', () => {
     expect(TIME_CONTROLS).toEqual(['180+2', '300+0', '600+0', '600+5', '900+10', '1800+0']);
@@ -32,17 +48,34 @@ describe('chess clock', () => {
     expect(flagResult('4k3/8/8/8/8/8/8/R3K3 w - - 0 1', 'w')).toEqual({ result: '1/2-1/2', reason: 'time vs insufficient material' });
     expect(flagResult('4k3/8/8/8/8/8/8/2N1K3 b - - 0 1', 'b').result).toBe('1/2-1/2');
   });
-  it('human-like thinking: quick in the opening and when low, longer in complex positions', () => {
-    const o = { moveNo: 20, sensible: 4, leftMs: 300000, tc: '600+0' };
-    const mid = humanThinkMs(o, 0.5);
-    expect(humanThinkMs({ ...o, moveNo: 3 }, 0.5)).toBeLessThan(mid);
-    expect(humanThinkMs({ ...o, book: true }, 0.5)).toBeLessThan(mid);
-    expect(humanThinkMs({ ...o, sensible: 1 }, 0.5)).toBeLessThan(mid);
-    expect(humanThinkMs({ ...o, sensible: 6 }, 0.5)).toBeGreaterThan(mid);
-    expect(humanThinkMs({ ...o, leftMs: 20000 }, 0.5)).toBeLessThan(mid / 3);
-    // Never more than a fifth of what's left, never instant.
-    expect(humanThinkMs({ ...o, leftMs: 5000, sensible: 6 }, 1)).toBeLessThanOrEqual(1000);
-    expect(humanThinkMs({ ...o, moveNo: 1, book: true }, 0)).toBeGreaterThanOrEqual(350);
+  it('human-like thinking: varied, with instinctive moves and occasional long thinks', () => {
+    const o = { moveNo: 20, sensible: 4, leftMs: 400000, tc: '600+0' };
+    const t = sample(o);
+    // Right-skewed like real think times: a real share of quick moves, and a long tail.
+    expect(share(t, (x) => x < 1500)).toBeGreaterThan(0.1);
+    expect(pct(t, 0.9) / pct(t, 0.5)).toBeGreaterThan(2.2);
+    expect(Math.max(...t)).toBeGreaterThan(4 * pct(t, 0.5));
+    // Openings, book moves and forced moves come quickly.
+    expect(pct(sample({ ...o, moveNo: 3 }), 0.5)).toBeLessThan(pct(t, 0.5));
+    expect(pct(sample({ ...o, book: true }), 0.5)).toBeLessThan(1500);
+    expect(pct(sample({ ...o, forced: true }), 0.8)).toBeLessThan(1500);
+    // More sensible options, longer thinks.
+    expect(pct(sample({ ...o, sensible: 6 }), 0.5)).toBeGreaterThan(pct(sample({ ...o, sensible: 2 }), 0.5));
+  });
+  it('speeds up steadily under three minutes, with the odd longer think in between', () => {
+    const at = (leftMs: number) => sample({ moveNo: 30, sensible: 4, leftMs, tc: '600+0' });
+    const m = [400000, 170000, 90000, 40000, 12000].map((l) => pct(at(l), 0.5));
+    for (let i = 1; i < m.length; i++) expect(m[i]).toBeLessThan(m[i - 1]);
+    const low = at(60000);
+    expect(Math.max(...low)).toBeGreaterThan(3 * pct(low, 0.5));
+    // In the last seconds: mostly bang-bang moves, never more than a tenth of what's left.
+    const last = at(10000);
+    expect(pct(last, 0.8)).toBeLessThan(1000);
+    expect(Math.max(...last)).toBeLessThanOrEqual(1000);
+  });
+  it('stays within bounds', () => {
+    for (const x of sample({ moveNo: 25, sensible: 6, leftMs: 900000, tc: '1800+0' })) expect(x).toBeLessThanOrEqual(60000);
+    for (const x of sample({ moveNo: 1, sensible: 1, leftMs: 180000, tc: '180+2', book: true })) expect(x).toBeGreaterThanOrEqual(300);
   });
   it('sensible moves = Maia moves with at least 5% probability', () => {
     expect(sensibleMoves(new Map([['e2e4', 3], ['d2d4', 2.8], ['a2a3', -3]]))).toBe(2);
