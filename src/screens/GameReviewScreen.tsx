@@ -2,12 +2,13 @@
 // move classes, phases, key moments), then a steady step-through: eval bar + board, a move strip,
 // a fixed-size coach panel, Best / Retry / Next, and the arrows at the bottom.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, Sparkles, TriangleAlert, Lightbulb } from 'lucide-react';
+import { FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, Sparkles, TriangleAlert, Lightbulb, MessageCircleQuestion } from 'lucide-react';
 import { Board } from '../components/Board';
 import { EvalGraph } from '../components/Charts';
 import { CoachAvatar, Portrait } from '../components/Coach';
 import { Header, Spinner } from '../components/ui';
 import { ReviewIcon } from '../components/ReviewIcon';
+import { ExplainSheet } from '../components/ExplainSheet';
 import { ChessComBadge, TimeStatsCard } from '../components/ChessCom';
 import { useNav } from '../lib/nav';
 import { loadAnyGame } from '../lib/games';
@@ -183,6 +184,7 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
   const [i, setI] = useState(start);
   const [best, setBest] = useState(false);
   const [retry, setRetry] = useState<Retry | null>(null);
+  const [explain, setExplain] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
   const n = g.plies.length;
   const p = i >= 0 ? g.plies[i] : null;
@@ -279,15 +281,16 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
             </div>
           </div>
           {/* Actions */}
-          <div className="mx-3 mt-2 grid shrink-0 grid-cols-3 gap-1.5">
-            <ActionButton icon={<Lightbulb size={16} />} label={best ? 'Hide best' : 'Best'} disabled={!canBest || !!retry} onClick={() => setBest(!best)} />
+          <div className="mx-3 mt-2 grid shrink-0 grid-cols-4 gap-1.5">
+            <ActionButton icon={<MessageCircleQuestion size={16} />} label="Explain" disabled={!p || !rp || !!retry} onClick={() => setExplain(true)} highlight={!!rp && isBad(rp.cls)} />
+            <ActionButton icon={<Lightbulb size={16} />} label={best ? 'Hide' : 'Best'} disabled={!canBest || !!retry} onClick={() => setBest(!best)} />
             <ActionButton
               icon={<RotateCcw size={16} />}
               label={retry ? 'Stop' : 'Retry'}
               disabled={!canRetry}
               onClick={() => (retry ? setRetry(null) : (setBest(false), setRetry({ state: 'try', fen: p!.fenBefore })))}
             />
-            <ActionButton icon={<TriangleAlert size={16} />} label="Next mistake" disabled={!g.plies.some((q, k) => k > i && q.isUser && isBad(r.plies[k].cls))} onClick={nextBad} />
+            <ActionButton icon={<TriangleAlert size={16} />} label="Next" disabled={!g.plies.some((q, k) => k > i && q.isUser && isBad(r.plies[k].cls))} onClick={nextBad} />
           </div>
           <div className="mx-3 mt-2 shrink-0">
             <EvalGraph plies={g.plies} current={i} onSelect={go} height={44} />
@@ -304,13 +307,14 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
           </div>
         </div>
       </div>
+      {explain && p && rp && <ExplainSheet p={p} cls={rp.cls} isUser={p.isUser} orientation={orientation} onClose={() => setExplain(false)} />}
     </div>
   );
 }
 
-function ActionButton({ icon, label, onClick, disabled }: { icon: ReactNode; label: string; onClick: () => void; disabled?: boolean }) {
+function ActionButton({ icon, label, onClick, disabled, highlight }: { icon: ReactNode; label: string; onClick: () => void; disabled?: boolean; highlight?: boolean }) {
   return (
-    <button disabled={disabled} onClick={onClick} className="btn-secondary !px-1 !py-2 text-sm disabled:opacity-35">
+    <button disabled={disabled} onClick={onClick} className={`${highlight ? 'btn-primary' : 'btn-secondary'} !gap-1 !px-1 !py-2 text-sm disabled:opacity-35`}>
       {icon} {label}
     </button>
   );
