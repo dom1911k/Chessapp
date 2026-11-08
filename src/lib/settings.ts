@@ -51,6 +51,8 @@ export interface Settings {
   soundsV2: boolean;
   /** Set once the move strip under the board became the default. */
   moveStripV1: boolean;
+  /** Set once chess.com sync on opening the app became the default. */
+  ccSyncV1: boolean;
   /** Dots on the squares a selected piece can go to. */
   showLegalMoves: boolean;
   /** Piece animation speed. */
@@ -152,9 +154,10 @@ export const DEFAULT_SETTINGS: Settings = {
   reminderEnabled: false,
   reminderTime: '18:00',
   ccUsername: '',
-  ccAutoSync: false,
+  ccAutoSync: true,
   soundsV2: true,
   moveStripV1: true,
+  ccSyncV1: true,
   showLegalMoves: true,
   moveSpeed: 'normal',
   premoves: true,
@@ -188,6 +191,11 @@ export const useSettings = create<SettingsStore>((set, get) => ({
           saved.soundsV2 = true;
         }
         // One-time: the move strip under the board is on by default now.
+        // One-time: chess.com games sync automatically when the app opens.
+        if (!saved.ccSyncV1) {
+          saved.ccAutoSync = true;
+          saved.ccSyncV1 = true;
+        }
         if (!saved.moveStripV1) {
           saved.showMoveList = true;
           saved.moveStripV1 = true;

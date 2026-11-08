@@ -174,16 +174,30 @@ export const useImport = create<ImportStore>((set, get) => ({
 }));
 
 /** App start: count imports, sync if asked to (and online), resume analysis; stop in the background. */
+/** Coming back to the app syncs again only after this long (so switching apps doesn't refetch). */
+export const RESYNC_MS = 10 * 60_000;
+let lastAutoSync = 0;
+
+/** Sync with chess.com if it's switched on, a username is set, we're online and it's been a while. */
+export function shouldAutoSync(s: { ccUsername: string; ccAutoSync: boolean }, online: boolean, now: number, last: number): boolean {
+  return !!s.ccUsername.trim() && s.ccAutoSync && online && now - last >= RESYNC_MS;
+}
+
+function autoSyncOrAnalyze() {
+  const now = Date.now();
+  if (shouldAutoSync(useSettings.getState(), navigator.onLine !== false, now, lastAutoSync)) {
+    lastAutoSync = now;
+    void useImport.getState().sync();
+  } else useImport.getState().analyze();
+}
+
 export function startImports() {
   const st = useImport.getState();
-  void st.refresh().then(() => {
-    const s = useSettings.getState();
-    if (s.ccUsername && s.ccAutoSync && navigator.onLine !== false) void useImport.getState().sync();
-    else useImport.getState().analyze();
-  });
-  const onVisible = () => (document.visibilityState === 'hidden' ? useImport.getState().stop() : useImport.getState().analyze());
-  document.addEventListener('visibilitychange', onVisible);
-  if (Capacitor.isNativePlatform()) void CapApp.addListener('appStateChange', ({ isActive }) => (isActive ? useImport.getState().analyze() : useImport.getState().stop()));
+  void st.refresh().then(autoSyncOrAnalyze);
+  // Back in the app: sync again (if it's been a while), otherwise just resume the analysis.
+  const onActive = (active: boolean) => (active ? autoSyncOrAnalyze() : useImport.getState().stop());
+  if (Capacitor.isNativePlatform()) void CapApp.addListener('appStateChange', ({ isActive }) => onActive(isActive));
+  else document.addEventListener('visibilitychange', () => onActive(document.visibilityState !== 'hidden'));
 }
 
 /** Forget every imported game (and its review cards). */

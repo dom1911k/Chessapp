@@ -87,7 +87,7 @@ export function ChessComCard() {
         </button>
       </div>
       {name && !ok && <p className="text-xs text-red-600">Usernames have 3–25 letters, digits, "_" or "-".</p>}
-      <Toggle checked={s.ccAutoSync} onChange={(v) => s.set({ ccAutoSync: v })} label="Sync when the app opens (only when online)" />
+      <Toggle checked={s.ccAutoSync} onChange={(v) => s.set({ ccAutoSync: v })} label="Sync automatically when you open the app (only when online)" />
       {imp.error && (
         <p className="flex items-start gap-1.5 text-sm text-red-600">
           <TriangleAlert size={15} className="mt-0.5 shrink-0" /> {imp.error}

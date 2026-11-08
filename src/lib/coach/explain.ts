@@ -5,7 +5,7 @@
 // returns the lines so the screen can play them out on a board. Pure: no engine calls in here.
 import { Chess } from 'chess.js';
 import { parseUci } from '../chess/game';
-import { applyUci, hangingPieces, parseFen, PIECE_NAME, sqName, VALUE, type Color, type PieceType } from '../chess/pos';
+import { applyUci, hangingPieces, materialBalance, other, parseFen, PIECE_NAME, sqName, VALUE, type Color, type PieceType } from '../chess/pos';
 import { formatScore, povScore, scoreToCp, winPct, type Score } from '../chess/evaluation';
 import { moveWords } from '../chess/words';
 import type { AnalysisResult } from '../engine/types';
@@ -304,7 +304,7 @@ export function explainInDepth(o: ExplainInput): DeepExplanation {
     const playedLine = [uci, ...reply].slice(0, 9);
     lines.push({
       id: 'played',
-      label: bad ? `After ${san}` : `${san} →`,
+      label: bad ? (isUser ? `After ${san}` : `Punish ${san}`) : `${san} →`,
       fen: fenBefore,
       uci: playedLine,
       san: sanLine(fenBefore, playedLine),
@@ -337,3 +337,101 @@ export function explainInDepth(o: ExplainInput): DeepExplanation {
   };
 }
 
+
+export interface LineNote {
+  san: string;
+  /** "3… Qxg5" */
+  label: string;
+  who: 'you' | 'they';
+  /** One to three sentences on what this move does and what it means. */
+  text: string;
+  /** Material from your side, relative to the start of the line (in pawns; +3 = a piece up). */
+  material: number;
+  tags: ('check' | 'mate' | 'capture' | 'tactic' | 'threat' | 'defence')[];
+}
+
+const MATERIAL_WORD = (n: number) => {
+  const a = Math.abs(n);
+  const what = a >= 9 ? 'a queen' : a >= 5 ? 'a rook' : a === 4 ? 'a piece and a pawn' : a === 3 ? 'a piece' : a === 2 ? 'two pawns' : 'a pawn';
+  return n > 0 ? `you’re ${what} up` : `you’re ${what} down`;
+};
+
+/**
+ * Move-by-move commentary on a line (chess.com's "follow-up"): who plays what, the tactic it uses,
+ * what it attacks now, whether it saves a piece, check and mate, and how material stands for you
+ * after each move. `you` is the reader's colour.
+ */
+export function annotateLine(fen: string, line: string[], you: Color): LineNote[] {
+  const c = new Chess(fen);
+  const start = materialBalance(parseFen(fen).board, you);
+  let lastMaterial = 0;
+  const notes: LineNote[] = [];
+  const parts = fen.split(' ');
+  let no = Number(parts[5] ?? 1);
+  for (const uci of line) {
+    const fenBefore = c.fen();
+    const mover = c.turn() as Color;
+    const who: 'you' | 'they' = mover === you ? 'you' : 'they';
+    let m;
+    try {
+      m = c.move(parseUci(uci));
+    } catch {
+      break;
+    }
+    const label = mover === 'w' ? `${no}. ${m.san}` : `${no}… ${m.san}`;
+    if (mover === 'b') no++;
+    const tags: LineNote['tags'] = [];
+    const sentences: string[] = [];
+    const Subj = who === 'you' ? 'You' : 'They';
+    sentences.push(`${Subj} ${moveWords(fenBefore, uci, who, 'inf', false)}.`);
+    if (m.captured) tags.push('capture');
+
+    if (c.isCheckmate()) {
+      tags.push('mate');
+      sentences.push(who === 'you' ? 'Checkmate — you win.' : 'Checkmate.');
+    } else {
+      const motifs = moveMotifs(fenBefore, uci);
+      const tactic = bestMotif(fenBefore, uci, who);
+      if (tactic && tactic.theme !== 'material' && tactic.theme !== 'hangingPiece' && tactic.theme !== 'mateIn1') {
+        tags.push('tactic');
+        sentences.push(`It ${tactic.text}.`);
+      } else if (motifs.some((x) => x.kind === 'freeCapture')) sentences.push('That piece was unprotected — a free win.');
+      const saved = m.captured ? undefined : motifs.find((x) => x.kind === 'escape' || x.kind === 'defend');
+      if (saved && (saved.kind === 'escape' || saved.kind === 'defend')) {
+        tags.push('defence');
+        sentences.push(saved.kind === 'escape' ? `It gets the ${pname(saved.piece)} out of danger.` : `It protects the ${pname(saved.piece)} on ${sqName(saved.sq)}.`);
+      }
+      // What it attacks now (a piece of the other side that can be won), unless a tactic already said so.
+      if (!tags.includes('tactic')) {
+        const boardBefore = parseFen(fenBefore).board;
+        const already = new Set(hangingPieces(boardBefore, other(mover)).map((h) => h.sq));
+        const now = hangingPieces(parseFen(c.fen()).board, other(mover)).filter((h) => !already.has(h.sq) && h.loss >= 1);
+        if (now.length) {
+          const h = now[0];
+          const piece = parseFen(c.fen()).board[h.sq]?.type;
+          tags.push('threat');
+          sentences.push(`Now ${who === 'you' ? 'their' : 'your'} ${pname(piece)} on ${sqName(h.sq)} is under attack${who === 'you' ? '' : ' — it needs to move or be defended'}.`);
+        }
+      }
+      // And what it leaves loose on its own side.
+      {
+        const before = new Set(hangingPieces(parseFen(fenBefore).board, mover).map((h) => h.sq));
+        const loose = hangingPieces(parseFen(c.fen()).board, mover).filter((h) => !before.has(h.sq) && h.loss >= 2);
+        if (loose.length) {
+          const piece = parseFen(c.fen()).board[loose[0].sq]?.type;
+          sentences.push(who === 'you' ? `But your ${pname(piece)} on ${sqName(loose[0].sq)} can now be taken.` : `But it leaves their ${pname(piece)} on ${sqName(loose[0].sq)} loose — you can take it.`);
+        }
+      }
+      if (m.san.includes('+')) {
+        tags.push('check');
+        sentences.push(who === 'you' ? 'Check — they have to deal with it first.' : 'Check — you have to deal with it first.');
+      }
+    }
+    const mat = materialBalance(parseFen(c.fen()).board, you) - start;
+    if (mat !== lastMaterial) sentences.push(mat === 0 ? 'Material is level again.' : `Material: ${MATERIAL_WORD(mat)}.`);
+    lastMaterial = mat;
+    notes.push({ san: m.san, label, who, text: sentences.join(' '), material: mat, tags });
+    if (c.isGameOver()) break;
+  }
+  return notes;
+}

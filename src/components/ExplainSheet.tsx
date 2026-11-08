@@ -1,16 +1,16 @@
 // "Explain this move": a full panel over the Game Review. Coach Sam looks deeper with the engine
 // (several candidate moves before, the best reply after), then explains in plain words what happened,
 // why it was good or bad, what was better and why — with the lines playable on a board.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Chess } from 'chess.js';
-import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, GraduationCap, Microscope, X } from 'lucide-react';
+import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, GraduationCap, Microscope, Pause, Play, X } from 'lucide-react';
 import { Board } from './Board';
 import { CoachAvatar } from './Coach';
 import { ReviewIcon } from './ReviewIcon';
 import { Spinner, useBackHandler } from './ui';
 import { getEngine } from '../lib/engine';
 import { analysisLimits } from '../lib/engine/speed';
-import { explainInDepth, type DeepExplanation, type ExplainLine } from '../lib/coach/explain';
+import { annotateLine, explainInDepth, type DeepExplanation, type ExplainLine } from '../lib/coach/explain';
 import { parseUci } from '../lib/chess/game';
 import { RC, isBad, type ReviewClass } from '../lib/review';
 import { useNav } from '../lib/nav';
@@ -25,6 +25,10 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose }: { p: PlyR
   const [failed, setFailed] = useState(false);
   const [lineId, setLineId] = useState<string>('played');
   const [k, setK] = useState(1);
+  const [playing, setPlaying] = useState(false);
+  // Your colour: the mover's if this was your move, otherwise the other side's.
+  const mover = p.fenBefore.split(' ')[1] as 'w' | 'b';
+  const you = isUser ? mover : mover === 'w' ? 'b' : 'w';
 
   useEffect(() => {
     let live = true;
@@ -46,10 +50,20 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose }: { p: PlyR
   }, [p, cls, isUser]);
 
   const line: ExplainLine | undefined = e?.lines.find((l) => l.id === lineId);
+  const notes = useMemo(() => (line ? annotateLine(line.fen, line.uci, you) : []), [line, you]);
   const pick = (id: string) => {
     setLineId(id);
     setK(1);
+    setPlaying(false);
   };
+  // Auto-play: one move every 1.8 s, stopping at the end of the line.
+  useEffect(() => {
+    if (!playing) return;
+    if (k >= notes.length) return setPlaying(false);
+    const t = setTimeout(() => setK((x) => x + 1), 1800);
+    return () => clearTimeout(t);
+  }, [playing, k, notes.length]);
+  const note = k > 0 ? notes[k - 1] : null;
   // The board position k moves into the selected line.
   const shown = (() => {
     if (!line) return { fen: p.fenAfter, last: { from: p.uci.slice(0, 2), to: p.uci.slice(2, 4) } };
@@ -114,11 +128,34 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose }: { p: PlyR
                     ))}
                   </div>
                 )}
-                <div className="mt-2 grid grid-cols-4 gap-1.5">
-                  <StepBtn label="Start of line" onClick={() => setK(0)} disabled={k <= 0}><ChevronFirst size={20} /></StepBtn>
-                  <StepBtn label="Back" onClick={() => setK(Math.max(0, k - 1))} disabled={k <= 0}><ChevronLeft size={22} /></StepBtn>
-                  <StepBtn label="Forward" onClick={() => setK(Math.min(n, k + 1))} disabled={k >= n} primary><ChevronRight size={22} /></StepBtn>
-                  <StepBtn label="End of line" onClick={() => setK(n)} disabled={k >= n}><ChevronLast size={20} /></StepBtn>
+                <div className="mt-2 grid grid-cols-5 gap-1.5">
+                  <StepBtn label="Start of line" onClick={() => (setPlaying(false), setK(0))} disabled={k <= 0}><ChevronFirst size={20} /></StepBtn>
+                  <StepBtn label="Back" onClick={() => (setPlaying(false), setK(Math.max(0, k - 1)))} disabled={k <= 0}><ChevronLeft size={22} /></StepBtn>
+                  <StepBtn label={playing ? 'Pause' : 'Play the line'} onClick={() => (k >= n ? (setK(0), setPlaying(true)) : setPlaying(!playing))}>{playing ? <Pause size={19} /> : <Play size={19} />}</StepBtn>
+                  <StepBtn label="Forward" onClick={() => (setPlaying(false), setK(Math.min(n, k + 1)))} disabled={k >= n} primary><ChevronRight size={22} /></StepBtn>
+                  <StepBtn label="End of line" onClick={() => (setPlaying(false), setK(n))} disabled={k >= n}><ChevronLast size={20} /></StepBtn>
+                </div>
+                {/* Commentary on the move shown, like chess.com's follow-up. */}
+                <div key={`${lineId}:${k}`} className="animate-pop card mt-2 min-h-[86px] !p-3">
+                  {note ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm font-bold ${note.who === 'you' ? 'text-brand-700 dark:text-brand-500' : 'text-stone-700 dark:text-stone-200'}`}>
+                          {note.label} <span className="font-semibold text-stone-400">· {note.who === 'you' ? 'you' : 'them'}</span>
+                        </span>
+                        {note.material !== 0 && (
+                          <span className={`chip tabular-nums ${note.material > 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'}`}>
+                            {note.material > 0 ? '+' : '−'}{Math.abs(note.material)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[14px] leading-snug">{note.text}</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-stone-500">
+                      {line?.id === 'played' ? 'The position before the move. ' : 'Start of the line. '}Tap <b>▶</b> to play it out move by move, with an explanation of each move.
+                    </p>
+                  )}
                 </div>
               </>
             )}
@@ -145,6 +182,23 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose }: { p: PlyR
                   </div>
                   <Swing wpBefore={e.swing.wpBefore} wpAfter={e.swing.wpAfter} before={e.swing.before} after={e.swing.after} you={isUser} />
                 </div>
+                {notes.length > 0 && line && (
+                  <section className="card !p-4">
+                    <h3 className="mb-1.5 text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">Move by move · {line.label}</h3>
+                    <ol className="space-y-1">
+                      {notes.map((x, i) => (
+                        <li key={i}>
+                          <button
+                            onClick={() => (setPlaying(false), setK(i + 1))}
+                            className={`w-full rounded-lg px-2 py-1 text-left text-[13.5px] leading-snug transition-colors ${i + 1 === k ? 'bg-brand-50 ring-1 ring-brand-500/40 dark:bg-brand-500/10' : 'active:bg-stone-100 dark:active:bg-white/5'}`}
+                          >
+                            <b className={x.who === 'you' ? 'text-brand-700 dark:text-brand-500' : ''}>{x.label}</b> {x.text}
+                          </button>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                )}
                 {e.sections.map((s) => (
                   <section key={s.title} className={`card !p-4 ${s.title === 'Remember' ? '!bg-amber-50 !ring-amber-200 dark:!bg-amber-950/30 dark:!ring-amber-900/50' : ''}`}>
                     <h3 className="mb-1.5 text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">{s.title}</h3>

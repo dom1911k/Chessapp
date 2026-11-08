@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { explainInDepth, numbered, standing } from '../lib/coach/explain';
+import { annotateLine, explainInDepth, numbered, standing } from '../lib/coach/explain';
 import type { AnalysisResult } from '../lib/engine/types';
 
 const res = (fen: string, lines: [string[], number | { mate: number }][]): AnalysisResult => ({
@@ -71,5 +71,28 @@ describe('helpers', () => {
     expect(standing({ type: 'cp', value: 250 }, 'w')).toBe('clearly better (+2.5)');
     expect(standing({ type: 'cp', value: 250 }, 'b')).toBe('clearly worse (-2.5)');
     expect(standing({ type: 'mate', value: 3 }, 'w')).toBe('a forced mate in 3');
+  });
+});
+
+describe('annotateLine (move-by-move follow-up)', () => {
+  it('narrates a blunder and its punishment, with material', () => {
+    const F = 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3';
+    const n = annotateLine(F, ['f3g5', 'd8g5', 'd2d4'], 'w');
+    expect(n.map((x) => x.label)).toEqual(['3. Ng5', '3… Qxg5', '4. d4']);
+    expect(n[0].text).toMatch(/your knight on g5 can now be taken/);
+    expect(n[1]).toMatchObject({ who: 'they', material: -3 });
+    expect(n[1].text).toMatch(/They take your knight on g5 with their queen.*you’re a piece down/);
+    expect(n[2].text).toMatch(/uncovers an attack by the bishop on their queen/);
+  });
+  it('explains how to capitalise: a fork that wins a rook', () => {
+    const n = annotateLine('r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1', ['d5c7', 'e8d7', 'c7a8'], 'w');
+    expect(n[0].text).toMatch(/fork of their king on e8 and their rook on a8.*Check/);
+    expect(n[2]).toMatchObject({ material: 5 });
+    expect(n[2].text).toMatch(/you’re a rook up/);
+  });
+  it('ends at checkmate', () => {
+    const n = annotateLine('rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2', ['d8h4', 'a2a3'], 'b');
+    expect(n).toHaveLength(1);
+    expect(n[0].text).toMatch(/Checkmate — you win/);
   });
 });
