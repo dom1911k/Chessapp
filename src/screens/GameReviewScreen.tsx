@@ -71,9 +71,6 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
   const push = useNav((s) => s.push);
   const meWhite = g.userColor === 'w';
   const resultText = g.userResult === 'win' ? 'You won' : g.userResult === 'loss' ? 'You lost' : 'Draw';
-  const accBox = (acc: number, white: boolean) => (
-    <span className={`rounded-lg px-3 py-1.5 text-xl font-black tabular-nums ${white ? 'bg-white text-stone-900 ring-1 ring-stone-300' : 'bg-stone-800 text-white'}`}>{acc.toFixed(1)}</span>
-  );
   const lesson = g.summary.pattern?.theme ?? g.summary.lessonTheme;
   const firstBad = r.plies.findIndex((p, i) => g.plies[i].isUser && isBad(p.cls));
   const cls = useMemo(() => r.plies.map((x) => x.cls), [r]);
@@ -81,56 +78,47 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
   const missed = useMemo(() => (pending(g) ? [] : missedChances(g, cls)), [g, cls]);
   const totals = causeTotals(causes);
   const topCause = causes.length ? (Object.keys(CAUSE_INFO) as (keyof typeof CAUSE_INFO)[]).filter((k) => k !== 'fast' && k !== 'timeTrouble').reduce((a, b) => (totals[b] > totals[a] ? b : a)) : null;
+  const [allRows, setAllRows] = useState(false);
+  const rows = REVIEW_ORDER.filter((c) => allRows || r.me.counts[c] + r.them.counts[c] > 0);
+  const resultTone = g.userResult === 'win' ? 'bg-emerald-600 text-white' : g.userResult === 'loss' ? 'bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-900' : 'bg-stone-400 text-white';
+  const accNum = (acc: number, white: boolean) => (
+    <span className={`font-display inline-flex min-w-[78px] justify-center rounded-xl px-3 py-1.5 text-[26px] leading-none font-semibold tabular-nums ${white ? 'bg-white text-stone-900 shadow-sm ring-1 ring-stone-200 dark:ring-transparent' : 'bg-stone-900 text-white ring-1 ring-stone-900 dark:bg-black/40 dark:ring-white/10'}`}>
+      {acc.toFixed(1)}
+    </span>
+  );
   return (
     <div className="flex h-full flex-col">
-      <Header title="Game Review" back subtitle={`${resultText} · ${g.reason} · ${formatDate(g.endedAt)}`} />
-      <div className="mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto p-4 pb-28">
-        <div className="flex items-start gap-2.5">
-          <CoachAvatar mood={g.userResult === 'loss' ? 'concerned' : 'happy'} size={42} />
-          <div className="card flex-1 !rounded-[20px] !rounded-tl-md !p-3.5 text-[15px] leading-snug">
-            {pending(g) ? <p>I haven't analysed this chess.com game yet — it's in the queue. You can already step through the moves.</p> : r.summary.map((s, i) => <p key={i} className={i ? 'mt-1.5' : ''}>{s}</p>)}
+      <Header title="Game Review" back subtitle={`vs ${oppName(g)} · ${formatDate(g.endedAt)}`} />
+      <div className="mx-auto w-full max-w-xl flex-1 space-y-5 overflow-y-auto p-4 pb-28">
+        {/* Hero: result, players and accuracy, and Coach Sam's take */}
+        <div className="card overflow-hidden !p-0">
+          <div className="flex items-center justify-center gap-2 pt-3.5">
+            <span className={`chip !px-3 !py-1 text-[13px] ${resultTone}`}>{resultText}</span>
+            <span className="text-[13px] text-stone-500">by {g.reason}</span>
+            {g.source === 'chess.com' && <ChessComBadge />}
+            {g.match && <span className="chip bg-brand-100 text-[10px] text-brand-700 dark:bg-brand-500/20 dark:text-brand-100">Match</span>}
+          </div>
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pt-3 pb-4">
+            <div className="flex flex-col items-center gap-2">
+              <PlayerChip g={g} me />
+              {!pending(g) && accNum(r.me.accuracy, meWhite)}
+            </div>
+            <span className="text-[11px] font-semibold tracking-wider text-stone-400 uppercase">{pending(g) ? 'vs' : 'Accuracy'}</span>
+            <div className="flex flex-col items-center gap-2">
+              <PlayerChip g={g} me={false} />
+              {!pending(g) && accNum(r.them.accuracy, !meWhite)}
+            </div>
+          </div>
+          <div className="flex gap-3 border-t border-stone-100 bg-stone-50/70 px-4 py-3.5 dark:border-white/[0.06] dark:bg-white/[0.02]">
+            <CoachAvatar mood={g.userResult === 'loss' ? 'concerned' : 'happy'} size={36} />
+            <div className="min-w-0 flex-1 text-[14.5px] leading-snug">
+              {pending(g) ? <p>I haven't analysed this chess.com game yet — it's in the queue. You can already step through the moves.</p> : r.summary.map((t, i) => <p key={i} className={i ? 'mt-1.5' : ''}>{t}</p>)}
+            </div>
           </div>
         </div>
 
-        {!pending(g) && (
-          <div className="card !p-3">
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-              <PlayerChip g={g} me />
-              <span className="text-xs font-semibold text-stone-400">
-                {g.source === 'chess.com' && <ChessComBadge />}
-                {g.match && <span className="chip bg-brand-100 text-[10px] text-brand-700">Match</span>}
-              </span>
-              <PlayerChip g={g} me={false} />
-              <span className="flex justify-center">{accBox(r.me.accuracy, meWhite)}</span>
-              <span className="text-center text-[11px] text-stone-500">Accuracy</span>
-              <span className="flex justify-center">{accBox(r.them.accuracy, !meWhite)}</span>
-            </div>
-            <div className="mt-3 divide-y divide-stone-100 dark:divide-stone-800">
-              {REVIEW_ORDER.map((c) => (
-                <div key={c} className="grid grid-cols-[1fr_auto_1fr] items-center py-1 text-sm">
-                  <span className="text-center font-bold tabular-nums" style={{ color: r.me.counts[c] ? RC[c].color : undefined, opacity: r.me.counts[c] ? 1 : 0.3 }}>{r.me.counts[c]}</span>
-                  <span className="flex w-32 items-center gap-2">
-                    <ReviewIcon cls={c} size={20} />
-                    <span className={r.me.counts[c] + r.them.counts[c] ? '' : 'text-stone-400'}>{RC[c].label}</span>
-                  </span>
-                  <span className="text-center font-bold tabular-nums" style={{ color: r.them.counts[c] ? RC[c].color : undefined, opacity: r.them.counts[c] ? 1 : 0.3 }}>{r.them.counts[c]}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-2 border-t border-stone-100 pt-2 dark:border-stone-800">
-              {PHASES.map((ph) => (
-                <div key={ph} className="grid grid-cols-[1fr_auto_1fr] items-center py-1 text-sm">
-                  <span className="flex justify-center">{r.me.phases[ph] ? <ReviewIcon cls={r.me.phases[ph]!.cls} size={22} /> : <span className="text-stone-300">–</span>}</span>
-                  <span className="w-32 capitalize">{ph}</span>
-                  <span className="flex justify-center">{r.them.phases[ph] ? <ReviewIcon cls={r.them.phases[ph]!.cls} size={22} /> : <span className="text-stone-300">–</span>}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {trap && (
-          <div className="card flex items-center gap-3 border-l-4 border-red-500 !p-3">
+          <div className="card flex items-center gap-3 !p-3.5 ring-2 !ring-red-400/60">
             <span className="flex-1 text-sm">
               <b>Lost to a known trap: {trapById(trap)!.name}.</b> It's in your daily reviews now.
             </span>
@@ -139,70 +127,103 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
         )}
 
         {!pending(g) && (
-          <div className="card !p-3">
-            <div className="mb-1.5 text-sm font-semibold text-stone-500">Evaluation</div>
-            <EvalGraph plies={g.plies} onSelect={onStart} />
-          </div>
+          <Sec title="Moves">
+            <div className="card !px-3 !py-2">
+              <div className="divide-y divide-stone-100 dark:divide-white/[0.05]">
+                {rows.map((c) => (
+                  <div key={c} className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center py-1.5 text-[14px]">
+                    <span className="text-center font-bold tabular-nums" style={{ color: r.me.counts[c] ? RC[c].color : undefined, opacity: r.me.counts[c] ? 1 : 0.25 }}>{r.me.counts[c]}</span>
+                    <span className="flex items-center justify-center gap-2">
+                      <ReviewIcon cls={c} size={18} />
+                      <span className="w-24">{RC[c].label}</span>
+                    </span>
+                    <span className="text-center font-bold tabular-nums" style={{ color: r.them.counts[c] ? RC[c].color : undefined, opacity: r.them.counts[c] ? 1 : 0.25 }}>{r.them.counts[c]}</span>
+                  </div>
+                ))}
+              </div>
+              {rows.length < REVIEW_ORDER.length || allRows ? (
+                <button className="mt-1 w-full py-1.5 text-xs font-semibold text-stone-500 active:text-stone-800" onClick={() => setAllRows(!allRows)}>
+                  {allRows ? 'Show fewer' : 'Show all move types'}
+                </button>
+              ) : null}
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {PHASES.map((ph) => (
+                <div key={ph} className="card flex flex-col items-center gap-1 !px-2 !py-2.5">
+                  <span className="text-[11px] font-semibold tracking-wide text-stone-500 capitalize">{ph}</span>
+                  <span className="flex items-center gap-2">
+                    {r.me.phases[ph] ? <ReviewIcon cls={r.me.phases[ph]!.cls} size={22} /> : <span className="w-[22px] text-center text-stone-300">–</span>}
+                    <span className="text-[10px] text-stone-400">vs</span>
+                    {r.them.phases[ph] ? <ReviewIcon cls={r.them.phases[ph]!.cls} size={18} className="opacity-70" /> : <span className="w-[18px] text-center text-stone-300">–</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Sec>
+        )}
+
+        {!pending(g) && (
+          <Sec title="Evaluation">
+            <div className="card !p-3">
+              <EvalGraph plies={g.plies} onSelect={onStart} />
+            </div>
+          </Sec>
         )}
 
         {r.moments.length > 0 && (
-          <div className="card !p-3">
-            <div className="mb-1 text-sm font-semibold text-stone-500">Key moments</div>
-            {r.moments.map((m) => (
-              <button key={m.ply} className="flex w-full items-start gap-2.5 py-1.5 text-left text-sm" onClick={() => onStart(m.ply)}>
-                <ReviewIcon cls={r.plies[m.ply].cls} size={20} className="mt-0.5" />
-                <span className="flex-1">{m.text}</span>
-                <ChevronRight size={16} className="mt-0.5 text-stone-400" />
-              </button>
-            ))}
-          </div>
+          <Sec title="Key moments">
+            <div className="card divide-y divide-stone-100 !p-0 dark:divide-white/[0.05]">
+              {r.moments.map((m) => (
+                <Row key={m.ply} onClick={() => onStart(m.ply)} icon={<ReviewIcon cls={r.plies[m.ply].cls} size={20} />}>
+                  {m.text}
+                </Row>
+              ))}
+            </div>
+          </Sec>
         )}
 
         {causes.length > 0 && (
-          <>
-            <CauseBreakdown r={{ mistakes: causes.length, totals, top: topCause ? { cause: topCause as MistakeCause['cause'], share: totals[topCause] / causes.length } : null }} />
+          <Sec title="Your mistakes">
             <div className="card !p-0">
-              <div className="px-3 pt-3 pb-1 text-sm font-semibold text-stone-500">Your mistakes, one by one</div>
-              {causes.map((m) => (
-                <button key={m.ply} className="flex w-full items-start gap-2.5 px-3 py-2 text-left text-sm active:bg-stone-100 dark:active:bg-white/5" onClick={() => onStart(m.ply)}>
-                  <ReviewIcon cls={r.plies[m.ply].cls} size={20} className="mt-0.5" />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5 font-semibold">
+              <div className="p-3.5 pb-1">
+                <CauseBreakdown bare r={{ mistakes: causes.length, totals, top: topCause ? { cause: topCause as MistakeCause['cause'], share: totals[topCause] / causes.length } : null }} />
+              </div>
+              <div className="divide-y divide-stone-100 border-t border-stone-100 dark:divide-white/[0.05] dark:border-white/[0.05]">
+                {causes.map((m) => (
+                  <Row key={m.ply} onClick={() => onStart(m.ply)} icon={<ReviewIcon cls={r.plies[m.ply].cls} size={20} />}>
+                    <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-semibold">
                       {moveNo(g.plies, m.ply)} {g.plies[m.ply].san}
-                      <span className="chip bg-stone-100 !px-2 !text-[11px] text-stone-600 dark:bg-white/[0.06] dark:text-stone-300"><CauseIcon c={m.cause} /> {CAUSE_INFO[m.cause].label}</span>
+                      <span className="chip bg-stone-100 !px-2 !text-[11px] font-semibold text-stone-600 dark:bg-white/[0.06] dark:text-stone-300"><CauseIcon c={m.cause} /> {CAUSE_INFO[m.cause].label}</span>
                     </span>
-                    <span className="mt-0.5 block text-[13px] leading-snug text-stone-600 dark:text-stone-300">
+                    <span className="mt-0.5 block text-[13px] text-stone-600 dark:text-stone-300">
                       {m.text}
-                      {m.secs !== undefined && <span className={m.fast || m.timeTrouble ? ' font-semibold text-amber-700 dark:text-amber-400' : ' text-stone-400'}> · {m.secs < 10 ? m.secs.toFixed(1) : Math.round(m.secs)} s{m.timeTrouble ? ', in time trouble' : m.fast ? ', played fast' : ''}</span>}
+                      {m.secs !== undefined && <span className={`whitespace-nowrap ${m.fast || m.timeTrouble ? 'font-semibold text-amber-700 dark:text-amber-400' : 'text-stone-400'}`}> · {m.secs < 10 ? m.secs.toFixed(1) : Math.round(m.secs)} s{m.timeTrouble ? ', time trouble' : m.fast ? ', fast' : ''}</span>}
                     </span>
-                  </span>
-                  <ChevronRight size={16} className="mt-0.5 text-stone-400" />
-                </button>
-              ))}
+                  </Row>
+                ))}
+              </div>
             </div>
-          </>
+          </Sec>
         )}
 
         {missed.length > 0 && (
-          <div className="card !p-0">
-            <div className="px-3 pt-3 pb-1 text-sm font-semibold text-stone-500">Missed chances</div>
-            {missed.map((m) => (
-              <button key={m.ply} className="flex w-full items-start gap-2.5 px-3 py-2 text-left text-sm active:bg-stone-100 dark:active:bg-white/5" onClick={() => onStart(m.ply)}>
-                <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-black text-white">!</span>
-                <span className="flex-1 leading-snug">
+          <Sec title="Missed chances">
+            <div className="card divide-y divide-stone-100 !p-0 dark:divide-white/[0.05]">
+              {missed.map((m) => (
+                <Row key={m.ply} onClick={() => onStart(m.ply)} icon={<span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-black text-white">!</span>}>
                   <b>{moveNo(g.plies, m.ply)} {m.bestSan}</b> would have {m.what.startsWith('mate') ? `forced ${m.what}` : m.what.replace(/^win/, 'won')}
                   <span className="text-stone-500"> — you played {m.played}</span>
-                </span>
-                <ChevronRight size={16} className="mt-0.5 text-stone-400" />
-              </button>
-            ))}
-          </div>
+                </Row>
+              ))}
+            </div>
+          </Sec>
         )}
 
         <TimeStatsCard g={g} onPly={onStart} />
 
         {lesson && !pending(g) && (
-          <div className="card flex items-center gap-3 !p-3">
+          <div className="card flex items-center gap-3 !p-3.5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"><Lightbulb size={20} /></span>
             <span className="flex-1 text-sm">
               <span className="block font-semibold">Practise: {THEMES[lesson].label}</span>
               <span className="block text-xs text-stone-500">{g.summary.pattern ? `It came up in ${g.summary.pattern.count} of your last ${g.summary.pattern.of} games.` : '2 minutes on what tripped you up.'}</span>
@@ -224,6 +245,27 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
         </div>
       </div>
     </div>
+  );
+}
+
+/** A titled section of the summary. */
+function Sec({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h2 className="section-title mb-1.5">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+/** A tappable row inside a summary card. */
+function Row({ icon, children, onClick }: { icon: ReactNode; children: ReactNode; onClick: () => void }) {
+  return (
+    <button className="flex w-full items-start gap-3 px-3.5 py-2.5 text-left text-[14px] leading-snug transition-colors active:bg-stone-100 dark:active:bg-white/5" onClick={onClick}>
+      <span className="mt-0.5 shrink-0">{icon}</span>
+      <span className="min-w-0 flex-1">{children}</span>
+      <ChevronRight size={16} className="mt-0.5 shrink-0 text-stone-300 dark:text-stone-600" />
+    </button>
   );
 }
 
@@ -320,7 +362,7 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
                   key={k}
                   data-ply={k}
                   onClick={() => go(k)}
-                  className={`flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-sm whitespace-nowrap ${k === i ? 'bg-stone-800 text-white dark:bg-white dark:text-stone-900' : ''}`}
+                  className={`flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[13.5px] whitespace-nowrap transition-colors ${k === i ? 'bg-stone-900 text-white shadow-sm dark:bg-stone-50 dark:text-stone-900' : 'text-stone-700 active:bg-stone-200/70 dark:text-stone-300 dark:active:bg-white/5'}`}
                 >
                   {q.color === 'w' && <span className="text-xs text-stone-400">{moveNo(g.plies, k)}</span>}
                   {showIcon && <ReviewIcon cls={c} size={14} />}
@@ -330,12 +372,13 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
             })}
           </div>
           {/* Coach panel: fixed height so the screen never jumps. */}
-          <div className="mx-3 flex h-[156px] shrink-0 gap-2.5 overflow-hidden">
+          <div className="mx-3 flex max-h-[42%] min-h-[132px] shrink-0 gap-2.5 overflow-hidden land:max-h-none land:flex-1">
             <CoachAvatar mood={rp && isBad(rp.cls) && p?.isUser ? 'concerned' : 'happy'} size={38} />
-            <div className="card min-w-0 flex-1 overflow-y-auto !rounded-[18px] !rounded-tl-md !p-3 text-[14.5px] leading-snug">
+            <div className="card min-w-0 flex-1 overflow-y-auto !rounded-[18px] !rounded-tl-md !px-3.5 !py-3 text-[14.5px] leading-snug">
               <CoachText g={g} r={r} i={i} best={best} retry={retry} cause={causeAt.get(i)} />
             </div>
           </div>
+          <div className="mt-auto" />
           {/* Actions */}
           <div className="mx-3 mt-2 grid shrink-0 grid-cols-4 gap-1.5">
             <ActionButton icon={<MessageCircleQuestion size={16} />} label="Explain" disabled={!p || !rp || !!retry} onClick={() => setExplain(true)} highlight={!!rp && isBad(rp.cls)} />
@@ -349,9 +392,8 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
             <ActionButton icon={<TriangleAlert size={16} />} label="Next" disabled={!g.plies.some((q, k) => k > i && q.isUser && isBad(r.plies[k].cls))} onClick={nextBad} />
           </div>
           <div className="mx-3 mt-2 shrink-0">
-            <EvalGraph plies={g.plies} current={i} onSelect={go} height={44} />
+            <EvalGraph plies={g.plies} current={i} onSelect={go} height={48} />
           </div>
-          <div className="mt-auto" />
           {/* Arrows */}
           <div className="safe-bottom shrink-0 px-3 pt-2 pb-2">
             <div className="grid grid-cols-4 gap-1.5">

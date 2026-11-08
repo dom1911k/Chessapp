@@ -7,7 +7,7 @@ import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, GraduationCap, Mi
 import { Board } from './Board';
 import { CoachAvatar } from './Coach';
 import { ReviewIcon } from './ReviewIcon';
-import { Spinner, useBackHandler } from './ui';
+import { Segmented, Spinner, useBackHandler } from './ui';
 import { getEngine } from '../lib/engine';
 import { analysisLimits } from '../lib/engine/speed';
 import { annotateLine, explainInDepth, type DeepExplanation, type ExplainLine } from '../lib/coach/explain';
@@ -104,212 +104,276 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
   const n = line?.san.length ?? 0;
   const bad = isBad(cls);
 
+  const [tab, setTab] = useState<'why' | 'moves' | 'better'>('why');
+  const sec = (t: string) => e?.sections.find((x) => x.title === t || x.title.startsWith(t));
+  const whySec = e?.sections.find((x) => x.title.startsWith('Why it'));
+  const punish = sec('How to punish');
+  const better = e?.sections.find((x) => x.title === 'What was better' || x.title === 'What they should have played');
+  const others = sec('Other good moves');
+  const remember = sec('Remember');
+  const tone = bad ? RC[cls].color : undefined;
+
   return (
     <div className="animate-fade-in fixed inset-0 z-50 flex flex-col bg-stone-100 dark:bg-stone-950">
-      <header className="safe-top flex shrink-0 items-center gap-2 px-3 py-2">
-        <span className="font-display flex-1 text-lg font-semibold">Move explained</span>
+      <header className="safe-top flex shrink-0 items-center gap-3 border-b border-stone-200/70 px-3 py-2 dark:border-white/[0.06]">
+        <ReviewIcon cls={cls} size={28} />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="font-display truncate text-[17px] font-semibold">{p.san} <span className="font-sans text-sm font-semibold" style={{ color: tone }}>· {RC[cls].label}</span></div>
+          <div className="text-xs text-stone-500">{isUser ? 'Your move' : 'Their move'} explained</div>
+        </div>
         <button aria-label="Close" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-500 active:bg-stone-200 dark:active:bg-stone-800" onClick={onClose}>
           <X size={22} />
         </button>
       </header>
-      <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto px-3 pb-6 land:max-w-5xl">
+      <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto px-3 pt-3 pb-8 land:max-w-5xl">
         <div className="land:grid land:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] land:gap-5">
-          {/* Board with the selected line */}
+          {/* Verdict, board and the line player */}
           <div className="land:sticky land:top-0 land:self-start">
-            <div className="mx-auto max-w-[420px]">
-              <Board fen={shown.fen} orientation={orientation} movable={null} onMove={() => false} lastMove={shown.last} />
-            </div>
-            {e && e.lines.length > 0 && (
-              <>
-                <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto">
-                  {e.lines.map((l) => (
-                    <button
-                      key={l.id}
-                      onClick={() => pick(l.id)}
-                      className={`chip shrink-0 !py-1 !text-[13px] ring-1 transition-colors ${
-                        l.id === lineId
-                          ? l.tone === 'bad'
-                            ? 'bg-red-600 text-white ring-red-600'
-                            : l.tone === 'good'
-                              ? 'bg-emerald-600 text-white ring-emerald-600'
-                              : 'bg-stone-800 text-white ring-stone-800 dark:bg-stone-100 dark:text-stone-900'
-                          : 'bg-white text-stone-700 ring-stone-200 dark:bg-white/[0.04] dark:text-stone-200 dark:ring-white/10'
-                      }`}
-                    >
-                      {l.label}
-                      {l.score && <span className="opacity-70 tabular-nums">{l.score}</span>}
-                    </button>
-                  ))}
+            {e ? (
+              <div className="mb-3 flex items-start gap-3">
+                <CoachAvatar mood={bad && isUser ? 'concerned' : 'happy'} size={40} />
+                <div className="card min-w-0 flex-1 !rounded-[18px] !rounded-tl-md !px-3.5 !py-3">
+                  <p className="text-[15px] leading-snug font-semibold" style={{ color: tone }}>{e.headline}</p>
+                  <Swing wpBefore={e.swing.wpBefore} wpAfter={e.swing.wpAfter} before={e.swing.before} after={e.swing.after} you={isUser} />
                 </div>
-                {line && (
-                  <div className="mt-2 flex flex-wrap gap-x-1 gap-y-0.5 text-[13px]">
-                    {line.san.map((s, i) => (
-                      <button key={i} onClick={() => setK(i + 1)} className={`rounded px-1 font-semibold ${i + 1 === k ? 'bg-brand-600 text-white' : 'text-stone-600 dark:text-stone-300'}`}>
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div className="mt-2 grid grid-cols-5 gap-1.5">
-                  <StepBtn label="Start of line" onClick={() => (setPlaying(false), setK(0))} disabled={k <= 0}><ChevronFirst size={20} /></StepBtn>
-                  <StepBtn label="Back" onClick={() => (setPlaying(false), setK(Math.max(0, k - 1)))} disabled={k <= 0}><ChevronLeft size={22} /></StepBtn>
-                  <StepBtn label={playing ? 'Pause' : 'Play the line'} onClick={() => (k >= n ? (setK(0), setPlaying(true)) : setPlaying(!playing))}>{playing ? <Pause size={19} /> : <Play size={19} />}</StepBtn>
-                  <StepBtn label="Forward" onClick={() => (setPlaying(false), setK(Math.min(n, k + 1)))} disabled={k >= n} primary><ChevronRight size={22} /></StepBtn>
-                  <StepBtn label="End of line" onClick={() => (setPlaying(false), setK(n))} disabled={k >= n}><ChevronLast size={20} /></StepBtn>
-                </div>
-                {/* Commentary on the move shown, like chess.com's follow-up. */}
-                <div key={`${lineId}:${k}`} className="animate-pop card mt-2 min-h-[86px] !p-3">
-                  {note ? (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-sm font-bold ${note.who === 'you' ? 'text-brand-700 dark:text-brand-500' : 'text-stone-700 dark:text-stone-200'}`}>
-                          {note.label} <span className="font-semibold text-stone-400">· {note.who === 'you' ? 'you' : 'them'}</span>
-                        </span>
-                        {note.material !== 0 && (
-                          <span className={`chip tabular-nums ${note.material > 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'}`}>
-                            {note.material > 0 ? '+' : '−'}{Math.abs(note.material)}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-1 text-[14px] leading-snug">{note.text}</p>
-                    </>
-                  ) : (
-                    <p className="text-sm text-stone-500">
-                      {line?.id === 'played' ? 'The position before the move. ' : 'Start of the line. '}Tap <b>▶</b> to play it out move by move, with an explanation of each move.
-                    </p>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* The explanation */}
-          <div className="mt-3 space-y-2.5 land:mt-0">
-            {!e && !failed && (
-              <div className="card flex items-center gap-3 !p-4">
+              </div>
+            ) : !failed ? (
+              <div className="mb-3 flex items-center gap-3">
                 <CoachAvatar mood="thinking" size={40} />
-                <div>
+                <div className="card flex-1 !rounded-[18px] !rounded-tl-md !px-3.5 !py-3">
                   <div className="font-semibold">Coach Sam is looking deeper…</div>
                   <div className="flex items-center gap-1.5 text-sm text-stone-500"><Spinner className="!h-3 !w-3" /> checking the best lines</div>
                 </div>
               </div>
+            ) : (
+              <div className="card mb-3 !p-4 text-sm text-stone-500">The engine couldn’t look at this move right now. Try again in a moment.</div>
             )}
-            {failed && <div className="card !p-4 text-sm text-stone-500">The engine couldn’t look at this move right now. Try again in a moment.</div>}
-            {e && (
-              <>
-                <div className="card !p-4">
-                  <div className="flex items-start gap-2.5">
-                    <ReviewIcon cls={cls} size={26} />
-                    <p className="text-[16px] leading-snug font-semibold" style={{ color: bad ? RC[cls].color : undefined }}>{e.headline}</p>
-                  </div>
-                  <Swing wpBefore={e.swing.wpBefore} wpAfter={e.swing.wpAfter} before={e.swing.before} after={e.swing.after} you={isUser} />
+
+            <div className="mx-auto max-w-[440px] overflow-hidden rounded-[10px] shadow-[0_10px_30px_-12px_rgba(40,20,5,0.45)]">
+              <Board fen={shown.fen} orientation={orientation} movable={null} onMove={() => false} lastMove={shown.last} />
+            </div>
+
+            {e && e.lines.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <div className="no-scrollbar -mx-3 flex gap-1.5 overflow-x-auto px-3">
+                  {e.lines.map((l) => {
+                    const on = l.id === lineId;
+                    const dot = l.tone === 'bad' ? 'bg-red-500' : l.tone === 'good' ? 'bg-emerald-500' : 'bg-stone-400';
+                    return (
+                      <button
+                        key={l.id}
+                        onClick={() => pick(l.id)}
+                        className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold ring-1 transition-colors ${
+                          on ? 'bg-stone-900 text-white ring-stone-900 dark:bg-stone-50 dark:text-stone-900 dark:ring-stone-50' : 'bg-white text-stone-700 ring-stone-200 dark:bg-white/[0.04] dark:text-stone-200 dark:ring-white/10'
+                        }`}
+                      >
+                        <span className={`h-2 w-2 rounded-full ${dot}`} />
+                        {l.label}
+                        {l.score && <span className="font-medium tabular-nums opacity-60">{l.score}</span>}
+                      </button>
+                    );
+                  })}
                 </div>
-                {cause && isUser && (
-                  <section className="card !p-4">
-                    <h3 className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">
-                      <CauseIcon c={cause.cause} /> Why it happened · {CAUSE_INFO[cause.cause].label}
-                    </h3>
-                    <p className="text-[14.5px] leading-snug">{cause.text}</p>
-                    {cause.secs !== undefined && (
-                      <p className={`mt-1 text-[13px] ${cause.fast || cause.timeTrouble ? 'font-semibold text-amber-700 dark:text-amber-400' : 'text-stone-500'}`}>
-                        You spent {cause.secs < 10 ? cause.secs.toFixed(1) : Math.round(cause.secs)} seconds on it{cause.timeTrouble ? ' — with very little time left.' : cause.fast ? ' — a quick safety check would likely have caught it.' : '.'}
-                      </p>
+
+                {/* Transport */}
+                <div className="flex items-center gap-1.5">
+                  <StepBtn label="Start of line" onClick={() => (setPlaying(false), setK(0))} disabled={k <= 0}><ChevronFirst size={19} /></StepBtn>
+                  <StepBtn label="Back" onClick={() => (setPlaying(false), setK(Math.max(0, k - 1)))} disabled={k <= 0}><ChevronLeft size={21} /></StepBtn>
+                  <button
+                    aria-label={playing ? 'Pause' : 'Play the line'}
+                    onClick={() => (k >= n ? (setK(0), setPlaying(true)) : setPlaying(!playing))}
+                    className="flex h-10 flex-[1.6] items-center justify-center gap-1.5 rounded-xl bg-brand-600 text-sm font-semibold text-white shadow-[0_6px_14px_-8px_rgba(27,90,60,0.8)] active:scale-[0.98]"
+                  >
+                    {playing ? <><Pause size={17} /> Pause</> : <><Play size={17} /> {k >= n ? 'Replay' : 'Play line'}</>}
+                  </button>
+                  <StepBtn label="Forward" onClick={() => (setPlaying(false), setK(Math.min(n, k + 1)))} disabled={k >= n}><ChevronRight size={21} /></StepBtn>
+                  <StepBtn label="End of line" onClick={() => (setPlaying(false), setK(n))} disabled={k >= n}><ChevronLast size={19} /></StepBtn>
+                </div>
+
+                {/* Commentary on the move on the board (chess.com's follow-up) */}
+                <div key={`${lineId}:${k}`} className="animate-pop card min-h-[92px] !p-3.5">
+                  {note ? (
+                    <>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-2 text-sm font-bold">
+                          <span className={`h-2 w-2 rounded-full ${note.who === 'you' ? 'bg-brand-500' : 'bg-stone-400'}`} />
+                          {note.label}
+                          <span className="text-xs font-semibold text-stone-400">{note.who === 'you' ? 'You' : 'Them'} · {k}/{n}</span>
+                        </span>
+                        {note.material !== 0 && (
+                          <span className={`chip tabular-nums ${note.material > 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'}`}>
+                            {note.material > 0 ? '+' : '−'}{Math.abs(note.material)} material
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1.5 text-[14.5px] leading-snug">{note.text}</p>
+                    </>
+                  ) : (
+                    <p className="text-[14px] leading-snug text-stone-500">
+                      {line?.id === 'played' ? 'The position before the move.' : 'The start of the line.'} Press <b className="text-stone-700 dark:text-stone-200">Play line</b> to watch it unfold — each move is explained here.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* The explanation, in three tabs */}
+          {e && (
+            <div className="mt-4 land:mt-0">
+              <Segmented
+                value={tab}
+                onChange={setTab}
+                options={[
+                  { value: 'why', label: 'Why' },
+                  { value: 'moves', label: 'Moves' },
+                  { value: 'better', label: isUser || !bad ? 'Better' : 'Punish' },
+                ]}
+              />
+              <div className="card mt-2.5 divide-y divide-stone-100 !p-0 dark:divide-white/[0.06]">
+                {tab === 'why' && (
+                  <>
+                    {whySec && (
+                      <Block title={whySec.title}>
+                        <Points list={whySec.points} />
+                      </Block>
                     )}
-                    <p className="mt-1.5 text-[13px] text-stone-600 dark:text-stone-300">{CAUSE_INFO[cause.cause].tip}</p>
-                  </section>
+                    {cause && isUser && (
+                      <Block title="Why it happened" icon={<CauseIcon c={cause.cause} />} right={<span className="chip bg-stone-100 text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">{CAUSE_INFO[cause.cause].label}</span>}>
+                        <p>{cause.text}</p>
+                        {cause.secs !== undefined && (
+                          <p className={`mt-1 text-[13px] ${cause.fast || cause.timeTrouble ? 'font-semibold text-amber-700 dark:text-amber-400' : 'text-stone-500'}`}>
+                            {cause.secs < 10 ? cause.secs.toFixed(1) : Math.round(cause.secs)} seconds on the clock{cause.timeTrouble ? ' — with very little time left.' : cause.fast ? ' — a quick safety check would likely have caught it.' : '.'}
+                          </p>
+                        )}
+                        <p className="mt-1.5 text-[13px] text-stone-500">{CAUSE_INFO[cause.cause].tip}</p>
+                      </Block>
+                    )}
+                    {hard && (
+                      <Block
+                        title="How hard was it to find?"
+                        right={
+                          <span className={`chip ${difficultyOf(hard.best) === 'easy' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : difficultyOf(hard.best) === 'moderate' ? 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300' : 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300'}`}>
+                            {DIFFICULTY_LABEL[difficultyOf(hard.best)]}
+                          </span>
+                        }
+                      >
+                        <div className="mb-2.5 flex items-center gap-2.5">
+                          <span className="font-display w-14 text-2xl leading-none font-semibold tabular-nums">{Math.round(hard.best * 100)}%</span>
+                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
+                            <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600" style={{ width: `${Math.max(2, hard.best * 100)}%` }} />
+                          </div>
+                        </div>
+                        <Points list={difficultySentence({ bestSan: hard.bestSan, bestShare: hard.best, playedSan: p.san, playedShare: hard.played, rating: hard.rating, isUser, same: hard.same })} />
+                        <p className="mt-1.5 text-[11px] text-stone-400">Estimated with Maia, trained on millions of human games.</p>
+                      </Block>
+                    )}
+                    {remember && (
+                      <Block title="Remember">
+                        <p className="rounded-xl bg-amber-50 px-3 py-2.5 text-[14px] leading-snug text-amber-950 ring-1 ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/20">{remember.points[0]}</p>
+                      </Block>
+                    )}
+                  </>
                 )}
-                {hard && (
-                  <section className="card !p-4">
-                    <h3 className="mb-1.5 flex items-center justify-between text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">
-                      How hard was it to find?
-                      <span className={`chip !text-[11px] normal-case tracking-normal ${difficultyOf(hard.best) === 'easy' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : difficultyOf(hard.best) === 'moderate' ? 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300' : 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300'}`}>
-                        {DIFFICULTY_LABEL[difficultyOf(hard.best)]}
-                      </span>
-                    </h3>
-                    <div className="mb-2 h-2 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
-                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(2, hard.best * 100)}%` }} />
-                    </div>
-                    <ul className="space-y-1 text-[14px] leading-snug">
-                      {difficultySentence({ bestSan: hard.bestSan, bestShare: hard.best, playedSan: p.san, playedShare: hard.played, rating: hard.rating, isUser, same: hard.same }).map((t, i) => (
-                        <li key={i}>{t}</li>
-                      ))}
-                    </ul>
-                    <p className="mt-1.5 text-[11px] text-stone-400">Estimated with Maia, a network trained on millions of human games.</p>
-                  </section>
-                )}
-                {notes.length > 0 && line && (
-                  <section className="card !p-4">
-                    <h3 className="mb-1.5 text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">Move by move · {line.label}</h3>
-                    <ol className="space-y-1">
+                {tab === 'moves' && line && (
+                  <Block title={line.label} right={<span className="text-xs text-stone-400">tap a move to jump there</span>}>
+                    <ol className="-mx-1.5 space-y-0.5">
                       {notes.map((x, i) => (
                         <li key={i}>
                           <button
                             onClick={() => (setPlaying(false), setK(i + 1))}
-                            className={`w-full rounded-lg px-2 py-1 text-left text-[13.5px] leading-snug transition-colors ${i + 1 === k ? 'bg-brand-50 ring-1 ring-brand-500/40 dark:bg-brand-500/10' : 'active:bg-stone-100 dark:active:bg-white/5'}`}
+                            className={`flex w-full gap-2.5 rounded-xl px-1.5 py-1.5 text-left text-[13.5px] leading-snug transition-colors ${i + 1 === k ? 'bg-brand-50 ring-1 ring-brand-500/30 dark:bg-brand-500/10' : 'active:bg-stone-100 dark:active:bg-white/5'}`}
                           >
-                            <b className={x.who === 'you' ? 'text-brand-700 dark:text-brand-500' : ''}>{x.label}</b> {x.text}
+                            <span className={`mt-[5px] h-2 w-2 shrink-0 rounded-full ${x.who === 'you' ? 'bg-brand-500' : 'bg-stone-400'}`} />
+                            <span>
+                              <b>{x.label}</b> <span className="text-stone-700 dark:text-stone-200">{x.text}</span>
+                            </span>
                           </button>
                         </li>
                       ))}
                     </ol>
-                  </section>
+                  </Block>
                 )}
-                {e.sections.map((s) => (
-                  <section key={s.title} className={`card !p-4 ${s.title === 'Remember' ? '!bg-amber-50 !ring-amber-200 dark:!bg-amber-950/30 dark:!ring-amber-900/50' : ''}`}>
-                    <h3 className="mb-1.5 text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">{s.title}</h3>
-                    <ul className="space-y-1.5 text-[14.5px] leading-snug">
-                      {s.points.map((t, i) => (
-                        <li key={i}>{t}</li>
-                      ))}
-                    </ul>
-                  </section>
-                ))}
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <button className="btn-secondary w-full" onClick={() => (onClose(), push({ name: 'explore', fen: p.fenBefore, orientation, title: 'Try your own moves' }))}>
-                    <Microscope size={17} /> Try your own moves from here
-                  </button>
-                  {e.lesson && (
-                    <button className="btn-secondary w-full" onClick={() => (onClose(), push({ name: 'practice', theme: e.lesson!.theme }))}>
-                      <GraduationCap size={17} /> Practise this pattern
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+                {tab === 'better' && (
+                  <>
+                    {punish && <Block title={punish.title}><Points list={punish.points} /></Block>}
+                    {better && <Block title={better.title}><Points list={better.points} /></Block>}
+                    {others && <Block title="Other good moves"><Points list={others.points} /></Block>}
+                    {!punish && !better && !others && <Block title="Better moves"><p className="text-stone-500">This was already the best move — nothing better here.</p></Block>}
+                    <div className="grid gap-2 p-3.5 sm:grid-cols-2">
+                      <button className="btn-secondary w-full" onClick={() => (onClose(), push({ name: 'explore', fen: p.fenBefore, orientation, title: 'Try your own moves' }))}>
+                        <Microscope size={17} /> Try your own moves
+                      </button>
+                      {e.lesson && (
+                        <button className="btn-secondary w-full" onClick={() => (onClose(), push({ name: 'practice', theme: e.lesson!.theme }))}>
+                          <GraduationCap size={17} /> Practise this pattern
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-/** Winning chances before → after, as two bars. */
-function Swing({ wpBefore, wpAfter, before, after, you }: { wpBefore: number; wpAfter: number; before: string; after: string; you: boolean }) {
-  const drop = wpAfter < wpBefore;
+/** A titled section inside the explanation card. */
+function Block({ title, icon, right, children }: { title: string; icon?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="mt-3 grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1 text-xs">
-      <span className="text-stone-500">Before</span>
-      <Bar pct={wpBefore} tone="neutral" />
-      <span className="w-20 text-right font-semibold tabular-nums">{wpBefore}% · {before}</span>
-      <span className="text-stone-500">After</span>
-      <Bar pct={wpAfter} tone={Math.abs(wpAfter - wpBefore) < 3 ? 'neutral' : drop ? 'bad' : 'good'} />
-      <span className="w-20 text-right font-semibold tabular-nums">{wpAfter}% · {after}</span>
-      <span className="col-span-3 text-[11px] text-stone-400">{you ? 'Your' : 'Their'} winning chances</span>
-    </div>
+    <section className="px-4 py-3.5 text-[14.5px] leading-snug">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">
+          {icon}
+          {title}
+        </h3>
+        {right}
+      </div>
+      {children}
+    </section>
   );
 }
 
-function Bar({ pct, tone }: { pct: number; tone: 'neutral' | 'bad' | 'good' }) {
+function Points({ list }: { list: string[] }) {
   return (
-    <div className="h-2 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
-      <div className={`h-full rounded-full transition-[width] duration-700 ${tone === 'bad' ? 'bg-red-500' : tone === 'good' ? 'bg-emerald-500' : 'bg-stone-400'}`} style={{ width: `${Math.max(2, pct)}%` }} />
+    <ul className="space-y-1.5">
+      {list.map((t, i) => (
+        <li key={i} className="flex gap-2">
+          <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-stone-300 dark:bg-stone-600" />
+          <span>{t}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Winning chances before → after: one bar with the old level as a ghost and the new one solid. */
+function Swing({ wpBefore, wpAfter, before, after, you }: { wpBefore: number; wpAfter: number; before: string; after: string; you: boolean }) {
+  const delta = wpAfter - wpBefore;
+  const color = Math.abs(delta) < 3 ? 'bg-stone-400' : delta < 0 ? 'bg-red-500' : 'bg-emerald-500';
+  return (
+    <div className="mt-2.5">
+      <div className="flex items-baseline justify-between text-xs">
+        <span className="text-stone-500">{you ? 'Your' : 'Their'} winning chances</span>
+        <span className="font-semibold tabular-nums">
+          <span className="text-stone-400">{wpBefore}%</span> → <span style={{ color: Math.abs(delta) < 3 ? undefined : delta < 0 ? '#dc2626' : '#059669' }}>{wpAfter}%</span>
+          <span className="ml-1.5 font-medium text-stone-400">({before} → {after})</span>
+        </span>
+      </div>
+      <div className="relative mt-1.5 h-2 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
+        <div className="absolute inset-y-0 left-0 rounded-full bg-stone-400/40" style={{ width: `${Math.max(2, wpBefore)}%` }} />
+        <div className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-700 ${color}`} style={{ width: `${Math.max(2, wpAfter)}%` }} />
+      </div>
     </div>
   );
 }
 
 function StepBtn({ children, onClick, disabled, label, primary }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; label: string; primary?: boolean }) {
   return (
-    <button aria-label={label} disabled={disabled} onClick={onClick} className={`flex h-10 items-center justify-center rounded-xl disabled:opacity-30 ${primary ? 'bg-brand-600 text-white' : 'bg-white ring-1 ring-stone-200 dark:bg-white/[0.04] dark:ring-white/10'}`}>
+    <button aria-label={label} disabled={disabled} onClick={onClick} className={`flex h-10 flex-1 items-center justify-center rounded-xl transition active:scale-95 disabled:opacity-30 ${primary ? 'bg-brand-600 text-white' : 'bg-white text-stone-700 ring-1 ring-stone-200 dark:bg-white/[0.04] dark:text-stone-200 dark:ring-white/10'}`}>
       {children}
     </button>
   );
