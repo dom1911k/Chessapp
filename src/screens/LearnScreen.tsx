@@ -123,6 +123,13 @@ export function LearnScreen() {
                 <span className="mt-1.5 block font-semibold">Quick decisions</span>
                 <span className="block text-xs text-stone-500">10 obvious moves, 5 seconds each.</span>
               </button>
+              <button className="card col-span-2 flex items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'vision' })}>
+                <Medallion name="eye" tint="blue" size={36} />
+                <span className="flex-1">
+                  <span className="block font-semibold">Vision</span>
+                  <span className="block text-xs text-stone-500">Find squares by name against the clock — see the board faster.</span>
+                </span>
+              </button>
             </div>
           </div>
         </section>

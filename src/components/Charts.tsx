@@ -4,10 +4,15 @@ import type { PlyRecord } from '../lib/store/types';
 
 const MARK: Record<string, string> = { blunder: '#dc2626', mistake: '#ea580c', inaccuracy: '#d97706' };
 
-/** White's winning chances over the game; tap a point to jump to that move. */
-export function EvalGraph({ plies, current, onSelect, height = 110 }: { plies: PlyRecord[]; current?: number; onSelect?: (i: number) => void; height?: number }) {
+/**
+ * White's winning chances over the game; tap a point to jump to that move. With `times`, a strip
+ * underneath shows how long each move took (yours in green, theirs in grey; a mistake played in
+ * under 5 s in red, your longest thinks in amber).
+ */
+export function EvalGraph({ plies, current, onSelect, height = 110, times }: { plies: PlyRecord[]; current?: number; onSelect?: (i: number) => void; height?: number; times?: (number | null)[] }) {
   const W = 320;
   const H = height;
+  const STRIP = times ? Math.max(18, Math.round(height * 0.32)) : 0;
   const n = Math.max(plies.length, 2);
   const pts: [number, number][] = [[0, 50]];
   let lastWp = 50;
@@ -19,9 +24,21 @@ export function EvalGraph({ plies, current, onSelect, height = 110 }: { plies: P
   const y = (wp: number) => H - (wp / 100) * H;
   const line = pts.map(([i, wp], k) => `${k ? 'L' : 'M'}${x(i).toFixed(1)},${y(wp).toFixed(1)}`).join(' ');
   const area = `${line} L${x(pts[pts.length - 1][0]).toFixed(1)},${H} L0,${H} Z`;
+  // Time strip: bar height ~ sqrt(seconds), so one long think doesn't flatten everything else.
+  const known = (times ?? []).filter((t): t is number => t !== null);
+  const scale = Math.sqrt(Math.max(5, ...known));
+  const longest = new Set(
+    (times ?? [])
+      .map((t, i) => ({ t, i }))
+      .filter(({ t, i }) => t !== null && plies[i]?.isUser)
+      .sort((a, b) => b.t! - a.t!)
+      .slice(0, 3)
+      .map(({ i }) => i),
+  );
+  const bw = Math.max(1.5, (W / n) * 0.62);
   return (
     <svg
-      viewBox={`0 0 ${W} ${H}`}
+      viewBox={`0 0 ${W} ${H + STRIP}`}
       className="w-full touch-none rounded-xl bg-stone-700"
       onClick={(e) => {
         if (!onSelect || !plies.length) return;
@@ -31,8 +48,21 @@ export function EvalGraph({ plies, current, onSelect, height = 110 }: { plies: P
       }}
     >
       <path d={area} fill="#f5f5f4" />
+      {times && (
+        <g>
+          <rect x="0" y={H} width={W} height={STRIP} className="fill-[#fbf8f2] dark:fill-[#221d18]" />
+          {times.map((t, i) => {
+            if (t === null || !plies[i]) return null;
+            const h = Math.max(1.5, (Math.sqrt(t) / scale) * (STRIP - 3));
+            const p = plies[i];
+            const bad = p.isUser && (p.classification === 'mistake' || p.classification === 'blunder');
+            const fill = bad && t < 5 ? '#dc2626' : p.isUser ? (longest.has(i) ? '#f59e0b' : '#2f9e63') : '#a8a29e';
+            return <rect key={i} x={x(i + 1) - bw / 2} y={H + STRIP - h} width={bw} height={h} rx="0.8" fill={fill} opacity={p.isUser ? 1 : 0.6} />;
+          })}
+        </g>
+      )}
       <line x1="0" x2={W} y1={H / 2} y2={H / 2} stroke="#a8a29e" strokeDasharray="3 3" strokeWidth="0.8" />
-      {current !== undefined && <line x1={x(current + 1)} x2={x(current + 1)} y1="0" y2={H} stroke="#2f9e63" strokeWidth="2" />}
+      {current !== undefined && <line x1={x(current + 1)} x2={x(current + 1)} y1="0" y2={H + STRIP} stroke="#2f9e63" strokeWidth="2" />}
       {plies.map((p, i) =>
         p.isUser && p.classification && MARK[p.classification] ? (
           <circle key={i} cx={x(i + 1)} cy={y(pts[i + 1][1])} r="4" fill={MARK[p.classification]} stroke="#fff" strokeWidth="1.2" />

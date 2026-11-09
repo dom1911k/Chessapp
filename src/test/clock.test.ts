@@ -141,3 +141,12 @@ describe('time drills', () => {
     expect(set.length).toBe(10);
   });
 });
+
+import { plyTimes } from '../lib/timestats';
+describe('time per move (both sides)', () => {
+  it('reads seconds used from the clock after each ply, with increment', () => {
+    const plies = [{ color: 'w' }, { color: 'b' }, { color: 'w' }, { color: 'b' }] as const;
+    expect(plyTimes([...plies], [178, 175, 170, 176], '180+2')).toEqual([4, 7, 10, 1]);
+    expect(plyTimes([...plies], [178], '180+0')).toEqual([2, null, null, null]);
+  });
+});

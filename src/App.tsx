@@ -15,6 +15,7 @@ import { LearnScreen } from './screens/LearnScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { InsightsScreen } from './screens/InsightsScreen';
 import { MoreScreen } from './screens/MoreScreen';
+import { VisionScreen } from './screens/VisionScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
 import { GameReviewScreen } from './screens/GameReviewScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
@@ -79,6 +80,8 @@ function StackScreen({ screen }: { screen: Screen }) {
       return <ProfileScreen />;
     case 'insights':
       return <InsightsScreen />;
+    case 'vision':
+      return <VisionScreen />;
     case 'explore':
       return <ExploreScreen {...screen} />;
     case 'report':

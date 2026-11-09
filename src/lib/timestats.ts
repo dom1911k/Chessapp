@@ -82,3 +82,16 @@ export function timeAdvice(moves: MoveTime[], total: number, baseSecs: number, s
   if (total < baseSecs * 0.15 && moves.length >= 15) return `You used only ${Math.round((100 * total) / baseSecs)}% of your clock — take a few seconds more on the critical moves.`;
   return 'You spread your time well over the game.';
 }
+
+/** Seconds each ply took (both sides; null where the clock is missing). */
+export function plyTimes(plies: Pick<PlyRecord, 'color'>[], clocks: number[], tc: string): (number | null)[] {
+  const { base, inc } = parseTc(tc);
+  const prev: Record<string, number> = { w: base / 1000, b: base / 1000 };
+  return plies.map((p, i) => {
+    const after = clocks[i];
+    if (after === undefined || after === null) return null;
+    const used = Math.max(0, prev[p.color] - after + inc / 1000);
+    prev[p.color] = after;
+    return Math.round(used * 10) / 10;
+  });
+}

@@ -31,6 +31,7 @@ export type Screen =
   | { name: 'daily' }
   | { name: 'profile' }
   | { name: 'insights' }
+  | { name: 'vision' }
   | { name: 'history' };
 
 export type RushMode = '3' | '5' | 'survival';

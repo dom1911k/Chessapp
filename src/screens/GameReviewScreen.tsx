@@ -2,7 +2,7 @@
 // move classes, phases, key moments), then a steady step-through: eval bar + board, a move strip,
 // a fixed-size coach panel, Best / Retry / Next, and the arrows at the bottom.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, Sparkles, TriangleAlert, Lightbulb, MessageCircleQuestion } from 'lucide-react';
+import { FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, Sparkles, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope } from 'lucide-react';
 import { Board } from '../components/Board';
 import { EvalGraph } from '../components/Charts';
 import { CoachAvatar, Portrait } from '../components/Coach';
@@ -11,6 +11,10 @@ import { ReviewIcon } from '../components/ReviewIcon';
 import { ExplainSheet } from '../components/ExplainSheet';
 import { CauseBreakdown, CauseIcon } from '../components/Causes';
 import { CAUSE_INFO, causeTotals, missedChances, mistakeCauses, type MistakeCause } from '../lib/games/causes';
+import { plyTimes } from '../lib/timestats';
+
+/** Seconds per ply, when the game was played with a clock. */
+const timesOf = (g: AnyGame) => (g.clocks?.length && g.timeControl && /^\d+(\+\d+)?$/.test(g.timeControl) ? plyTimes(g.plies, g.clocks, g.timeControl) : undefined);
 import { ChessComBadge, TimeStatsCard } from '../components/ChessCom';
 import { useNav } from '../lib/nav';
 import { loadAnyGame } from '../lib/games';
@@ -77,6 +81,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
   const causes = useMemo(() => (pending(g) ? [] : mistakeCauses(g, cls)), [g, cls]);
   const missed = useMemo(() => (pending(g) ? [] : missedChances(g, cls)), [g, cls]);
   const totals = causeTotals(causes);
+  const times = useMemo(() => timesOf(g), [g]);
   const topCause = causes.length ? (Object.keys(CAUSE_INFO) as (keyof typeof CAUSE_INFO)[]).filter((k) => k !== 'fast' && k !== 'timeTrouble').reduce((a, b) => (totals[b] > totals[a] ? b : a)) : null;
   const [allRows, setAllRows] = useState(false);
   const rows = REVIEW_ORDER.filter((c) => allRows || r.me.counts[c] + r.them.counts[c] > 0);
@@ -165,7 +170,15 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
         {!pending(g) && (
           <Sec title="Evaluation">
             <div className="card !p-3">
-              <EvalGraph plies={g.plies} onSelect={onStart} />
+              <EvalGraph plies={g.plies} onSelect={onStart} times={times} />
+              {times && (
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-stone-500">
+                  <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#2f9e63]" /> Your time</span>
+                  <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#a8a29e]" /> Theirs</span>
+                  <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#f59e0b]" /> Longest thinks</span>
+                  <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#dc2626]" /> Mistake in under 5 s</span>
+                </div>
+              )}
             </div>
           </Sec>
         )}
@@ -276,6 +289,8 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
   const [best, setBest] = useState(false);
   const [retry, setRetry] = useState<Retry | null>(null);
   const [explain, setExplain] = useState(false);
+  const push = useNav((s) => s.push);
+  const stepTimes = useMemo(() => timesOf(g), [g]);
   const causeAt = useMemo(() => new Map(mistakeCauses(g, r.plies.map((x) => x.cls)).map((c) => [c.ply, c])), [g, r]);
   const [myRating, setMyRating] = useState<number | null>(null);
   const history = useMemo(() => [g.startFen, ...g.plies.slice(0, Math.max(0, i)).map((q) => q.fenAfter)], [g, i]);
@@ -339,6 +354,7 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
     <div className="flex h-full flex-col">
       <Header title="Game Review" back subtitle={`vs ${oppName(g)} · ${formatDate(g.endedAt)}`} right={
         <span className="flex items-center gap-2">
+          <button aria-label="Analyse this position" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300" onClick={() => push({ name: 'explore', fen: p ? p.fenAfter : g.startFen, orientation, title: 'Analysis' })}><Microscope size={19} /></button>
           <button aria-label="Flip board" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300" onClick={() => setFlipped((f) => !f)}><FlipVertical2 size={19} /></button>
           <button className="text-sm font-semibold text-brand-700 dark:text-brand-500" onClick={onSummary}>Summary</button>
         </span>
@@ -392,7 +408,7 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
             <ActionButton icon={<TriangleAlert size={16} />} label="Next" disabled={!g.plies.some((q, k) => k > i && q.isUser && isBad(r.plies[k].cls))} onClick={nextBad} />
           </div>
           <div className="mx-3 mt-2 shrink-0">
-            <EvalGraph plies={g.plies} current={i} onSelect={go} height={48} />
+            <EvalGraph plies={g.plies} current={i} onSelect={go} height={48} times={stepTimes} />
           </div>
           {/* Arrows */}
           <div className="safe-bottom shrink-0 px-3 pt-2 pb-2">
