@@ -13,6 +13,7 @@ import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { BLOOD, EMBER, GOLD, JADE, SPIRIT, type SpritePalette } from '../pixel/pixelize';
 import { RunBoard } from '../pixel/RunBoard';
 import { runMusic, sfx } from '../sfx';
+import { useNav } from '../../lib/nav';
 import { useRunSettings } from '../settings';
 import { useMeta } from '../meta';
 import { techById } from '../codex';
@@ -48,13 +49,15 @@ export function RunScreen() {
   // theme in the boss room, a quieter one for puzzle rooms).
   const kind = run?.phase === 'room' ? run.room?.node.kind : undefined;
   const theme = run?.phase === 'battlefield' ? 'rival' : !kind ? 'map' : kind === 'boss' ? 'rival' : kind === 'puzzle' || kind === 'ward' || run?.room?.gamble ? 'riddle' : 'battle';
+  // Only while Run is the screen you're looking at: never in the rest of the app.
+  const onRun = useNav((n) => n.tab === 'run' && n.stack.length === 0);
   useEffect(() => {
-    const want = rs.music > 0 ? theme : null;
+    const want = rs.music > 0 && onRun ? theme : null;
     runMusic(want);
     const vis = () => runMusic(document.visibilityState === 'visible' ? want : null);
     document.addEventListener('visibilitychange', vis);
     return () => document.removeEventListener('visibilitychange', vis);
-  }, [rs.music, theme]);
+  }, [rs.music, theme, onRun]);
   useEffect(() => () => runMusic(null), []);
   // First run: explain the basics once.
   useEffect(() => {

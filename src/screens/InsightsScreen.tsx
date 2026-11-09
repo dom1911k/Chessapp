@@ -1,7 +1,9 @@
 // Insights, chess.com style: where your games are won and lost — accuracy by phase, results by
 // colour and opening, by time of day and by playing speed. App games and chess.com imports.
 import { useEffect, useState } from 'react';
-import { Header, Segmented } from '../components/ui';
+import { EmptyState, Header, Segmented, Skeleton } from '../components/ui';
+import { Lightbulb } from 'lucide-react';
+import { useNav } from '../lib/nav';
 import { allGames } from '../lib/games';
 import { insights, games as count, type Insights, type Row } from '../lib/games/profile';
 import { bySource, type GameSource } from '../lib/chesscom/analysis';
@@ -14,6 +16,7 @@ const SPEED_LABEL = { bullet: 'Bullet', blitz: 'Blitz', rapid: 'Rapid', classica
 export function InsightsScreen() {
   const [all, setAll] = useState<AnyGame[] | null>(null);
   const [src, setSrc] = useState<GameSource>('all');
+  const push = useNav((s) => s.push);
   useEffect(() => void allGames({ includeUnanalyzed: true }).then(setAll), []);
   const r: Insights | null = all ? insights(bySource(all, src)) : null;
   return (
@@ -21,7 +24,15 @@ export function InsightsScreen() {
       <Header title="Insights" back subtitle={r ? `${r.games} games` : undefined} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
         <Segmented value={src} onChange={setSrc} options={[{ value: 'all', label: 'All games' }, { value: 'app', label: 'In this app' }, { value: 'chess.com', label: 'chess.com' }]} />
-        {r && r.games === 0 && <p className="px-1 text-sm text-stone-500">No games here yet. Play a game or import from chess.com in Settings.</p>}
+        {!r && <Skeleton rows={4} />}
+        {r && r.games === 0 && (
+          <EmptyState
+            icon={<Lightbulb size={26} />}
+            title="No games here yet"
+            text="Insights show up once you've played a few games — here, or imported from chess.com."
+            action={<button className="btn-secondary" onClick={() => push({ name: 'settings' })}>Import from chess.com</button>}
+          />
+        )}
         {r && r.games > 0 && (
           <>
             <Section title="Accuracy by phase" note={r.weakestPhase ? `Your ${r.weakestPhase} is the weak spot — that's where training pays off most.` : undefined}>

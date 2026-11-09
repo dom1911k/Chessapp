@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { History } from 'lucide-react';
-import { Header, Segmented } from '../components/ui';
+import { EmptyState, Header, Segmented, Skeleton } from '../components/ui';
 import { Portrait } from '../components/Coach';
 import { opponentById } from '../lib/people';
 import { useNav } from '../lib/nav';
@@ -39,15 +39,8 @@ export function HistoryScreen() {
             <ImportProgress />
           </>
         )}
-        {shown?.length === 0 && (
-          <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-200/70 text-stone-500 dark:bg-stone-800">
-              <History size={26} />
-            </span>
-            <p className="font-semibold">No finished games yet</p>
-            <p className="text-sm text-stone-500">Every game you finish — here or imported from chess.com — shows up with its Game Review.</p>
-          </div>
-        )}
+        {!shown && <Skeleton rows={6} />}
+        {shown?.length === 0 && <EmptyState icon={<History size={26} />} title="No finished games yet" text="Every game you finish — here or imported from chess.com — shows up with its Game Review." />}
         {shown && shown.length > 0 && (
         <div className="card divide-y divide-stone-100 overflow-hidden !p-0 dark:divide-white/[0.06]">
         {shown.map((g) => {

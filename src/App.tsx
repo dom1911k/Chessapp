@@ -230,7 +230,7 @@ export function App() {
     <div className="flex h-full flex-col">
       <main className={`relative min-h-0 flex-1 ${top ? 'safe-bottom' : ''}`}>
         {/* Tabs stay mounted (and so keep their state); the shown one fades in. */}
-        {visited.filter((t) => t !== 'run' || runMode).map((t) => (
+        {visited.filter((t) => t !== 'run' || (runMode && shownTab === 'run')).map((t) => (
           <div key={t} className={top || t !== shownTab ? 'hidden' : 'animate-fade-in h-full'}>
             <TabScreen tab={t} />
           </div>
@@ -266,11 +266,19 @@ export function App() {
             {tabs.map((t) => {
               const active = shownTab === t.tab;
               const Icon = t.icon;
+              // Run is its own game mode: set apart by a divider and its own violet accent.
+              const run = t.tab === 'run';
               return (
-                <button key={t.tab} onClick={() => setTab(t.tab)} className="flex flex-1 flex-col items-center gap-0.5 py-1">
+                <button key={t.tab} onClick={() => setTab(t.tab)} className={`flex flex-1 flex-col items-center gap-0.5 py-1 ${run ? 'relative before:absolute before:top-2 before:bottom-2 before:left-0 before:w-px before:bg-stone-200 dark:before:bg-white/10' : ''}`}>
                   <span
                     className={`flex h-8 w-14 items-center justify-center rounded-full transition-colors duration-200 ${
-                      active ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-100' : 'text-stone-500 active:bg-stone-200/60 dark:active:bg-white/[0.05]'
+                      active
+                        ? run
+                          ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-200'
+                          : 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-100'
+                        : run
+                          ? 'text-violet-500/80 active:bg-violet-100/60 dark:text-violet-300/70'
+                          : 'text-stone-500 active:bg-stone-200/60 dark:active:bg-white/[0.05]'
                     }`}
                   >
                     <Icon size={22} strokeWidth={active ? 2.3 : 1.8} />

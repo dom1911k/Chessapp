@@ -3,7 +3,7 @@
 // as White or as Black, with your best score per mode and side.
 import { useEffect, useRef, useState } from 'react';
 import { Eye, Play, RotateCcw, Trophy } from 'lucide-react';
-import { Header, Segmented } from '../components/ui';
+import { Header, Segmented, Toggle } from '../components/ui';
 import { BOARD_THEMES, useSettings } from '../lib/settings';
 import { kvGet, kvSet } from '../lib/db';
 import { playSound } from '../lib/sound';
@@ -190,10 +190,9 @@ export function VisionScreen() {
                 { value: 'random', label: 'Random' },
               ]}
             />
-            <label className="flex items-center justify-between px-1 text-sm">
-              <span className="text-stone-600 dark:text-stone-300">Show coordinates while playing</span>
-              <input type="checkbox" className="h-5 w-5 accent-[var(--color-brand-600)]" checked={coords} onChange={(e) => setCoords(e.target.checked)} />
-            </label>
+            <div className="px-1">
+              <Toggle checked={coords} onChange={setCoords} label="Show coordinates while playing" />
+            </div>
             <button className="btn-primary w-full !py-3.5 text-base" onClick={start}>
               {phase === 'done' ? <><RotateCcw size={18} /> Play again</> : <><Play size={18} /> Start</>}
             </button>

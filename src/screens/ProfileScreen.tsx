@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronRight, Lightbulb, Trophy } from 'lucide-react';
 import { BarChart, LineChart } from '../components/Charts';
-import { Header, Segmented } from '../components/ui';
+import { Header, Segmented, Skeleton } from '../components/ui';
 import { db, kvGet } from '../lib/db';
 import { useNav, type RushMode } from '../lib/nav';
 import { allGames } from '../lib/games';
@@ -93,7 +93,15 @@ export function ProfileScreen() {
     })();
   }, []);
 
-  if (!d) return <div className="h-full" />;
+  if (!d)
+    return (
+      <div className="flex h-full flex-col">
+        <Header title="Profile" back />
+        <div className="mx-auto w-full max-w-xl p-4">
+          <Skeleton rows={5} />
+        </div>
+      </div>
+    );
   const strong = d.themes.slice(0, 3);
   const weak = d.themes.slice(-3).reverse().filter((t) => !strong.includes(t));
   const maxDay = Math.max(1, ...d.days.map((x) => x.n));
