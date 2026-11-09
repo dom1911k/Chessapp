@@ -134,6 +134,19 @@ time {
 .animate-slide-in {
   animation: slide-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+@keyframes slide-out {
+  from {
+    transform: none;
+    opacity: 1;
+  }
+  to {
+    transform: translateX(36px);
+    opacity: 0;
+  }
+}
+.animate-slide-out {
+  animation: slide-out 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
 @keyframes fade-in {
   from {
     opacity: 0;

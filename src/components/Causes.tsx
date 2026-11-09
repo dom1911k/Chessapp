@@ -30,7 +30,7 @@ export function CauseBreakdown({ r, title = 'Why your mistakes happened', bare =
   const max = Math.max(1, ...CAUSES.map((c) => r.totals[c]));
   return (
     <div className={bare ? '' : 'card !p-3'}>
-      {!bare && <div className="mb-2 text-sm font-semibold text-stone-500">{title}</div>}
+      {!bare && <div className="mb-2 section-title">{title}</div>}
       <div className="space-y-1.5">
         {CAUSES.filter((c) => r.totals[c] > 0).sort((a, b) => r.totals[b] - r.totals[a]).map((c) => (
           <div key={c} className="grid grid-cols-[1.25rem_8.5rem_1fr_1.5rem] items-center gap-2 text-sm">

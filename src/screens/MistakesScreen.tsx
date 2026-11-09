@@ -79,7 +79,7 @@ function PhaseBar({ phases }: { phases: Record<Phase, number> }) {
   const color: Record<Phase, string> = { opening: 'bg-sky-500', middlegame: 'bg-amber-500', endgame: 'bg-violet-500' };
   return (
     <div className="card space-y-1.5 !p-3">
-      <div className="text-sm font-semibold text-stone-500">When they happen</div>
+      <div className="section-title">When they happen</div>
       <div className="flex h-3 overflow-hidden rounded-full">
         {PHASES.map((p) => phases[p] > 0 && <div key={p} className={color[p]} style={{ width: `${(phases[p] / total) * 100}%` }} />)}
       </div>
@@ -129,7 +129,7 @@ function ThemeRow({ t, total, max, open, onToggle }: { t: MistakeTheme; total: n
           <button className="btn-primary w-full !py-2 text-sm" onClick={() => push({ name: 'practice', theme: t.theme })}>
             Practise {info.label.toLowerCase()}
           </button>
-          <div className="text-sm font-semibold text-stone-500">Where it happened</div>
+          <div className="section-title">Where it happened</div>
           {t.examples.slice(0, shown).map((e, k) => (
             <div key={`${e.gameId}:${e.ply}`} className="rounded-xl bg-stone-50 p-2 dark:bg-stone-800/50">
               <div className="flex items-center gap-2">

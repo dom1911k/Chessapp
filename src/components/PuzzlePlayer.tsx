@@ -255,7 +255,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
         </div>
       </div>
       {fast ? (
-        <div className="px-3 pt-2 text-center text-sm font-semibold text-stone-500">
+        <div className="px-3 pt-2 text-center section-title">
           {state === 'solving' ? `${side} to move` : state === 'wrong' ? 'Missed' : state === 'solved' ? 'Solved' : '…'}
         </div>
       ) : (

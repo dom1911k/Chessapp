@@ -58,7 +58,7 @@ export function ChessComCard() {
   };
   return (
     <div className="card space-y-2">
-      <div className="flex items-center gap-2 text-sm font-semibold text-stone-500">
+      <div className="flex items-center gap-2 section-title">
         <ChessComBadge /> chess.com account
       </div>
       <p className="text-xs text-stone-500">
@@ -136,7 +136,7 @@ export function LastChessComGames() {
   return (
     <div className="card space-y-2 !p-3">
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-sm font-semibold text-stone-500">
+        <span className="flex items-center gap-1.5 section-title">
           <ChessComBadge /> Your last chess.com games
         </span>
         <span className="text-xs text-stone-500">
@@ -188,7 +188,7 @@ export function GameInsightsCard() {
   const ins = gameInsights(games, src);
   return (
     <div className="card space-y-2 !p-3">
-      <div className="text-sm font-semibold text-stone-500">In your games (last {ins.games})</div>
+      <div className="section-title">In your games (last {ins.games})</div>
       {hasImports && (
         <Segmented
           value={src}
@@ -248,7 +248,7 @@ export function GapCard() {
   const cell = (t: { n: number; pct: number }) => (t.n ? <><b>{t.pct}%</b> <span className="text-stone-400">({t.n})</span></> : <span className="text-stone-400">–</span>);
   return (
     <div className="card space-y-2 !p-3">
-      <div className="text-sm font-semibold text-stone-500">Coached vs Match conditions (last {PERIOD_DAYS} days)</div>
+      <div className="section-title">Coached vs Match conditions (last {PERIOD_DAYS} days)</div>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-xs text-stone-500">
@@ -287,7 +287,7 @@ export function TimeStatsCard({ g, onPly }: { g: AnyGame; onPly: (ply: number) =
   const fmt = (x: number) => (x >= 60 ? `${Math.floor(x / 60)}:${String(Math.round(x % 60)).padStart(2, '0')}` : `${x < 10 ? x.toFixed(1) : Math.round(x)}s`);
   return (
     <div className="card space-y-2 !p-3">
-      <div className="flex justify-between text-sm font-semibold text-stone-500">
+      <div className="flex justify-between section-title">
         <span>Your time ({timeControlLabel(g.timeControl!)})</span>
         <span className="font-normal">{fmt(st.total)} used</span>
       </div>

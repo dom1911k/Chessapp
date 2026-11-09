@@ -15,7 +15,7 @@ export function ResetCard() {
   };
   return (
     <div className="card">
-      <div className="mb-1 text-sm font-semibold text-stone-500">Start over</div>
+      <div className="mb-1 section-title">Start over</div>
       <p className="text-sm text-stone-500">Delete all progress and begin again as a new player.</p>
       <button className="btn-secondary mt-3 w-full !text-red-600" onClick={() => setOpen(true)}>
         Reset all progress…

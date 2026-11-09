@@ -78,7 +78,7 @@ export function CareerCard() {
   useEffect(() => void getCareer().then(setC), [key]);
   return (
     <div className="card !p-3">
-      <div className="mb-2 text-sm font-semibold text-stone-500">Your chess career</div>
+      <div className="mb-2 section-title">Your chess career</div>
       <div className="grid grid-cols-3 gap-2">
         {TACTIC_KEYS.map((k) => (
           <div key={k} className={`flex flex-col items-center rounded-xl bg-stone-100 px-1 py-2 text-center dark:bg-stone-800/60 ${c[k] ? '' : 'opacity-50'}`}>

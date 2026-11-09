@@ -72,7 +72,7 @@ function bestWorst<K extends string>(rows: Row<K>[], name: (k: K) => string): st
 function Section({ title, note, children }: { title: string; note?: string; children?: React.ReactNode }) {
   return (
     <section className="card !p-3">
-      <h2 className="mb-2 text-sm font-semibold text-stone-500">{title}</h2>
+      <h2 className="mb-2 section-title">{title}</h2>
       <div className="space-y-2">{children}</div>
       {note && <p className="mt-2 text-xs text-stone-500">{note}</p>}
     </section>

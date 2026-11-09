@@ -47,7 +47,7 @@ export function BackupCard() {
   return (
     <div className="card space-y-3">
       <div>
-        <div className="text-sm font-semibold text-stone-500">Backup</div>
+        <div className="section-title">Backup</div>
         <p className="text-sm text-stone-600 dark:text-stone-300">
           Save all your games, puzzles and progress to one file — keep it in Google Drive or send it to yourself. Use it to move to a new phone.
         </p>

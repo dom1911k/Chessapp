@@ -1,6 +1,6 @@
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GraduationCap, House, Menu, Puzzle, Sparkles, type LucideIcon } from 'lucide-react';
 import { requestPersistentStorage } from './lib/db';
 import { handleBack, useNav, type Screen, type Tab } from './lib/nav';
@@ -68,6 +68,18 @@ function TabScreen({ tab }: { tab: Tab }) {
     case 'run':
       return <RunScreen />;
   }
+}
+
+/** A stable key per pushed screen, so a screen keeps its state while others sit on top of it. */
+const screenKeys = new WeakMap<Screen, number>();
+let nextScreenKey = 1;
+function keyOf(s: Screen): number {
+  let k = screenKeys.get(s);
+  if (k === undefined) {
+    k = nextScreenKey++;
+    screenKeys.set(s, k);
+  }
+  return k;
 }
 
 function StackScreen({ screen }: { screen: Screen }) {
@@ -169,6 +181,21 @@ function useAndroidBack() {
 
 export function App() {
   const { tab, stack, setTab } = useNav();
+  // Screens just closed stay a moment longer so they can slide away.
+  const [leaving, setLeaving] = useState<Screen[]>([]);
+  const prevStack = useRef<Screen[]>(stack);
+  useEffect(() => {
+    const before = prevStack.current;
+    prevStack.current = stack;
+    const gone = before.filter((s) => !stack.includes(s));
+    if (!gone.length) return;
+    setLeaving((l) => [...l, ...gone]);
+    const t = setTimeout(() => setLeaving((l) => l.filter((s) => !gone.includes(s))), 200);
+    return () => clearTimeout(t);
+  }, [stack]);
+  // Tabs you've visited stay mounted (hidden), so switching back is instant and keeps their state.
+  const [visited, setVisited] = useState<Tab[]>([tab]);
+  useEffect(() => setVisited((v) => (v.includes(tab) ? v : [...v, tab])), [tab]);
   const loaded = useSettings((s) => s.loaded);
   const runMode = useRunFlag((s) => s.enabled);
   const toast = useAndroidBack();
@@ -202,15 +229,36 @@ export function App() {
   return (
     <div className="flex h-full flex-col">
       <main className={`relative min-h-0 flex-1 ${top ? 'safe-bottom' : ''}`}>
-        {/* Tabs stay mounted underneath pushed screens so their state survives. */}
-        <div key={shownTab} className={top ? 'hidden' : 'animate-fade-in h-full'}>
-          <TabScreen tab={shownTab} />
-        </div>
-        {top && (
-          <div key={stack.length} className="animate-slide-in h-full overflow-hidden">
-            <StackScreen screen={top} />
+        {/* Tabs stay mounted (and so keep their state); the shown one fades in. */}
+        {visited.filter((t) => t !== 'run' || runMode).map((t) => (
+          <div key={t} className={top || t !== shownTab ? 'hidden' : 'animate-fade-in h-full'}>
+            <TabScreen tab={t} />
           </div>
-        )}
+        ))}
+        {/* Pushed screens: the top one slides in; the ones under it stay mounted but invisible, so
+            going back returns to them exactly as you left them; a closed one slides away. */}
+        {[...stack, ...leaving].map((s) => {
+          const isTop = s === top;
+          const isLeaving = leaving.includes(s);
+          return (
+            <div
+              key={keyOf(s)}
+              aria-hidden={!isTop}
+              className={
+                isLeaving
+                  ? 'animate-slide-out pointer-events-none absolute inset-0 z-30 h-full overflow-hidden bg-stone-100 dark:bg-stone-950'
+                  : isTop
+                    ? 'absolute inset-0 z-20 h-full overflow-hidden'
+                    : 'pointer-events-none invisible absolute inset-0 h-full overflow-hidden'
+              }
+            >
+              {/* The slide-in runs once, when the screen opens (not when it's revealed again). */}
+              <div className="animate-slide-in h-full bg-stone-100 dark:bg-stone-950">
+                <StackScreen screen={s} />
+              </div>
+            </div>
+          );
+        })}
       </main>
       {!top && !(inGame && tab === 'play') && (
         <nav className="safe-bottom border-t border-stone-200/70 bg-[#fffdf9]/90 shadow-[0_-8px_24px_-18px_rgba(40,25,10,0.25)] backdrop-blur-xl backdrop-saturate-150 dark:border-white/[0.06] dark:bg-[#1a1612]/90 dark:shadow-none">

@@ -92,7 +92,7 @@ export function UpdateCard() {
     <div className="card space-y-2">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-semibold text-stone-500">App updates</div>
+          <div className="section-title">App updates</div>
           <div className="text-sm">Version {version}</div>
         </div>
         <button className="btn-secondary" onClick={check} disabled={state === 'checking'}>
@@ -113,7 +113,7 @@ function WebUpdateCard({ version }: { version: string }) {
     <div className="card space-y-2">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-stone-500">App updates</div>
+          <div className="section-title">App updates</div>
           <div className="text-sm">Version {version}</div>
         </div>
         {needRefresh ? (

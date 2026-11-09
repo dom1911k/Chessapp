@@ -25,7 +25,7 @@ export function SettingsScreen() {
       <Header title="Settings" back />
       <div className="mx-auto w-full max-w-md flex-1 space-y-4 overflow-y-auto p-4">
         <div className="card">
-          <div className="mb-2 text-sm font-semibold text-stone-500">Appearance</div>
+          <div className="mb-2 section-title">Appearance</div>
           <Segmented
             value={s.theme}
             onChange={(theme) => s.set({ theme })}
@@ -63,7 +63,7 @@ export function SettingsScreen() {
           )}
           {s.sound && (
             <div className="space-y-1.5 py-2">
-              <div className="text-sm font-semibold text-stone-500">Sound set</div>
+              <div className="section-title">Sound set</div>
               {Object.entries(SOUND_PACKS).filter(([id]) => unlockedSounds.includes(id)).map(([id, pack]) => (
                 <div key={id} className={`flex items-center gap-2 rounded-xl p-2 ring-1 ${s.soundPack === id ? 'bg-brand-50 ring-brand-500 dark:bg-brand-700/20' : 'ring-stone-200 dark:ring-stone-700'}`}>
                   <button className="flex-1 text-left" onClick={() => { s.set({ soundPack: id }); previewPack(id); }}>
@@ -94,7 +94,7 @@ export function SettingsScreen() {
           </div>
         </div>
         <div className="card divide-y divide-stone-100 dark:divide-stone-800">
-          <div className="pb-1 text-sm font-semibold text-stone-500">Coaching</div>
+          <div className="pb-1 section-title">Coaching</div>
           <div className="py-2">
             <div className="mb-1.5 text-sm">Opponent style</div>
             <Segmented
@@ -171,7 +171,7 @@ function ReminderCard() {
   };
   return (
     <div className="card">
-      <div className="text-sm font-semibold text-stone-500">Daily reminder</div>
+      <div className="section-title">Daily reminder</div>
       <Toggle checked={s.reminderEnabled} onChange={(v) => void apply(v, s.reminderTime)} label="Remind me to train every day" />
       {s.reminderEnabled && (
         <label className="flex items-center justify-between py-1 text-sm">

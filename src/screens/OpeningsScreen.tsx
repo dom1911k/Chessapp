@@ -48,7 +48,7 @@ export function OpeningsScreen() {
         />
         {groups.map(([g, list]) => (
           <section key={g}>
-            <h2 className="mb-2 px-1 text-sm font-semibold text-stone-500">{g}</h2>
+            <h2 className="mb-2 section-title">{g}</h2>
             <div className="space-y-2">
               {list.map((o) => (
                 <div key={o.name + o.moves} className="card !p-3">

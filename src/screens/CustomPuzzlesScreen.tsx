@@ -39,7 +39,7 @@ export function CustomPuzzlesScreen() {
       <Header title="Custom Puzzles" back subtitle="Unrated · pick a theme" />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
         <div>
-          <div className="mb-1.5 text-sm font-semibold text-stone-500">Difficulty</div>
+          <div className="mb-1.5 section-title">Difficulty</div>
           <Segmented
             value={diff}
             onChange={choose}
@@ -54,7 +54,7 @@ export function CustomPuzzlesScreen() {
         </div>
         {THEME_GROUPS.map((g) => (
           <section key={g}>
-            <h2 className="mb-1.5 px-1 text-sm font-semibold text-stone-500">{g}</h2>
+            <h2 className="mb-1.5 section-title">{g}</h2>
             <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
               {THEME_SETS.filter((t) => t.group === g && (counts[t.id] ?? 1) > 0).map((t) => {
                 const s = stats[t.id];

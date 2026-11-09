@@ -74,7 +74,7 @@ export function PuzzlesScreen() {
           <div className="flex items-end justify-between">
             <div>
               <div className="text-xs font-semibold tracking-wide text-stone-500 uppercase">Puzzle rating</div>
-              <div className="text-4xl font-black tabular-nums">{d?.rating ?? '…'}</div>
+              <div className="font-display text-[42px] leading-none font-semibold tabular-nums">{d?.rating ?? '…'}</div>
             </div>
             <div className="text-right text-xs text-stone-500">
               <div>Highest <b className="text-stone-800 dark:text-stone-100">{d?.peak ?? '…'}</b></div>
@@ -178,7 +178,7 @@ function Tile({ icon, tint, title, text, onClick }: { icon: ReactNode; tint: str
 function Record({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
   return (
     <div>
-      <div className="flex items-center justify-center gap-1 text-xl font-black tabular-nums">{icon}{value}</div>
+      <div className="font-display flex items-center justify-center gap-1 text-[22px] font-semibold tabular-nums">{icon}{value}</div>
       <div className="text-[11px] text-stone-500">{label}</div>
     </div>
   );

@@ -65,7 +65,7 @@ export function MoreScreen() {
         </button>
         {GROUPS.map((g) => (
           <section key={g.title}>
-            <h2 className="mb-1.5 px-1 text-sm font-semibold text-stone-500">{g.title}</h2>
+            <h2 className="mb-1.5 section-title">{g.title}</h2>
             <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
               {g.items.map((it) => (
                 <Row key={it.label} item={it} onClick={() => push(it.to)} />

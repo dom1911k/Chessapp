@@ -50,7 +50,7 @@ export function CoursePath() {
   return (
     <section>
       <div className="mb-2 flex items-baseline justify-between px-1">
-        <h2 className="text-sm font-semibold text-stone-500">Your course</h2>
+        <h2 className="section-title">Your course</h2>
         <span className="text-xs text-stone-500">{doneCount}/{CHAPTERS.length} chapters</span>
       </div>
       <div className="relative space-y-2 pl-5">

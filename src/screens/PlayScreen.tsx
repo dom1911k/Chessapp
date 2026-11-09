@@ -129,7 +129,7 @@ function SetupView() {
         {custom && (
           <div className="py-2">
             <div className="mb-1 flex items-baseline justify-between">
-              <span className="text-sm font-semibold text-stone-500">Bot strength</span>
+              <span className="section-title">Bot strength</span>
               <span className="text-sm font-bold">~{settings.botElo} <span className="font-normal text-stone-500">· {eloLabel(settings.botElo)}</span></span>
             </div>
             <input type="range" min={MIN_ELO} max={MAX_ELO} step={50} value={settings.botElo} onChange={(e) => settings.set({ botElo: Number(e.target.value) })} className="w-full accent-brand-600" />
@@ -146,7 +146,7 @@ function SetupView() {
       <Dialog open={sheet === 'options'} onClose={() => setSheet(null)} title="Game options">
         <div className="space-y-4">
           <div>
-            <div className="mb-1.5 text-sm font-semibold text-stone-500">You play</div>
+            <div className="mb-1.5 section-title">You play</div>
             <Segmented
               value={settings.colorPref}
               onChange={(v) => settings.set({ colorPref: v })}
@@ -158,7 +158,7 @@ function SetupView() {
             />
           </div>
           <div>
-            <div className="mb-1.5 text-sm font-semibold text-stone-500">Clock</div>
+            <div className="mb-1.5 section-title">Clock</div>
             {match ? (
               <TimeControlPicker value={matchTc} options={offeredTimeControls(ccTc)} onChange={(v) => settings.set({ matchTimeControl: v })} mine={ccTc} />
             ) : (
@@ -166,7 +166,7 @@ function SetupView() {
             )}
           </div>
           <div>
-            <div className="mb-1.5 text-sm font-semibold text-stone-500">Opponent style</div>
+            <div className="mb-1.5 section-title">Opponent style</div>
             <Segmented
               value={settings.opponentEngine}
               onChange={(v) => settings.set({ opponentEngine: v })}
@@ -181,7 +181,7 @@ function SetupView() {
           </div>
           {!match && (
             <div>
-              <div className="mb-1.5 text-sm font-semibold text-stone-500">Coach</div>
+              <div className="mb-1.5 section-title">Coach</div>
               <Segmented value={settings.coachLevel} onChange={(v) => settings.set({ coachLevel: v, coachLevelSince: Date.now() })} options={COACH_LEVELS.map((l) => ({ value: l.id, label: l.label }))} />
               <p className="mt-1.5 px-1 text-xs text-stone-500">{COACH_LEVELS.find((l) => l.id === settings.coachLevel)?.text}</p>
             </div>
@@ -399,7 +399,8 @@ function GameView() {
   // Android back button: return to the menu (the game stays saved).
   const setAway = s.setAway;
   const goAway = useCallback(() => setAway(true), [setAway]);
-  useBackHandler(goAway);
+  const stackEmpty = useNav((n) => n.stack.length === 0);
+  useBackHandler(goAway, stackEmpty);
 
   const whyNot = () => {
     const lastUser = [...g.plies].reverse().find((p) => p.isUser);

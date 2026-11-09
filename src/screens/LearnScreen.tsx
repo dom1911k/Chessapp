@@ -36,7 +36,7 @@ export function LearnScreen() {
         <CoursePath />
         <section>
           <div className="mb-2 flex items-baseline justify-between px-1">
-            <h2 className="text-sm font-semibold text-stone-500">Checkmate patterns</h2>
+            <h2 className="section-title">Checkmate patterns</h2>
             <span className="text-xs font-semibold text-stone-500">
               {MATE_PATTERNS.filter((m) => lessonsDone.includes(m.id)).length}/{MATE_PATTERNS.length}
             </span>
@@ -55,7 +55,7 @@ export function LearnScreen() {
           </div>
         </section>
         <section>
-          <h2 className="mb-2 px-1 text-sm font-semibold text-stone-500">All lessons</h2>
+          <h2 className="mb-2 section-title">All lessons</h2>
           <div className="grid grid-cols-2 gap-2.5">
             {LESSONS.map((l) => (
               <button key={l.id} className="card !p-3 text-left" onClick={() => push({ name: 'lesson', lessonId: l.id })}>
@@ -71,7 +71,7 @@ export function LearnScreen() {
         </section>
         {groups.map((g) => (
           <section key={g}>
-            <h2 className="mb-2 px-1 text-sm font-semibold text-stone-500">{g}</h2>
+            <h2 className="mb-2 section-title">{g}</h2>
             <div className="space-y-2">
               {DRILLS.filter((d) => d.group === g).map((d) => {
                 const p = progress[d.id];
@@ -96,7 +96,7 @@ export function LearnScreen() {
           </section>
         ))}
         <section>
-          <h2 className="mb-2 px-1 text-sm font-semibold text-stone-500">Ready for real opponents</h2>
+          <h2 className="mb-2 section-title">Ready for real opponents</h2>
           <div className="space-y-2">
             <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'face' })}>
               <Medallion name="eye" tint="green" />
@@ -134,7 +134,7 @@ export function LearnScreen() {
           </div>
         </section>
         <section>
-          <h2 className="mb-2 px-1 text-sm font-semibold text-stone-500">Openings</h2>
+          <h2 className="mb-2 section-title">Openings</h2>
           <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'openings' })}>
             <Medallion name="book" tint="blue" />
             <span className="flex-1">

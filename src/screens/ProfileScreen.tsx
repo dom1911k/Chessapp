@@ -119,7 +119,7 @@ export function ProfileScreen() {
           <>
             <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
               <RatingRow label="Bots" sub={`${d.bots.games} rated games`} value={d.bots.rating} best={d.bots.peak} onClick={() => push({ name: 'journey' })} />
-              <RatingRow label="Puzzles" sub={`${d.puzzles.solved} of ${d.puzzles.total} solved`} value={d.rating} best={Math.max(d.rating, ...d.ratings)} />
+              <RatingRow label="Puzzles" sub={d.puzzles.total ? `${d.puzzles.solved} of ${d.puzzles.total} solved` : "No puzzles yet"} value={d.rating} best={Math.max(d.rating, ...d.ratings)} />
               <RatingRow label="Puzzle Rush" sub={`Survival best ${d.survival}`} value={d.rush} />
               {d.cc.map((c) => (
                 <RatingRow key={c.cls} label={`chess.com ${c.cls}`} sub="Latest imported game" value={c.rating} />
@@ -127,7 +127,7 @@ export function ProfileScreen() {
             </div>
             <div className="card !p-3">
               <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-stone-500">Record</span>
+                <span className="section-title">Record</span>
                 <span className="text-xs text-stone-500">{scorePct(p.score)}% score</span>
               </div>
               <div className="flex h-3 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800">
@@ -147,7 +147,7 @@ export function ProfileScreen() {
             </div>
             <div className="card !p-3">
               <div className="mb-1 flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-stone-500">Accuracy by week</span>
+                <span className="section-title">Accuracy by week</span>
                 {p.accuracy !== null && <span className="text-xs text-stone-500">average {p.accuracy}%</span>}
               </div>
               {p.accuracyByWeek.length > 1 ? (
@@ -157,7 +157,7 @@ export function ProfileScreen() {
               )}
             </div>
             <div className="card !p-0">
-              <div className="flex items-center gap-1.5 px-3 pt-3 pb-1 text-sm font-semibold text-stone-500">
+              <div className="flex items-center gap-1.5 px-3 pt-3 pb-1 section-title">
                 <Trophy size={15} className="text-gold-500" /> Best wins
               </div>
               {p.bestWins.length === 0 && <p className="px-3 pb-3 text-xs text-stone-500">Your wins against the strongest opponents show up here.</p>}
@@ -168,7 +168,7 @@ export function ProfileScreen() {
                     <span className="block truncate font-semibold">{b.opponent}</span>
                     <span className="block text-xs text-stone-500">
                       {b.source === 'chess.com' ? 'chess.com · ' : ''}
-                      {new Date(b.endedAt).toLocaleDateString()}
+                      {new Date(b.endedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       {b.accuracy !== null ? ` · ${b.accuracy}% accuracy` : ''}
                     </span>
                   </span>
@@ -193,11 +193,11 @@ export function ProfileScreen() {
             <GameInsightsCard />
             <GapCard />
             <div className="card !p-3">
-              <div className="mb-1 text-sm font-semibold text-stone-500">Game accuracy</div>
+              <div className="mb-1 section-title">Game accuracy</div>
               <LineChart values={d.accuracy} color="#3b82f6" suffix="%" />
             </div>
             <div className="card !p-3">
-              <div className="mb-1 text-sm font-semibold text-stone-500">Blunders per game (last {d.blunders.length})</div>
+              <div className="mb-1 section-title">Blunders per game (last {d.blunders.length})</div>
               <BarChart values={d.blunders} />
             </div>
             <button className="btn-secondary w-full" onClick={() => push({ name: 'history' })}>
@@ -208,7 +208,7 @@ export function ProfileScreen() {
         {view === 'puzzles' && (
           <>
             <div className="card !p-3">
-              <div className="mb-1 text-sm font-semibold text-stone-500">Puzzle rating over time</div>
+              <div className="mb-1 section-title">Puzzle rating over time</div>
               <LineChart values={d.ratings} />
               <div className="text-xs text-stone-500">{d.puzzles.solved} of {d.puzzles.total} puzzles solved</div>
             </div>
@@ -225,7 +225,7 @@ export function ProfileScreen() {
               <Stat label="Longest streak" value={d.best} />
             </div>
             <div className="card !p-3">
-              <div className="mb-1 text-sm font-semibold text-stone-500">Last 14 days</div>
+              <div className="mb-1 section-title">Last 14 days</div>
               <div className="flex h-16 items-end gap-1">
                 {d.days.map((x) => (
                   <div key={x.day} className="flex-1 rounded-t bg-brand-500" style={{ height: `${Math.max(4, (x.n / maxDay) * 100)}%`, opacity: x.n ? 1 : 0.15 }} title={`${x.day}: ${x.n}`} />
@@ -253,7 +253,7 @@ function RatingRow({ label, sub, value, best, onClick }: { label: string; sub: s
         <span className="block truncate text-xs text-stone-500">{sub}</span>
       </span>
       <span className="text-right">
-        <span className="block text-xl font-black tabular-nums">{value}</span>
+        <span className="font-display block text-[22px] leading-tight font-semibold tabular-nums">{value}</span>
         {best !== undefined && best > value && <span className="block text-[11px] text-stone-400">best {best}</span>}
       </span>
       {onClick && <ChevronRight size={16} className="text-stone-400" />}
@@ -269,7 +269,7 @@ function RatingRow({ label, sub, value, best, onClick }: { label: string; sub: s
 function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: string }) {
   return (
     <div className="card !p-3 text-center">
-      <div className="text-xl font-bold">{value}</div>
+      <div className="font-display text-[22px] font-semibold tabular-nums">{value}</div>
       <div className="text-[11px] text-stone-500">{label}</div>
       {sub && <div className="text-[11px] text-stone-400">{sub}</div>}
     </div>
@@ -315,7 +315,7 @@ function WeekCard({ week }: { week: { thisWeek: WeekStats; lastWeek: WeekStats }
   ];
   return (
     <div className="card !p-3">
-      <div className="mb-1 flex justify-between text-sm font-semibold text-stone-500">
+      <div className="mb-1 flex justify-between section-title">
         <span>This week</span>
         <span className="font-normal">vs. last week</span>
       </div>

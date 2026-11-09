@@ -7,7 +7,7 @@ export function FeedbackCard() {
   useEffect(refresh, []);
   return (
     <div className="card space-y-2">
-      <div className="text-sm font-semibold text-stone-500">Coach feedback</div>
+      <div className="section-title">Coach feedback</div>
       <p className="text-sm text-stone-600 dark:text-stone-300">
         {n === 0
           ? 'When an explanation looks wrong, tap "This explanation seems wrong" under it. The positions are collected here.'
