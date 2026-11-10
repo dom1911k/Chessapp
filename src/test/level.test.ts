@@ -31,3 +31,12 @@ describe('puzzle levels', () => {
     expect(DAILY_SOLVER_GOAL).toBe(3);
   });
 });
+
+import { winStreak } from '../lib/stats';
+describe('win streak', () => {
+  it('counts wins from the newest game until the first loss or draw', () => {
+    expect(winStreak(['win', 'win', 'loss', 'win'])).toBe(2);
+    expect(winStreak(['draw', 'win'])).toBe(0);
+    expect(winStreak([])).toBe(0);
+  });
+});

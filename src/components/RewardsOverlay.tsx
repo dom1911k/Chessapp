@@ -1,7 +1,9 @@
 // The results screen after a game, revealed step by step like the end of a level:
 // result banner → stars → XP → rating → tactics → new achievements, unlocks and milestones.
-import { useEffect, useState, type ReactNode } from 'react';
-import { RotateCcw, Star, TrendingDown, TrendingUp, User, Users, X } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Flame, RotateCcw, Star, TrendingDown, TrendingUp, User, Users, X } from 'lucide-react';
+import { CountUp, FillBar, useSequence } from './Reward';
+import { MILESTONES, START_RATING, type Milestone } from '../lib/rewards/rating';
 import { useCelebrate } from '../lib/celebrate';
 import { opponentById } from '../lib/people';
 import { challengeFor } from '../lib/people/challenges';
@@ -15,23 +17,6 @@ import type { GameRewards } from '../lib/store/finish';
 import { Portrait } from './Coach';
 import { CosmeticPreview } from './CosmeticPreview';
 import { Medallion } from './Glyph';
-
-function useCountUp(from: number, to: number, run: boolean, ms = 900) {
-  const [v, setV] = useState(from);
-  useEffect(() => {
-    if (!run) return setV(from);
-    const t0 = performance.now();
-    let raf = 0;
-    const tick = (t: number) => {
-      const k = Math.min(1, (t - t0) / ms);
-      setV(Math.round(from + (to - from) * (1 - (1 - k) ** 3)));
-      if (k < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [from, to, run, ms]);
-  return v;
-}
 
 function Reveal({ show, children, delay = 0 }: { show: boolean; children: ReactNode; delay?: number }) {
   if (!show) return null;
@@ -64,36 +49,60 @@ export function reasonText(reason: string): string {
   return `by ${reason}`;
 }
 
+/** Where a rating sits on the Journey: index of the stretch it's in + how far along (2.4 = 40% into the third). */
+function journeyPos(rating: number): { pos: number; next?: Milestone; prev: number } {
+  const marks = [START_RATING, ...MILESTONES.map((m) => m.rating)];
+  for (let i = 0; i < marks.length - 1; i++) {
+    if (rating < marks[i + 1]) return { pos: i + Math.max(0, (rating - marks[i]) / (marks[i + 1] - marks[i])), next: MILESTONES[i], prev: marks[i] };
+  }
+  return { pos: marks.length - 1, prev: marks[marks.length - 1] };
+}
+
 export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent }: { r: GameRewards; onClose: () => void; onReport?: () => void; onRematch?: () => void; onNewOpponent?: () => void }) {
-  const [step, setStep] = useState(0);
   const o = opponentById(r.opponentId);
   const lvBefore = levelFor(r.xpBefore);
   const lvAfter = levelFor(r.xpAfter);
   const hasStars = !!o;
   const tactics = TACTIC_KEYS.filter((k) => r.tactics[k]);
   const extras = r.milestones.length + r.achievements.length + r.unlocks.length + r.skillsUp.length + (r.challengeOpened || r.challengeDone ? 1 : 0);
-  const LAST = 6;
+  const streak = r.winStreak ?? 0;
+  // One beat at a time: banner → accuracy → stars → rating → XP → streak → tactics → new things → actions.
+  const S = { acc: 1, stars: 2, rating: 3, xp: 4, streak: 5, tactics: 6, extras: 7, actions: 8 };
+  const delays = useMemo(
+    () => [450, 1000, hasStars ? 1000 : 60, 1300, lvAfter.level > lvBefore.level ? 2000 : 1300, streak >= 2 ? 900 : 60, tactics.length ? 800 : 60, extras ? 700 : 60],
+    [hasStars, lvAfter.level, lvBefore.level, streak, tactics.length, extras],
+  );
+  const { step, skip, skipped } = useSequence(delays);
+  const [levelUp, setLevelUp] = useState<number | null>(null);
+  const [milestoneHit, setMilestoneHit] = useState(false);
 
   useEffect(() => {
-    if (step >= LAST) return;
-    const delays = [500, hasStars ? 1100 : 100, 1000, 1000, tactics.length ? 900 : 100, extras ? 700 : 100];
-    const t = setTimeout(() => setStep((s) => s + 1), delays[step]);
-    return () => clearTimeout(t);
-  }, [step, hasStars, tactics.length, extras]);
-
-  useEffect(() => {
-    if (step === 1 && r.userResult === 'win') useCelebrate.getState().confetti({ force: true });
-    if (step === 2 && hasStars && r.starsAfter > r.starsBefore) playSound('reward');
-    if (step === 5 && extras) {
+    if (step === S.acc && r.userResult === 'win') useCelebrate.getState().confetti({ force: true });
+    if (step === S.extras && extras) {
       playSound('success');
       if (r.milestones.length || r.unlocks.length || r.challengeDone) useCelebrate.getState().confetti({ force: true });
     }
-  }, [step, r, hasStars, extras]);
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const xp = useCountUp(r.xpBefore, r.xpAfter, step >= 3);
-  const lv = levelFor(xp);
-  const rating = useCountUp(r.ratingBefore, r.ratingAfter, step >= 4);
+  // Stars light up one by one, each with a little chime.
+  const freshStars = Math.max(0, r.starsAfter - r.starsBefore);
+  const [starsLit, setStarsLit] = useState(r.starsBefore);
+  useEffect(() => {
+    if (!hasStars) return;
+    if (skipped) return setStarsLit(r.starsAfter);
+    if (step < S.stars || starsLit >= r.starsAfter) return;
+    const t = setTimeout(() => {
+      setStarsLit((n) => n + 1);
+      playSound('reward');
+    }, starsLit === r.starsBefore ? 150 : 280);
+    return () => clearTimeout(t);
+  }, [step, starsLit, skipped]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const delta = r.ratingAfter - r.ratingBefore;
+  const jb = journeyPos(r.ratingBefore);
+  const ja = journeyPos(r.ratingAfter);
+  const xpFrom = lvBefore.level + lvBefore.into / lvBefore.span;
+  const xpTo = lvAfter.level + lvAfter.into / lvAfter.span;
   const banner =
     r.userResult === 'win'
       ? { text: 'You won!', bg: 'from-gold-300 via-gold-400 to-gold-500' }
@@ -101,11 +110,12 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent 
         ? { text: 'Draw', bg: 'from-slate-300 via-slate-400 to-slate-500' }
         : { text: 'You lost', bg: 'from-slate-500 via-slate-600 to-slate-700' };
   const ch = challengeFor(r.opponentId);
+  const shownLevel = levelUp ?? lvBefore.level;
 
   return (
-    <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/55 backdrop-blur-[2px] sm:items-center" onClick={() => setStep(LAST)}>
-      <div className="safe-bottom animate-pop relative max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[30px] bg-[#fffdf9] px-5 pt-3 pb-5 shadow-2xl sm:rounded-[30px] dark:bg-stone-900" onClick={(e) => e.stopPropagation()}>
-        <button className="absolute top-3 right-3 rounded-full p-1.5 text-stone-400" onClick={onClose} aria-label="Close">
+    <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/55 backdrop-blur-[2px] sm:items-center" onClick={skip}>
+      <div className="safe-bottom animate-pop relative max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[30px] bg-[#fffdf9] px-5 pt-3 pb-5 shadow-2xl sm:rounded-[30px] dark:bg-stone-900" onClick={(e) => (e.stopPropagation(), skip())}>
+        <button className="absolute top-3 right-3 z-10 rounded-full p-1.5 text-stone-400" onClick={(e) => (e.stopPropagation(), onClose())} aria-label="Close">
           <X size={20} />
         </button>
         {/* Banner: you vs them (the winner ringed in gold), the result and how it ended. */}
@@ -129,65 +139,105 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent 
             <div className="font-display text-3xl leading-none font-bold text-white drop-shadow">{banner.text}</div>
           </div>
           <div className="mt-1.5 text-sm text-stone-500">
-            {reasonText(r.reason)} · {o ? `vs ${o.name}` : 'vs the bot'} · <b className="text-stone-700 tabular-nums dark:text-stone-200">{r.accuracy}%</b> accuracy
+            {reasonText(r.reason)} · {o ? `vs ${o.name}` : 'vs the bot'}
           </div>
         </div>
 
-        {/* Stars */}
+        {/* Accuracy: counts up */}
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <span className="text-[11px] font-bold tracking-wider text-stone-500 uppercase">Accuracy</span>
+          <CountUp from={0} to={r.accuracy} decimals={1} suffix="%" run={step >= S.acc} instant={skipped} ms={1000} className="font-display text-[28px] leading-none font-semibold" />
+        </div>
+
+        {/* Stars: one by one */}
         {hasStars && (
-          <Reveal show={step >= 1}>
-            <div className="mt-4 flex justify-center gap-2">
+          <div className={`mt-3 transition-opacity duration-300 ${step >= S.stars ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="flex justify-center gap-2">
               {Array.from({ length: MAX_STARS }, (_, i) => {
-                const had = i < r.starsBefore;
-                const fresh = !had && i < r.starsAfter;
-                const lit = had || (fresh && step >= 2);
+                const lit = i < starsLit;
+                const fresh = i >= r.starsBefore && i < r.starsAfter;
                 return (
                   <Star
                     key={i}
-                    size={34}
-                    className={`${lit ? 'fill-gold-400 text-gold-500 drop-shadow-[0_2px_4px_rgba(180,130,10,0.45)]' : 'text-stone-300 dark:text-stone-700'} ${fresh && step >= 2 ? 'animate-star' : ''}`}
+                    size={32}
+                    className={`transition-colors ${lit ? 'fill-gold-400 text-gold-500 drop-shadow-[0_2px_4px_rgba(180,130,10,0.45)]' : 'text-stone-300 dark:text-stone-700'} ${lit && fresh ? 'animate-star' : ''}`}
                   />
                 );
               })}
             </div>
             <div className="mt-1 text-center text-xs font-semibold text-stone-500">
-              {r.starsAfter >= MAX_STARS ? `All ${MAX_STARS} stars with ${o!.name}!` : `${r.starsAfter} of ${MAX_STARS} stars · ${r.userResult === 'win' ? 'a win earns a star' : 'win to earn a star'}`}
+              {r.starsAfter >= MAX_STARS ? `All ${MAX_STARS} stars with ${o!.name}!` : freshStars ? `+${freshStars} star · ${r.starsAfter} of ${MAX_STARS}` : `${r.starsAfter} of ${MAX_STARS} stars · ${r.userResult === 'win' ? 'a win earns a star' : 'win to earn a star'}`}
             </div>
-          </Reveal>
+          </div>
         )}
 
-        {/* XP and rating */}
-        <div className="mt-4 grid grid-cols-2 gap-2.5">
-          <Reveal show={step >= 2}>
-            <div className="rounded-2xl bg-stone-100 p-3 dark:bg-stone-800">
-              <div className="flex items-baseline justify-between">
-                <span className="text-[10px] font-bold tracking-wider text-stone-500 uppercase">Level {lv.level}</span>
-                <span className="text-sm font-bold text-amber-600">+{r.xpAfter - r.xpBefore} XP</span>
-              </div>
-              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-700">
-                <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-gold-500 transition-[width] duration-150" style={{ width: `${(lv.into / lv.span) * 100}%` }} />
-              </div>
-              {lvAfter.level > lvBefore.level && step >= 3 && <div className="animate-pop mt-1.5 text-xs font-bold text-amber-600">Level up! {lvAfter.title}</div>}
-            </div>
-          </Reveal>
-          <Reveal show={step >= 3}>
-            <div className="rounded-2xl bg-stone-100 p-3 dark:bg-stone-800">
-              <div className="flex items-baseline justify-between">
-                <span className="text-[10px] font-bold tracking-wider text-stone-500 uppercase">Rating</span>
-                <span className={`flex items-center gap-0.5 rounded-full px-1.5 text-sm font-bold tabular-nums ${delta > 0 ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-100' : delta < 0 ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300' : 'text-stone-500'}`}>
-                  {delta > 0 ? <TrendingUp size={14} /> : delta < 0 ? <TrendingDown size={14} /> : null}
-                  {delta > 0 ? '+' : delta < 0 ? '−' : '±'}
-                  {Math.abs(delta)}
-                </span>
-              </div>
-              <div className="font-display text-2xl leading-tight font-semibold">{rating}</div>
-            </div>
-          </Reveal>
+        {/* Rating: rolls, with the bar to the next Journey milestone */}
+        <div className={`mt-4 rounded-2xl bg-stone-100 p-3.5 transition-opacity duration-300 dark:bg-white/[0.04] ${step >= S.rating ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[11px] font-bold tracking-wider text-stone-500 uppercase">Rating</span>
+            <CountUp from={r.ratingBefore} to={r.ratingAfter} run={step >= S.rating} instant={skipped} ms={1000} delay={150} className="font-display ml-auto text-[26px] leading-none font-semibold" />
+            <span className={`flex items-center gap-0.5 rounded-full px-1.5 text-sm font-bold tabular-nums ${delta > 0 ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-100' : delta < 0 ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300' : 'text-stone-500'}`}>
+              {delta > 0 ? <TrendingUp size={14} /> : delta < 0 ? <TrendingDown size={14} /> : null}
+              {delta > 0 ? '+' : delta < 0 ? '−' : '±'}
+              {Math.abs(delta)}
+            </span>
+          </div>
+          <div className="mt-2.5 flex items-center gap-2">
+            <FillBar from={jb.pos} to={ja.pos} run={step >= S.rating} instant={skipped} delay={150} className="h-2.5 flex-1" fill="bg-gradient-to-r from-sky-400 to-brand-500" onWrap={() => (setMilestoneHit(true), playSound('reward'))} />
+            <span className={`flex h-7 items-center rounded-full px-2 text-[11px] font-bold whitespace-nowrap ${milestoneHit ? 'animate-badge-pop bg-gold-300/50 text-stone-800 dark:text-gold-300' : 'bg-white text-stone-600 ring-1 ring-stone-200 dark:bg-white/[0.06] dark:text-stone-300 dark:ring-white/10'}`}>
+              {(milestoneHit ? MILESTONES.find((m) => m.rating > r.ratingBefore && m.rating <= r.ratingAfter) : jb.next)?.rating ?? '★'}
+            </span>
+          </div>
+          <div className="mt-1 text-[11px] text-stone-500">
+            {milestoneHit ? (
+              <>
+                <b className="text-stone-700 dark:text-stone-200">{MILESTONES.filter((m) => m.rating > r.ratingBefore && m.rating <= r.ratingAfter).pop()?.title ?? 'Milestone'} reached!</b>
+                {ja.next ? <> Next: {ja.next.title} at {ja.next.rating}</> : null}
+              </>
+            ) : ja.next ? <>Next on your journey: <b className="text-stone-700 dark:text-stone-200">{ja.next.title}</b> at {ja.next.rating}</> : 'Top of the journey!'}
+          </div>
         </div>
+
+        {/* XP: fills, with a level-up pop when a level is crossed */}
+        <div className={`mt-2.5 rounded-2xl bg-stone-100 p-3.5 transition-opacity duration-300 dark:bg-white/[0.04] ${step >= S.xp ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="flex items-baseline gap-2">
+            <span key={shownLevel} className={`flex h-6 items-center rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-2 text-[11px] font-black text-amber-950 ${levelUp ? 'animate-badge-pop' : ''}`}>Level {shownLevel}</span>
+            {levelUp && <span className="animate-reveal text-xs font-bold text-amber-600">Level up! {lvAfter.title}</span>}
+            <CountUp from={0} to={r.xpAfter - r.xpBefore} prefix="+" suffix=" XP" run={step >= S.xp} instant={skipped} ms={900} className="ml-auto text-sm font-bold text-amber-600" />
+          </div>
+          <FillBar
+            from={xpFrom}
+            to={xpTo}
+            run={step >= S.xp}
+            instant={skipped}
+            delay={100}
+            className="mt-2.5 h-2.5"
+            fill="bg-gradient-to-r from-amber-300 to-gold-500"
+            onWrap={(l) => {
+              setLevelUp(l);
+              playSound('reward');
+              useCelebrate.getState().confetti({ force: true });
+            }}
+          />
+        </div>
+
+        {/* Win streak */}
+        {streak >= 2 && (
+          <div className={`mt-2.5 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-orange-50 to-rose-50 p-3 ring-1 ring-orange-200/70 transition-opacity duration-300 dark:from-orange-500/10 dark:to-rose-500/10 dark:ring-orange-500/20 ${step >= S.streak ? 'opacity-100' : 'opacity-0'}`}>
+            <span className={step >= S.streak ? 'animate-flame-pop' : ''}>
+              <Flame size={28} className={`${streak >= 5 ? 'fill-rose-400 text-rose-500' : 'fill-orange-400 text-orange-500'}`} />
+            </span>
+            <span className="flex-1">
+              <span className="block font-bold">{streak} wins in a row</span>
+              <span className="block text-xs text-stone-500">{r.newBestStreak ? 'Your best streak ever!' : `Best: ${r.bestWinStreak ?? streak}`}</span>
+            </span>
+            {r.newBestStreak && <span className="chip bg-gold-300/50 text-stone-800 dark:text-gold-300">New best</span>}
+          </div>
+        )}
 
         {/* Tactics played */}
         {tactics.length > 0 && (
-          <Reveal show={step >= 4}>
+          <Reveal show={step >= S.tactics}>
             <div className="mt-3 flex flex-wrap justify-center gap-1.5">
               {tactics.map((k, i) => (
                 <span key={k} className="animate-pop chip bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200" style={{ animationDelay: `${i * 90}ms` }}>
@@ -201,12 +251,12 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent 
         {/* New things */}
         <div className="mt-3 space-y-2">
           {r.milestones.map((m, i) => (
-            <Reveal key={m.rating} show={step >= 5} delay={i * 150}>
+            <Reveal key={m.rating} show={step >= S.extras} delay={i * 150}>
               <RewardCard badge={`Journey · ${m.rating}`} title={m.title} text={m.line} icon={<Medallion name="map" tint="gold" size={44} />} />
             </Reveal>
           ))}
           {(r.challengeOpened || r.challengeDone) && ch && (
-            <Reveal show={step >= 5} delay={100}>
+            <Reveal show={step >= S.extras} delay={100}>
               <RewardCard
                 badge={r.challengeDone ? 'Challenge complete' : 'Challenge unlocked'}
                 title={ch.title}
@@ -216,12 +266,12 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent 
             </Reveal>
           )}
           {r.unlocks.map((c, i) => (
-            <Reveal key={c.id} show={step >= 5} delay={200 + i * 150}>
+            <Reveal key={c.id} show={step >= S.extras} delay={200 + i * 150}>
               <RewardCard badge={`New ${KIND_LABEL[c.kind].one.toLowerCase()} unlocked`} title={c.name} text="Equip it in your Collection." tint="green" icon={<CosmeticPreview c={c} size={44} />} />
             </Reveal>
           ))}
           {r.achievements.map((a, i) => (
-            <Reveal key={a.id} show={step >= 5} delay={300 + i * 150}>
+            <Reveal key={a.id} show={step >= S.extras} delay={300 + i * 150}>
               <RewardCard
                 badge="Achievement"
                 title={a.title}
@@ -233,14 +283,14 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent 
           {r.skillsUp.map((s, i) => {
             const k = SKILLS.find((x) => x.id === s.id)!;
             return (
-              <Reveal key={s.id} show={step >= 5} delay={400 + i * 150}>
+              <Reveal key={s.id} show={step >= S.extras} delay={400 + i * 150}>
                 <RewardCard badge={`Skill · ${TIERS[s.tier].name}`} title={k.name} text="Your skill tree grew!" tint="blue" icon={<Medallion name={k.icon} tint="blue" size={44} />} />
               </Reveal>
             );
           })}
         </div>
 
-        <Reveal show={step >= LAST}>
+        <Reveal show={step >= S.actions}>
           <div className="mt-5 space-y-2">
             {onReport ? (
               <button className="btn-primary w-full !py-3.5 text-base" onClick={onReport}>
@@ -268,7 +318,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent 
             </div>
           </div>
         </Reveal>
-        {step < LAST && <p className="mt-4 text-center text-xs text-stone-400">Tap to skip</p>}
+        {step < S.actions && <p className="mt-4 text-center text-xs text-stone-400">Tap to skip</p>}
       </div>
     </div>
   );

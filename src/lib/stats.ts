@@ -33,3 +33,21 @@ export async function bestStreak(): Promise<number> {
   }
   return best;
 }
+
+/** Wins in a row, newest game first (a loss or a draw ends the run). */
+export function winStreak(resultsNewestFirst: ('win' | 'loss' | 'draw')[]): number {
+  let n = 0;
+  for (const r of resultsNewestFirst) {
+    if (r !== 'win') break;
+    n++;
+  }
+  return n;
+}
+
+export const BEST_WIN_STREAK = 'bestWinStreak';
+
+/** Your current win streak against the bots (games played in the app). */
+export async function currentWinStreak(): Promise<number> {
+  const games = await db.games.orderBy('endedAt').reverse().limit(60).toArray();
+  return winStreak(games.filter((g) => g.source !== 'chess.com').map((g) => g.userResult));
+}

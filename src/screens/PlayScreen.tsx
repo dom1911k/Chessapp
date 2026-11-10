@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { FlipVertical2, User, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
+import { Flame, FlipVertical2, User, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
@@ -23,6 +23,7 @@ import { cosmeticById, type Cosmetic } from '../lib/rewards/cosmetics';
 import { CosmeticPreview } from '../components/CosmeticPreview';
 import { BoardFlash } from '../components/BoardFlash';
 import { Captured } from '../components/Captured';
+import { currentWinStreak } from '../lib/stats';
 import { LastChessComGames } from '../components/ChessCom';
 import { dueCount } from '../lib/store/daily';
 import { ReviewIcon } from '../components/ReviewIcon';
@@ -66,6 +67,10 @@ function SetupView() {
   const prevName = opp ? OPPONENTS[OPPONENTS.indexOf(opp) - 1]?.name : undefined;
   const rec = opp ? records[opp.id] : undefined;
   const running = usePlay((s) => (s.game && s.phase !== 'over' && s.phase !== 'setup' ? s.game : null));
+  // Wins in a row against the bots (refreshed whenever the menu shows again).
+  const [winRun, setWinRun] = useState(0);
+  const away = usePlay((s) => s.phase);
+  useEffect(() => void currentWinStreak().then(setWinRun), [away]);
   const start = async () => {
     if (locked) return;
     const color = settings.colorPref === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : settings.colorPref;
@@ -113,6 +118,12 @@ function SetupView() {
             <span className="ml-auto text-sm font-semibold text-brand-700 dark:text-brand-500">Options</span>
           </button>
           {match && <p className="px-1 text-xs text-stone-500">Like a real chess.com game: clock on, no help until it ends — then the full Game Review.</p>}
+          {winRun >= 2 && (
+            <div className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-orange-50 to-rose-50 px-3 py-2 text-sm ring-1 ring-orange-200/70 dark:from-orange-500/10 dark:to-rose-500/10 dark:ring-orange-500/20">
+              <Flame size={18} className={`animate-flame ${winRun >= 5 ? 'fill-rose-400 text-rose-500' : 'fill-orange-400 text-orange-500'}`} />
+              <span className="flex-1"><b>{winRun} wins in a row</b> <span className="text-stone-500">— keep it going!</span></span>
+            </div>
+          )}
           <button className="btn-primary w-full !py-3.5 text-lg" disabled={locked} onClick={() => void start()}>
             {locked ? <><Lock size={16} /> Beat {prevName} first</> : running ? 'Start a new game' : 'Play'}
           </button>

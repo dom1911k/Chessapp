@@ -7,6 +7,10 @@ import { bumpActivity, kvGet, kvSet } from '../lib/db';
 import { nextPuzzle } from '../lib/puzzles/select';
 import { fromLichess, type PuzzleSpec } from '../lib/puzzles/spec';
 import { progress } from '../lib/progress';
+import { CountUp, FillBar } from '../components/Reward';
+import { useCelebrate } from '../lib/celebrate';
+import { playSound } from '../lib/sound';
+import { Trophy } from 'lucide-react';
 
 const STRIKES = 3;
 const START_RATING = 600;
@@ -31,6 +35,8 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
   const [left, setLeft] = useState(DURATION[mode]);
   const [best, setBest] = useState(0);
   const [newBest, setNewBest] = useState(false);
+  const [prevBest, setPrevBest] = useState(0);
+  const [plus, setPlus] = useState(0);
   const rating = useRef(START_RATING);
   const seen = useRef(new Set<string>());
   const ended = useRef(false);
@@ -78,10 +84,15 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
     ended.current = true;
     setPhase('done');
     if (score > 0) await bumpActivity('puzzles', score);
+    setPrevBest(best);
     if (score > best) {
       setBest(score);
       setNewBest(true);
       await kvSet(BEST_KEY, score);
+      setTimeout(() => {
+        playSound('reward');
+        useCelebrate.getState().confetti({ force: true });
+      }, 1100);
     }
     if (score > 0) await progress({ kind: 'rush', solved: score });
   };
@@ -92,18 +103,35 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
   return (
     <div className="flex h-full flex-col">
       <Header
-        title={`Puzzle Rush · ${RUSH_LABEL[mode]}`}
+        title={phase === 'running' ? 'Rush' : `Puzzle Rush · ${RUSH_LABEL[mode]}`}
         back
         right={
           phase === 'running' ? (
             <div className="flex items-center gap-3 pr-2 text-sm font-bold">
-              <span>{'✗'.repeat(misses)}{'○'.repeat(STRIKES - misses)}</span>
-              {mode !== 'survival' && <span className={left <= 20 ? 'text-red-600' : ''}>⏱ {mm}:{ss}</span>}
-              <span className="text-brand-600">{score}</span>
+              <span className="flex gap-1" aria-label={`${misses} of ${STRIKES} mistakes`}>
+                {Array.from({ length: STRIKES }, (_, k) => (
+                  <span key={k + (k < misses ? 'x' : 'o')} className={`h-3 w-3 rounded-full ${k < misses ? 'animate-count-pop bg-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.25)]' : 'bg-stone-300 dark:bg-stone-700'}`} />
+                ))}
+              </span>
+              {mode !== 'survival' && <span className={`tabular-nums ${left <= 10 ? 'animate-urgent text-red-600' : left <= 20 ? 'text-red-600' : ''}`}>{mm}:{ss}</span>}
+              <span className="relative">
+                <span key={score} className="animate-count-pop font-display inline-block min-w-[1.6ch] text-center text-xl text-brand-600 tabular-nums dark:text-brand-500">{score}</span>
+                {plus > 0 && <span key={plus} className="animate-float-up pointer-events-none absolute -top-4 -right-3 text-[11px] font-black text-emerald-500">+1</span>}
+              </span>
             </div>
           ) : null
         }
       />
+      {phase === 'running' && mode !== 'survival' && (
+        <div className="mx-auto w-full max-w-xl px-3 pb-1.5 land:max-w-6xl">
+          <div className={`h-1.5 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10 ${left <= 10 ? 'animate-urgent' : ''}`}>
+            <div
+              className={`h-full origin-left rounded-full transition-[transform,background-color] duration-1000 ease-linear ${left <= 10 ? 'bg-red-500' : left <= 30 ? 'bg-amber-500' : 'bg-brand-500'}`}
+              style={{ transform: `scaleX(${Math.max(0, left) / DURATION[mode]})` }}
+            />
+          </div>
+        </div>
+      )}
       <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto pb-4 land:max-w-6xl">
         {phase === 'intro' && (
           <div className="space-y-4 p-4">
@@ -126,6 +154,7 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
               onFinish={(r) => {
                 if (r.success) {
                   setScore((x) => x + 1);
+                  setPlus((x) => x + 1);
                   rating.current += STEP;
                 } else setMisses((x) => x + 1);
               }}
@@ -135,13 +164,22 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
             <div className="flex justify-center p-10"><Spinner /></div>
           ))}
         {phase === 'done' && (
-          <div className="space-y-4 p-4">
+          <div className="space-y-3 p-4">
+            <div className={`card flex flex-col items-center !p-6 text-center ${newBest ? 'ring-2 !ring-gold-400/70' : ''}`}>
+              <span className="text-[11px] font-bold tracking-wider text-stone-500 uppercase">{misses >= STRIKES ? 'Three strikes' : "Time's up"}</span>
+              <CountUp from={0} to={score} ms={Math.min(1400, 300 + score * 60)} delay={200} className={`font-display mt-1 text-[64px] leading-none font-semibold ${newBest ? 'text-gold-500' : ''}`} />
+              <span className="text-sm text-stone-500">puzzles solved</span>
+              <div className="mt-4 w-full">
+                <div className="mb-1 flex justify-between text-xs text-stone-500">
+                  <span>Best {prevBest}</span>
+                  {newBest && <span className="animate-reveal flex items-center gap-1 font-bold text-gold-500" style={{ animationDelay: '1100ms' }}><Trophy size={13} /> New best!</span>}
+                </div>
+                <FillBar from={0} to={Math.min(1, score / Math.max(1, prevBest, score))} delay={200} ms={1100} className="h-2.5" fill={newBest ? 'bg-gradient-to-r from-amber-300 to-gold-500' : 'bg-gradient-to-r from-lime-400 to-emerald-500'} />
+              </div>
+            </div>
             <CoachBubble actions={<button className="btn-primary" onClick={() => void start()}>Try again</button>}>
-              <p className="text-2xl font-bold">{score} solved</p>
-              <p>{newBest ? `New personal best in ${RUSH_LABEL[mode]}!` : `Your best in ${RUSH_LABEL[mode]} is ${best}.`}</p>
-              <p className="text-sm text-stone-500">
-                {misses >= STRIKES ? 'Three mistakes ended the run. ' : "Time's up. "}
-                Speed comes from recognising patterns — the more puzzles you solve, the faster you get.
+              <p className="text-sm text-stone-600 dark:text-stone-300">
+                {newBest ? `A new personal best in ${RUSH_LABEL[mode]} — ${score - prevBest} more than before.` : prevBest - score <= 2 ? `So close — ${prevBest - score === 0 ? 'you tied' : `${prevBest - score} short of`} your best.` : `Your best in ${RUSH_LABEL[mode]} is ${best}.`} Speed comes from recognising patterns — the more you solve, the faster you get.
               </p>
             </CoachBubble>
           </div>

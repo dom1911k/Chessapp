@@ -1,5 +1,5 @@
 import { START_FEN, type GameResult } from '../chess/game';
-import { bumpActivity, db, kvSet } from '../db';
+import { bumpActivity, db, kvGet, kvSet } from '../db';
 import { detectOpening } from '../openings';
 import { recurringPattern, summarize } from '../report';
 import { recordOpponentGame } from '../people/record';
@@ -14,6 +14,7 @@ import { getXp } from '../progress/xp';
 import { ACHIEVEMENTS, checkAchievements, unlockedAchievements, type Achievement } from '../progress/achievements';
 import { MAX_STARS } from '../people/record';
 import { TACTIC_KEYS } from '../rewards/career';
+import { BEST_WIN_STREAK, currentWinStreak } from '../stats';
 
 export const FOCUS_KEY = 'focusTheme';
 
@@ -53,6 +54,10 @@ export interface GameRewards {
   skillsUp: { id: string; tier: Tier }[];
   /** Skills that gained points. */
   skillsGained: { id: string; points: number }[];
+  /** Wins in a row against the bots after this game, and your best ever. */
+  winStreak?: number;
+  bestWinStreak?: number;
+  newBestStreak?: boolean;
 }
 
 export async function finishGame(g: SavedGame, result: GameResult, reason: string): Promise<FinishInfo | null> {
@@ -122,6 +127,10 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
   if (focus) await kvSet(FOCUS_KEY, { theme: focus, until: Date.now() + 7 * 864e5 });
 
   const skillsAfter = await skillStates();
+  const streakNow = await currentWinStreak();
+  const bestBefore = await kvGet<number>(BEST_WIN_STREAK, 0);
+  const newBestStreak = streakNow > bestBefore && streakNow >= 2;
+  if (streakNow > bestBefore) await kvSet(BEST_WIN_STREAK, streakNow);
   const unlockedAt = await unlockedAchievements();
   const rewards: GameRewards = {
     userResult,
@@ -142,6 +151,9 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     tactics: record.tactics ?? {},
     skillsUp: SKILLS.filter((k) => skillsAfter[k.id].tier > skillsBefore[k.id].tier).map((k) => ({ id: k.id, tier: skillsAfter[k.id].tier })),
     skillsGained: SKILLS.filter((k) => skillsAfter[k.id].points > skillsBefore[k.id].points).map((k) => ({ id: k.id, points: skillsAfter[k.id].points - skillsBefore[k.id].points })),
+    winStreak: streakNow,
+    bestWinStreak: Math.max(streakNow, bestBefore),
+    newBestStreak,
   };
   // Unlocking items can complete the "Collector" achievement.
   if (rewards.unlocks.length) rewards.achievements.push(...(await checkAchievements()));
