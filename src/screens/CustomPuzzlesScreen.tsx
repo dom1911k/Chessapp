@@ -8,6 +8,8 @@ import { kvGet, kvSet } from '../lib/db';
 import { themeStats, type ThemeStat } from '../lib/puzzles/select';
 import { THEME_GROUPS, THEME_SETS } from '../lib/puzzles/themes';
 import { loadIndex } from '../lib/puzzles/data';
+import { TierMedal } from '../components/PuzzleProgress';
+import { mastery } from '../lib/puzzles/level';
 
 /** Rating offsets from your puzzle rating. */
 export const DIFFICULTY = { easiest: -600, easier: -300, normal: 0, harder: 300, hardest: 600 } as const;
@@ -65,8 +67,14 @@ export function CustomPuzzlesScreen() {
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold">{t.label}</span>
                       <span className="block truncate text-xs text-stone-500">{t.description}</span>
+                      {s && s.solved > 0 && (
+                        <span className="mt-1 block h-1 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
+                          <span className="block h-full origin-left rounded-full bg-gradient-to-r from-amber-300 to-amber-500" style={{ transform: `scaleX(${Math.max(0.03, mastery(s.solved).pos % 1 || (mastery(s.solved).tier >= 4 ? 1 : 0.03))})` }} />
+                        </span>
+                      )}
                     </span>
-                    {pct !== null && <span className={`text-sm font-bold ${pct >= 70 ? 'text-emerald-600' : pct < 45 ? 'text-red-500' : 'text-stone-500'}`}>{pct}%</span>}
+                    {pct !== null && <span className={`text-xs font-bold ${pct >= 70 ? 'text-emerald-600' : pct < 45 ? 'text-red-500' : 'text-stone-500'}`}>{pct}%</span>}
+                    {s && mastery(s.solved).tier > 0 && <TierMedal tier={mastery(s.solved).tier} size={22} />}
                     {counts[t.id] ? <span className="text-xs text-stone-400">{counts[t.id] >= 1000 ? `${(counts[t.id] / 1000).toFixed(1)}k` : counts[t.id]}</span> : null}
                     <ChevronRight size={16} className="text-stone-400" />
                   </button>

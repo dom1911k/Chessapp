@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useTween } from './Reward';
 import { kvSet } from '../lib/db';
 import { useNav } from '../lib/nav';
 import { ACHIEVEMENTS, gatherStats, unlockedAchievements, type Stats } from '../lib/progress/achievements';
@@ -153,4 +154,84 @@ export function AchievementsScreen() {
       </div>
     </div>
   );
+}
+
+/**
+ * Home: this week's goal as a ring. When today newly counts (or the goal is reached), the ring
+ * sweeps from where you last saw it to the new fill and today's dot pops.
+ */
+export function WeekRing() {
+  const [w, setW] = useState<Awaited<ReturnType<typeof weeklyGoal>> | null>(null);
+  const key = useRefreshKey();
+  const tab = useNav((s) => s.tab);
+  const stackEmpty = useNav((s) => s.stack.length === 0);
+  useEffect(() => void weeklyGoal().then(setW), [key, tab, stackEmpty]);
+  const [seen, setSeen] = useState<number | null>(null);
+  useEffect(() => {
+    if (!w) return;
+    let last = w.days;
+    try {
+      const raw = localStorage.getItem('seenWeekDays');
+      const [wk, n] = (raw ?? '').split(':');
+      // Only compare within the same week (a new week starts from its own count, no sweep).
+      const id = weekId();
+      last = wk === id ? Number(n) : w.days;
+      localStorage.setItem('seenWeekDays', `${id}:${w.days}`);
+    } catch {
+      /* no storage: no sweep */
+    }
+    setSeen(Math.min(last, w.days));
+  }, [w]);
+  const ring = useRef<SVGCircleElement>(null);
+  const R = 22;
+  const C = 2 * Math.PI * R;
+  const from = w && seen !== null ? Math.min(1, seen / w.goal) : 0;
+  const to = w ? Math.min(1, w.days / w.goal) : 0;
+  useTween(from, to, { ms: 1100, delay: 350, run: !!w && seen !== null, onFrame: (v) => ring.current?.setAttribute('stroke-dashoffset', String(C * (1 - v))) });
+  if (!w) return null;
+  const grew = seen !== null && w.days > seen;
+  const start = new Date();
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  return (
+    <div className="card flex items-center gap-3.5 !p-3.5">
+      <div className="relative h-14 w-14 shrink-0">
+        <svg viewBox="0 0 56 56" className="h-14 w-14 -rotate-90">
+          <circle cx="28" cy="28" r={R} fill="none" strokeWidth="6" className="stroke-stone-200 dark:stroke-white/10" />
+          <circle ref={ring} cx="28" cy="28" r={R} fill="none" strokeWidth="6" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - from)} className={w.met ? 'stroke-amber-400' : 'stroke-brand-500'} />
+        </svg>
+        <span className={`absolute inset-0 flex items-center justify-center font-display text-lg font-semibold tabular-nums ${grew ? 'animate-count-pop' : ''}`} style={grew ? { animationDelay: '1300ms' } : undefined}>
+          {w.days}<span className="text-xs text-stone-400">/{w.goal}</span>
+        </span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold">{w.met ? 'Weekly goal reached!' : 'This week'}</div>
+        <div className="mt-1.5 flex gap-1.5">
+          {DAY_LETTERS.map((d, i) => {
+            const dt = new Date(start);
+            dt.setDate(start.getDate() + i);
+            const k = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+            const done = w.activeDays.includes(k);
+            const fresh = done && i === todayIdx && grew;
+            return (
+              <span
+                key={i}
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${done ? (w.met ? 'bg-amber-400 text-amber-950' : 'bg-brand-500 text-white') : i === todayIdx ? 'text-brand-700 ring-2 ring-brand-500 dark:text-brand-500' : 'bg-stone-100 text-stone-400 dark:bg-white/[0.06]'} ${fresh ? 'animate-badge-pop' : ''}`}
+                style={fresh ? { animationDelay: '1200ms' } : undefined}
+              >
+                {done ? <Check size={11} strokeWidth={3.5} /> : d}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** "W" + ISO-ish week number for the current week (to compare ring progress within one week). */
+function weekId(): string {
+  const d = new Date();
+  const start = new Date(d.getFullYear(), 0, 1);
+  return `${d.getFullYear()}W${Math.ceil(((d.getTime() - start.getTime()) / 864e5 + start.getDay() + 1) / 7)}`;
 }

@@ -58,7 +58,7 @@ function journeyPos(rating: number): { pos: number; next?: Milestone; prev: numb
   return { pos: marks.length - 1, prev: marks[marks.length - 1] };
 }
 
-export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent }: { r: GameRewards; onClose: () => void; onReport?: () => void; onRematch?: () => void; onNewOpponent?: () => void }) {
+export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent, onPlayNext }: { r: GameRewards; onClose: () => void; onReport?: () => void; onRematch?: () => void; onNewOpponent?: () => void; onPlayNext?: (id: string) => void }) {
   const o = opponentById(r.opponentId);
   const lvBefore = levelFor(r.xpBefore);
   const lvAfter = levelFor(r.xpAfter);
@@ -69,7 +69,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent 
   // One beat at a time: banner → accuracy → stars → rating → XP → streak → tactics → new things → actions.
   const S = { acc: 1, stars: 2, rating: 3, xp: 4, streak: 5, tactics: 6, extras: 7, actions: 8 };
   const delays = useMemo(
-    () => [450, 1000, hasStars ? 1000 : 60, 1300, lvAfter.level > lvBefore.level ? 2000 : 1300, streak >= 2 ? 900 : 60, tactics.length ? 800 : 60, extras ? 700 : 60],
+    () => [450, 1000, hasStars ? 1000 : 60, 1300, lvAfter.level > lvBefore.level ? 2000 : 1300, streak >= 2 || r.unlocked ? 900 : 60, tactics.length ? 800 : 60, extras ? 700 : 60],
     [hasStars, lvAfter.level, lvBefore.level, streak, tactics.length, extras],
   );
   const { step, skip, skipped } = useSequence(delays);
@@ -125,7 +125,12 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent 
               <User size={30} />
             </span>
             <span className="text-xs font-bold tracking-widest text-stone-400 uppercase">vs</span>
-            <span className={`rounded-[30%] ${r.userResult === 'loss' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''}`}>
+            <span className={`relative rounded-[30%] ${r.userResult === 'loss' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''}`}>
+              {r.firstWin && o && (
+                <span className="animate-vs-stamp absolute -right-3 -bottom-2 z-10 -rotate-12 rounded-md border-2 border-red-600 bg-white/90 px-1.5 text-[11px] font-black tracking-wider text-red-600 uppercase shadow dark:bg-stone-900/90" style={{ animationDelay: '350ms' }}>
+                  Beaten
+                </span>
+              )}
               {o ? (
                 <Portrait id={o.id} mood={r.userResult === 'win' ? 'worried' : r.userResult === 'loss' ? 'happy' : 'neutral'} size={60} />
               ) : (
@@ -232,6 +237,24 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent 
               <span className="block text-xs text-stone-500">{r.newBestStreak ? 'Your best streak ever!' : `Best: ${r.bestWinStreak ?? streak}`}</span>
             </span>
             {r.newBestStreak && <span className="chip bg-gold-300/50 text-stone-800 dark:text-gold-300">New best</span>}
+          </div>
+        )}
+
+        {/* First win: the next opponent on the ladder unlocks */}
+        {r.unlocked && opponentById(r.unlocked) && (
+          <div className={`mt-2.5 flex items-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-brand-50 to-sky-50 p-3 ring-1 ring-brand-500/30 transition-opacity duration-300 dark:from-brand-500/10 dark:to-sky-500/10 ${step >= S.streak ? 'opacity-100' : 'opacity-0'}`}>
+            <span className={step >= S.streak ? 'animate-vs-in-right' : ''}>
+              <Portrait id={r.unlocked} size={46} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[10px] font-bold tracking-wider text-brand-700 uppercase dark:text-brand-500">New opponent unlocked</span>
+              <span className="block font-semibold">{opponentById(r.unlocked)!.name} <span className="font-normal text-stone-500">{opponentById(r.unlocked)!.elo}</span></span>
+            </span>
+            {onPlayNext && (
+              <button className="btn-primary !min-h-9 !px-3 !py-1.5 text-sm" onClick={(e) => (e.stopPropagation(), onPlayNext(r.unlocked!))}>
+                Play
+              </button>
+            )}
           </div>
         )}
 

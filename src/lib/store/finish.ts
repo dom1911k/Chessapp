@@ -13,6 +13,7 @@ import { freshUnlocks, type Cosmetic } from '../rewards/cosmetics';
 import { getXp } from '../progress/xp';
 import { ACHIEVEMENTS, checkAchievements, unlockedAchievements, type Achievement } from '../progress/achievements';
 import { MAX_STARS } from '../people/record';
+import { OPPONENTS } from '../people';
 import { TACTIC_KEYS } from '../rewards/career';
 import { BEST_WIN_STREAK, currentWinStreak } from '../stats';
 
@@ -58,6 +59,9 @@ export interface GameRewards {
   winStreak?: number;
   bestWinStreak?: number;
   newBestStreak?: boolean;
+  /** First ever win against this opponent, and the opponent it unlocked (if any). */
+  firstWin?: boolean;
+  unlocked?: string;
 }
 
 export async function finishGame(g: SavedGame, result: GameResult, reason: string): Promise<FinishInfo | null> {
@@ -151,6 +155,9 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     tactics: record.tactics ?? {},
     skillsUp: SKILLS.filter((k) => skillsAfter[k.id].tier > skillsBefore[k.id].tier).map((k) => ({ id: k.id, tier: skillsAfter[k.id].tier })),
     skillsGained: SKILLS.filter((k) => skillsAfter[k.id].points > skillsBefore[k.id].points).map((k) => ({ id: k.id, points: skillsAfter[k.id].points - skillsBefore[k.id].points })),
+    firstWin: rec?.firstWin ?? false,
+    // The ladder's first three are always open; beating one of the others opens the next.
+    unlocked: rec?.firstWin && g.opponentId && OPPONENTS.findIndex((x) => x.id === g.opponentId) + 1 >= 3 ? OPPONENTS[OPPONENTS.findIndex((x) => x.id === g.opponentId) + 1]?.id : undefined,
     winStreak: streakNow,
     bestWinStreak: Math.max(streakNow, bestBefore),
     newBestStreak,

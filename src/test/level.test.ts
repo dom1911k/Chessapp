@@ -40,3 +40,13 @@ describe('win streak', () => {
     expect(winStreak([])).toBe(0);
   });
 });
+
+import { mastery } from '../lib/puzzles/level';
+describe('theme mastery', () => {
+  it('climbs Bronze, Silver, Gold, Master by clean solves', () => {
+    expect(mastery(0)).toEqual({ tier: 0, name: 'Novice', pos: 0, next: 5 });
+    expect(mastery(5)).toMatchObject({ tier: 1, name: 'Bronze', pos: 1, next: 15 });
+    expect(mastery(10).pos).toBeCloseTo(1.5);
+    expect(mastery(100)).toMatchObject({ tier: 4, name: 'Master', pos: 4, next: undefined });
+  });
+});

@@ -80,3 +80,17 @@ export function solvedPrompt(o: { clean: boolean; lightning: boolean; streak: nu
   if (o.streak >= 5) return pick(['Unstoppable!', 'Five in a row and counting!', 'You’re on fire — keep it rolling.'], o.seed);
   return pick(['Fantastic!', 'Excellent play! You solved it.', 'Clean and correct. Nice.', 'That’s the move. Well found!'], o.seed);
 }
+
+/** Theme mastery: clean solves needed for each tier of a theme (Bronze → Silver → Gold → Master). */
+export const MASTERY_TIERS = [5, 15, 40, 100];
+export const MASTERY_NAMES = ['Novice', 'Bronze', 'Silver', 'Gold', 'Master'];
+
+/** Tier (0..4) and position as "levels" for a fill bar (1.6 = tier 1, 60% of the way to tier 2). */
+export function mastery(solved: number): { tier: number; name: string; pos: number; next?: number } {
+  let tier = 0;
+  while (tier < MASTERY_TIERS.length && solved >= MASTERY_TIERS[tier]) tier++;
+  const lo = tier === 0 ? 0 : MASTERY_TIERS[tier - 1];
+  const hi = MASTERY_TIERS[tier];
+  const pos = hi === undefined ? tier : tier + (solved - lo) / (hi - lo);
+  return { tier, name: MASTERY_NAMES[tier], pos, next: hi };
+}

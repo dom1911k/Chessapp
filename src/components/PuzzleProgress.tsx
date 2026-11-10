@@ -3,7 +3,12 @@
 // pop on the solved square, the level-up moment and the Daily Solver award.
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Check, Puzzle } from 'lucide-react';
-import { DAILY_SOLVER_GOAL, DAILY_SOLVER_XP, puzzleLevel, type SolveTag } from '../lib/puzzles/level';
+import { DAILY_SOLVER_GOAL, DAILY_SOLVER_XP, mastery as masteryOf, puzzleLevel, type SolveTag } from '../lib/puzzles/level';
+import { FillBar } from './Reward';
+
+const FillBarLite = (p: { from: number; to: number; delay: number; onWrap: (l: number) => void }) => (
+  <FillBar from={p.from} to={p.to} delay={p.delay} ms={800} className="mt-1 h-1.5" fill="bg-gradient-to-r from-amber-300 to-amber-500" onWrap={p.onWrap} />
+);
 import { playSound } from '../lib/sound';
 import { useCelebrate } from '../lib/celebrate';
 
@@ -230,5 +235,51 @@ export function DailySolverDots({ done }: { done: number }) {
         <Puzzle key={k} size={13} className={k < done ? 'fill-amber-300 text-amber-600' : 'text-stone-300 dark:text-stone-600'} />
       ))}
     </span>
+  );
+}
+
+const TIER_STYLE = [
+  'from-stone-300 to-stone-400 text-stone-700',
+  'from-amber-600 to-amber-800 text-amber-50',
+  'from-slate-200 to-slate-400 text-slate-800',
+  'from-amber-300 to-yellow-500 text-amber-950',
+  'from-fuchsia-400 to-violet-600 text-white',
+];
+
+/** A small medal for a mastery tier. */
+export function TierMedal({ tier, size = 26, className = '' }: { tier: number; size?: number; className?: string }) {
+  return (
+    <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-b font-black shadow-sm ring-2 ring-white/70 dark:ring-black/30 ${TIER_STYLE[tier]} ${className}`} style={{ width: size, height: size, fontSize: size * 0.42 }}>
+      {tier === 0 ? '·' : ['I', 'II', 'III', 'IV'][tier - 1]}
+    </span>
+  );
+}
+
+/** Theme mastery after a puzzle: the bar fills with the solve, and the medal pops on a new tier. */
+export function MasteryStrip({ label, before, after, delay = 900 }: { label: string; before: number; after: number; delay?: number }) {
+  const mb = masteryOf(before);
+  const ma = masteryOf(after);
+  const [tier, setTier] = useState(mb.tier);
+  const [popped, setPopped] = useState(false);
+  return (
+    <div className="flex items-center gap-2.5 px-1">
+      <TierMedal key={tier} tier={tier} className={popped ? 'animate-badge-pop' : ''} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between text-[12px]">
+          <span className="font-semibold">{label} <span className="font-normal text-stone-500">· {popped ? `${ma.name}!` : mb.name}</span></span>
+          <span className="text-stone-400 tabular-nums">{ma.next ? `${after}/${ma.next}` : `${after} solved`}</span>
+        </div>
+        <FillBarLite
+          from={mb.pos}
+          to={ma.pos}
+          delay={delay}
+          onWrap={(l) => {
+            setTier(l);
+            setPopped(true);
+            playSound('reward');
+          }}
+        />
+      </div>
+    </div>
   );
 }

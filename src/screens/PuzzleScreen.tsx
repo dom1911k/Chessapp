@@ -14,7 +14,9 @@ import { useCelebrate } from '../lib/celebrate';
 import { DRILLS_KEY } from './PracticeScreen';
 import { awardXp } from '../lib/progress/xp';
 import { ComboBanner } from '../components/PuzzleFx';
-import { DailySolverDots, DailySolverOverlay, LevelBadge, LevelUpBanner, RatingRow } from '../components/PuzzleProgress';
+import { DailySolverDots, DailySolverOverlay, LevelBadge, LevelUpBanner, MasteryStrip, RatingRow } from '../components/PuzzleProgress';
+import { THEME_SETS } from '../lib/puzzles/themes';
+import { db } from '../lib/db';
 import { DAILY_SOLVER_GOAL, DAILY_SOLVER_XP, dailySolverKey, puzzleLevel, solveTags } from '../lib/puzzles/level';
 import { kvGet as kvRead, today } from '../lib/db';
 import { Flame } from 'lucide-react';
@@ -85,6 +87,8 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   const [award, setAward] = useState(false);
   const [extraXp, setExtraXp] = useState(0);
   const [levelUp, setLevelUp] = useState<{ id: number; level: number } | null>(null);
+  /** Theme mastery for the puzzle just played: clean solves before and after. */
+  const [mast, setMast] = useState<{ label: string; before: number; after: number } | null>(null);
   /** The level in the header moves only once the bar has filled. */
   const [headerLevel, setHeaderLevel] = useState<number | null>(null);
   useEffect(() => void kvRead<number>(dailySolverKey(today()), 0).then(setDailyCount), []);
@@ -97,6 +101,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
     setAward(false);
     setExtraXp(0);
     setLevelUp(null);
+    setMast(null);
     const r = await getRating();
     setRating(r.rating);
     let next: PuzzleSpec | null = null;
@@ -128,7 +133,12 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
 
   const onFinish = async (r: PuzzleResult) => {
     if (!spec) return;
+    // Which theme this puzzle trains (the chosen one, else its first known theme), and how many
+    // clean solves you had in it before.
+    const mt = THEME_SETS.find((t) => t.id === theme) ?? THEME_SETS.find((t) => spec.themes.includes(t.id));
+    const mBefore = mt ? await db.attempts.filter((a) => a.success && a.themes.includes(mt.id)).count() : 0;
     const o = await recordAttempt(spec, r.success, r.hintsUsed, source);
+    if (mt) setMast({ label: mt.label, before: mBefore, after: mBefore + (r.success && r.hintsUsed === 0 ? 1 : 0) });
     if (mode.kind === 'yours' && r.success) void kvGet<string[]>(YOURS_KEY, []).then((d) => kvSet(YOURS_KEY, [...d, spec.id].slice(-2000)));
     if (mode.kind === 'dailyPuzzle' && r.success) {
       await markDailySolved();
@@ -237,11 +247,15 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
             nextLabel={drill && drillSolved >= drill.count ? 'Back to practice' : mode.kind === 'dailyPuzzle' ? 'Done' : course && solvedInStep !== null && solvedInStep >= course.count ? 'Keep practising' : 'Next'}
             progress={
               rating !== null ? (
+                <div className="space-y-2.5">
+                {
                 rated || mode.kind === 'dailyPuzzle' ? (
                   <RatingRow key={outcome ? 'after' : 'before'} before={outcome?.ratingBefore ?? rating} after={outcome?.ratingAfter} xp={xpShown} unrated={!!outcome && outcome.ratingAfter === undefined && !rated} onLevelUp={(l) => (setLevelUp({ id: Date.now(), level: l }), setHeaderLevel(l))} />
                 ) : (
                   <RatingRow before={rating} xp={xpShown} unrated />
-                )
+                )}
+                {mast && mast.after > mast.before && <MasteryStrip key={spec.id} label={mast.label} before={mast.before} after={mast.after} delay={1200} />}
+                </div>
               ) : null
             }
             footer={

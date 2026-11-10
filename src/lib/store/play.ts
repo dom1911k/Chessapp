@@ -54,7 +54,7 @@ interface PlayStore {
   rewards: GameRewards | null;
   closeRewards(): void;
   /** A short celebration on the board: brilliant / great move or a tactic like a fork. */
-  flash: { id: number; kind: Special | TacticKey; sq: string } | null;
+  flash: { id: number; kind: Special | TacticKey | 'best'; sq: string } | null;
   /** "Are you sure?" before a risky move. */
   precheck: { move: MoveInput; uci: string; check: PreCheck; revealed: boolean } | null;
   load(): Promise<void>;
@@ -121,6 +121,9 @@ const CHAT_MOOD: Partial<Record<ChatEvent, Mood>> = {
   botLoses: 'worried',
   userGoodMove: 'worried',
 };
+
+/** Ply of the last 'Best move' tag (they're spaced out so they stay special). */
+let lastBestTag = -99;
 
 export const usePlay = create<PlayStore>((set, get) => {
   /** Adds a message to Coach Sam's conversation (saved with the game). */
@@ -340,9 +343,14 @@ export const usePlay = create<PlayStore>((set, get) => {
           mood: hurts ? 'concerned' : 'happy',
         });
       }
-      const shown = aids.reveals ? (special ?? (TACTIC_KEYS.find((k) => tactics[k] && FLASHY.has(k)) as TacticKey | undefined)) : undefined;
+      // A quieter tag for a best move that really mattered (a free piece, a tactic, mate, a rescue),
+      // at most every few moves so it stays special.
+      const meaningfulBest = cls === 'best' && comment.ruleIds.some((r) => ['praise-mate', 'praise-tactic', 'praise-capture', 'praise-escape'].includes(r)) && i - lastBestTag >= 8;
+      const shown: Special | TacticKey | 'best' | undefined = aids.reveals ? (special ?? (TACTIC_KEYS.find((k) => tactics[k] && FLASHY.has(k)) as TacticKey | undefined) ?? (meaningfulBest ? 'best' : undefined)) : undefined;
+      if (shown === 'best') lastBestTag = i;
       if (shown) {
         set({ flash: { id: Date.now(), kind: shown, sq: ply.uci.slice(2, 4) } });
+        if (shown === 'best') playSound('success');
         if (special) {
           playSound('brilliant');
           say('userBrilliant', 0.8);
@@ -568,6 +576,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         clock: opts.timeControl ? newClock(opts.timeControl, Date.now()) : undefined,
         clocks: opts.timeControl ? [] : undefined,
       };
+      lastBestTag = -99;
       set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: Date.now(), lowTime: false });
       awayAt = null;
       if (game.clock) startTicker();

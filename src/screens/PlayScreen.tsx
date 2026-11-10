@@ -23,6 +23,7 @@ import { cosmeticById, type Cosmetic } from '../lib/rewards/cosmetics';
 import { CosmeticPreview } from '../components/CosmeticPreview';
 import { BoardFlash } from '../components/BoardFlash';
 import { Captured } from '../components/Captured';
+import { WeekRing } from '../components/Gamification';
 import { currentWinStreak } from '../lib/stats';
 import { LastChessComGames } from '../components/ChessCom';
 import { dueCount } from '../lib/store/daily';
@@ -130,6 +131,7 @@ function SetupView() {
           {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
         </div>
         {opp && !locked && stars >= MAX_STARS && <ChallengeCard opponentId={opp.id} stars={stars} done={!!rec?.challengeDone} />}
+        <WeekRing />
         <HomeLinks />
         <LastChessComGames />
       </div>
@@ -519,6 +521,7 @@ function GameView() {
           onClose={s.closeRewards}
           onRematch={() => (s.closeRewards(), rematch(s))}
           onNewOpponent={() => (s.closeRewards(), s.leaveGame())}
+          onPlayNext={(id) => (settings.set({ opponentId: id }), s.closeRewards(), s.leaveGame())}
           onReport={
             s.over?.gameId
               ? () => {

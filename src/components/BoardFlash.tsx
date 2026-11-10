@@ -8,7 +8,7 @@ const SPECIAL: Record<Special, { mark: string; label: string; color: string; glo
   great: { mark: '!', label: 'Great move!', color: '#2563eb', glow: 'rgba(96,165,250,0.7)' },
 };
 
-export function BoardFlash({ flash, orientation }: { flash: { id: number; kind: Special | TacticKey; sq: string } | null; orientation: 'white' | 'black' }) {
+export function BoardFlash({ flash, orientation }: { flash: { id: number; kind: Special | TacticKey | 'best'; sq: string } | null; orientation: 'white' | 'black' }) {
   const [shown, setShown] = useState(flash);
   useEffect(() => {
     if (!flash) return;
@@ -25,6 +25,20 @@ export function BoardFlash({ flash, orientation }: { flash: { id: number; kind: 
   const at: CSSProperties = { left: `${(col + 0.5) * 12.5}%`, top: `${(row + 0.5) * 12.5}%` };
   const special = shown.kind === 'brilliant' || shown.kind === 'great' ? SPECIAL[shown.kind] : null;
 
+  if (shown.kind === 'best') {
+    // A star on the square and a small chip above it: quiet, but you feel it.
+    return (
+      <div key={shown.id} className="pointer-events-none absolute inset-0 z-20">
+        <span className="animate-flash-ring absolute h-[12.5%] w-[12.5%] -translate-x-1/2 -translate-y-1/2 rounded-md" style={{ ...at, boxShadow: '0 0 0 3px rgba(132,204,22,0.9), 0 0 22px 6px rgba(163,230,53,0.55)' }} />
+        <span className="animate-flash-mark absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-b from-lime-400 to-emerald-600 text-sm text-white shadow-lg ring-2 ring-white" style={{ left: `calc(${at.left} + 5.2%)`, top: `calc(${at.top} - 5.2%)` }}>
+          ★
+        </span>
+        <span className="animate-flash-chip absolute -translate-x-1/2 rounded-full bg-white px-2.5 py-0.5 text-xs font-extrabold whitespace-nowrap text-emerald-700 shadow-md ring-1 ring-black/5" style={{ ...at, top: `calc(${at.top} - ${parseFloat(String(at.top)) < 14 ? '-9' : '18'}%)` }}>
+          Best move
+        </span>
+      </div>
+    );
+  }
   if (!special) {
     return (
       <div key={shown.id} className="pointer-events-none absolute inset-0 z-20">
