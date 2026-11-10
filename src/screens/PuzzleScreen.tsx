@@ -14,7 +14,10 @@ import { useCelebrate } from '../lib/celebrate';
 import { DRILLS_KEY } from './PracticeScreen';
 import { awardXp } from '../lib/progress/xp';
 import { ComboBanner } from '../components/PuzzleFx';
-import { Flame, Timer, Trophy, Zap } from 'lucide-react';
+import { DailySolverDots, DailySolverOverlay, LevelBadge, LevelUpBanner, RatingRow } from '../components/PuzzleProgress';
+import { DAILY_SOLVER_GOAL, DAILY_SOLVER_XP, dailySolverKey, puzzleLevel, solveTags } from '../lib/puzzles/level';
+import { kvGet as kvRead, today } from '../lib/db';
+import { Flame } from 'lucide-react';
 import { dailyPick, gamePuzzles, markDailySolved } from '../lib/puzzles/sources';
 import { loadRange } from '../lib/puzzles/data';
 import { allGames } from '../lib/games';
@@ -35,23 +38,6 @@ interface Bonus {
   speedXp: number;
   newBest: boolean;
   lostStreak: number;
-}
-
-/** Counts from one number to another over a short moment. */
-function CountUp({ from, to }: { from: number; to: number }) {
-  const [v, setV] = useState(from);
-  useEffect(() => {
-    const t0 = performance.now();
-    let raf = 0;
-    const tick = (t: number) => {
-      const k = Math.min(1, (t - t0) / 700);
-      setV(Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3))));
-      if (k < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [from, to]);
-  return <>{v}</>;
 }
 
 /** The streak flame in the header: grows hotter with every puzzle in a row. */
@@ -93,14 +79,24 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   const [best, setBest] = useState(0);
   const [bonus, setBonus] = useState<Bonus | null>(null);
   const [banner, setBanner] = useState<{ id: number; streak: number } | null>(null);
-  const bestToasted = useRef(false);
   useEffect(() => void kvGet<number>(BEST_KEY, 0).then(setBest), []);
+  // Daily Solver: the first three rated puzzles solved each day earn an award.
+  const [dailyCount, setDailyCount] = useState(0);
+  const [award, setAward] = useState(false);
+  const [extraXp, setExtraXp] = useState(0);
+  const [levelUp, setLevelUp] = useState<{ id: number; level: number } | null>(null);
+  /** The level in the header moves only once the bar has filled. */
+  const [headerLevel, setHeaderLevel] = useState<number | null>(null);
+  useEffect(() => void kvRead<number>(dailySolverKey(today()), 0).then(setDailyCount), []);
 
   const load = useCallback(async () => {
     setSpec(null);
     setOutcome(null);
     setBonus(null);
     setBanner(null);
+    setAward(false);
+    setExtraXp(0);
+    setLevelUp(null);
     const r = await getRating();
     setRating(r.rating);
     let next: PuzzleSpec | null = null;
@@ -139,7 +135,6 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
       setDailyDone(true);
       useCelebrate.getState().toast({ icon: 'calendar', title: 'Daily Puzzle solved!', text: 'Come back tomorrow to keep your streak.' });
     }
-    if (o.newPeak) useCelebrate.getState().toast({ icon: 'trophy', title: `New highest rating: ${o.ratingAfter}!`, text: 'Your best puzzle rating so far.' });
     if (course && r.success) {
       const n = await addCoursePuzzle(course.stepId);
       setSolvedInStep(n);
@@ -155,7 +150,10 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
       }
     }
     setOutcome(o);
-    if (o.ratingAfter) setRating(o.ratingAfter);
+    if (o.ratingAfter) {
+      setRating(o.ratingAfter);
+      if (o.ratingBefore !== undefined) setHeaderLevel(puzzleLevel(o.ratingBefore).level);
+    }
     // Streak, speed and personal-best extras.
     const next = r.success ? streak + 1 : 0;
     const userMoves = Math.ceil(spec.solution.length / 2);
@@ -172,31 +170,43 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
       b.newBest = true;
       setBest(next);
       void kvSet(BEST_KEY, next);
-      if (!bestToasted.current) {
-        bestToasted.current = true;
-        useCelebrate.getState().toast({ icon: 'trophy', title: 'New best streak!', text: 'Keep going — every puzzle in a row counts.' });
-      }
     }
     if (b.streakXp + b.speedXp) void awardXp(b.streakXp + b.speedXp, true);
     if (r.success && isMilestone(next)) setBanner({ id: Date.now(), streak: next });
+    if (r.success && rated && spec.kind === 'lichess') {
+      const key = dailySolverKey(today());
+      const c = (await kvRead<number>(key, 0)) + 1;
+      await kvSet(key, c);
+      setDailyCount(c);
+      // The award plays after the square's tags have had their moment.
+      // (and after the level-up moment, when this solve crosses a level)
+      const crossed = o.ratingBefore !== undefined && o.ratingAfter !== undefined && puzzleLevel(o.ratingAfter).level > puzzleLevel(o.ratingBefore).level;
+      if (c === DAILY_SOLVER_GOAL) setTimeout(() => setAward(true), 1050 * (1 + (b.speedXp ? 1 : 0) + (b.streakXp ? 1 : 0)) + 500 + (crossed ? 2400 : 0));
+    }
     setBonus(b);
     setStreak(next);
   };
 
   const delta = outcome?.ratingAfter !== undefined && outcome.ratingBefore !== undefined ? outcome.ratingAfter - outcome.ratingBefore : null;
+  const tags = outcome ? solveTags({ ratingDelta: delta, puzzleRating: spec?.rating, yourRating: outcome.ratingBefore, speedXp: bonus?.speedXp ?? 0, streak, streakXp: bonus?.streakXp ?? 0 }) : [];
+  const xpShown = outcome?.xp ? outcome.xp + (bonus ? bonus.streakXp + bonus.speedXp : 0) + extraXp : extraXp || undefined;
+  const title = drill ? `${drill.label} · ${Math.min(drillSolved, drill.count)}/${drill.count}` : course ? `${course.label}${solvedInStep !== null ? ` · ${Math.min(solvedInStep, course.count)}/${course.count}` : ''}` : theme ? themeLabel(theme) : MODE_TITLE[mode.kind] ?? 'Puzzles';
+  const awardDone = () => {
+    setAward(false);
+    setExtraXp(DAILY_SOLVER_XP);
+    void awardXp(DAILY_SOLVER_XP, true);
+  };
 
   return (
     <div className="flex h-full flex-col">
       <Header
-        title={drill ? `${drill.label} · ${Math.min(drillSolved, drill.count)}/${drill.count}` : course ? `${course.label}${solvedInStep !== null ? ` · ${Math.min(solvedInStep, course.count)}/${course.count}` : ''}` : theme ? themeLabel(theme) : MODE_TITLE[mode.kind] ?? 'Puzzles'}
+        title={title}
         back
+        leading={rated && rating !== null ? <LevelBadge key={headerLevel ?? puzzleLevel(rating).level} level={headerLevel ?? puzzleLevel(rating).level} size={34} className={levelUp ? 'animate-badge-pop' : ''} /> : undefined}
         right={
           <div className="flex items-center gap-3 pr-2">
+            {rated && <DailySolverDots done={dailyCount} />}
             <StreakFlame streak={streak} best={best} />
-            <div className="text-right text-sm leading-tight">
-              <div className="font-bold tabular-nums">{rating ?? '…'}</div>
-              <div className="text-[10px] text-stone-500">rating</div>
-            </div>
           </div>
         }
       />
@@ -213,43 +223,35 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
             spec={spec}
             onFinish={onFinish}
             combo={streak}
-            overlay={banner && <ComboBanner key={banner.id} id={banner.id} streak={banner.streak} />}
+            solvedStreak={streak}
+            tags={tags}
+            overlay={
+              <>
+                {banner && <ComboBanner key={banner.id} id={banner.id} streak={banner.streak} />}
+                {levelUp && <LevelUpBanner key={levelUp.id} id={levelUp.id} level={levelUp.level} />}
+                {award && <DailySolverOverlay onDone={awardDone} />}
+              </>
+            }
             failOnWrong={rated}
             onNext={(drill && drillSolved >= drill.count) || (mode.kind === 'dailyPuzzle' && (dailyDone || outcome)) ? pop : load}
             nextLabel={drill && drillSolved >= drill.count ? 'Back to practice' : mode.kind === 'dailyPuzzle' ? 'Done' : course && solvedInStep !== null && solvedInStep >= course.count ? 'Keep practising' : 'Next'}
+            progress={
+              rating !== null ? (
+                rated || mode.kind === 'dailyPuzzle' ? (
+                  <RatingRow key={outcome ? 'after' : 'before'} before={outcome?.ratingBefore ?? rating} after={outcome?.ratingAfter} xp={xpShown} unrated={!!outcome && outcome.ratingAfter === undefined && !rated} onLevelUp={(l) => (setLevelUp({ id: Date.now(), level: l }), setHeaderLevel(l))} />
+                ) : (
+                  <RatingRow before={rating} xp={xpShown} unrated />
+                )
+              ) : null
+            }
             footer={
-              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm font-semibold">
-                {delta !== null && (
-                  <span className="flex w-full items-baseline gap-2">
-                    <span className={`text-2xl font-black tabular-nums ${delta >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{delta >= 0 ? '+' : ''}{delta}</span>
-                    <span className="text-sm text-stone-500">rating <b className="text-stone-800 dark:text-stone-100"><CountUp from={outcome!.ratingBefore!} to={outcome!.ratingAfter!} /></b></span>
-                    {outcome?.newPeak && <span className="chip bg-gold-300/50 text-stone-800"><Trophy size={12} /> Highest</span>}
-                  </span>
-                )}
-                {!rated && mode.kind !== 'dailyPuzzle' && outcome && <span className="text-xs font-normal text-stone-500">Unrated</span>}
-                {outcome?.xp ? <span className="chip animate-count-pop !text-sm bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">+{outcome.xp + (bonus ? bonus.streakXp + bonus.speedXp : 0)} XP</span> : null}
-                {bonus?.lightning && (
-                  <span className="chip bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
-                    <Zap size={13} className="fill-current" /> Lightning · {bonus.seconds}s
-                  </span>
-                )}
-                {bonus && !bonus.lightning && outcome?.xp ? (
-                  <span className="chip bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300">
-                    <Timer size={13} /> {bonus.seconds}s
-                  </span>
-                ) : null}
-                {bonus && bonus.streakXp > 0 && (
-                  <span className="chip bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
-                    <Flame size={13} className="fill-current" /> {streak} in a row
-                  </span>
-                )}
-                {bonus?.newBest && (
-                  <span className="chip bg-gold-300/50 text-stone-800 dark:bg-gold-500/25 dark:text-gold-300">
-                    <Trophy size={13} /> New best
-                  </span>
-                )}
-                {bonus && bonus.lostStreak >= 3 && <span className="text-xs font-normal text-stone-500">Your streak of {bonus.lostStreak} ended — start a new one!</span>}
-              </div>
+              bonus && (bonus.newBest || bonus.lostStreak >= 3 || outcome?.newPeak) ? (
+                <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs">
+                  {outcome?.newPeak && <span className="chip bg-gold-300/50 text-stone-800 dark:bg-gold-500/25 dark:text-gold-300">★ Highest rating</span>}
+                  {bonus.newBest && <span className="chip bg-gold-300/50 text-stone-800 dark:bg-gold-500/25 dark:text-gold-300">★ New best streak</span>}
+                  {bonus.lostStreak >= 3 && <span className="text-stone-500">Your streak of {bonus.lostStreak} ended — start a new one!</span>}
+                </div>
+              ) : null
             }
           />
         )}

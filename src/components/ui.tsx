@@ -24,7 +24,7 @@ export function Dialog({ open, onClose, title, children }: { open: boolean; onCl
   );
 }
 
-export function Header({ title, back = false, right, subtitle }: { title: string; back?: boolean; right?: ReactNode; subtitle?: string }) {
+export function Header({ title, back = false, right, subtitle, leading }: { title: string; back?: boolean; right?: ReactNode; subtitle?: string; leading?: ReactNode }) {
   const pop = useNav((s) => s.pop);
   return (
     <header className="safe-top sticky top-0 z-20 bg-stone-100/85 backdrop-blur-md dark:bg-stone-950/85">
@@ -34,7 +34,8 @@ export function Header({ title, back = false, right, subtitle }: { title: string
             <ChevronLeft size={24} strokeWidth={2.2} />
           </button>
         )}
-        <div className={`min-w-0 flex-1 ${back ? '' : 'pl-3'}`}>
+        {leading && <div className="mr-1 flex shrink-0 items-center">{leading}</div>}
+        <div className={`min-w-0 flex-1 ${back || leading ? '' : 'pl-3'}`}>
           <h1 className="font-display truncate text-[22px] leading-tight font-semibold tracking-[-0.01em]">{title}</h1>
           {subtitle && <div className="truncate text-xs text-stone-500">{subtitle}</div>}
         </div>

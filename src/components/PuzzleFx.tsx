@@ -3,7 +3,7 @@
 import type { CSSProperties } from 'react';
 import { Flame } from 'lucide-react';
 
-export type SquareMark = { id: number; sq: string; ok: boolean };
+export type SquareMark = { id: number; sq: string; ok: boolean; /** Keep the mark (the solved square). */ stay?: boolean };
 
 function at(sq: string, orientation: 'white' | 'black'): CSSProperties {
   const f = sq.charCodeAt(0) - 97;
@@ -14,14 +14,14 @@ function at(sq: string, orientation: 'white' | 'black'): CSSProperties {
 }
 
 /** ✓ / ✗ badge in the corner of a square. */
-export function MoveMark({ mark, orientation }: { mark: SquareMark; orientation: 'white' | 'black' }) {
+export function MoveMark({ mark, orientation, delayMs = 0 }: { mark: SquareMark; orientation: 'white' | 'black'; delayMs?: number }) {
   const p = at(mark.sq, orientation);
   return (
     <span
-      className={`animate-mark pointer-events-none absolute z-20 flex h-[7%] w-[7%] items-center justify-center rounded-full text-[min(3.6vw,18px)] font-black text-white shadow-lg ring-2 ring-white ${
+      className={`${mark.stay ? 'animate-mark-stay' : 'animate-mark'} pointer-events-none absolute z-20 flex h-[7%] w-[7%] items-center justify-center rounded-full text-[min(3.6vw,18px)] font-black text-white shadow-lg ring-2 ring-white ${
         mark.ok ? 'bg-emerald-500' : 'bg-rose-500'
       }`}
-      style={{ left: `calc(${p.left} + 3.6%)`, top: `calc(${p.top} - 3.6%)` }}
+      style={{ left: `calc(${p.left} + 3.6%)`, top: `calc(${p.top} - 3.6%)`, animationDelay: delayMs ? `${delayMs}ms` : undefined }}
     >
       {mark.ok ? '✓' : '✕'}
     </span>

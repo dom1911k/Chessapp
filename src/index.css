@@ -318,3 +318,61 @@ time {
 @utility animate-flame { animation: flame 0.9s ease-in-out infinite; }
 @keyframes count-pop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
 @utility animate-count-pop { animation: count-pop 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.4); }
+
+/* Puzzle solve sequence (chess.com style): the gold tag on the square, the check that stays,
+   the level badge pop, and the Daily Solver award. */
+@keyframes solve-tag {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
+  28% { transform: translate(-50%, -50%) scale(1); }
+  82% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -62%) scale(0.9); }
+}
+@utility animate-solve-tag { animation: solve-tag 1.05s cubic-bezier(0.2, 0.8, 0.3, 1.2) forwards; }
+@keyframes solve-pill {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.7); }
+  25% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  82% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -6px); }
+}
+@utility animate-solve-pill { animation: solve-pill 1.05s ease-out forwards; }
+@keyframes mark-stay {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  30% { opacity: 1; transform: translate(-50%, -50%) scale(1.3); }
+  50%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@utility animate-mark-stay { animation: mark-stay 0.5s ease-out both; }
+@keyframes badge-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.5) rotate(-8deg); filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.9)); }
+  60% { transform: scale(0.95) rotate(3deg); }
+  100% { transform: scale(1); }
+}
+@utility animate-badge-pop { animation: badge-pop 0.8s cubic-bezier(0.2, 0.8, 0.3, 1.2) both; }
+@keyframes piece-in {
+  0% { opacity: 0; transform: translateY(14px) scale(0.5) rotate(-10deg); }
+  60% { opacity: 1; transform: translateY(-4px) scale(1.1) rotate(2deg); }
+  100% { opacity: 1; transform: none; }
+}
+@utility animate-piece-in { animation: piece-in 0.5s cubic-bezier(0.2, 0.8, 0.3, 1.3) both; }
+@keyframes coin-fly {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+  45% { transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, calc(-50% - var(--fly, 240px))) scale(0.35); }
+}
+@utility animate-coin-fly { animation: coin-fly 1.5s cubic-bezier(0.4, 0, 0.2, 1) both; }
+@keyframes glow-pulse {
+  0% { opacity: 0; transform: scale(0.6); }
+  40% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+@utility animate-glow-pulse { animation: glow-pulse 1.4s ease-out both; }
+@keyframes levelup {
+  0% { opacity: 0; transform: translateY(12px) scale(0.6); }
+  20% { opacity: 1; transform: translateY(0) scale(1.1); }
+  30% { transform: scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-12px) scale(0.95); }
+}
+@utility animate-levelup { animation: levelup 2.4s ease-out forwards; }
