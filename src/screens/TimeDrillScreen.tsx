@@ -1,5 +1,7 @@
 // Time drills: Convert on the clock (60 s to mate against Maia) and Quick decisions (10 obvious
 // moves, 5 s each — trains not over-thinking easy moves).
+import { Dock, DockButton, DockMain } from '../components/Dock';
+import { RotateCcw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import { Header, Spinner } from '../components/ui';
@@ -127,23 +129,33 @@ function ConvertDrill() {
         </div>
         <div className="px-3">
           {phase === 'ready' && (
-            <CoachBubble actions={<button className="btn-primary" onClick={() => setPhase('play')}>Start the clock</button>}>
+            <CoachBubble>
               <p>You're winning — now prove it on the clock. Push the king to the edge with the {start.title.split(' ')[0].toLowerCase()}, bring your king, then mate. Don't stalemate!</p>
               {best.convert && <p className="text-sm text-stone-500">Your best: mate in {best.convert}s.</p>}
             </CoachBubble>
           )}
           {phase === 'won' && (
-            <CoachBubble mood="happy" actions={<button className="btn-primary" onClick={again}>Another one</button>}>
+            <CoachBubble mood="happy">
               <p>Checkmate with {fmtClock(ms)} left! Converting quickly is what wins games on chess.com.</p>
             </CoachBubble>
           )}
           {phase === 'lost' && (
-            <CoachBubble mood="concerned" actions={<button className="btn-primary" onClick={again}>Try again</button>}>
+            <CoachBubble mood="concerned">
               <p>{ms <= 0 ? 'Flag! Out of time.' : new Chess(fen).isStalemate() ? "Stalemate — that's only a draw." : 'That one got away.'} Make the box smaller with every move, and don't check without a plan.</p>
             </CoachBubble>
           )}
         </div>
       </div>
+      <Dock>
+        <DockButton label="New position" icon={<RotateCcw size={22} />} disabled={phase === 'ready'} onClick={again} />
+        {phase === 'ready' ? (
+          <DockMain onClick={() => setPhase('play')}>Start the clock</DockMain>
+        ) : phase === 'play' ? (
+          <DockMain disabled onClick={() => {}}>Your move</DockMain>
+        ) : (
+          <DockMain onClick={again}>{phase === 'won' ? 'Another one' : 'Try again'}</DockMain>
+        )}
+      </Dock>
     </div>
   );
 }

@@ -57,14 +57,14 @@ export function MoreScreen() {
         {GROUPS.map((g) => (
           <section key={g.title}>
             <h2 className="mb-1.5 section-title">{g.title}</h2>
-            <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
+            <div className="card divide-y divide-stone-100 overflow-hidden !p-0 dark:divide-white/[0.06]">
               {g.items.map((it) => (
-                <Row key={it.label} item={it} onClick={() => push(it.to)} />
+                <Row key={it.label} item={it} tint={g.title === 'Rewards' ? 'gold' : 'green'} onClick={() => push(it.to)} />
               ))}
             </div>
           </section>
         ))}
-        <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
+        <div className="card divide-y divide-stone-100 overflow-hidden !p-0 dark:divide-white/[0.06]">
           <Row item={{ icon: <CloudDownload size={19} />, label: 'chess.com import', sub: ccUser ? `Linked to ${ccUser}` : 'Bring in your games (optional, uses the internet)', to: { name: 'settings' } }} onClick={() => push({ name: 'settings' })} />
           <Row item={{ icon: <Settings size={19} />, label: 'Settings', sub: 'Board, sounds, coach, backup', to: { name: 'settings' } }} onClick={() => push({ name: 'settings' })} />
         </div>
@@ -73,15 +73,22 @@ export function MoreScreen() {
   );
 }
 
-function Row({ item, onClick }: { item: Item; onClick: () => void }) {
+// The same tinted icon tiles as the lists in Learn > Practice.
+const TINT = {
+  green: 'bg-brand-100 text-brand-700 dark:bg-brand-700/25 dark:text-brand-100',
+  gold: 'bg-gold-300/45 text-[#8a6416] dark:bg-gold-500/20 dark:text-gold-300',
+  stone: 'bg-stone-200 text-stone-600 dark:bg-stone-800 dark:text-stone-300',
+};
+
+function Row({ item, onClick, tint = 'stone' }: { item: Item; onClick: () => void; tint?: keyof typeof TINT }) {
   return (
-    <button className="flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={onClick}>
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">{item.icon}</span>
+    <button className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors active:bg-stone-100 dark:active:bg-white/5" onClick={onClick}>
+      <span className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[32%] ${TINT[tint]}`}>{item.icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block font-semibold">{item.label}</span>
-        {item.sub && <span className="block truncate text-xs text-stone-500">{item.sub}</span>}
+        <span className="block font-semibold leading-tight">{item.label}</span>
+        {item.sub && <span className="mt-0.5 block truncate text-xs text-stone-500">{item.sub}</span>}
       </span>
-      <ChevronRight size={18} className="text-stone-400" />
+      <ChevronRight size={17} className="shrink-0 text-stone-400" />
     </button>
   );
 }

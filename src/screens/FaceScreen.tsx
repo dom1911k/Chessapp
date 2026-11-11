@@ -1,9 +1,10 @@
 // What you face: the openings in my chess.com games, by colour, with my score, the usual line
 // against me, where I go wrong, and a button to practise the line.
+import { EmptyState } from '../components/ui';
+import { Eye } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Header, Segmented, Spinner } from '../components/ui';
 import { Board } from '../components/Board';
-import { CoachBubble } from '../components/Coach';
 import { ChessComBadge, ImportProgress } from '../components/ChessCom';
 import { db } from '../lib/db';
 import { useNav } from '../lib/nav';
@@ -27,10 +28,12 @@ export function FaceScreen() {
         {!list ? (
           <div className="flex justify-center p-8"><Spinner /></div>
         ) : list.length === 0 ? (
-          <CoachBubble>
-            <p>{user ? "I need a few more of your chess.com games first (at least 2 in the same opening). Sync in Settings, and I'll analyse them." : 'Add your chess.com username in Settings → chess.com account, and I\'ll show you what people play against you.'}</p>
-            <button className="btn-secondary mt-2" onClick={() => push({ name: 'settings' })}>Open Settings</button>
-          </CoachBubble>
+          <EmptyState
+            icon={<Eye size={26} />}
+            title={user ? 'Not enough games yet' : 'Link your chess.com account'}
+            text={user ? 'This needs at least two of your chess.com games in the same opening. Sync in Settings and they will be analysed.' : 'Add your chess.com username and this screen shows what people play against you — and where you go wrong.'}
+            action={<button className="btn-secondary" onClick={() => push({ name: 'settings' })}>Open Settings</button>}
+          />
         ) : (
           <>
             <Segmented value={color} onChange={setColor} options={[{ value: 'w', label: 'As White' }, { value: 'b', label: 'As Black' }]} />

@@ -5,8 +5,8 @@ import { CauseBreakdown } from '../components/Causes';
 import { causeReport } from '../lib/games/causes';
 import { reviewGame } from '../lib/review';
 import { bySource } from '../lib/chesscom/analysis';
-import { ChevronDown, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
-import { Header, Segmented, Spinner } from '../components/ui';
+import { ChevronDown, ChevronRight, Target, TrendingDown, TrendingUp } from 'lucide-react';
+import { EmptyState, Header, Segmented, Spinner } from '../components/ui';
 import { Board } from '../components/Board';
 import { CoachBubble } from '../components/Coach';
 import { ChessComBadge, ImportProgress } from '../components/ChessCom';
@@ -23,6 +23,7 @@ const PHASE_LABEL: Record<Phase, string> = { opening: 'Opening', middlegame: 'Mi
 const PERIODS = { all: 0, '90': 90, '30': 30 } as const;
 
 export function MistakesScreen() {
+  const push = useNav((s) => s.push);
   const [games, setGames] = useState<AnyGame[] | null>(null);
   const [src, setSrc] = useState<GameSource>('all');
   const [period, setPeriod] = useState<keyof typeof PERIODS>('all');
@@ -48,7 +49,7 @@ export function MistakesScreen() {
         <Segmented value={period} onChange={setPeriod} options={[{ value: 'all', label: 'All time' }, { value: '90', label: '90 days' }, { value: '30', label: '30 days' }]} />
         <ImportProgress />
         {r.games === 0 ? (
-          <CoachBubble><p>No analysed games here yet. Play a game, or import your chess.com games in Settings.</p></CoachBubble>
+          <EmptyState icon={<Target size={26} />} title="No analysed games yet" text="Play a game against a bot, or import your chess.com games — your recurring mistakes show up here." action={<button className="btn-secondary" onClick={() => push({ name: 'settings' })}>Import from chess.com</button>} />
         ) : r.themes.length === 0 ? (
           <CoachBubble mood="happy"><p>No mistakes or blunders in these games. Impressive!</p></CoachBubble>
         ) : (

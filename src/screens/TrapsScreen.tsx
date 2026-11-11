@@ -1,9 +1,10 @@
 // The traps library: common tricks at 400–900, Coach Sam's explanation, the trap played out, and a
 // drill — spot and refute it, then keep the position safe against Maia. Traps seen in my imported
 // chess.com games are marked.
+import { Medallion } from '../components/Glyph';
 import { useEffect, useMemo, useState } from 'react';
 import { Chess } from 'chess.js';
-import { ChevronRight, Swords } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { Header, Segmented } from '../components/ui';
 import { Board } from '../components/Board';
 import { CoachBubble } from '../components/Coach';
@@ -33,32 +34,35 @@ export function TrapsScreen() {
   return (
     <div className="flex h-full flex-col">
       <Header title="Traps & tricks" back subtitle="What people at 400–900 try" />
-      <div className="mx-auto w-full max-w-xl flex-1 space-y-2 overflow-y-auto p-4">
+      <div className="mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto p-4">
         <Segmented value={side} onChange={setSide} options={[{ value: 'all', label: 'All' }, { value: 'w', label: 'Against White' }, { value: 'b', label: 'Against Black' }]} />
-        {list.map((t) => {
-          const s = st[t.id];
-          return (
-            <button key={t.id} className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'trap', trapId: t.id })}>
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${t.victim === 'w' ? 'bg-white text-stone-800 ring-1 ring-stone-300' : 'bg-stone-800 text-white'}`}>
-                <Swords size={18} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold">{t.name}</span>
-                <span className="block truncate text-xs text-stone-500">
-                  {t.opening} · against {t.victim === 'w' ? 'White' : 'Black'}
+        <div className="card divide-y divide-stone-100 overflow-hidden !p-0 dark:divide-white/[0.06]">
+          {list.map((t) => {
+            const s = st[t.id];
+            return (
+              <button key={t.id} className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors active:bg-stone-100 dark:active:bg-white/5" onClick={() => push({ name: 'trap', trapId: t.id })}>
+                <span className="relative shrink-0">
+                  <Medallion name="swords" tint="rose" size={38} />
+                  <span className={`absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-[#fffdf9] dark:ring-[#1d1915] ${t.victim === 'w' ? 'bg-white shadow-[inset_0_0_0_1px_#a8a29e]' : 'bg-stone-800'}`} />
                 </span>
-                {s && (
-                  <span className="mt-0.5 flex items-center gap-1 text-xs">
-                    <ChessComBadge />
-                    {s.faced > 0 && <span className={s.fell ? 'text-red-600' : 'text-emerald-700'}>faced {s.faced}×{s.fell ? `, fell for it ${s.fell}×` : ', never fell for it'}</span>}
-                    {s.set > 0 && <span className="text-stone-500">{s.faced ? ' · ' : ''}you set it {s.set}×</span>}
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold leading-tight">{t.name}</span>
+                  <span className="mt-0.5 block truncate text-xs text-stone-500">
+                    {t.opening} · against {t.victim === 'w' ? 'White' : 'Black'}
                   </span>
-                )}
-              </span>
-              <ChevronRight size={18} className="text-stone-400" />
-            </button>
-          );
-        })}
+                  {s && (
+                    <span className="mt-0.5 flex items-center gap-1 text-xs">
+                      <ChessComBadge />
+                      {s.faced > 0 && <span className={s.fell ? 'text-red-600' : 'text-emerald-700'}>faced {s.faced}×{s.fell ? `, fell for it ${s.fell}×` : ', never fell for it'}</span>}
+                      {s.set > 0 && <span className="text-stone-500">{s.faced ? ' · ' : ''}you set it {s.set}×</span>}
+                    </span>
+                  )}
+                </span>
+                <ChevronRight size={17} className="shrink-0 text-stone-400" />
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
