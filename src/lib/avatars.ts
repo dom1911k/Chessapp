@@ -29,6 +29,8 @@ export const FRAMES: Frame[] = [
   { id: 'emerald', name: 'Emerald', ring: lg('#8ff5bd', '#12805a', '#5fe0a0'), unlock: { kind: 'rating', n: 1000 } },
   { id: 'royal', name: 'Royal', ring: lg('#d4b0ff', '#5a2bb8', '#b98aff'), unlock: { kind: 'rating', n: 1400 } },
   { id: 'flame', name: 'Flame', ring: lg('#ffd84a', '#f0531c', '#ffb02e'), unlock: { kind: 'gold', n: 1 } },
+  { id: 'cup', name: 'Cup winner', ring: 'conic-gradient(from 0deg, #ffe07a, #c98a12, #fff3b8, #d19a16, #ffe07a)', unlock: { kind: 'cup', tier: 'bronze' } },
+  { id: 'laurel', name: 'Champion', ring: 'conic-gradient(from 45deg, #7ef0b0, #ffe07a, #12805a, #fff3b8, #7ef0b0)', unlock: { kind: 'cup', tier: 'gold' } },
   { id: 'diamond', name: 'Diamond', ring: 'conic-gradient(from 210deg, #9be7ff, #ffffff, #b9a6ff, #9be7ff, #e6fbff, #9be7ff)', unlock: { kind: 'rating', n: 1800 } },
 ];
 
@@ -46,6 +48,9 @@ export const TITLES: Title[] = [
   { id: 'rising', label: 'Rising Star', unlock: { kind: 'rating', n: 1000 } },
   { id: 'contender', label: 'Contender', unlock: { kind: 'rating', n: 1400 } },
   { id: 'masterclass', label: 'Master Class', unlock: { kind: 'rating', n: 1800 } },
+  { id: 'cupwinner', label: 'Cup Winner', unlock: { kind: 'cup', tier: 'bronze' } },
+  { id: 'silvercup', label: 'Silver Cup Holder', unlock: { kind: 'cup', tier: 'silver' } },
+  { id: 'champion', label: 'Champion', unlock: { kind: 'cup', tier: 'gold' } },
 ];
 
 /** The title to show: the chosen one if it is still unlocked, else your level's title. */

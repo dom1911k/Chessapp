@@ -150,6 +150,13 @@ export function LearnScreen() {
         <section>
           <h2 className="mb-2 section-title">Ready for real opponents</h2>
           <div className="space-y-2">
+            <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'cups' })}>
+              <Medallion name="trophy" tint="gold" />
+              <span className="flex-1">
+                <span className="block font-semibold">Cups</span>
+                <span className="block text-xs text-stone-500">An eight-player knockout against the bots. Win three matches, lift the trophy.</span>
+              </span>
+            </button>
             <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'face' })}>
               <Medallion name="eye" tint="green" />
               <span className="flex-1">
@@ -187,6 +194,13 @@ export function LearnScreen() {
         </section>
         <section>
           <h2 className="mb-2 section-title">Openings</h2>
+          <button className="card tile mb-2 flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'repertoire' })}>
+            <Medallion name="library" tint="green" />
+            <span className="flex-1">
+              <span className="block font-semibold">My repertoire</span>
+              <span className="block text-xs text-stone-500">Choose your openings, train the lines from memory, record your own.</span>
+            </span>
+          </button>
           <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'openings' })}>
             <Medallion name="book" tint="blue" />
             <span className="flex-1">

@@ -2,7 +2,7 @@
 export interface Drill {
   id: string;
   title: string;
-  group: 'Basic checkmates' | 'Pawn endings' | 'Rook & queen endings';
+  group: 'Basic checkmates' | 'Pawn endings' | 'Rook & queen endings' | 'Technique';
   icon: string;
   description: string;
   /** mate; promote a pawn safely; win the enemy pawn; or hold the draw for maxMoves moves. */
@@ -171,3 +171,104 @@ DRILLS.push(
 );
 
 export const drillById = (id: string) => DRILLS.find((d) => d.id === id);
+
+// ---- The endgame trainer, part two: more must-know positions against the engine ----
+DRILLS.push(
+  {
+    id: 'rr-ladder',
+    title: 'Two rooks: the ladder',
+    group: 'Basic checkmates',
+    icon: 'rook',
+    description: 'The easiest mate of all: the rooks take turns giving check.',
+    goal: 'mate',
+    maxMoves: 10,
+    goalText: 'Checkmate in under 10 moves',
+    fens: ['8/8/8/4k3/R7/8/8/1R4K1 w - - 0 1', '8/8/3k4/8/8/8/R7/R3K3 w - - 0 1', '8/8/8/8/3k4/8/7R/4K2R w - - 0 1'],
+    tips: [
+      'One rook fences off a rank; the other gives check on the next one.',
+      'If the king walks up to a rook, swing that rook to the far side of the board.',
+      'Keep the rooks on neighbouring ranks or files so they never block each other.',
+    ],
+  },
+  {
+    id: 'breakthrough',
+    title: 'The breakthrough',
+    group: 'Pawn endings',
+    icon: 'zap',
+    description: 'Three pawns against three. Sacrifice two to queen the third.',
+    goal: 'promote',
+    maxMoves: 8,
+    goalText: 'Promote a pawn',
+    fens: ['8/ppp5/8/PPP5/8/8/7k/4K3 w - - 0 1', '8/5ppp/8/5PPP/8/8/k7/4K3 w - - 0 1'],
+    tips: [
+      'Start with the middle pawn.',
+      'Whichever pawn captures, push the pawn on the OTHER side of it next.',
+      'You give two pawns; the third has a free road.',
+    ],
+  },
+  {
+    id: 'zugzwang',
+    title: 'Mutual zugzwang',
+    group: 'Pawn endings',
+    icon: 'repeat',
+    description: 'Each king wants the other pawn. Whoever attacks first — loses.',
+    goal: 'promote',
+    maxMoves: 14,
+    goalText: 'Win the pawn and promote',
+    fens: ['8/8/8/3p1K2/1k1P4/8/8/8 w - - 0 1', '8/8/8/2K1p3/4P1k1/8/8/8 w - - 0 1'],
+    tips: [
+      'Do not attack the pawn yet. Count: you want to arrive one move AFTER the enemy king.',
+      'Approach from the far side, so that your king attacks the pawn only when his king is already tied to his own.',
+      'When both kings attack and defend, the side to move must give way.',
+    ],
+  },
+  {
+    id: 'outside',
+    title: 'The outside passed pawn',
+    group: 'Pawn endings',
+    icon: 'flag',
+    description: 'Use the far-away pawn as a decoy, then win the other wing.',
+    goal: 'promote',
+    maxMoves: 35,
+    goalText: 'Promote a pawn',
+    fens: ['6k1/5ppp/8/8/P7/8/5PPP/6K1 w - - 0 1', '6k1/ppp5/8/8/7P/8/PPP5/6K1 w - - 0 1'],
+    tips: [
+      'Bring your king to the centre first.',
+      'Push the outside pawn to drag the enemy king away from his pawns.',
+      'When his king goes after the decoy, march your king into the other wing and take the pawns there.',
+    ],
+  },
+  {
+    id: 'reti',
+    title: 'Réti’s idea',
+    group: 'Pawn endings',
+    icon: 'sparkles',
+    description: 'Your king looks hopelessly far from both pawns. Walk the diagonal and do two things at once.',
+    goal: 'hold',
+    maxMoves: 8,
+    goalText: 'Save the draw',
+    fens: ['7K/8/k1P5/7p/8/8/8/8 w - - 0 1'],
+    tips: [
+      'A diagonal king move is as long as a straight one — but it goes two ways at once.',
+      'Head toward your own pawn AND toward his: he cannot stop both threats.',
+      'If he pushes his pawn, support yours; if he goes for yours, catch his.',
+    ],
+  },
+  {
+    id: 'wrongbishop',
+    title: 'The wrong bishop',
+    group: 'Technique',
+    icon: 'bishop',
+    description: 'A bishop and a rook’s pawn cannot win if you reach the right corner.',
+    goal: 'hold',
+    maxMoves: 12,
+    goalText: 'Hold the draw for 12 moves',
+    engineTips: false,
+    fens: ['8/8/5k2/8/7P/8/8/5BK1 b - - 0 1', '8/8/2k5/8/P7/8/8/1KB5 b - - 0 1'],
+    tips: [
+      'Run to the corner where the pawn wants to queen.',
+      'The bishop is on the other colour: it can never chase you out of that corner.',
+      'Once there, just step back and forth. Do not leave!',
+    ],
+  },
+);
