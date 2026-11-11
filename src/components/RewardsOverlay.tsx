@@ -1,8 +1,9 @@
 // The results screen after a game, revealed step by step like the end of a level:
 // result banner → stars → XP → rating → tactics → new achievements, unlocks and milestones.
+import { BADGES, rivalryLevel, rivalryRank } from '../lib/people/rivalry';
 import { UserAvatar } from './UserAvatar';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Flame, RotateCcw, Star, TrendingDown, TrendingUp, Users, X } from 'lucide-react';
+import { Check, Flame, RotateCcw, Star, TrendingDown, TrendingUp, Users, X } from 'lucide-react';
 import { CountUp, FillBar, useSequence } from './Reward';
 import { MILESTONES, START_RATING, type Milestone } from '../lib/rewards/rating';
 import { useCelebrate } from '../lib/celebrate';
@@ -63,7 +64,8 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
   const o = opponentById(r.opponentId);
   const lvBefore = levelFor(r.xpBefore);
   const lvAfter = levelFor(r.xpAfter);
-  const hasStars = !!o;
+  // Once all five stars are in, the rivalry carries the progression.
+  const hasStars = !!o && r.starsBefore < MAX_STARS;
   const tactics = TACTIC_KEYS.filter((k) => r.tactics[k]);
   const extras = r.milestones.length + r.achievements.length + r.unlocks.length + r.skillsUp.length + (r.challengeOpened || r.challengeDone ? 1 : 0);
   const streak = r.winStreak ?? 0;
@@ -88,6 +90,8 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
   // Stars light up one by one, each with a little chime.
   const freshStars = Math.max(0, r.starsAfter - r.starsBefore);
   const [starsLit, setStarsLit] = useState(r.starsBefore);
+  const [rivalNow, setRivalNow] = useState(skipped ? (r.rivalry?.levelAfter ?? 1) : (r.rivalry?.levelBefore ?? 1));
+  useEffect(() => { if (skipped && r.rivalry) setRivalNow(r.rivalry.levelAfter); }, [skipped, r.rivalry]);
   useEffect(() => {
     if (!hasStars) return;
     if (skipped) return setStarsLit(r.starsAfter);
@@ -174,6 +178,28 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
             <div className="mt-1 text-center text-xs font-semibold text-stone-500">
               {r.starsAfter >= MAX_STARS ? `All ${MAX_STARS} stars with ${o!.name}!` : freshStars ? `+${freshStars} star · ${r.starsAfter} of ${MAX_STARS}` : `${r.starsAfter} of ${MAX_STARS} stars · ${r.userResult === 'win' ? 'a win earns a star' : 'win to earn a star'}`}
             </div>
+          </div>
+        )}
+
+        {/* Rivalry: the progression with this opponent that never caps. */}
+        {o && r.rivalry && (
+          <div className={`mt-3 rounded-2xl bg-rose-50 p-3 transition-opacity duration-300 dark:bg-rose-500/10 ${step >= S.stars ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-[11px] font-bold tracking-[0.08em] text-rose-600 uppercase dark:text-rose-400">Rivalry with {o.name}</span>
+              <span className="text-xs font-bold text-rose-600 tabular-nums dark:text-rose-400">+{r.rivalry.gained}</span>
+            </div>
+            <div className="mt-0.5 flex items-baseline justify-between gap-2">
+              <span className="font-semibold">Level {rivalNow} · {rivalryRank(rivalNow)}</span>
+              {r.rivalry.levelAfter > r.rivalry.levelBefore && rivalNow >= r.rivalry.levelAfter && <span className="animate-count-pop chip bg-rose-600 text-white">Level up · +{r.rivalry.xp} XP</span>}
+            </div>
+            <FillBar className="mt-1.5 h-2" fill="bg-gradient-to-r from-rose-400 to-rose-600" from={rivalryLevel(r.rivalry.pointsBefore).pos} to={rivalryLevel(r.rivalry.pointsAfter).pos} run={step >= S.stars} instant={skipped} delay={500} onWrap={(l) => setRivalNow(l)} />
+            {r.rivalry.newBadges.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {r.rivalry.newBadges.map((id) => (
+                  <span key={id} className="chip animate-reveal bg-rose-600 text-white"><Check size={11} strokeWidth={3.5} /> {BADGES.find((b) => b.id === id)?.label}</span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

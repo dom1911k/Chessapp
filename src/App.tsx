@@ -1,3 +1,5 @@
+import { Onboarding } from './components/Onboarding';
+import { needsOnboarding } from './lib/onboarding';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { useEffect, useRef, useState } from 'react';
@@ -218,6 +220,7 @@ export function App() {
   const runMode = useRunFlag((s) => s.enabled);
   const toast = useAndroidBack();
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [welcome, setWelcome] = useState(false);
   useTheme();
 
   useEffect(() => {
@@ -231,7 +234,7 @@ export function App() {
       // chess.com: resume background analysis (and sync, if that's switched on) a little after start.
       setTimeout(startImports, 2500);
       return usePlay.getState().load();
-    });
+    }).then(() => needsOnboarding()).then(setWelcome).catch(() => {});
     // Look for a new version (at most once a day, silently skipped when offline).
     const t = setTimeout(() => void autoCheck().then(setUpdate), 4000);
     return () => clearTimeout(t);
@@ -246,6 +249,7 @@ export function App() {
 
   return (
     <div className="flex h-full flex-col">
+      {welcome && <Onboarding onDone={() => setWelcome(false)} />}
       <main className={`relative min-h-0 flex-1 ${top ? 'safe-bottom' : ''}`}>
         {/* Tabs stay mounted (and so keep their state); the shown one fades in. */}
         {visited.filter((t) => t !== 'run' || (runMode && shownTab === 'run')).map((t) => (

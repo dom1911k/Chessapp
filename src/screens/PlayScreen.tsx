@@ -1,3 +1,4 @@
+import { RivalryCard, RivalryChip } from '../components/Rivalry';
 import { Dock, DockButton } from '../components/Dock';
 import { courseLevel, courseState } from '../lib/course';
 import { CUPS, ROUND_NAMES, currentRound, getCup } from '../lib/cups';
@@ -109,6 +110,7 @@ function SetupView() {
               <span className="mt-0.5 flex items-center gap-1.5">
                 <span className="rounded-md bg-stone-900/85 px-1.5 py-px text-xs font-bold text-white tabular-nums dark:bg-white/90 dark:text-stone-900">{opp ? opp.elo : settings.botElo}</span>
                 {opp && <Stars n={stars} of={MAX_STARS} size={12} />}
+                {opp && <RivalryChip rec={rec} />}
               </span>
               <span className="mt-0.5 block truncate text-xs text-stone-600 dark:text-stone-400">{opp ? opp.tagline : eloLabel(settings.botElo)}</span>
             </span>
@@ -145,7 +147,8 @@ function SetupView() {
           {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
           </div>
         </div>
-        {opp && !locked && stars >= MAX_STARS && <ChallengeCard opponentId={opp.id} stars={stars} done={!!rec?.challengeDone} />}
+        {opp && !locked && stars >= MAX_STARS && !rec?.challengeDone && <ChallengeCard opponentId={opp.id} stars={stars} done={false} />}
+        {opp && !locked && <RivalryCard opponentId={opp.id} rec={rec} />}
         <WeekRing />
         <HomeLinks />
         <LastChessComGames />

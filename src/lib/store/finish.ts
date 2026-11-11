@@ -1,3 +1,4 @@
+import type { RivalryChange } from '../people/rivalry';
 import { START_FEN, type GameResult } from '../chess/game';
 import { bumpActivity, db, kvGet, kvSet } from '../db';
 import { detectOpening } from '../openings';
@@ -10,7 +11,7 @@ import { addToCareer, type TacticCounts } from '../rewards/career';
 import { rateGame, MILESTONES, type Milestone } from '../rewards/rating';
 import { skillStates, SKILLS, type Tier } from '../rewards/skills';
 import { freshUnlocks, type Cosmetic } from '../rewards/cosmetics';
-import { getXp } from '../progress/xp';
+import { awardXp, getXp } from '../progress/xp';
 import { ACHIEVEMENTS, checkAchievements, unlockedAchievements, type Achievement } from '../progress/achievements';
 import { MAX_STARS } from '../people/record';
 import { OPPONENTS } from '../people';
@@ -39,6 +40,8 @@ export interface GameRewards {
   accuracy: number;
   starsBefore: number;
   starsAfter: number;
+  /** Rivalry points and badges from this game. */
+  rivalry?: RivalryChange;
   /** All five stars just reached: the special challenge opens. */
   challengeOpened: boolean;
   challengeDone: boolean;
@@ -123,6 +126,7 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
   const xpBefore = await getXp();
   const skillsBefore = await skillStates();
   const rec = await recordOpponentGame({ ...record, id: gameId });
+  if (rec?.rivalry.xp) await awardXp(rec.rivalry.xp, true);
   await addToCareer(record.tactics ?? {});
   const { before: rb, after: ra } = await rateGame(g.elo, userResult === 'win' ? 1 : userResult === 'draw' ? 0.5 : 0, g.hintsUsed + g.takebacks);
   await progress({ kind: 'game', result: userResult, accuracy: summary.accuracy });
@@ -156,6 +160,7 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     skillsUp: SKILLS.filter((k) => skillsAfter[k.id].tier > skillsBefore[k.id].tier).map((k) => ({ id: k.id, tier: skillsAfter[k.id].tier })),
     skillsGained: SKILLS.filter((k) => skillsAfter[k.id].points > skillsBefore[k.id].points).map((k) => ({ id: k.id, points: skillsAfter[k.id].points - skillsBefore[k.id].points })),
     firstWin: rec?.firstWin ?? false,
+    rivalry: rec?.rivalry,
     // The ladder's first three are always open; beating one of the others opens the next.
     unlocked: rec?.firstWin && g.opponentId && OPPONENTS.findIndex((x) => x.id === g.opponentId) + 1 >= 3 ? OPPONENTS[OPPONENTS.findIndex((x) => x.id === g.opponentId) + 1]?.id : undefined,
     winStreak: streakNow,

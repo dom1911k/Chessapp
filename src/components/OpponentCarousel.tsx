@@ -1,4 +1,5 @@
 // Swipeable opponent cards on the Play tab: big portrait, stars, record and style.
+import { RivalryChip } from './Rivalry';
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, Lock, Star } from 'lucide-react';
 import { OPPONENTS, type Opponent } from '../lib/people';
@@ -33,6 +34,9 @@ function Card({ o, i, rec, open, active, onTap }: { o: Opponent; i: number; rec?
               <Star key={k} size={12} className={k < stars ? 'fill-gold-400 text-gold-500' : 'text-stone-400/70'} />
             ))}
           </span>
+        )}
+        {open && games > 0 && (
+          <span className="absolute top-8 right-3"><RivalryChip rec={rec} /></span>
         )}
         <Portrait id={o.id} size={108} mood={active && open ? 'happy' : 'neutral'} className={`mb-[-14px] ${open ? '' : 'opacity-40 grayscale'}`} />
         {!open && (
