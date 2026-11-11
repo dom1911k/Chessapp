@@ -12,7 +12,8 @@ import { INTERVALS, markReviewed, refreshSteps, scheduleLesson } from '../lib/le
 import { useNav } from '../lib/nav';
 import { playSound } from '../lib/sound';
 import { progress } from '../lib/progress';
-import { Check, CircleCheck, GraduationCap, RotateCcw, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, CircleCheck, GraduationCap, Lightbulb, RotateCcw, X } from 'lucide-react';
+import { Dock, DockButton, DockMain } from '../components/Dock';
 import { Medallion } from '../components/Glyph';
 
 export const LESSONS_KEY = 'lessonsDone';
@@ -40,12 +41,12 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
   const [state, setState] = useState<'todo' | 'wrong' | 'done'>('todo');
   const [tries, setTries] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
+  const [hinted, setHinted] = useState(false);
   /** Steps you got wrong at least once (placement: failed). */
   const [missed, setMissed] = useState<Set<number>>(new Set());
   const [finished, setFinished] = useState<{ stage?: number } | null>(null);
   const step = steps[i];
   const isLast = i === steps.length - 1;
-  const active = !!(step.task || step.quiz);
 
   useEffect(() => {
     setFen(step.fen);
@@ -53,6 +54,7 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
     setState(step.task || step.quiz ? 'todo' : 'done');
     setTries(0);
     setPicked(null);
+    setHinted(false);
   }, [step]);
 
   const miss = () => setMissed((m) => new Set(m).add(i));
@@ -192,13 +194,6 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
           <CoachBubble
             mood={state === 'wrong' || placementFail ? 'concerned' : 'happy'}
             label={step.task ? 'Your move' : step.quiz ? 'Question' : undefined}
-            actions={
-              state === 'done' ? (
-                <button className="btn-primary" onClick={() => void next()}>{isLast ? (mode === 'placement' ? 'See my result' : 'Finish') : 'Next'}</button>
-              ) : state === 'wrong' ? (
-                <button className="btn-primary" onClick={retry}><RotateCcw size={16} /> Try again</button>
-              ) : null
-            }
           >
             {step.quiz ? (
               <>
@@ -238,13 +233,24 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
             ) : state === 'wrong' ? (
               <p>Not quite. {tries >= 2 ? 'The green arrow shows the answer.' : step.hint ?? 'Have another look.'}</p>
             ) : (
-              <p><Rich text={step.text} /></p>
+              <>
+                <p><Rich text={step.text} /></p>
+                {hinted && step.hint && <p className="mt-1.5 text-sm text-amber-700 dark:text-amber-400"><Lightbulb size={13} className="mr-1 inline -translate-y-px" />{step.hint}</p>}
+              </>
             )}
           </CoachBubble>
           {mode === 'placement' && i === 0 && state === 'todo' && <p className="px-1 text-xs text-stone-500">One try per position. It gets harder — just do your best.</p>}
-          {!active && !isLast && <p className="px-1 text-center text-xs text-stone-400">{i + 1} / {steps.length}</p>}
         </div>
       </div>
+      <Dock>
+        <DockButton label="Back" icon={<ChevronLeft size={22} />} disabled={i === 0 || mode === 'placement'} onClick={() => setI(i - 1)} />
+        <DockButton label="Hint" icon={<Lightbulb size={22} />} primary disabled={!step.task || state !== 'todo' || hinted || mode === 'placement'} onClick={() => setHinted(true)} />
+        {state === 'wrong' ? (
+          <DockMain onClick={retry}><RotateCcw size={17} /> Try again</DockMain>
+        ) : (
+          <DockMain disabled={state !== 'done'} onClick={() => void next()}>{isLast ? (mode === 'placement' ? 'See my result' : 'Finish') : 'Next'} <ChevronRight size={18} /></DockMain>
+        )}
+      </Dock>
     </div>
   );
 }

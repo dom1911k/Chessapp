@@ -1,3 +1,5 @@
+import { Dock, DockButton, DockMain } from '../components/Dock';
+import { RotateCcw, Undo2 } from 'lucide-react';
 import { Chess } from 'chess.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Board } from '../components/Board';
@@ -215,13 +217,6 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
           {status === 'won' || status === 'lost' ? (
             <CoachBubble
               mood={status === 'won' ? 'happy' : 'concerned'}
-              actions={
-                <>
-                  {status === 'lost' && history.length > 1 && <button className="btn-primary" onClick={takeback}>Take back</button>}
-                  <button className={status === 'won' ? 'btn-primary' : 'btn-secondary'} onClick={() => restart(true)}>New position</button>
-                  <button className="btn-secondary" onClick={() => restart(false)}>Restart</button>
-                </>
-              }
             >
               <p>{tip}</p>
             </CoachBubble>
@@ -234,15 +229,14 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
               )}
             </CoachBubble>
           )}
-          {(status === 'playing' || status === 'thinking') && (
-            <div className="flex flex-wrap gap-2">
-              <button className="btn-secondary" disabled={status !== 'playing' || hint?.level === 3} onClick={askHint}><Lightbulb size={16} className="mr-1 inline" />Hint</button>
-              <button className="btn-secondary" disabled={history.length < 2} onClick={takeback}>↶ Take back</button>
-              <button className="btn-ghost" onClick={() => restart(false)}>Restart</button>
-            </div>
-          )}
         </div>
       </div>
+      <Dock>
+        <DockButton label={hint ? `Hint ${hint.level}/3` : 'Hint'} icon={<Lightbulb size={22} />} primary disabled={status !== 'playing' || hint?.level === 3} onClick={askHint} />
+        <DockButton label="Take back" icon={<Undo2 size={22} />} disabled={history.length < 2 || status === 'thinking' || status === 'won'} onClick={takeback} />
+        <DockButton label="Restart" icon={<RotateCcw size={22} />} onClick={() => restart(false)} />
+        {(status === 'won' || status === 'lost') && <DockMain quiet={status === 'lost'} onClick={() => restart(true)}>New position</DockMain>}
+      </Dock>
     </div>
   );
 }

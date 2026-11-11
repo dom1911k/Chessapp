@@ -12,6 +12,7 @@ import { useNav } from '../lib/nav';
 import { progress } from '../lib/progress';
 import { playSound } from '../lib/sound';
 import { Rich } from './LessonScreen';
+import { Dock, DockButton, DockMain } from '../components/Dock';
 
 const label = (n: number, san: string) => `${Math.ceil(n / 2)}${n % 2 ? '.' : '…'} ${san}`;
 
@@ -125,7 +126,7 @@ export function ModelGameScreen({ gameId }: { gameId: string }) {
         </div>
         <div className="space-y-3 px-3">
           {!started ? (
-            <CoachBubble label={g.theme} actions={<button className="btn-primary" onClick={() => setStarted(true)}>Start the game</button>}>
+            <CoachBubble label={g.theme}>
               <p className="text-xs font-semibold text-stone-500">{g.players}</p>
               <p className="mt-1"><Rich text={g.intro} /></p>
               <p className="mt-1.5 text-sm text-stone-500">You guess {heroName}’s key moves — {g.guess.length} of them.</p>
@@ -135,7 +136,6 @@ export function ModelGameScreen({ gameId }: { gameId: string }) {
               label="Your move"
               mood={tries ? 'concerned' : 'thinking'}
               icon={<Lightbulb size={12} />}
-              actions={tries >= 1 ? <button className="btn-secondary" onClick={reveal}>Show the move</button> : undefined}
             >
               {note && <p className="mb-1.5 text-stone-600 dark:text-stone-300"><b>{label(n, plies[n - 1].san)}</b> <Rich text={note.replace(/^\S+\s/, '')} /></p>}
               <p className="font-semibold">
@@ -145,11 +145,6 @@ export function ModelGameScreen({ gameId }: { gameId: string }) {
           ) : (
             <CoachBubble
               label={n > 0 ? label(n, plies[n - 1].san) : g.theme}
-              actions={
-                atEnd ? (
-                  <button className="btn-primary" onClick={() => void finish()}>Finish</button>
-                ) : undefined
-              }
             >
               {n > 0 && g.guess.includes(n) && (
                 <p className={`mb-1 text-xs font-bold tracking-wide uppercase ${answered[n] ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'}`}>{answered[n] ? 'You found it' : 'The game move'}</p>
@@ -157,15 +152,19 @@ export function ModelGameScreen({ gameId }: { gameId: string }) {
               <p>{note ? <Rich text={note.replace(/^\S+\s/, '')} /> : n === 0 ? 'The starting position. Step through with the arrows.' : n % 2 === (g.hero === 'w' ? 1 : 0) ? `${heroName} plays ${plies[n - 1].san}.` : `The reply: ${plies[n - 1].san}.`}</p>
             </CoachBubble>
           )}
-          {started && (
-            <div className="flex items-center gap-2">
-              <button className="btn-secondary !px-4" aria-label="Previous move" disabled={n === 0} onClick={() => step(n - 1)}><ChevronLeft size={20} /></button>
-              <span className="flex-1 text-center text-xs font-semibold text-stone-500 tabular-nums">Move {Math.ceil(Math.max(1, n) / 2)} of {Math.ceil(plies.length / 2)}</span>
-              <button className="btn-primary !px-6" aria-label="Next move" disabled={atEnd || guessing} onClick={() => step(n + 1)}><ChevronRight size={20} /></button>
-            </div>
-          )}
         </div>
       </div>
+      <Dock>
+        <DockButton label="Back" ariaLabel="Previous move" icon={<ChevronLeft size={22} />} disabled={!started || n === 0} onClick={() => step(n - 1)} />
+        <DockButton label={guessing ? 'Show move' : `Move ${Math.ceil(Math.max(1, n) / 2)}/${Math.ceil(plies.length / 2)}`} icon={<Lightbulb size={22} />} primary disabled={!guessing || tries < 1} onClick={reveal} />
+        {!started ? (
+          <DockMain onClick={() => setStarted(true)}>Start the game <ChevronRight size={18} /></DockMain>
+        ) : atEnd ? (
+          <DockMain onClick={() => void finish()}>Finish <ChevronRight size={18} /></DockMain>
+        ) : (
+          <DockMain ariaLabel="Next move" disabled={guessing} onClick={() => step(n + 1)}>{guessing ? 'Your move' : 'Next'} {!guessing && <ChevronRight size={18} />}</DockMain>
+        )}
+      </Dock>
     </div>
   );
 }

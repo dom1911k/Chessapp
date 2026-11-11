@@ -6,6 +6,7 @@ import { useNav } from '../lib/nav';
 import { tryMove, type MoveInput } from '../lib/chess/game';
 import { classify, povScore, winPct } from '../lib/chess/evaluation';
 import { explainKeyMove, getHint } from '../lib/coach';
+import { Dock, DockButton, DockMain } from './Dock';
 import type { Hint } from '../lib/coach/hints';
 import { getEngine } from '../lib/engine';
 import { playSound, playStep } from '../lib/sound';
@@ -232,6 +233,10 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     });
   };
 
+  const again = () => {
+    setFailed(false); setHints(0); setHint(null); setMark(null); setBurst(null); setIdx(0); setFen(startFen); setLast(null); setWhy(false);
+    startedAt.current = Date.now(); setSecs(0); setState('solving');
+  };
   const askHint = () => {
     const level = Math.min(3, (hint?.level ?? 0) + 1) as 1 | 2 | 3;
     const h = getHint(currentPuzzleFen(), spec.solution.slice(idx), level);
@@ -270,7 +275,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
   })();
 
   return (
-    <div className="board-split">
+    <div className="board-split flex min-h-full flex-col">
       <div className="board-cell px-1.5">
         <div ref={boardBox} className="relative rounded-[6px]">
           {mark && <MoveMark key={mark.id} mark={mark} orientation={orientation} delayMs={mark.stay ? tagMs : 0} />}
@@ -325,39 +330,9 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
           {/* Rating, bar and level */}
           {progress}
 
-          {/* Timer + actions */}
-          <div className="flex items-center gap-2">
-            <span className={`flex items-center gap-1 pl-1 text-sm font-semibold tabular-nums ${done ? (lightning ? 'text-sky-600' : 'text-stone-500') : 'text-stone-500'}`}>
-              <Timer size={15} /> {fmt(secs)}
-            </span>
-            <div className="flex flex-1 justify-end gap-2">
-              {state === 'solving' && (
-                <>
-                  <button className="btn-secondary flex-1 !py-3" disabled={hint?.level === 3} onClick={askHint}>
-                    <Lightbulb size={17} className="text-amber-500" /> Hint
-                  </button>
-                  <button className="btn-secondary flex-1 !py-3" onClick={showSolution}><Eye size={17} className="text-stone-400" /> Solution</button>
-                </>
-              )}
-              {state === 'wrong' && (
-                <>
-                  <button className="btn-secondary !px-3" onClick={showSolution}>Solution</button>
-                  {failOnWrong && onNext && <button className="btn-secondary !px-3" onClick={onNext}>Next</button>}
-                  <button className="btn-primary !px-4" onClick={retry}><RotateCcw size={16} /> Retry</button>
-                </>
-              )}
-              {done && (
-                <>
-                  <button aria-label="Try the puzzle again" className="btn-secondary !px-3" onClick={() => { setFailed(false); setHints(0); setHint(null); setMark(null); setBurst(null); setIdx(0); setFen(startFen); setLast(null); setWhy(false); startedAt.current = Date.now(); setSecs(0); setState('solving'); }}>
-                    <RotateCcw size={17} />
-                  </button>
-                  <button aria-label="Analyse this position" className="btn-secondary !px-3" onClick={() => push({ name: 'explore', fen: startFen, orientation, title: 'Puzzle analysis' })}>
-                    <Microscope size={17} />
-                  </button>
-                  {onNext && <button className="btn-primary flex-1 !py-3 text-base" onClick={onNext}>{nextLabel} <ChevronRight size={18} /></button>}
-                </>
-              )}
-            </div>
+          {/* Timer */}
+          <div className={`flex items-center gap-1 pl-1 text-sm font-semibold tabular-nums ${done && lightning ? 'text-sky-600' : 'text-stone-500'}`}>
+            <Timer size={15} /> {fmt(secs)}
           </div>
           <div className="flex flex-wrap justify-end gap-1">
             {spec.label && <span className="chip bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300">{spec.label}</span>}
@@ -367,6 +342,31 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
             ))}
           </div>
         </div>
+      )}
+      {!fast && (
+        <Dock sticky>
+          {state === 'solving' && (
+            <>
+              <DockButton label={hint ? `Hint ${hint.level}/3` : 'Hint'} icon={<Lightbulb size={22} />} primary disabled={hint?.level === 3} onClick={askHint} />
+              <DockMain quiet onClick={showSolution}><Eye size={17} /> Solution</DockMain>
+            </>
+          )}
+          {state === 'checking' && <DockMain disabled onClick={() => {}}>…</DockMain>}
+          {state === 'wrong' && (
+            <>
+              <DockButton label="Solution" icon={<Eye size={22} />} onClick={showSolution} />
+              {failOnWrong && onNext && <DockButton label="Skip" icon={<ChevronRight size={22} />} onClick={onNext} />}
+              <DockMain onClick={retry}><RotateCcw size={17} /> Retry</DockMain>
+            </>
+          )}
+          {done && (
+            <>
+              <DockButton label="Again" ariaLabel="Try the puzzle again" icon={<RotateCcw size={22} />} onClick={again} />
+              <DockButton label="Analyse" ariaLabel="Analyse this position" icon={<Microscope size={22} />} onClick={() => push({ name: 'explore', fen: startFen, orientation, title: 'Puzzle analysis' })} />
+              {onNext && <DockMain onClick={onNext}>{nextLabel} <ChevronRight size={18} /></DockMain>}
+            </>
+          )}
+        </Dock>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 // The More tab, chess.com style: your profile on top, then everything else as a plain list.
 import { UserAvatar } from '../components/UserAvatar';
 import { type ReactNode } from 'react';
-import { Award, BookMarked, ChartColumn, ChevronRight, Clock3, CloudDownload, Crosshair, Eye, Gem, History, Lightbulb, Map, Microscope, Network, Settings, Skull, Target } from 'lucide-react';
+import { Award, ChartColumn, ChevronRight, CloudDownload, Gem, History, Lightbulb, Map, Microscope, Network, Settings, Target } from 'lucide-react';
 import { Header } from '../components/ui';
 import { LevelBadge } from '../components/Gamification';
 import { useNav, type Screen } from '../lib/nav';
@@ -23,16 +23,6 @@ const GROUPS: { title: string; items: Item[] }[] = [
       { icon: <History size={19} />, label: 'Game history', sub: 'Every game with its Game Review', to: { name: 'history' } },
       { icon: <Target size={19} />, label: 'My mistakes', sub: 'What keeps going wrong, with positions', to: { name: 'mistakes' } },
       { icon: <Microscope size={19} />, label: 'Analysis board', sub: 'Engine lines and your own variations', to: { name: 'explore', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', orientation: 'white', title: 'Analysis' } },
-    ],
-  },
-  {
-    title: 'Prepare for humans',
-    items: [
-      { icon: <Crosshair size={19} />, label: 'What you face', sub: 'Openings your opponents play', to: { name: 'face' } },
-      { icon: <Skull size={19} />, label: 'Traps', sub: 'Spot them, and set them', to: { name: 'traps' } },
-      { icon: <BookMarked size={19} />, label: 'Openings', sub: 'Your repertoire', to: { name: 'openings' } },
-      { icon: <Clock3 size={19} />, label: 'Time drills', sub: 'Convert a win, move fast', to: { name: 'timeDrill', kind: 'convert' } },
-      { icon: <Eye size={19} />, label: 'Vision', sub: 'Learn the board’s coordinates by heart', to: { name: 'vision' } },
     ],
   },
   {

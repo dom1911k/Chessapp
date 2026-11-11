@@ -1,3 +1,4 @@
+import { Dock, DockButton } from '../components/Dock';
 import { courseLevel, courseState } from '../lib/course';
 import { CUPS, ROUND_NAMES, currentRound, getCup } from '../lib/cups';
 import { UserAvatar, useMyName } from '../components/UserAvatar';
@@ -315,8 +316,8 @@ function GameTopBar({ onMenu }: { onMenu: () => void }) {
         <IconButton label="Back to menu" onClick={() => s.setAway(true)}>
           <ChevronLeft size={24} strokeWidth={2.2} />
         </IconButton>
-        <div className="min-w-0 flex-1 text-center leading-tight">
-          <div className="truncate text-sm font-semibold">{opening ? opening.name : `vs ${opponentById(g.opponentId)?.name ?? 'Bot'}`}</div>
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="font-display truncate text-[18px] font-semibold tracking-[-0.01em]">{opening ? opening.name : `vs ${opponentById(g.opponentId)?.name ?? 'Bot'}`}</div>
           <div className="truncate text-[11px] text-stone-500">{sub}</div>
         </div>
         <IconButton label="Game menu" onClick={onMenu}>
@@ -527,8 +528,7 @@ function GameView() {
             </div>
           )}
           {!s.over && (
-            <div className="safe-bottom px-3 pb-2">
-              <div className="mx-auto grid max-w-md grid-cols-4 gap-1 rounded-[22px] bg-white/90 p-1.5 shadow-[0_6px_24px_rgba(60,35,15,0.12)] ring-1 ring-black/5 backdrop-blur-xl dark:bg-[#1d1915]/90 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_24px_rgba(0,0,0,0.5)] dark:ring-white/[0.07]">
+            <Dock>
                 {aids.requests ? (
                   <>
                     <DockButton label={s.hint ? `Hint ${s.hint.level}/3` : 'Hint'} icon={<Lightbulb size={22} />} disabled={!myTurn || s.hint?.level === 3} onClick={s.requestHint} primary />
@@ -537,7 +537,7 @@ function GameView() {
                   </>
                 ) : (
                   <>
-                    <div className="col-span-2 flex flex-col items-center justify-center text-[11px] leading-tight font-semibold text-stone-500">
+                    <div className="flex flex-[2] flex-col items-center justify-center text-[11px] leading-tight font-semibold text-stone-500">
                       <Swords size={18} className="mb-0.5 text-brand-600" />
                       Match conditions
                     </div>
@@ -545,8 +545,7 @@ function GameView() {
                   </>
                 )}
                 <DockButton label="More" icon={<EllipsisVertical size={22} />} onClick={() => setMenu(true)} />
-              </div>
-            </div>
+            </Dock>
           )}
         </div>
       </div>
@@ -599,21 +598,6 @@ function GameView() {
         </div>
       </Dialog>
     </div>
-  );
-}
-
-function DockButton({ label, icon, onClick, disabled, primary }: { label: string; icon: ReactNode; onClick: () => void; disabled?: boolean; primary?: boolean }) {
-  return (
-    <button
-      disabled={disabled}
-      onClick={onClick}
-      className={`flex flex-col items-center gap-0.5 rounded-2xl py-1.5 text-[11px] font-semibold transition active:scale-95 disabled:opacity-30 ${
-        primary ? 'text-amber-600 dark:text-amber-400' : 'text-stone-700 dark:text-stone-200'
-      }`}
-    >
-      <span className="flex h-6 items-center">{icon}</span>
-      {label}
-    </button>
   );
 }
 

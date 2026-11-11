@@ -1,7 +1,8 @@
 // The opening repertoire: choose a system for each slot, train the lines from memory, and
 // record lines of your own.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronRight, Plus, RotateCcw, Trash2, Undo2 } from 'lucide-react';
+import { Check, ChevronRight, Lightbulb, Plus, RotateCcw, Trash2, Undo2 } from 'lucide-react';
+import { Dock, DockButton, DockMain } from '../components/Dock';
 import { Board } from '../components/Board';
 import { CoachBubble } from '../components/Coach';
 import { Medallion } from '../components/Glyph';
@@ -199,12 +200,6 @@ export function RepertoireTrainScreen({ lineId }: { lineId: string }) {
           {done ? (
             <CoachBubble
               label={slips === 0 ? 'Perfect run' : 'Line complete'}
-              actions={
-                <>
-                  <button className="btn-secondary" onClick={restart}><RotateCcw size={16} /> Again</button>
-                  {nextId ? <button className="btn-primary" onClick={() => replace({ name: 'repertoireTrain', lineId: nextId })}>Next line</button> : <button className="btn-primary" onClick={pop}>Done</button>}
-                </>
-              }
             >
               <p>{slips === 0 ? 'Every move from memory.' : `${slips} slip${slips === 1 ? '' : 's'} — run it again until it is clean.`}</p>
               {line.idea && <p className="mt-1 text-stone-600 dark:text-stone-300"><b>The idea:</b> {line.idea}</p>}
@@ -226,6 +221,15 @@ export function RepertoireTrainScreen({ lineId }: { lineId: string }) {
           )}
         </div>
       </div>
+      <Dock>
+        <DockButton label="Restart" icon={<RotateCcw size={22} />} disabled={n === 0} onClick={restart} />
+        <DockButton label="Show move" icon={<Lightbulb size={22} />} primary disabled={!myTurn} onClick={() => { if (tries === 0) setSlips((x) => x + 1); setTries(2); }} />
+        {done ? (
+          nextId ? <DockMain onClick={() => replace({ name: 'repertoireTrain', lineId: nextId })}>Next line <ChevronRight size={18} /></DockMain> : <DockMain onClick={pop}>Done</DockMain>
+        ) : (
+          <DockMain disabled onClick={() => {}}>{myTurn ? 'Your move' : '…'}</DockMain>
+        )}
+      </Dock>
     </div>
   );
 }
