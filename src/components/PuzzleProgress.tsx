@@ -25,10 +25,11 @@ const EMBLEM_TIERS: [string, string, string][] = [
 export const emblemTier = (level: number) => Math.min(EMBLEM_TIERS.length - 1, Math.floor((Math.max(1, level) - 1) / 4));
 
 /** The puzzle level emblem: a bevelled shield in the tier's metal, pips for the step in the tier. */
-export function LevelBadge({ level, size = 30, className = '', dim = false }: { level: number; size?: number; className?: string; dim?: boolean }) {
-  const [hi, mid, lo] = dim ? ['#e7e5e4', '#a8a29e', '#57534e'] : EMBLEM_TIERS[emblemTier(level)];
-  const id = `em${dim ? 'd' : emblemTier(level)}`;
-  const pips = ((Math.max(1, level) - 1) % 4) + 1;
+export function LevelBadge({ level, size = 30, className = '', dim = false, tier, pips: pipCount }: { level: number; size?: number; className?: string; dim?: boolean; /** Colour tier (default: from the level). */ tier?: number; /** Pips under the number (default: step within the tier; 0 = none). */ pips?: number }) {
+  const tr = Math.min(EMBLEM_TIERS.length - 1, tier ?? emblemTier(level));
+  const [hi, mid, lo] = dim ? ['#e7e5e4', '#a8a29e', '#57534e'] : EMBLEM_TIERS[tr];
+  const id = `em${dim ? 'd' : tr}`;
+  const pips = pipCount ?? ((Math.max(1, level) - 1) % 4) + 1;
   const digits = String(level).length;
   return (
     <svg viewBox="0 0 48 52" width={size} height={size * (52 / 48)} className={`shrink-0 ${dim ? 'opacity-70' : 'drop-shadow-[0_2px_2px_rgba(40,20,0,0.3)]'} ${className}`} role="img" aria-label={`Level ${level}`}>

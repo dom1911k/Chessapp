@@ -1,3 +1,4 @@
+import { courseLevel, courseState } from '../lib/course';
 import { CUPS, ROUND_NAMES, currentRound, getCup } from '../lib/cups';
 import { UserAvatar, useMyName } from '../components/UserAvatar';
 import { getRating as getPuzzleRating } from '../lib/puzzles/rating';
@@ -227,6 +228,11 @@ function HomeLinks() {
   const [pz, setPz] = useState<number | null>(null);
   useEffect(() => void dueCount().then(setDue), []);
   useEffect(() => void getPuzzleRating().then((r) => setPz(r.rating)), []);
+  const [lvl, setLvl] = useState<ReturnType<typeof courseLevel> | null>(null);
+  const tabNow = useNav((st) => st.tab);
+  useEffect(() => {
+    if (tabNow === 'play') void courseState().then((c) => setLvl(courseLevel(c)));
+  }, [tabNow]);
   // A cup in progress: say what is waiting (refreshed when you come back from a game).
   const [cupLine, setCupLine] = useState<string | null>(null);
   const phase = usePlay((st) => st.phase);
@@ -245,7 +251,7 @@ function HomeLinks() {
     <div className="grid grid-cols-2 gap-3">
       {tile(<Puzzle size={20} />, 'bg-gradient-to-br from-orange-400 to-rose-500', 'Puzzles', pz === null ? 'Solve and climb' : <>Rating <b className="text-stone-700 tabular-nums dark:text-stone-200">{pz}</b></>, () => push({ name: 'puzzle', mode: { kind: 'rated' } }))}
       {tile(<CalendarCheck size={20} />, 'bg-gradient-to-br from-sky-400 to-indigo-500', 'Daily training', due ? `${due} to review today` : 'Picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-red-500 text-white">{due}</span> : null)}
-      {tile(<BookOpen size={20} />, 'bg-gradient-to-br from-emerald-400 to-teal-600', 'Lessons', 'Learn step by step', () => setTab('learn'))}
+      {tile(<BookOpen size={20} />, 'bg-gradient-to-br from-emerald-400 to-teal-600', 'Course', lvl ? <>Level <b className="text-stone-700 tabular-nums dark:text-stone-200">{lvl.level}</b> · {lvl.stepsDone}/{lvl.steps} done</> : 'Learn step by step', () => setTab('learn'))}
       {tile(<History size={20} />, 'bg-gradient-to-br from-violet-400 to-purple-600', 'Past games', 'Reviews of your games', () => push({ name: 'history' }))}
       <button className="card tile col-span-2 flex items-center gap-3 !p-3.5 text-left" onClick={() => push({ name: 'cups' })}>
         <span className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-gradient-to-br from-amber-300 to-amber-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_6px_12px_-6px_rgba(0,0,0,0.4)]"><Trophy size={20} /></span>

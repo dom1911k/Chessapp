@@ -115,3 +115,22 @@ describe('lesson refresh', () => {
     expect(refreshSteps(l).length).toBeLessThan(l.steps.length);
   });
 });
+
+import { RANKS, courseLevel } from '../lib/course';
+describe('course levels', () => {
+  it('each chapter is a level; you stand on the first open, unfinished one', () => {
+    const empty: CourseState = { done: {}, puzzles: {}, chapters: {}, start: 0 };
+    expect(courseLevel(empty)).toMatchObject({ level: 1, stepsDone: 0, done: 0, total: CHAPTERS.length, finished: false });
+    const done: Record<string, boolean> = {};
+    for (const s of CHAPTERS[0].steps) done[s.id] = true;
+    done[CHAPTERS[1].steps[0].id] = true;
+    const st = { ...empty, done };
+    expect(courseLevel(st)).toMatchObject({ level: 2, stepsDone: 1, done: 1 });
+    // Placed at stage 3: you stand on that stage's first level.
+    expect(courseLevel({ ...empty, start: 2 }).chapter.stage).toBe(2);
+    const all: Record<string, boolean> = {};
+    for (const ch of CHAPTERS) for (const s of ch.steps) all[s.id] = true;
+    expect(courseLevel({ ...empty, done: all })).toMatchObject({ finished: true, done: CHAPTERS.length });
+    expect(RANKS.length).toBe(STAGES.length);
+  });
+});

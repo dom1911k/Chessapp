@@ -180,7 +180,7 @@ export async function checkChapters(): Promise<void> {
   const c = useCelebrate.getState();
   c.confetti();
   for (const ch of fresh) {
-    c.toast({ icon: ch.icon, title: `Chapter complete: ${ch.title}`, text: 'The next chapter is open.' });
+    c.toast({ icon: ch.icon, title: `Level ${CHAPTERS.indexOf(ch) + 1} complete: ${ch.title}`, text: CHAPTERS.indexOf(ch) + 1 < CHAPTERS.length ? `Level ${CHAPTERS.indexOf(ch) + 2} is open.` : 'You finished the whole course!' });
     await progress({ kind: 'chapter' });
   }
 }
@@ -195,3 +195,19 @@ export const CAUSE_LESSON: Record<string, string> = {
   fast: 's7-blunder',
   timeTrouble: 's7-blunder',
 };
+
+/**
+ * Your course level: each chapter of the course is one level (1…29). You are on the first
+ * level that is open and not finished; `done` counts the levels completed anywhere.
+ */
+export function courseLevel(st: CourseState): { level: number; chapter: Chapter; stepsDone: number; steps: number; done: number; total: number; finished: boolean } {
+  const done = CHAPTERS.filter((ch) => chapterDone(ch, st)).length;
+  let i = CHAPTERS.findIndex((ch, k) => ch.stage >= st.start && !chapterDone(ch, st) && chapterOpen(k, st));
+  const finished = i < 0;
+  if (finished) i = CHAPTERS.length - 1;
+  const chapter = CHAPTERS[i];
+  return { level: i + 1, chapter, stepsDone: chapter.steps.filter((s) => st.done[s.id]).length, steps: chapter.steps.length, done, total: CHAPTERS.length, finished };
+}
+
+/** Names for where you are on the road, one per stage. */
+export const RANKS = ['Beginner', 'Tactician', 'Attacker', 'Opening student', 'Strategist', 'Endgame technician', 'Club master'];

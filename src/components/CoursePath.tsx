@@ -66,7 +66,7 @@ export function CoursePath({ stage, state }: { stage: number; state?: CourseStat
                   isDone ? 'bg-brand-500 text-white' : isOpen ? 'bg-amber-400 text-white' : 'bg-stone-300 text-stone-500 dark:bg-stone-700'
                 }`}
               >
-                {isDone ? <Check size={12} strokeWidth={3} /> : CHAPTERS.filter((c) => c.stage === stage).indexOf(ch) + 1}
+                {isDone ? <Check size={12} strokeWidth={3} /> : i + 1}
               </span>
               <button
                 disabled={!isOpen}
@@ -75,10 +75,17 @@ export function CoursePath({ stage, state }: { stage: number; state?: CourseStat
               >
                 <Medallion name={isOpen ? ch.icon : 'trap'} tint={isDone ? 'green' : 'gold'} muted={!isOpen} />
                 <span className="flex-1">
+                  <span className={`block text-[10px] font-bold tracking-[0.1em] uppercase ${isDone ? 'text-brand-700 dark:text-brand-500' : i === current ? 'text-amber-600 dark:text-amber-400' : 'text-stone-400'}`}>Level {i + 1}{isDone ? ' · complete' : i === current ? ' · you are here' : ''}</span>
                   <span className="block font-semibold leading-tight">{ch.title}</span>
-                  <span className="block text-xs text-stone-500">{isOpen ? ch.intro : 'Unlocks when you finish the chapter before.'}</span>
+                  <span className="block text-xs text-stone-500">{isOpen ? ch.intro : `Opens when you finish level ${i}.`}</span>
+                  {/* One tick per step: lessons, puzzles, drills and games to tick off. */}
+                  <span className="mt-1.5 flex flex-wrap gap-1">
+                    {ch.steps.map((s) => (
+                      <span key={s.id} className={`flex h-3.5 w-3.5 items-center justify-center rounded-full ${st.done[s.id] ? 'bg-brand-500 text-white' : 'bg-stone-200 dark:bg-white/10'}`}>{st.done[s.id] && <Check size={9} strokeWidth={4} />}</span>
+                    ))}
+                  </span>
                 </span>
-                <span className="text-xs font-semibold text-stone-500">{stepsDone}/{ch.steps.length}</span>
+                <span className="text-xs font-semibold text-stone-500 tabular-nums">{stepsDone}/{ch.steps.length}</span>
               </button>
               {showSteps && (
                 <div className="mt-1.5 space-y-1.5 pl-3">
