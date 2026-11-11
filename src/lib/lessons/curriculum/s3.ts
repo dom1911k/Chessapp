@@ -15,7 +15,7 @@ export const S3 = [
     say(GIFT, 'The recipe: bishop aiming at h7, knight ready for g5, queen ready for h5, a pawn on e5 that keeps a knight off f6 — and no defender able to take on g5. Then the bishop can give itself up on h7.', { arrows: ['d3h7', '?f3g5', '?d1h5'], info: ['e5'] }),
     play(GIFT, 'All the conditions are met. Sacrifice!', 'Bxh7+', 'The bishop takes the h-pawn with check.', 'Bxh7+! The king has to take, or simply be a pawn down with a wrecked shelter.'),
     play(pos('Bxh7+ Kxh7', GIFT), 'Bring the next attacker with check.', 'Ng5+', 'The knight jumps in.', 'Ng5+! The king must choose: back to g8, or forward into the open.'),
-    play(pos('Bxh7+ Kxh7 Ng5+ Kg8', GIFT), 'The king went back. Now the queen arrives.', 'Qh5', 'Threaten mate on h7.', 'Qh5! Mate on h7 is threatened. Black can only make room with …Re8, and then Qxf7+ followed by Qh5+, Qh7+, Qh8+ and Qxg7 is checkmate.'),
+    play(pos('Bxh7+ Kxh7 Ng5+ Kg8', GIFT), 'The king went back. Now the queen arrives.', ['Qh5', 'Qd3'], 'Threaten mate on h7.', 'Qh5! Mate on h7 is threatened. Black can only make room with …Re8, and then Qxf7+ followed by Qh5+, Qh7+, Qh8+ and Qxg7 is checkmate.'),
     ask(GIFT, 'What must you check before playing Bxh7+ in your own games?', ['That after Ng5+ nothing can capture the knight for free, and no piece can defend h7 in time', 'Nothing — it always works', 'That I have castled'], 0, 'The two classic defences are a bishop on e7 that takes on g5, and …Bf5 or …Nf6 covering h7. Also look at …Kg6: you need a follow-up such as Qg4 or h4.'),
   ]),
   lesson('s3-mates2', 'Four more mating nets', 'crosshair', 'Anastasia, Boden, Greco and the epaulette.', [

@@ -1,6 +1,9 @@
 // Game Review, chess.com style. First a summary (Coach Sam's take, both players' accuracy, the
 // move classes, phases, key moments), then a steady step-through: eval bar + board, a move strip,
 // a fixed-size coach panel, Best / Retry / Next, and the arrows at the bottom.
+import { CAUSE_LESSON } from '../lib/course';
+import { lessonById } from '../lib/lessons/data';
+import { GraduationCap } from 'lucide-react';
 import { UserAvatar } from '../components/UserAvatar';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, Sparkles, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope } from 'lucide-react';
@@ -202,6 +205,16 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
               <div className="p-3.5 pb-1">
                 <CauseBreakdown bare r={{ mistakes: causes.length, totals, top: topCause ? { cause: topCause as MistakeCause['cause'], share: totals[topCause] / causes.length } : null }} />
               </div>
+              {topCause && lessonById(CAUSE_LESSON[topCause]) && (
+                <button className="mx-3.5 mb-3 flex w-[calc(100%-1.75rem)] items-center gap-3 rounded-2xl bg-brand-50 px-3 py-2.5 text-left ring-1 ring-brand-100 transition active:scale-[0.98] dark:bg-brand-700/15 dark:ring-brand-700/30" onClick={() => push({ name: 'lesson', lessonId: CAUSE_LESSON[topCause] })}>
+                  <GraduationCap size={20} className="shrink-0 text-brand-700 dark:text-brand-500" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-bold tracking-wider text-brand-700 uppercase dark:text-brand-500">Lesson for this</span>
+                    <span className="block truncate font-semibold">{lessonById(CAUSE_LESSON[topCause])!.title}</span>
+                  </span>
+                  <span className="text-sm font-semibold text-brand-700 dark:text-brand-500">Study</span>
+                </button>
+              )}
               <div className="divide-y divide-stone-100 border-t border-stone-100 dark:divide-white/[0.05] dark:border-white/[0.05]">
                 {causes.map((m) => (
                   <Row key={m.ply} onClick={() => onStart(m.ply)} icon={<ReviewIcon cls={r.plies[m.ply].cls} size={20} />}>

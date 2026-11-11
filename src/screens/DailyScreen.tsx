@@ -12,6 +12,9 @@ import { formatDue } from '../lib/srs';
 import { currentStreak } from '../lib/stats';
 import { dueCount, MAX_REVIEWS, SESSION_SIZE, useDaily } from '../lib/store/daily';
 import { WeeklyGoalCard } from '../components/Gamification';
+import { Medallion } from '../components/Glyph';
+import { lessonById } from '../lib/lessons/data';
+import { dueLessonIds } from '../lib/lessons/review';
 
 export function DailyScreen() {
   const d = useDaily();
@@ -39,6 +42,12 @@ export function DailyScreen() {
     if (d.day && d.day !== today()) d.reset();
   }, [d]);
 
+  const push = useNav((s) => s.push);
+  const [dueLessons, setDueLessons] = useState<string[]>([]);
+  useEffect(() => {
+    if (onTop && !inSession) void dueLessonIds().then(setDueLessons);
+  }, [onTop, inSession]);
+
   const leave = () => setInSession(false);
   useBackHandler(leave, inSession && onTop);
 
@@ -55,6 +64,27 @@ export function DailyScreen() {
       <Header title="Daily training" back />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
         <WeeklyGoalCard />
+        {dueLessons.length > 0 && (
+          <div className="card !p-0">
+            <div className="px-3.5 pt-3 text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">Lesson refresh · {dueLessons.length} due</div>
+            <div className="divide-y divide-stone-100 dark:divide-white/[0.06]">
+              {dueLessons.slice(0, 3).map((id) => {
+                const l = lessonById(id);
+                if (!l) return null;
+                return (
+                  <button key={id} className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left active:bg-stone-100 dark:active:bg-white/5" onClick={() => push({ name: 'lesson', lessonId: id, mode: 'review' })}>
+                    <Medallion name={l.icon} size={36} tint="blue" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">{l.title}</span>
+                      <span className="block text-xs text-stone-500">Just the questions — about two minutes</span>
+                    </span>
+                    <span className="text-sm font-semibold text-brand-700 dark:text-brand-500">Refresh</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {info?.doneToday && <div className="px-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">Today's session is done — anything more is a bonus.</div>}
         <CoachBubble
           actions={

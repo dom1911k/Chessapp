@@ -22,7 +22,10 @@ export type Screen =
   | { name: 'traps' }
   | { name: 'trap'; trapId: string }
   | { name: 'timeDrill'; kind: 'convert' | 'quick' }
-  | { name: 'lesson'; lessonId: string }
+  | { name: 'lesson'; lessonId: string; mode?: 'review' }
+  | { name: 'placement' }
+  | { name: 'modelGame'; gameId: string }
+  | { name: 'library' }
   | { name: 'practice'; theme: Theme }
   | { name: 'journey' }
   | { name: 'skills' }

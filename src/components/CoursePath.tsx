@@ -10,7 +10,7 @@ import { Medallion } from './Glyph';
 import { Check, ChevronRight, CircleCheck } from 'lucide-react';
 
 /** The learning path: chapters as a vertical journey, the current one expanded. */
-export function CoursePath() {
+export function CoursePath({ stage, state }: { stage: number; state?: CourseState | null }) {
   const tab = useNav((s) => s.tab);
   const stackLen = useNav((s) => s.stack.length);
   const push = useNav((s) => s.push);
@@ -20,15 +20,16 @@ export function CoursePath() {
   const [confirmGame, setConfirmGame] = useState<string | null>(null);
 
   useEffect(() => {
+    if (state !== undefined) return setSt(state);
     if (tab !== 'learn' || stackLen) return;
     void checkChapters().then(courseState).then(setSt);
-  }, [tab, stackLen]);
+  }, [tab, stackLen, state]);
+  useEffect(() => setOpen(null), [stage]);
 
   if (!st) return null;
-  const current = CHAPTERS.findIndex((ch) => !chapterDone(ch, st));
+  const current = CHAPTERS.findIndex((ch, k) => ch.stage === stage && !chapterDone(ch, st) && chapterOpen(k, st));
   const expanded = open ?? CHAPTERS[current]?.id ?? null;
-  const doneCount = CHAPTERS.filter((ch) => chapterDone(ch, st)).length;
-
+  
   const startGame = (opponentId: string) => {
     const o = opponentById(opponentId)!;
     const play = usePlay.getState();
@@ -39,6 +40,7 @@ export function CoursePath() {
   const openStep = (s: CourseStep) => {
     if (s.kind === 'lesson') push({ name: 'lesson', lessonId: s.lessonId });
     else if (s.kind === 'drill') push({ name: 'endgame', drillId: s.drillId });
+    else if (s.kind === 'model') push({ name: 'modelGame', gameId: s.gameId });
     else if (s.kind === 'puzzles') push({ name: 'puzzle', mode: { kind: 'course', theme: s.theme, count: s.count, stepId: s.id, label: s.label.replace(/^\d+ /, '') } });
     else {
       const play = usePlay.getState();
@@ -49,13 +51,10 @@ export function CoursePath() {
 
   return (
     <section>
-      <div className="mb-2 flex items-baseline justify-between px-1">
-        <h2 className="section-title">Your course</h2>
-        <span className="text-xs text-stone-500">{doneCount}/{CHAPTERS.length} chapters</span>
-      </div>
       <div className="relative space-y-2 pl-5">
         <div className="absolute top-3 bottom-3 left-[13px] w-0.5 bg-stone-200 dark:bg-stone-800" />
         {CHAPTERS.map((ch, i) => {
+          if (ch.stage !== stage) return null;
           const isOpen = chapterOpen(i, st);
           const isDone = chapterDone(ch, st);
           const stepsDone = ch.steps.filter((s) => st.done[s.id]).length;
@@ -67,12 +66,12 @@ export function CoursePath() {
                   isDone ? 'bg-brand-500 text-white' : isOpen ? 'bg-amber-400 text-white' : 'bg-stone-300 text-stone-500 dark:bg-stone-700'
                 }`}
               >
-                {isDone ? <Check size={12} strokeWidth={3} /> : i + 1}
+                {isDone ? <Check size={12} strokeWidth={3} /> : CHAPTERS.filter((c) => c.stage === stage).indexOf(ch) + 1}
               </span>
               <button
                 disabled={!isOpen}
                 onClick={() => setOpen(showSteps ? '' : ch.id)}
-                className={`card flex w-full items-center gap-3 !p-3 text-left ${isOpen ? '' : 'opacity-50'} ${i === current ? '!ring-2 !ring-amber-400' : ''}`}
+                className={`card tile flex w-full items-center gap-3 !p-3 text-left ${isOpen ? '' : 'opacity-50'} ${i === current ? '!ring-2 !ring-amber-400' : ''}`}
               >
                 <Medallion name={isOpen ? ch.icon : 'trap'} tint={isDone ? 'green' : 'gold'} muted={!isOpen} />
                 <span className="flex-1">
@@ -87,10 +86,10 @@ export function CoursePath() {
                     const done = st.done[s.id];
                     const o = s.kind === 'game' ? opponentById(s.opponentId) : null;
                     const sub =
-                      s.kind === 'puzzles' ? `${Math.min(st.puzzles[s.id] ?? 0, s.count)}/${s.count} solved` : s.kind === 'game' ? 'Play a full game (any result)' : s.kind === 'lesson' ? `${lessonById(s.lessonId)?.steps.length ?? ''} short steps` : 'Reach the goal once';
+                      s.kind === 'puzzles' ? `${Math.min(st.puzzles[s.id] ?? 0, s.count)}/${s.count} solved` : s.kind === 'game' ? 'Play a full game (any result)' : s.kind === 'model' ? 'A famous game — guess the key moves' : s.kind === 'lesson' ? `${lessonById(s.lessonId)?.steps.length ?? ''} short steps` : 'Reach the goal once';
                     return (
                       <button key={s.id} onClick={() => openStep(s)} className="flex w-full items-center gap-3 rounded-xl bg-white/70 px-3 py-2 text-left ring-1 ring-stone-200 active:scale-[0.99] dark:bg-stone-900/70 dark:ring-stone-800">
-                        {o ? <Portrait id={o.id} size={28} /> : <Medallion name={s.kind === 'lesson' ? 'cap' : s.kind === 'puzzles' ? 'sparkles' : 'flag'} size={28} tint={done ? 'green' : 'stone'} />}
+                        {o ? <Portrait id={o.id} size={28} /> : <Medallion name={s.kind === 'lesson' ? 'cap' : s.kind === 'puzzles' ? 'sparkles' : s.kind === 'model' ? 'scroll' : 'flag'} size={28} tint={done ? 'green' : 'stone'} />}
                         <span className="flex-1">
                           <span className="block text-sm font-semibold">{s.label}</span>
                           <span className="block text-xs text-stone-500">{sub}</span>

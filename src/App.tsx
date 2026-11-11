@@ -35,6 +35,8 @@ import { SkillTreeScreen } from './screens/SkillTreeScreen';
 import { CollectionScreen } from './screens/CollectionScreen';
 import { PieceDefs } from './components/PieceDefs';
 import { WebUpdateBanner } from './components/UpdatePanel';
+import { ModelGameScreen } from './screens/ModelGameScreen';
+import { LibraryScreen } from './screens/LibraryScreen';
 import { LessonScreen } from './screens/LessonScreen';
 import { UpdateDialog } from './components/UpdatePanel';
 import { CelebrationLayer } from './components/Celebrate';
@@ -127,7 +129,13 @@ function StackScreen({ screen }: { screen: Screen }) {
     case 'timeDrill':
       return <TimeDrillScreen kind={screen.kind} />;
     case 'lesson':
-      return <LessonScreen lessonId={screen.lessonId} />;
+      return <LessonScreen lessonId={screen.lessonId} mode={screen.mode} />;
+    case 'placement':
+      return <LessonScreen lessonId="placement" mode="placement" />;
+    case 'modelGame':
+      return <ModelGameScreen gameId={screen.gameId} />;
+    case 'library':
+      return <LibraryScreen />;
     case 'practice':
       return <PracticeScreen theme={screen.theme} />;
     case 'journey':
