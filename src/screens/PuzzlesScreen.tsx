@@ -3,6 +3,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { CalendarCheck, CalendarDays, ChevronRight, Flame, GraduationCap, Puzzle, Shield, SlidersHorizontal, Swords, Timer, Trophy, Zap } from 'lucide-react';
 import { Header } from '../components/ui';
+import { LevelBadge } from '../components/PuzzleProgress';
+import { puzzleLevel } from '../lib/puzzles/level';
 import { LineChart } from '../components/Charts';
 import { db, kvGet, today } from '../lib/db';
 import { useNav, type RushMode } from '../lib/nav';
@@ -71,29 +73,38 @@ export function PuzzlesScreen() {
       <div className="mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto p-4">
         {/* Rating + Solve */}
         <div className="card !p-4">
-          <div className="flex items-end justify-between">
-            <div>
-              <div className="text-xs font-semibold tracking-wide text-stone-500 uppercase">Puzzle rating</div>
-              <div className="font-display text-[42px] leading-none font-semibold tabular-nums">{d?.rating ?? '…'}</div>
-            </div>
-            <div className="text-right text-xs text-stone-500">
-              <div>Highest <b className="text-stone-800 dark:text-stone-100">{d?.peak ?? '…'}</b></div>
-              <div>{d ? (d.played ? `${d.solved} of ${d.played} solved` : 'No puzzles yet') : ''}</div>
+          <div className="flex items-center gap-3.5">
+            <LevelBadge level={puzzleLevel(d?.rating ?? 800).level} size={58} />
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">Puzzle rating</div>
+              <div className="flex items-baseline gap-2">
+                <span className="font-display text-[40px] leading-none font-semibold tabular-nums">{d?.rating ?? '…'}</span>
+                <span className="text-xs text-stone-500">best <b className="text-stone-800 tabular-nums dark:text-stone-100">{d?.peak ?? '…'}</b></span>
+              </div>
+              {d && (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
+                    <div className="h-full rounded-full bg-gradient-to-r from-lime-400 to-emerald-500" style={{ width: `${Math.max(3, puzzleLevel(d.rating).pct * 100)}%` }} />
+                  </div>
+                  <span className="text-[11px] font-semibold text-stone-500 tabular-nums">{puzzleLevel(d.rating).next - d.rating} to level {puzzleLevel(d.rating).level + 1}</span>
+                </div>
+              )}
             </div>
           </div>
+          {d && d.played > 0 && <p className="mt-2 text-xs text-stone-500">{d.solved} of {d.played} solved</p>}
           {d && d.ratings.length > 1 && (
             <div className="mt-2">
               <LineChart values={d.ratings} dates={d.ratingDates} height={78} />
             </div>
           )}
-          <button className="btn-primary mt-3 w-full !py-4 text-lg" onClick={() => push({ name: 'puzzle', mode: { kind: 'rated' } })}>
+          <button className="btn-primary mt-3 w-full !rounded-[18px] !py-4 font-display text-xl" onClick={() => push({ name: 'puzzle', mode: { kind: 'rated' } })}>
             <Puzzle size={20} /> Solve Puzzles
           </button>
           {d && d.total > 0 && <p className="mt-1.5 text-center text-[11px] text-stone-400">{d.total.toLocaleString()} puzzles from the Lichess database, all offline</p>}
         </div>
 
         {/* Daily Puzzle */}
-        <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'puzzle', mode: { kind: 'dailyPuzzle' } })}>
+        <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'puzzle', mode: { kind: 'dailyPuzzle' } })}>
           <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${d?.dailySolved ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
             <CalendarDays size={24} />
           </span>
@@ -110,7 +121,7 @@ export function PuzzlesScreen() {
         </button>
 
         {/* Daily training (spaced reviews of positions you missed + weak-spot puzzles) */}
-        <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'daily' })}>
+        <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'daily' })}>
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
             <CalendarCheck size={24} />
           </span>
@@ -167,7 +178,7 @@ export function PuzzlesScreen() {
 
 function Tile({ icon, tint, title, text, onClick }: { icon: ReactNode; tint: string; title: string; text: string; onClick: () => void }) {
   return (
-    <button className="card flex flex-col items-start gap-1.5 !p-3 text-left active:scale-[0.98]" onClick={onClick}>
+    <button className="card tile flex flex-col items-start gap-1.5 !p-3 text-left active:scale-[0.98]" onClick={onClick}>
       <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${tint}`}>{icon}</span>
       <span className="font-semibold leading-tight">{title}</span>
       <span className="text-xs leading-snug text-stone-500">{text}</span>

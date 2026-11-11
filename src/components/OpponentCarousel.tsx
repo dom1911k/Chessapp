@@ -18,7 +18,7 @@ function Card({ o, i, rec, open, active, onTap }: { o: Opponent; i: number; rec?
   return (
     <button
       onClick={onTap}
-      className={`card relative flex shrink-0 snap-center flex-col items-center overflow-hidden !p-0 text-center transition duration-300 ${
+      className={`card tile relative flex shrink-0 snap-center flex-col items-center overflow-hidden !p-0 text-center transition duration-300 ${
         active ? 'scale-100 !ring-2 !ring-brand-500 shadow-[0_18px_40px_-18px_rgba(30,60,40,0.55)]' : 'scale-[0.93] opacity-60'
       }`}
       style={{ width: CARD }}

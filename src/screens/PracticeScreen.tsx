@@ -75,7 +75,7 @@ export function PracticeScreen({ theme }: { theme: Theme }) {
 
 function Step({ n, icon, title, sub, done, onClick }: { n: number; icon: string; title: string; sub: string; done: boolean; onClick: () => void }) {
   return (
-    <button className="card flex w-full items-center gap-3 !p-3 text-left active:scale-[0.99]" onClick={onClick}>
+    <button className="card tile flex w-full items-center gap-3 !p-3 text-left active:scale-[0.99]" onClick={onClick}>
       <Medallion name={icon} tint={done ? 'green' : 'gold'} />
       <span className="flex-1">
         <span className="block text-xs font-semibold text-stone-500 uppercase">Step {n}</span>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+<defs><clipPath id="c443852925"><path d="M100 44 C132 44 146 66 146 92 C146 122 126 142 100 142 C74 142 54 122 54 92 C54 66 68 44 100 44 Z"/></clipPath><clipPath id="c443852925f"><rect width="200" height="200"/></clipPath></defs>
+<g clip-path="url(#c443852925f)">
+<rect width="200" height="200" fill="#d3f1f4"/><circle cx="100" cy="96" r="82" fill="#8fd6dc"/>
+<g transform="translate(0 10)">
+<path d="M84 126 L84 164 Q100 176 116 164 L116 126 Z" fill="#d0b9ab"/><path d="M22 208 C22 168 58 162 84 160 Q100 172 116 160 C142 162 178 168 178 208 Z" fill="#2a8f9a"/><path d="M82 159 Q100 178 118 159 L122 162 Q100 186 78 162 Z" fill="#1f6a72"/>
+<g transform="rotate(0 100 142)">
+<path d="M50 84 C44 32 156 30 150 84 Z" fill="#d2602c"/><ellipse cx="53" cy="102" rx="7" ry="11" fill="#f8dccb"/><ellipse cx="147" cy="102" rx="7" ry="11" fill="#d5bdaf"/>
+<path d="M100 44 C132 44 146 66 146 92 C146 122 126 142 100 142 C74 142 54 122 54 92 C54 66 68 44 100 44 Z" fill="#f8dccb"/>
+<g clip-path="url(#c443852925)"><path d="M108 0 L200 0 L200 200 L132 200 Q118 120 108 0 Z" fill="#d5bdaf"/></g>
+
+<path d="M51 82 C46 44 78 34 116 38 C144 40 154 58 149 84 C144 66 130 56 112 58 C78 60 60 66 51 82 Z" fill="#d2602c"/><path d="M70 48 Q94 36 132 46" fill="none" stroke="#ff823b" stroke-width="3.5" opacity="0.6" stroke-linecap="round"/>
+<path d="M92 81 Q83 78 74 81" fill="none" stroke="#93431f" stroke-width="3.4" stroke-linecap="round"/><path d="M108 81 Q117 78 126 81" fill="none" stroke="#93431f" stroke-width="3.4" stroke-linecap="round"/><ellipse cx="83" cy="94" rx="4" ry="4.8" fill="#2b1c14"/><circle cx="84.2" cy="92.4" r="1.1" fill="#fff"/><ellipse cx="117" cy="94" rx="4" ry="4.8" fill="#2b1c14"/><circle cx="118.2" cy="92.4" r="1.1" fill="#fff"/><path d="M100 99 Q95 110 97 112 Q101 114 104 112" fill="none" stroke="#b39e92" stroke-width="2.6" stroke-linecap="round"/><path d="M89 123 Q100 133 111 123 Z" fill="#fff" stroke="#2b1c14" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="84" cy="107" r="1.5" fill="#a49186"/><circle cx="78" cy="110" r="1.5" fill="#a49186"/><circle cx="72" cy="106" r="1.5" fill="#a49186"/><circle cx="79" cy="103" r="1.5" fill="#a49186"/><circle cx="116" cy="107" r="1.5" fill="#a49186"/><circle cx="122" cy="110" r="1.5" fill="#a49186"/><circle cx="128" cy="106" r="1.5" fill="#a49186"/><circle cx="121" cy="103" r="1.5" fill="#a49186"/>
+</g></g></g></svg>

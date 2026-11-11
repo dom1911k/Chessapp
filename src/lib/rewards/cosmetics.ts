@@ -133,8 +133,10 @@ export async function unlockContext(): Promise<UnlockContext> {
   };
 }
 
-export function isUnlocked(c: Cosmetic, ctx: UnlockContext): boolean {
-  const u = c.unlock;
+export const isUnlocked = (c: Cosmetic, ctx: UnlockContext): boolean => meets(c.unlock, ctx);
+
+/** Whether an unlock rule is met (shared by cosmetics, avatar frames and titles). */
+export function meets(u: Unlock, ctx: UnlockContext): boolean {
   switch (u.kind) {
     case 'free':
       return true;

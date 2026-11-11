@@ -30,7 +30,7 @@ export function RewardsCards() {
 
   return (
     <div className="space-y-2.5">
-      <button className="card relative flex w-full items-center gap-3 overflow-hidden !p-3.5 text-left active:scale-[0.99]" onClick={() => push({ name: 'journey' })}>
+      <button className="card tile relative flex w-full items-center gap-3 overflow-hidden !p-3.5 text-left active:scale-[0.99]" onClick={() => push({ name: 'journey' })}>
         <span className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-gold-300/25 to-transparent" />
         <Medallion name="map" tint="gold" size={48} />
         <span className="relative flex-1">
@@ -43,7 +43,7 @@ export function RewardsCards() {
         <ChevronRight className="relative text-stone-400" size={20} />
       </button>
       <div className="grid grid-cols-2 gap-2.5">
-        <button className="card flex flex-col gap-2 !p-3 text-left active:scale-[0.98]" onClick={() => push({ name: 'skills' })}>
+        <button className="card tile flex flex-col gap-2 !p-3 text-left active:scale-[0.98]" onClick={() => push({ name: 'skills' })}>
           <span className="flex items-center justify-between">
             <span className="font-semibold">Skill tree</span>
             <Glyph name="tree" size={18} className="text-brand-600" />
@@ -57,7 +57,7 @@ export function RewardsCards() {
             ))}
           </span>
         </button>
-        <button className="card flex flex-col gap-2 !p-3 text-left active:scale-[0.98]" onClick={() => push({ name: 'collection' })}>
+        <button className="card tile flex flex-col gap-2 !p-3 text-left active:scale-[0.98]" onClick={() => push({ name: 'collection' })}>
           <span className="flex items-center justify-between">
             <span className="font-semibold">Collection</span>
             <Glyph name="palette" size={18} className="text-brand-600" />

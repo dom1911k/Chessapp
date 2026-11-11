@@ -46,6 +46,7 @@ export function SettingsScreen() {
           <Toggle checked={s.largePieces} onChange={(v) => s.set({ largePieces: v })} label="Larger pieces" />
           <Toggle checked={s.showCoordinates} onChange={(v) => s.set({ showCoordinates: v })} label="Board coordinates" />
           <Toggle checked={s.sound} onChange={(v) => s.set({ sound: v })} label="Sound effects" />
+          <Toggle checked={s.haptics} onChange={(v) => s.set({ haptics: v })} label="Vibration on captures and key moves" />
           {s.sound && (
             <label className="flex items-center gap-3 py-1 text-sm">
               <span>Volume</span>

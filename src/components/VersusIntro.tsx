@@ -1,4 +1,5 @@
 // The short "versus" splash at the start of a game: you on one side, your opponent on the other.
+import { UserAvatar, useMyName } from './UserAvatar';
 import { useEffect, useState } from 'react';
 import { defaultPieces } from 'react-chessboard';
 import { Star } from 'lucide-react';
@@ -7,7 +8,7 @@ import { getXp, levelFor } from '../lib/progress/xp';
 import { playSound } from '../lib/sound';
 import { Portrait } from './Coach';
 
-const SHOW_MS = 2600;
+const SHOW_MS = 1900;
 
 export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { opponentId?: string; elo: number; userColor: 'w' | 'b'; line?: string; onDone: () => void }) {
   const o = opponentById(opponentId);
@@ -27,6 +28,7 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
     setLeaving(true);
     setTimeout(onDone, 250);
   };
+  const name = useMyName();
   const king = defaultPieces[userColor === 'w' ? 'wK' : 'bK'];
 
   return (
@@ -44,11 +46,12 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
       <div className="relative mx-auto flex h-full max-w-md flex-col justify-between px-6 py-[18vh]">
         {/* You */}
         <div className="animate-vs-in-left flex items-center gap-4 self-start">
-          <span className="flex h-24 w-24 items-center justify-center rounded-[30%] bg-gradient-to-br from-stone-100 to-stone-300 shadow-[0_12px_30px_rgba(0,0,0,0.45)] ring-4 ring-white/80">
-            <span className="h-16 w-16">{king({})}</span>
+          <span className="relative rounded-[30%] shadow-[0_12px_30px_rgba(0,0,0,0.45)] ring-4 ring-white/80">
+            <UserAvatar size={96} className="block" />
+            <span className="absolute -right-2 -bottom-2 h-9 w-9 rounded-full bg-white/95 p-1 shadow">{king({})}</span>
           </span>
           <span className="text-left">
-            <span className="block font-display text-3xl font-semibold">You</span>
+            <span className="block max-w-[46vw] truncate font-display text-3xl font-semibold">{name}</span>
             <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-xs font-semibold">
               <Star size={11} className="fill-gold-400 text-gold-400" /> Level {level ?? '…'} · {userColor === 'w' ? 'White' : 'Black'}
             </span>

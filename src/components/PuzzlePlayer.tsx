@@ -15,7 +15,7 @@ import { solvePrompt, solvedPrompt, type SolveTag } from '../lib/puzzles/level';
 import { analysisLimits } from '../lib/engine/speed';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
 import { themeLabel } from '../lib/puzzles/themes';
-import { Check, ChevronRight, Lightbulb, Microscope, RotateCcw, Timer, X } from 'lucide-react';
+import { Check, ChevronRight, Eye, Lightbulb, Microscope, RotateCcw, Timer, X } from 'lucide-react';
 
 type State = 'intro' | 'solving' | 'wrong' | 'checking' | 'solved' | 'failed';
 
@@ -333,10 +333,10 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
             <div className="flex flex-1 justify-end gap-2">
               {state === 'solving' && (
                 <>
-                  <button className="btn-secondary !px-3" disabled={hint?.level === 3} onClick={askHint}>
-                    <Lightbulb size={16} /> Hint
+                  <button className="btn-secondary flex-1 !py-3" disabled={hint?.level === 3} onClick={askHint}>
+                    <Lightbulb size={17} className="text-amber-500" /> Hint
                   </button>
-                  <button className="btn-secondary !px-3" onClick={showSolution}>Solution</button>
+                  <button className="btn-secondary flex-1 !py-3" onClick={showSolution}><Eye size={17} className="text-stone-400" /> Solution</button>
                 </>
               )}
               {state === 'wrong' && (

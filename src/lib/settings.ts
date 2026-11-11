@@ -71,6 +71,12 @@ export interface Settings {
   matchTimeControl: string;
   /** Clock in coached games ('' = off). */
   coachedTimeControl: string;
+  /** Your avatar (id in AVATARS), its frame (id in FRAMES) and your title ('' = your level's title). */
+  avatar: string;
+  avatarFrame: string;
+  avatarTitle: string;
+  /** A short buzz on captures and key moves (checks, forks, promotions, mate). */
+  haptics: boolean;
 }
 
 export type BoardTheme = string;
@@ -167,6 +173,10 @@ export const DEFAULT_SETTINGS: Settings = {
   matchMode: false,
   matchTimeControl: '',
   coachedTimeControl: '',
+  avatar: 'a01',
+  avatarFrame: 'none',
+  avatarTitle: '',
+  haptics: true,
 };
 
 const KEY = 'settings';

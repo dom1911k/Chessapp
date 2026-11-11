@@ -336,3 +336,10 @@ export function pickLine(o: Opponent, e: ChatEvent, seed = Math.random(), vars: 
   const l = o.lines[e];
   return l[Math.floor(seed * l.length) % l.length].replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
 }
+
+import looks from './looks.json';
+/** The two backdrop colours of a character's portrait (for tinting their cards). */
+export function portraitColors(id: string): [string, string] {
+  const c = (looks as Record<string, { bg?: { colors?: string[] } }>)[id]?.bg?.colors;
+  return c && c.length >= 2 ? [c[0], c[1]] : ['#e7e5e4', '#a8a29e'];
+}

@@ -1,5 +1,7 @@
 // Profile & stats, chess.com style: your ratings per mode, your record, accuracy over time and
 // best wins up top; then games, puzzles and activity.
+import { AvatarPicker, UserAvatar, useMyTitle } from '../components/UserAvatar';
+import { Pencil } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronRight, Lightbulb, Trophy } from 'lucide-react';
 import { BarChart, LineChart } from '../components/Charts';
@@ -47,6 +49,8 @@ export function ProfileScreen() {
   const ccUser = useSettings((s) => s.ccUsername);
   const [d, setD] = useState<Data | null>(null);
   const [view, setView] = useState<'stats' | 'games' | 'puzzles' | 'activity'>('stats');
+  const [picking, setPicking] = useState(false);
+  const title = useMyTitle();
 
   useEffect(() => {
     void (async () => {
@@ -97,6 +101,7 @@ export function ProfileScreen() {
     return (
       <div className="flex h-full flex-col">
         <Header title="Profile" back />
+      {picking && <AvatarPicker onClose={() => setPicking(false)} />}
         <div className="mx-auto w-full max-w-xl p-4">
           <Skeleton rows={5} />
         </div>
@@ -110,11 +115,16 @@ export function ProfileScreen() {
   return (
     <div className="flex h-full flex-col">
       <Header title="Profile" back />
+      {picking && <AvatarPicker onClose={() => setPicking(false)} />}
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
         <div className="flex items-center gap-3 px-1">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-2xl font-black text-white">{(ccUser || 'Y')[0].toUpperCase()}</span>
-          <span>
-            <span className="block text-xl font-bold">{ccUser || 'You'}</span>
+          <button className="relative active:scale-95" aria-label="Change your avatar" onClick={() => setPicking(true)}>
+            <UserAvatar size={72} />
+            <span className="absolute -right-1 -bottom-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-stone-600 shadow ring-1 ring-stone-200 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-700"><Pencil size={12} /></span>
+          </button>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-xl font-bold">{ccUser || 'You'}</span>
+            <span className="block text-sm font-semibold text-brand-700 dark:text-brand-500">{title}</span>
             <span className="block text-sm text-stone-500">{total} games · {d.streak} day{d.streak === 1 ? '' : 's'} in a row</span>
           </span>
         </div>
@@ -184,7 +194,7 @@ export function ProfileScreen() {
                 </button>
               ))}
             </div>
-            <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'insights' })}>
+            <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'insights' })}>
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
                 <Lightbulb size={20} />
               </span>

@@ -38,7 +38,7 @@ export function TrapsScreen() {
         {list.map((t) => {
           const s = st[t.id];
           return (
-            <button key={t.id} className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'trap', trapId: t.id })}>
+            <button key={t.id} className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'trap', trapId: t.id })}>
               <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${t.victim === 'w' ? 'bg-white text-stone-800 ring-1 ring-stone-300' : 'bg-stone-800 text-white'}`}>
                 <Swords size={18} />
               </span>

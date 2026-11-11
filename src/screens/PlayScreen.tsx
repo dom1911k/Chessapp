@@ -1,5 +1,7 @@
+import { UserAvatar, useMyName } from '../components/UserAvatar';
+import { getRating as getPuzzleRating } from '../lib/puzzles/rating';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Flame, FlipVertical2, User, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
+import { Flame, FlipVertical2, Puzzle, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
@@ -10,7 +12,7 @@ import { useSettings } from '../lib/settings';
 import { currentFen, turnOf, usePlay } from '../lib/store/play';
 import { Board } from '../components/Board';
 import { CoachBubble, FlagButton, Portrait } from '../components/Coach';
-import { OPPONENTS, opponentById, type Mood } from '../lib/people';
+import { OPPONENTS, opponentById, portraitColors, type Mood } from '../lib/people';
 import { getOpponentRecords, isUnlocked, type OpponentRecord } from '../lib/people/record';
 import { Dialog, EvalBar, IconButton, Segmented, Spinner, useBackHandler } from '../components/ui';
 import { MoveList } from '../components/MoveList';
@@ -91,7 +93,25 @@ function SetupView() {
         <HomeScreenHint />
         {!match && <StepDownCard />}
         {/* The one card that starts a game. */}
-        <div className="card space-y-3 !p-3">
+        <div className="card space-y-3 overflow-hidden !p-0 !pb-3">
+          <button
+            className="relative flex w-full items-center gap-3.5 px-3.5 pt-3.5 pb-3 text-left transition-[filter] duration-100 active:brightness-95"
+            style={{ background: opp ? `linear-gradient(115deg, color-mix(in srgb, ${portraitColors(opp.id)[1]} 34%, transparent), color-mix(in srgb, ${portraitColors(opp.id)[0]} 10%, transparent))` : undefined }}
+            onClick={() => setSheet('opponent')}
+          >
+            {opp ? <Portrait id={opp.id} size={84} className="ring-2 ring-white/80 dark:ring-white/20" /> : <span className="flex h-[84px] w-[84px] items-center justify-center rounded-[30%] bg-stone-200 dark:bg-stone-800"><Bot size={36} /></span>}
+            <span className="min-w-0 flex-1">
+              <span className="block text-[10px] font-bold tracking-[0.1em] text-stone-500 uppercase dark:text-stone-400">Your opponent</span>
+              <span className="block truncate font-display text-[22px] leading-tight font-semibold">{opp ? opp.name : 'Custom bot'}</span>
+              <span className="mt-0.5 flex items-center gap-1.5">
+                <span className="rounded-md bg-stone-900/85 px-1.5 py-px text-xs font-bold text-white tabular-nums dark:bg-white/90 dark:text-stone-900">{opp ? opp.elo : settings.botElo}</span>
+                {opp && <Stars n={stars} of={MAX_STARS} size={12} />}
+              </span>
+              <span className="mt-0.5 block truncate text-xs text-stone-600 dark:text-stone-400">{opp ? opp.tagline : eloLabel(settings.botElo)}</span>
+            </span>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/80 text-stone-700 shadow-sm dark:bg-white/10 dark:text-stone-200" aria-label="Change opponent"><ChevronRight size={18} /></span>
+          </button>
+          <div className="space-y-3 px-3">
           <Segmented
             value={match ? 'match' : 'coached'}
             onChange={(v) => settings.set({ matchMode: v === 'match' })}
@@ -100,15 +120,6 @@ function SetupView() {
               { value: 'match', label: <><Swords size={15} /> Match conditions</> },
             ]}
           />
-          <button className="flex w-full items-center gap-3 rounded-2xl p-1 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={() => setSheet('opponent')}>
-            {opp ? <Portrait id={opp.id} size={56} /> : <span className="flex h-14 w-14 items-center justify-center rounded-[30%] bg-stone-200 dark:bg-stone-800"><Bot size={26} /></span>}
-            <span className="min-w-0 flex-1">
-              <span className="block text-lg leading-tight font-semibold">{opp ? opp.name : 'Custom bot'} <span className="text-base font-normal text-stone-400">{opp ? opp.elo : settings.botElo}</span></span>
-              <span className="block truncate text-xs text-stone-500">{opp ? opp.tagline : eloLabel(settings.botElo)}</span>
-              {opp && <span className="mt-0.5 block"><Stars n={stars} of={MAX_STARS} size={12} /></span>}
-            </span>
-            <span className="flex items-center text-sm font-semibold text-brand-700 dark:text-brand-500">Change <ChevronRight size={16} /></span>
-          </button>
           <button className="flex w-full flex-wrap items-center gap-1.5 rounded-2xl p-1 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={() => setSheet('options')}>
             <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">
               {settings.colorPref === 'random' ? <Shuffle size={12} /> : <span className={`h-3 w-3 rounded-full ring-1 ${settings.colorPref === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-600'}`} />} {colorLabel}
@@ -125,10 +136,11 @@ function SetupView() {
               <span className="flex-1"><b>{winRun} wins in a row</b> <span className="text-stone-500">— keep it going!</span></span>
             </div>
           )}
-          <button className="btn-primary w-full !py-3.5 text-lg" disabled={locked} onClick={() => void start()}>
+          <button className="btn-primary w-full !rounded-[18px] !py-4 font-display text-xl" disabled={locked} onClick={() => void start()}>
             {locked ? <><Lock size={16} /> Beat {prevName} first</> : running ? 'Start a new game' : 'Play'}
           </button>
           {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
+          </div>
         </div>
         {opp && !locked && stars >= MAX_STARS && <ChallengeCard opponentId={opp.id} stars={stars} done={!!rec?.challengeDone} />}
         <WeekRing />
@@ -209,23 +221,27 @@ function SetupView() {
 /** Quiet links under the Play card, chess.com style: training due, past games. */
 function HomeLinks() {
   const push = useNav((s) => s.push);
+  const setTab = useNav((s) => s.setTab);
   const [due, setDue] = useState(0);
+  const [pz, setPz] = useState<number | null>(null);
   useEffect(() => void dueCount().then(setDue), []);
-  const row = (icon: ReactNode, title: string, sub: string, onClick: () => void, badge?: ReactNode) => (
-    <button className="flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={onClick}>
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">{icon}</span>
-      <span className="min-w-0 flex-1">
+  useEffect(() => void getPuzzleRating().then((r) => setPz(r.rating)), []);
+  const tile = (icon: ReactNode, tone: string, title: string, sub: ReactNode, onClick: () => void, badge?: ReactNode) => (
+    <button className="card tile relative flex flex-col items-start gap-2 !p-3.5 text-left" onClick={onClick}>
+      <span className={`flex h-10 w-10 items-center justify-center rounded-[14px] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_6px_12px_-6px_rgba(0,0,0,0.4)] ${tone}`}>{icon}</span>
+      <span className="block leading-tight">
         <span className="block font-semibold">{title}</span>
-        <span className="block truncate text-xs text-stone-500">{sub}</span>
+        <span className="mt-0.5 block text-xs text-stone-500">{sub}</span>
       </span>
-      {badge}
-      <ChevronRight size={18} className="text-stone-400" />
+      {badge && <span className="absolute top-3 right-3">{badge}</span>}
     </button>
   );
   return (
-    <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
-      {row(<CalendarCheck size={18} />, 'Daily training', due ? `${due} position${due === 1 ? '' : 's'} from your games to review` : 'Puzzles picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-red-500 text-white">{due}</span> : null)}
-      {row(<History size={18} />, 'Past games', 'Your games and their Game Reviews', () => push({ name: 'history' }))}
+    <div className="grid grid-cols-2 gap-3">
+      {tile(<Puzzle size={20} />, 'bg-gradient-to-br from-orange-400 to-rose-500', 'Puzzles', pz === null ? 'Solve and climb' : <>Rating <b className="text-stone-700 tabular-nums dark:text-stone-200">{pz}</b></>, () => push({ name: 'puzzle', mode: { kind: 'rated' } }))}
+      {tile(<CalendarCheck size={20} />, 'bg-gradient-to-br from-sky-400 to-indigo-500', 'Daily training', due ? `${due} to review today` : 'Picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-red-500 text-white">{due}</span> : null)}
+      {tile(<BookOpen size={20} />, 'bg-gradient-to-br from-emerald-400 to-teal-600', 'Lessons', 'Learn step by step', () => setTab('learn'))}
+      {tile(<History size={20} />, 'bg-gradient-to-br from-violet-400 to-purple-600', 'Past games', 'Reviews of your games', () => push({ name: 'history' }))}
     </div>
   );
 }
@@ -237,7 +253,7 @@ function ResumeCard() {
   const o = opponentById(g.opponentId);
   const moves = Math.ceil(g.plies.length / 2);
   return (
-    <button className="card flex w-full items-center gap-3 !p-3 text-left ring-2 ring-brand-500 active:scale-[0.99]" onClick={() => s.setAway(false)}>
+    <button className="card tile flex w-full items-center gap-3 !p-3 text-left ring-2 ring-brand-500 active:scale-[0.99]" onClick={() => s.setAway(false)}>
       {o ? <Portrait id={o.id} size={48} /> : <span className="flex h-12 w-12 items-center justify-center rounded-[30%] bg-stone-200 dark:bg-stone-800"><Bot size={24} /></span>}
       <span className="flex-1">
         <span className="block text-xs font-bold tracking-wider text-brand-700 uppercase dark:text-brand-500">Game in progress</span>
@@ -300,11 +316,12 @@ function PlayerBar({ me }: { me: boolean }) {
   const mood = useOpponentMood();
   const side = me ? g.userColor : g.userColor === 'w' ? 'b' : 'w';
   const thinking = !me && s.phase === 'botThinking';
+  const myName = useMyName();
   return (
     <div className="flex h-11 items-center gap-2 px-2">
       <span className="relative">
         {me ? (
-          <span className="flex h-9 w-9 items-center justify-center rounded-[30%] bg-brand-600 text-white"><User size={20} /></span>
+          <UserAvatar size={36} />
         ) : o ? (
           <Portrait id={o.id} mood={mood} size={36} />
         ) : (
@@ -318,7 +335,7 @@ function PlayerBar({ me }: { me: boolean }) {
       </span>
       <div className="min-w-0 flex-1 leading-tight">
         <div className="truncate text-sm font-semibold">
-          {me ? 'You' : o ? o.name : 'Bot'} {!me && <span className="font-normal text-stone-400">({g.elo})</span>}
+          {me ? myName : o ? o.name : 'Bot'} {!me && <span className="font-normal text-stone-400">({g.elo})</span>}
         </div>
         <Captured fen={currentFen(g)} startFen={g.startFen} side={side} />
       </div>

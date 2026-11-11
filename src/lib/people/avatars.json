@@ -1,0 +1,14 @@
+{
+  "a01": { "head": "oval", "skin": "#f1c9a6", "hair": "#4a3324", "hairStyle": "crop", "eyes": "dot", "mouth": "smile", "clothes": "#3f78c4", "bg": { "colors": ["#cfe3fb", "#8fbcf0"], "motif": "circle" } },
+  "a02": { "head": "heart", "skin": "#f3d2bd", "hair": "#c39553", "hairStyle": "ponytail", "accent": "#e2574c", "eyes": "dot", "lashes": true, "mouth": "smile", "clothes": "#e2574c", "bg": { "colors": ["#ffe0d6", "#ffb09c"], "motif": "circle" } },
+  "a03": { "head": "square", "skin": "#8f5a3a", "hair": "#1d140f", "hairStyle": "curlytop", "eyes": "dot", "mouth": "grin", "clothes": "#2f9a6a", "top": "hoodie", "bg": { "colors": ["#d2f0e0", "#8ed6b0"], "motif": "circle" } },
+  "a04": { "head": "oval", "skin": "#b87a55", "hair": "#1c1411", "hairStyle": "wavy", "eyes": "dot", "lashes": true, "mouth": "smile", "clothes": "#8a5ad0", "earrings": "stud", "bg": { "colors": ["#e6dcff", "#bca6f5"], "motif": "circle" } },
+  "a05": { "head": "round", "skin": "#f8dccb", "hair": "#d2602c", "hairStyle": "sidepart", "eyes": "dot", "freckles": true, "mouth": "grin", "clothes": "#2a8f9a", "bg": { "colors": ["#d3f1f4", "#8fd6dc"], "motif": "circle" } },
+  "a06": { "head": "long", "skin": "#e8b892", "hair": "#2a2320", "hairStyle": "slick", "eyes": "dot", "mouth": "smirk", "clothes": "#2a2f45", "top": "collar", "glasses": "rect", "bg": { "colors": ["#dfe3f2", "#a9b2d6"], "motif": "circle" } },
+  "a07": { "head": "oval", "skin": "#6b4229", "hair": "#1d140f", "hairStyle": "afro", "eyes": "dot", "lashes": true, "mouth": "smile", "clothes": "#f2b83f", "earrings": "hoop", "accent": "#ffd75e", "drop": 16, "bg": { "colors": ["#ffe9b8", "#ffcf6a"], "motif": "circle" } },
+  "a08": { "head": "square", "skin": "#efc6a4", "hair": "#6a4a30", "hairStyle": "bald", "eyes": "dot", "mouth": "smile", "beard": "full", "clothes": "#7a5a3c", "bg": { "colors": ["#f1e2cf", "#d9b98f"], "motif": "circle" } },
+  "a09": { "head": "heart", "skin": "#f3d6b8", "hair": "#15121a", "hairStyle": "bob", "eyes": "dot", "mouth": "smile", "clothes": "#d6457a", "bg": { "colors": ["#ffdcec", "#ff9fc4"], "motif": "circle" } },
+  "a10": { "head": "oval", "skin": "#c68e68", "hair": "#3a5fa8", "hairStyle": "hijab", "hairHi": "#6f90d0", "eyes": "dot", "lashes": true, "mouth": "smile", "clothes": "#3a5fa8", "bg": { "colors": ["#dbe6fb", "#a3bdf0"], "motif": "circle" } },
+  "a11": { "head": "long", "skin": "#f1c9a6", "hair": "#3fbf7a", "hairStyle": "mohawk", "eyes": "dot", "mouth": "smirk", "clothes": "#22252b", "top": "hoodie", "earrings": "stud", "accent": "#e9e4da", "bg": { "colors": ["#e6f7c8", "#bfe37a"], "motif": "circle" } },
+  "a12": { "head": "round", "skin": "#e8b892", "hair": "#d8d2ca", "hairStyle": "sidepart", "eyes": "dot", "mouth": "smile", "smile": "closed", "glasses": "round", "wrinkles": true, "clothes": "#5f7350", "top": "sweater", "bg": { "colors": ["#e8eed8", "#bccf9a"], "motif": "circle" } }
+}

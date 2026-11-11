@@ -1,4 +1,5 @@
 // The More tab, chess.com style: your profile on top, then everything else as a plain list.
+import { UserAvatar } from '../components/UserAvatar';
 import { type ReactNode } from 'react';
 import { Award, BookMarked, ChartColumn, ChevronRight, Clock3, CloudDownload, Crosshair, Eye, Gem, History, Lightbulb, Map, Microscope, Network, Settings, Skull, Target } from 'lucide-react';
 import { Header } from '../components/ui';
@@ -52,8 +53,8 @@ export function MoreScreen() {
     <div className="flex h-full flex-col">
       <Header title="More" />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
-        <button className="card flex w-full items-center gap-3 !p-3 text-left active:scale-[0.99]" onClick={() => push({ name: 'profile' })}>
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-2xl font-black text-white">{(ccUser || 'Y')[0].toUpperCase()}</span>
+        <button className="card tile flex w-full items-center gap-3 !p-3 text-left active:scale-[0.99]" onClick={() => push({ name: 'profile' })}>
+          <UserAvatar size={56} />
           <span className="flex-1">
             <span className="block text-lg font-bold">{ccUser || 'You'}</span>
             <span className="mt-0.5 block">

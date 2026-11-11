@@ -4,7 +4,7 @@ import { Chessboard, defaultPieces, type PieceRenderObject } from 'react-chessbo
 import { isPromotion, tryMove, type MoveInput } from '../lib/chess/game';
 import { BOARD_THEMES, useSettings } from '../lib/settings';
 import { playSound } from '../lib/sound';
-import { moveSound, premoveTargets as premoveTargetsFor, squareAtPoint } from '../lib/chess/boardfeel';
+import { HAPTIC_PATTERN, moveHaptic, moveSound, premoveTargets as premoveTargetsFor, squareAtPoint } from '../lib/chess/boardfeel';
 import type { CoachArrow, CoachHighlight, Tone } from '../lib/coach/types';
 import { Check, X } from 'lucide-react';
 import { shortWords } from '../lib/chess/words';
@@ -82,6 +82,10 @@ function useMoveSounds(fen: string, lastMove: { from: string; to: string } | nul
     if (before === fen || !lastMove) return;
     try {
       playSound(moveSound(before, fen, lastMove, orientation === 'white' ? 'w' : 'b'));
+      if (useSettings.getState().haptics) {
+        const h = moveHaptic(before, fen, lastMove);
+        if (h !== 'none') navigator.vibrate?.(HAPTIC_PATTERN[h]);
+      }
     } catch {
       /* unreadable position: stay quiet */
     }

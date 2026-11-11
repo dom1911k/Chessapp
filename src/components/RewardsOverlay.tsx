@@ -1,7 +1,8 @@
 // The results screen after a game, revealed step by step like the end of a level:
 // result banner → stars → XP → rating → tactics → new achievements, unlocks and milestones.
+import { UserAvatar } from './UserAvatar';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Flame, RotateCcw, Star, TrendingDown, TrendingUp, User, Users, X } from 'lucide-react';
+import { Flame, RotateCcw, Star, TrendingDown, TrendingUp, Users, X } from 'lucide-react';
 import { CountUp, FillBar, useSequence } from './Reward';
 import { MILESTONES, START_RATING, type Milestone } from '../lib/rewards/rating';
 import { useCelebrate } from '../lib/celebrate';
@@ -121,8 +122,8 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
         {/* Banner: you vs them (the winner ringed in gold), the result and how it ended. */}
         <div className="flex flex-col items-center pt-2">
           <div className="flex items-center gap-3">
-            <span className={`flex h-[60px] w-[60px] items-center justify-center rounded-[30%] bg-brand-600 text-white ${r.userResult === 'win' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''}`}>
-              <User size={30} />
+            <span className={`rounded-[30%] ${r.userResult === 'win' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''}`}>
+              <UserAvatar size={60} className="block" />
             </span>
             <span className="text-xs font-bold tracking-widest text-stone-400 uppercase">vs</span>
             <span className={`relative rounded-[30%] ${r.userResult === 'loss' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''}`}>

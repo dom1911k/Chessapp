@@ -43,7 +43,7 @@ export function LearnScreen() {
           </div>
           <div className="space-y-2">
             {MATE_PATTERNS.map((m, i) => (
-              <button key={m.id} className="card flex w-full items-center gap-3 !p-3 text-left active:scale-[0.99]" onClick={() => push({ name: 'lesson', lessonId: m.id })}>
+              <button key={m.id} className="card tile flex w-full items-center gap-3 !p-3 text-left active:scale-[0.99]" onClick={() => push({ name: 'lesson', lessonId: m.id })}>
                 <Medallion name={m.icon} tint={lessonsDone.includes(m.id) ? 'green' : 'rose'} size={40} />
                 <span className="flex-1">
                   <span className="block font-semibold">{i + 1}. {m.title}</span>
@@ -58,7 +58,7 @@ export function LearnScreen() {
           <h2 className="mb-2 section-title">All lessons</h2>
           <div className="grid grid-cols-2 gap-2.5">
             {LESSONS.map((l) => (
-              <button key={l.id} className="card !p-3 text-left" onClick={() => push({ name: 'lesson', lessonId: l.id })}>
+              <button key={l.id} className="card tile !p-3 text-left" onClick={() => push({ name: 'lesson', lessonId: l.id })}>
                 <div className="flex items-center gap-2">
                   <Medallion name={l.icon} size={34} />
                   <span className="font-semibold leading-tight">{l.title}</span>
@@ -76,7 +76,7 @@ export function LearnScreen() {
               {DRILLS.filter((d) => d.group === g).map((d) => {
                 const p = progress[d.id];
                 return (
-                  <button key={d.id} className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'endgame', drillId: d.id })}>
+                  <button key={d.id} className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'endgame', drillId: d.id })}>
                     <Medallion name={d.icon} tint="gold" />
                     <span className="flex-1">
                       <span className="block font-semibold">{d.title}</span>
@@ -98,14 +98,14 @@ export function LearnScreen() {
         <section>
           <h2 className="mb-2 section-title">Ready for real opponents</h2>
           <div className="space-y-2">
-            <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'face' })}>
+            <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'face' })}>
               <Medallion name="eye" tint="green" />
               <span className="flex-1">
                 <span className="block font-semibold">What you face</span>
                 <span className="block text-xs text-stone-500">Your chess.com openings: your score, the line people play against you, and where you go wrong.</span>
               </span>
             </button>
-            <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'traps' })}>
+            <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'traps' })}>
               <Medallion name="swords" tint="rose" />
               <span className="flex-1">
                 <span className="block font-semibold">Traps & tricks</span>
@@ -113,17 +113,17 @@ export function LearnScreen() {
               </span>
             </button>
             <div className="grid grid-cols-2 gap-2">
-              <button className="card !p-3 text-left" onClick={() => push({ name: 'timeDrill', kind: 'convert' })}>
+              <button className="card tile !p-3 text-left" onClick={() => push({ name: 'timeDrill', kind: 'convert' })}>
                 <Medallion name="lightning" tint="gold" size={36} />
                 <span className="mt-1.5 block font-semibold">Convert on the clock</span>
                 <span className="block text-xs text-stone-500">A won ending, 60 seconds to mate.</span>
               </button>
-              <button className="card !p-3 text-left" onClick={() => push({ name: 'timeDrill', kind: 'quick' })}>
+              <button className="card tile !p-3 text-left" onClick={() => push({ name: 'timeDrill', kind: 'quick' })}>
                 <Medallion name="flame" tint="violet" size={36} />
                 <span className="mt-1.5 block font-semibold">Quick decisions</span>
                 <span className="block text-xs text-stone-500">10 obvious moves, 5 seconds each.</span>
               </button>
-              <button className="card col-span-2 flex items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'vision' })}>
+              <button className="card tile col-span-2 flex items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'vision' })}>
                 <Medallion name="eye" tint="blue" size={36} />
                 <span className="flex-1">
                   <span className="block font-semibold">Vision</span>
@@ -135,7 +135,7 @@ export function LearnScreen() {
         </section>
         <section>
           <h2 className="mb-2 section-title">Openings</h2>
-          <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'openings' })}>
+          <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'openings' })}>
             <Medallion name="book" tint="blue" />
             <span className="flex-1">
               <span className="block font-semibold">Opening names & ideas</span>

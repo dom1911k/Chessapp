@@ -2,6 +2,7 @@
 // makes, which squares a premove may target, and which square sits under a screen point.
 import { Chess, type Square } from 'chess.js';
 import type { SoundName } from '../sound';
+import { moveMotifs } from '../coach/tactics';
 
 const pieceCount = (fen: string) => fen.split(' ')[0].replace(/[^a-zA-Z]/g, '').length;
 
@@ -65,3 +66,28 @@ export function squareAtPoint(r: { left: number; top: number; width: number; hei
   const rank = orientation === 'white' ? 7 - fy : fy;
   return String.fromCharCode(97 + file) + (rank + 1);
 }
+
+export type Haptic = 'none' | 'capture' | 'key' | 'mate';
+
+/**
+ * The buzz for a move: nothing for quiet moves, a tick for captures, a firmer double tap for
+ * key moves (check, promotion, a fork/pin/skewer/discovered attack) and a long one for mate.
+ */
+export function moveHaptic(before: string, after: string, lastMove: { from: string; to: string }): Haptic {
+  const c = new Chess(after);
+  if (c.isCheckmate()) return 'mate';
+  if (c.inCheck()) return 'key';
+  let wasPawn = false;
+  let motifs = 0;
+  try {
+    wasPawn = new Chess(before).get(lastMove.from as Square)?.type === 'p';
+    const promo = wasPawn && /[18]$/.test(lastMove.to) ? (c.get(lastMove.to as Square)?.type ?? 'q') : '';
+    motifs = moveMotifs(before, `${lastMove.from}${lastMove.to}${promo}`).filter((m) => m.kind === 'fork' || m.kind === 'pin' || m.kind === 'skewer' || m.kind === 'discovered' || m.kind === 'promotion').length;
+  } catch {
+    /* not a legal FEN: ignore */
+  }
+  if (motifs > 0) return 'key';
+  return pieceCount(after) < pieceCount(before) ? 'capture' : 'none';
+}
+
+export const HAPTIC_PATTERN: Record<Haptic, number | number[]> = { none: 0, capture: 14, key: [18, 40, 26], mate: [30, 50, 30, 50, 80] };

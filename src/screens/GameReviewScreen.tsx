@@ -1,6 +1,7 @@
 // Game Review, chess.com style. First a summary (Coach Sam's take, both players' accuracy, the
 // move classes, phases, key moments), then a steady step-through: eval bar + board, a move strip,
 // a fixed-size coach panel, Best / Retry / Next, and the arrows at the bottom.
+import { UserAvatar } from '../components/UserAvatar';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, Sparkles, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope } from 'lucide-react';
 import { Board } from '../components/Board';
@@ -60,7 +61,7 @@ function PlayerChip({ g, me }: { g: AnyGame; me: boolean }) {
   return (
     <span className="flex min-w-0 flex-col items-center gap-1">
       {me ? (
-        <span className="flex h-11 w-11 items-center justify-center rounded-[30%] bg-brand-600 text-lg font-black text-white">You</span>
+        <UserAvatar size={44} />
       ) : o ? (
         <Portrait id={o.id} size={44} />
       ) : (

@@ -117,7 +117,7 @@ export function AchievementsPreview() {
   const key = useRefreshKey();
   useEffect(() => void unlockedAchievements().then((u) => setN(Object.keys(u).length)), [key]);
   return (
-    <button className="card flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'achievements' })}>
+    <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'achievements' })}>
       <Medallion name="medal" tint="gold" />
       <span className="flex-1">
         <span className="block font-semibold">Achievements</span>

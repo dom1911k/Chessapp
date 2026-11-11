@@ -6,6 +6,7 @@ import { weeklyGoal } from '../lib/progress/weekly';
 import { currentStreak, trainedToday } from '../lib/stats';
 import { useNav } from '../lib/nav';
 import { useCelebrate } from '../lib/celebrate';
+import { UserAvatar, useMyName, useMyTitle } from './UserAvatar';
 
 type Daypart = 'morning' | 'afternoon' | 'evening' | 'night';
 
@@ -43,41 +44,6 @@ const SKY: Record<Daypart, { bg: string; orb: string; greeting: string; icon: Re
   },
 };
 
-/** A circular level meter: the level number sits inside the ring with room to spare. */
-function LevelRing({ level, pct, size = 64 }: { level: number; pct: number; size?: number }) {
-  const stroke = Math.max(3.5, size / 13);
-  const r = size / 2 - stroke / 2 - 0.5;
-  const c = 2 * Math.PI * r;
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }} aria-label={`Level ${level}`}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="rgba(0,0,0,0.22)" stroke="rgba(255,255,255,0.2)" strokeWidth={stroke} />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="url(#ring-gold)"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - Math.max(0.02, pct))}
-          style={{ transition: 'stroke-dashoffset 1s cubic-bezier(0.2,0.8,0.2,1)' }}
-        />
-        <defs>
-          <linearGradient id="ring-gold" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#fde68a" />
-            <stop offset="1" stopColor="#f59e0b" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center font-black text-white tabular-nums" style={{ fontSize: Math.round(size * (level >= 10 ? 0.36 : 0.42)) }}>
-        {level}
-      </span>
-    </div>
-  );
-}
-
 export function HomeHero({ right }: { right?: ReactNode }) {
   const part = daypart();
   const sky = SKY[part];
@@ -105,6 +71,8 @@ export function HomeHero({ right }: { right?: ReactNode }) {
     void weeklyGoal().then((w) => setWeek({ days: w.days, goal: w.goal }));
   }, [burst]);
   const l = levelFor(xp ?? 0);
+  const name = useMyName();
+  const title = useMyTitle();
   const line =
     streak >= 2
       ? `${streak} days in a row — keep the flame going!`
@@ -124,12 +92,21 @@ export function HomeHero({ right }: { right?: ReactNode }) {
         <path fill="#fff" d="M22 10c10.5 1 16.5 8 16 29H15c0-9 10-6.5 8-21M24 18c.38 2.91-5.55 7.37-8 9-3 2-2.82 4.34-5 4-1.04-.94 1.41-3.04 0-3-1 0 .19 1.23-1 2-1 0-4 1-4-4 0-2 6-12 6-12s1.89-1.9 2-3.5c-.73-.99-.5-2-.5-3 1-1 3 2.5 3 2.5h2s.78-1.99 2.5-3c1 0 1 3 1 3" />
       </svg>
 
-      <div className="relative mx-auto flex max-w-md items-center gap-3 px-4 pt-2 pb-3">
-        <LevelRing level={l.level} pct={xp === null ? 0 : l.into / l.span} size={44} />
+      <div className="relative mx-auto flex max-w-md items-center gap-3 px-4 pt-2.5 pb-3.5">
+        <button className="relative shrink-0 active:scale-95" aria-label="Your profile" onClick={() => push({ name: 'profile' })}>
+          <UserAvatar size={50} className="ring-2 ring-white/70" />
+          <span className="absolute -right-1.5 -bottom-1.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-1 text-[11px] font-black text-amber-950 shadow ring-2 ring-white/80 tabular-nums" aria-label={`Level ${l.level}`}>
+            {l.level}
+          </span>
+        </button>
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate font-display text-[19px] font-semibold">{sky.greeting}</div>
-          <div className="mt-0.5 truncate text-xs text-white/85">
-            <b className="font-semibold text-white">{l.title}</b> · {l.span - l.into} XP to go
+          <div className="truncate text-[11px] font-semibold text-white/80">{sky.greeting}</div>
+          <div className="truncate font-display text-[20px] font-semibold">{name}</div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/85">
+            <span className="truncate font-semibold text-white">{title}</span>
+            <span className="relative h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-black/25" title={`${l.span - l.into} XP to go`}>
+              <span className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-amber-200 to-amber-400" style={{ width: `${Math.max(4, (xp === null ? 0 : l.into / l.span) * 100)}%`, transition: 'width 1s cubic-bezier(0.2,0.8,0.2,1)' }} />
+            </span>
           </div>
         </div>
         <span

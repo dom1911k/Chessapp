@@ -14,4 +14,10 @@ mkdirSync(out, { recursive: true });
 for (const f of readdirSync(out)) rmSync(join(out, f));
 for (const [id, look] of Object.entries(looks))
   for (const mood of ['neutral', 'happy', 'worried']) writeFileSync(join(out, `${id}-${mood}.svg`), renderPortrait(look, mood));
+// The player's own avatars: simple faces from the same renderer (one mood).
+const avatars = JSON.parse(readFileSync(join(root, 'src/lib/people/avatars.json'), 'utf8'));
+const outA = join(root, 'src/assets/avatars');
+mkdirSync(outA, { recursive: true });
+for (const f of readdirSync(outA)) rmSync(join(outA, f));
+for (const [id, look] of Object.entries(avatars)) writeFileSync(join(outA, `${id}.svg`), renderPortrait(look, 'neutral'));
 console.log(`portraits written to ${out}`);
