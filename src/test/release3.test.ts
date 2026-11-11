@@ -84,3 +84,30 @@ describe('repertoire', () => {
     expect(validLine('e4 e5 Ke3 Nc6')).toBe(false);
   });
 });
+
+import { chooseHumanMove, humanParams, moveProbs } from '../lib/maia';
+describe('human-like move choice', () => {
+  // Logits for: a main move, a decent second, a howler people do play sometimes, and a stray tail move.
+  const logits = new Map([['e2e4', 2.0], ['d2d4', 1.2], ['g1f3', 0.3], ['a2a4', -3.5]]);
+  const seq = (n: number) => { let i = 0; return () => ((i++ * 0.6180339887) % 1 + 1 / (2 * n)) % 1; };
+  const tally = (cands?: Map<string, number>, elo = 1200) => {
+    const r = seq(2000); const c: Record<string, number> = {};
+    for (let i = 0; i < 2000; i++) { const m = chooseHumanMove(logits, elo, cands, r)!; c[m] = (c[m] ?? 0) + 1; }
+    return c;
+  };
+  it('never plays the stray tail move', () => {
+    expect(moveProbs(logits)[0][0]).toBe('e2e4');
+    expect(tally().a2a4 ?? 0).toBe(0);
+  });
+  it('makes a move that loses a lot much rarer, but keeps small inaccuracies', () => {
+    const plain = tally();
+    const costly = tally(new Map([['e2e4', 30], ['d2d4', -20], ['g1f3', -600]]));
+    expect(costly.g1f3 ?? 0).toBeLessThan((plain.g1f3 ?? 0) * 0.4);
+    expect(costly.d2d4).toBeGreaterThan(plain.d2d4 * 0.9);
+  });
+  it('weaker opponents are damped less', () => {
+    const cands = new Map([['e2e4', 30], ['d2d4', -20], ['g1f3', -600]]);
+    expect(tally(cands, 600).g1f3 ?? 0).toBeGreaterThan(tally(cands, 1600).g1f3 ?? 0);
+    expect(humanParams(1600).lossScale).toBeLessThan(humanParams(800).lossScale);
+  });
+});

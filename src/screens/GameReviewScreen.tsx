@@ -409,6 +409,10 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
             </div>
           </div>
           <div className="mt-auto" />
+          {/* The graph sits well away from the arrows, so stepping through never jumps by accident. */}
+          <div className="mx-3 mt-2 shrink-0">
+            <EvalGraph plies={g.plies} current={i} onSelect={go} height={44} times={stepTimes} />
+          </div>
           {/* Actions */}
           <div className="mx-3 mt-2 grid shrink-0 grid-cols-4 gap-1.5">
             <ActionButton icon={<MessageCircleQuestion size={16} />} label="Explain" disabled={!p || !rp || !!retry} onClick={() => setExplain(true)} highlight={!!rp && isBad(rp.cls)} />
@@ -421,12 +425,9 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
             />
             <ActionButton icon={<TriangleAlert size={16} />} label="Next" disabled={!g.plies.some((q, k) => k > i && q.isUser && isBad(r.plies[k].cls))} onClick={nextBad} />
           </div>
-          <div className="mx-3 mt-2 shrink-0">
-            <EvalGraph plies={g.plies} current={i} onSelect={go} height={48} times={stepTimes} />
-          </div>
           {/* Arrows */}
-          <div className="safe-bottom shrink-0 px-3 pt-2 pb-2">
-            <div className="grid grid-cols-4 gap-1.5">
+          <div className="safe-bottom mt-3 shrink-0 border-t border-stone-200/70 px-3 pt-3 pb-2 dark:border-white/[0.06]">
+            <div className="grid grid-cols-[1fr_1.3fr_2.2fr_1fr] gap-2">
               <NavButton onClick={() => go(-1)} disabled={i < 0} label="Start"><ChevronFirst size={22} /></NavButton>
               <NavButton onClick={() => go(i - 1)} disabled={i < 0} label="Back"><ChevronLeft size={26} /></NavButton>
               <NavButton onClick={() => go(i + 1)} disabled={i >= n - 1} label="Forward" primary><ChevronRight size={26} /></NavButton>
@@ -461,7 +462,7 @@ function ActionButton({ icon, label, onClick, disabled, highlight }: { icon: Rea
 
 function NavButton({ children, onClick, disabled, label, primary }: { children: ReactNode; onClick: () => void; disabled?: boolean; label: string; primary?: boolean }) {
   return (
-    <button aria-label={label} disabled={disabled} onClick={onClick} className={`flex h-12 items-center justify-center rounded-xl disabled:opacity-30 ${primary ? 'bg-brand-600 text-white' : 'bg-white ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700'}`}>
+    <button aria-label={label} disabled={disabled} onClick={onClick} className={`flex h-14 items-center justify-center rounded-2xl transition-transform duration-75 active:scale-[0.97] disabled:opacity-30 ${primary ? 'bg-brand-600 text-white' : 'bg-white ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700'}`}>
       {children}
     </button>
   );

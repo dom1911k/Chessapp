@@ -88,6 +88,85 @@ export function chooseMaiaMove(logits: Map<string, number>, temperature: number,
   return sampleMove(ok.size ? ok : logits, temperature, rand);
 }
 
+/**
+ * How a human-like opponent of a given strength chooses among Maia's moves.
+ * - topP / minP cut off the long tail: moves almost no human plays are never sampled.
+ * - Moves that lose more than `free` centipawns are made rarer, smoothly (scale `lossScale`):
+ *   small inaccuracies stay common, outright howlers become rare instead of random.
+ * - To keep the overall strength the same, the temperature is a little higher, so the bot
+ *   more often plays its second or third choice — slightly worse moves, not blunders.
+ */
+export function humanParams(elo: number): { rating: number; temperature: number; topP: number; minP: number; lossScale: number; free: number; soft: number } {
+  const base = maiaParams(elo);
+  // Tuned with scripts/maia/versus.mts (same strength as plain sampling) and
+  // scripts/maia/losses.mts (share of blunders). Weak opponents keep most of their blunders.
+  return {
+    rating: base.rating,
+    temperature: base.temperature * lerp([[400, 1.0], [800, 1.3], [1000, 1.8], [1200, 2.25], [1600, 2.25], [2000, 1.2]], elo),
+    topP: lerp([[400, 0.995], [800, 0.985], [1200, 0.975], [2000, 0.975]], elo),
+    minP: lerp([[400, 0.004], [800, 0.008], [1200, 0.01], [2000, 0.01]], elo),
+    lossScale: lerp([[400, 1200], [800, 600], [1000, 285], [1200, 150], [1600, 120], [2000, 90]], elo),
+    free: lerp([[400, 400], [800, 350], [1000, 290], [1200, 250], [1600, 170], [2000, 110]], elo),
+    soft: lerp([[400, 0], [800, 19], [1000, 19], [1200, 24], [1600, 14], [2000, 2]], elo),
+  };
+}
+
+/** Maia's move probabilities (plain softmax), most likely first. */
+export function moveProbs(logits: Map<string, number>): [string, number][] {
+  const entries = [...logits].filter(([, v]) => v > -1e8);
+  if (!entries.length) return [];
+  const max = Math.max(...entries.map(([, v]) => v));
+  const w = entries.map(([, v]) => Math.exp(v - max));
+  const total = w.reduce((x, y) => x + y, 0);
+  return entries.map(([m], i) => [m, w[i] / total] as [string, number]).sort((x, y) => y[1] - x[1]);
+}
+
+/**
+ * Picks a human-like move. `candidates` (from a Stockfish MultiPV search) maps moves to their
+ * centipawn score for the mover; moves it does not list count as clear errors.
+ */
+export function chooseHumanMove(logits: Map<string, number>, elo: number, candidates?: Map<string, number>, rand: () => number = Math.random, opts: { style?: PlayStyle; params?: Partial<ReturnType<typeof humanParams>> } = {}): string | null {
+  const p = { ...humanParams(elo), ...opts.params };
+  const probs = moveProbs(logits);
+  if (!probs.length) return null;
+  // The moves people actually play: the top of the distribution, never the stray tail.
+  const kept: [string, number][] = [];
+  let cum = 0;
+  for (const [m, pr] of probs) {
+    if (kept.length && (cum >= p.topP || pr < p.minP)) break;
+    kept.push([m, pr]);
+    cum += pr;
+  }
+  const t = opts.style === 'wild' ? p.temperature * 1.1 : p.temperature;
+  let best = -Infinity;
+  let worst = Infinity;
+  if (candidates?.size) {
+    best = Math.max(...candidates.values());
+    worst = Math.min(...candidates.values());
+  }
+  const limit = vetoLimit(elo);
+  const weights = kept.map(([m, pr]) => {
+    let w = Math.pow(pr, 1 / t);
+    if (candidates?.size) {
+      // A move the engine did not even list is worse than everything it did: treat it as a real error.
+      const loss = Math.min(1500, candidates.has(m) ? best - candidates.get(m)! : Math.max(best - worst + 100, 350));
+      w *= Math.exp(-Math.max(0, loss - p.free) / p.lossScale);
+      // Slightly worse moves get a lift: this is where the strength is given back.
+      if (loss >= 30 && loss <= p.free + 60) w *= 1 + p.soft;
+      if (limit !== null && loss > limit) w *= 0.02;
+    }
+    return w;
+  });
+  const total = weights.reduce((x, y) => x + y, 0);
+  if (!(total > 0)) return kept[0][0];
+  let r = rand() * total;
+  for (let i = 0; i < kept.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return kept[i][0];
+  }
+  return kept[kept.length - 1][0];
+}
+
 /** Maia's logits for the last position in `fens` (the game so far, oldest first). */
 export async function maiaLogits(fens: string[], elo: number): Promise<Map<string, number>> {
   const fen = fens[fens.length - 1];
