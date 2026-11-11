@@ -16,6 +16,10 @@ export interface LessonStep {
   hint?: string;
   arrows?: CoachArrow[];
   highlights?: CoachHighlight[];
+  /** A multiple-choice question instead of a move. */
+  quiz?: { options: string[]; answer: number; explain: string };
+  /** Show the board from Black's side. */
+  flip?: boolean;
 }
 
 export interface Lesson {
@@ -265,4 +269,9 @@ export const LESSONS: Lesson[] = [
   },
 ];
 
-export const lessonById = (id: string) => LESSONS.find((l) => l.id === id) ?? MATE_PATTERNS.find((l) => l.id === id);
+import { CURRICULUM_LESSONS } from './curriculum';
+
+/** Every lesson in the app: the first nine, the checkmate patterns and the full curriculum. */
+export const ALL_LESSONS: Lesson[] = [...LESSONS, ...MATE_PATTERNS, ...CURRICULUM_LESSONS];
+const byId = new Map(ALL_LESSONS.map((l) => [l.id, l]));
+export const lessonById = (id: string) => byId.get(id);
