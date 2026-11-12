@@ -14,6 +14,8 @@ import { BoonPick } from './BoonPick';
 import { Shop, GoldCount } from './Shop';
 import { BOONS, CHARMS } from '../boons';
 import { TarotCard } from '../ui/bits';
+import { ChronicleCard } from '../ui/ChronicleCard';
+import { chatter } from '../story';
 
 const PLACE_TEXT = { winner: 'Cup won!', final: 'Runner-up', semi: 'Out in the semi-final', quarter: 'Out in the quarter-final' } as const;
 
@@ -69,6 +71,15 @@ function CupHubMain({ c }: { c: CupState }) {
             <button className="run-btn mt-3 w-full text-lg" onClick={() => (sfx('card'), s.playNext())}>Play the match</button>
           </div>
         )
+      )}
+      {c.place && <ChronicleCard c={c} />}
+      {c.sims.length > 0 && (
+        <div className="run-panel mt-4 px-3 py-2 text-left">
+          <div className="run-label">Around the bracket</div>
+          {chatter(c, Math.min(c.sims.length - 1, c.yours.filter((r) => !r.replayed).length - 1)).map((l) => (
+            <div key={l} className="run-sans mt-0.5 text-sm">{l}</div>
+          ))}
+        </div>
       )}
       <div className="mt-5">
         <Bracket c={c} myName={myName} />

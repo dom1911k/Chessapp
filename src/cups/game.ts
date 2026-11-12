@@ -21,6 +21,7 @@ import { db } from '../lib/db';
 import type { PlyRecord, SavedGame } from '../lib/store/types';
 import { detectOpening } from '../lib/openings';
 import { botMods, quirkCtx, quirkOpening, activeQuirks } from './mods';
+import { addCupReviews } from './bridge';
 import { quirkById } from './quirks';
 import { material } from './material';
 import { preMoveCheck } from '../lib/coach/precheck';
@@ -100,6 +101,47 @@ export interface GameOver {
   greats: number;
   /** The ply of your biggest mistake, if any. */
   biggestPly: number | null;
+  /** The biggest mistake went into your reviews. */
+  reviewAdded?: boolean;
+  /** The moment that decided the game (for the chronicle). */
+  decisive?: Decisive;
+}
+
+/** The turning point of a game: a slip by them, a great move or a mistake by you. */
+export interface Decisive {
+  who: 'you' | 'them';
+  san: string;
+  moveNo: number;
+  kind: 'blunder' | 'mistake' | 'brilliant' | 'great' | 'slip';
+}
+
+/** Find the decisive moment from the analysed moves (win% from your point of view). */
+export function decisiveMoment(plies: PlyRecord[], userColor: Color, userResult: 'win' | 'loss' | 'draw'): Decisive | undefined {
+  const wp = (p: PlyRecord) => (p.evalAfter ? winPct(povScore(p.evalAfter, userColor)) : null);
+  const moveNo = (i: number) => Math.floor(i / 2) + 1;
+  if (userResult === 'loss') {
+    let worst = -1;
+    plies.forEach((p, i) => {
+      if (p.isUser && (p.wpLoss ?? 0) > (worst >= 0 ? plies[worst].wpLoss ?? 0 : 8)) worst = i;
+    });
+    if (worst >= 0) return { who: 'you', san: plies[worst].san, moveNo: moveNo(worst), kind: plies[worst].classification === 'blunder' ? 'blunder' : 'mistake' };
+    return undefined;
+  }
+  // Their biggest slip: your winning chance jumps after their move.
+  let best: { i: number; drop: number } | null = null;
+  for (let i = 1; i < plies.length; i++) {
+    const p = plies[i];
+    if (p.isUser) continue;
+    const before = wp(plies[i - 1]);
+    const after = wp(p);
+    if (before === null || after === null) continue;
+    const drop = after - before;
+    if (drop >= 15 && (!best || drop > best.drop)) best = { i, drop };
+  }
+  const special = plies.findIndex((p) => p.isUser && p.special);
+  if (special >= 0 && (!best || plies[special].special === 'brilliant')) return { who: 'you', san: plies[special].san, moveNo: moveNo(special), kind: plies[special].special! };
+  if (best) return { who: 'them', san: plies[best.i].san, moveNo: moveNo(best.i), kind: best.drop >= 30 ? 'blunder' : 'slip' };
+  return undefined;
 }
 
 export interface StartParams {
@@ -319,6 +361,7 @@ export const useCupGame = create<Store>((set, get) => {
     let gameId: number | undefined;
     let accuracy = 0;
     let biggestPly: number | null = null;
+    let reviewAdded = false;
     try {
       const info = await finishGame(toSavedGame(final), result, reason, { cup: true });
       // Already recorded (the app closed right after the game): find it again.
@@ -326,6 +369,10 @@ export const useCupGame = create<Store>((set, get) => {
       gameId = rec?.id;
       accuracy = rec?.summary.accuracy ?? 0;
       biggestPly = rec?.summary.biggestMistakePly ?? null;
+      // The biggest mistake goes into your reviews (the one write into the main app).
+      const big = biggestPly !== null ? g.plies[biggestPly] : undefined;
+      if (big?.comment?.bestUci)
+        reviewAdded = (await addCupReviews(`${g.cupId}-${g.round}-${g.startedAt}`, [{ fenBefore: big.fenBefore, playedUci: big.uci, playedSan: big.san, bestUci: big.comment.bestUci, themes: big.comment.themes, explanation: big.comment.text }])) > 0;
     } catch (e) {
       console.warn('cup game not recorded', e);
     }
@@ -340,6 +387,8 @@ export const useCupGame = create<Store>((set, get) => {
         clockLeft: Math.round(clockLeft(final, g.userColor) / 1000),
         greats: g.plies.filter((p) => p.isUser && p.special).length,
         biggestPly,
+        reviewAdded,
+        decisive: decisiveMoment(g.plies, g.userColor, userResult),
       };
     set({ over });
     update((gg) => void (gg.over = over));
@@ -367,6 +416,8 @@ export const useCupGame = create<Store>((set, get) => {
       const wpA = aScore ? winPct(povScore(aScore, ply.color)) : wpB;
       update((gg) => {
         if (gg.plies[i]?.uci !== ply.uci) return;
+        // The position before your move is the one after their reply: keep its eval for the chronicle.
+        if (i > 0 && !gg.plies[i - 1].isUser && bScore) gg.plies[i - 1] = { ...gg.plies[i - 1], evalAfter: bScore };
         gg.plies[i] = { ...ply, evalAfter: aScore, classification: comment.classification, accuracy: moveAccuracy(wpB, wpA), wpLoss: Math.max(0, wpB - wpA), comment, special, tactics: Object.keys(tactics).length ? tactics : undefined };
       });
       if (await checkOver()) return;

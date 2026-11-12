@@ -11,10 +11,28 @@ export interface CupsMeta {
   unlocks: string[];
   /** Quirks you faced most recently, newest first (cups avoid them). */
   recentQuirks: string[];
+  /** Every finished cup (rivals remember; the trophy cabinet reads it). */
+  history: CupSummary[];
+}
+
+/** One finished cup, as remembered afterwards. */
+export interface CupSummary {
+  id: string;
+  tier: string;
+  place: 'winner' | 'final' | 'semi' | 'quarter';
+  endedAt: number;
+  /** Your moves over the games that counted. */
+  moves: number;
+  charmsUsed: number;
+  /** Second Chance was used in this cup. */
+  secondChance: boolean;
+  /** Who knocked you out, and who you beat on the way. */
+  eliminatedBy?: string;
+  beaten: string[];
 }
 
 const KEY = 'cupsMeta';
-export const EMPTY_META: CupsMeta = { laurels: 0, unlocks: [], recentQuirks: [] };
+export const EMPTY_META: CupsMeta = { laurels: 0, unlocks: [], recentQuirks: [], history: [] };
 
 interface MetaStore extends CupsMeta {
   loaded: boolean;
@@ -22,10 +40,12 @@ interface MetaStore extends CupsMeta {
   addLaurels(n: number): Promise<void>;
   /** Remember quirks you just faced. */
   faced(quirks: string[]): Promise<void>;
+  /** A cup is over: remember it. */
+  recordCup(c: CupSummary): Promise<void>;
 }
 
 const save = (m: CupsMeta) => kvSet(KEY, m);
-const pick = (s: MetaStore): CupsMeta => ({ laurels: s.laurels, unlocks: s.unlocks, recentQuirks: s.recentQuirks });
+const pick = (s: MetaStore): CupsMeta => ({ laurels: s.laurels, unlocks: s.unlocks, recentQuirks: s.recentQuirks, history: s.history });
 
 export const useCupsMeta = create<MetaStore>((set, get) => ({
   ...EMPTY_META,
@@ -41,6 +61,11 @@ export const useCupsMeta = create<MetaStore>((set, get) => ({
   async faced(quirks) {
     const recent = [...quirks, ...get().recentQuirks.filter((q) => !quirks.includes(q))].slice(0, TUNING.quirks.recentMemory);
     set({ recentQuirks: recent });
+    await save(pick(get()));
+  },
+  async recordCup(c) {
+    if (get().history.some((h) => h.id === c.id)) return;
+    set({ history: [...get().history, c] });
     await save(pick(get()));
   },
   async addLaurels(n) {

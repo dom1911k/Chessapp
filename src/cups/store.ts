@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { kvGet, kvSet } from '../lib/db';
 import { awardXp } from '../lib/progress/xp';
 import { getRepertoire, linePlies, repertoireLines } from '../lib/repertoire';
-import { applyResult, applySecondChance, currentRound, newCup, opponentRating, roundDone, secondChanceApplies, yourColor, yourOpponent, type CupState } from './cup';
+import { applyResult, applySecondChance, summarize, currentRound, newCup, opponentRating, roundDone, secondChanceApplies, yourColor, yourOpponent, type CupState } from './cup';
 import { addTrophy, advances, cupXp, getTrophies, type CupTier, type Trophies } from './ladder';
 import { useCupGame, type GameOver } from './game';
 import { NOTICE_KEY } from './legacy';
@@ -67,7 +67,7 @@ export const useCup = create<CupStore>((set, get) => {
     set({ cup });
   };
   /** A game's result goes into the cup: gold, then the round (or Second Chance), then boon pick and shop. */
-  const settle = async (c: CupState, g: { color: 'w' | 'b'; opponentId: string; elo: number; events: CupState['yours'][number]['events'] }, over: Pick<GameOver, 'userResult' | 'reason' | 'moves' | 'opening' | 'accuracy' | 'clockLeft' | 'gameId' | 'greats'>) => {
+  const settle = async (c: CupState, g: { color: 'w' | 'b'; opponentId: string; elo: number; events: CupState['yours'][number]['events'] }, over: Pick<GameOver, 'userResult' | 'reason' | 'moves' | 'opening' | 'accuracy' | 'clockLeft' | 'gameId' | 'greats' | 'decisive'>) => {
     const through = advances(over.userResult, g.color, c.boons.includes('drawOdds'));
     const gold = goldFor({ userResult: over.userResult, advanced: through, accuracy: over.accuracy, greats: over.greats });
     const rec = {
@@ -83,12 +83,14 @@ export const useCup = create<CupStore>((set, get) => {
       gameId: over.gameId,
       gold: gold.total,
       events: g.events,
+      decisive: over.decisive,
     };
     let next: CupState = { ...c, gold: c.gold + gold.total, lastGold: gold.parts };
     if (secondChanceApplies(c, over.userResult, g.color)) next = applySecondChance(next, rec);
     else next = applyResult(next, rec, { drawOdds: c.boons.includes('drawOdds') });
     let trophies = get().trophies;
     if (next.place) {
+      await useCupsMeta.getState().recordCup(summarize(next));
       const xp = cupXp(next.tier, next.place);
       if (xp) await awardXp(xp, true);
       if (next.place === 'winner') trophies = await addTrophy(next.tier);

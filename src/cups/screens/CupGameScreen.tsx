@@ -28,6 +28,10 @@ import { useCupGame as useGameStore } from '../game';
 import { buzz } from '../sfx';
 import { TUNING } from '../tuning';
 import { QuirkIcons, QuirkList } from '../ui/QuirkBadges';
+import { getOpponentRecords } from '../../lib/people/record';
+import { cupMemory, rivalLine } from '../story';
+import { useCupsMeta } from '../meta';
+import { CLASS_LABEL } from '../../lib/chess/evaluation';
 
 function useNow(ms = 200) {
   const [now, setNow] = useState(Date.now());
@@ -141,6 +145,7 @@ function GameOverPanel({ onContinue }: { onContinue: () => void }) {
   const c = useCup((s) => s.cup);
   const o = opponentById(g.opponentId);
   const [shown, setShown] = useState(0);
+  const [review, setReview] = useState(false);
   const through = over ? advances(over.userResult, g.userColor, !!c?.boons.includes('drawOdds')) : false;
   const gold = over ? goldFor({ userResult: over.userResult, advanced: through, accuracy: over.accuracy, greats: over.greats }) : { parts: [], total: 0 };
   // The gold lines slam in one by one (tap to skip), short and snappy.
@@ -179,8 +184,39 @@ function GameOverPanel({ onContinue }: { onContinue: () => void }) {
             {!gold.parts.length && <div className="run-sans text-sm text-[var(--ink-dim)]">No gold this game.</div>}
           </div>
         </div>
-        <button className="run-btn mt-4 w-full text-lg" onClick={onContinue}>Continue</button>
+        {over.biggestPly !== null && g.plies[over.biggestPly] && (
+          <button className="run-btn ghost mt-3 w-full text-sm" onClick={(e) => (e.stopPropagation(), setReview(true))}>
+            Review your biggest mistake ({Math.floor(over.biggestPly / 2) + 1}.{g.plies[over.biggestPly].san})
+          </button>
+        )}
+        <button className="run-btn mt-3 w-full text-lg" onClick={onContinue}>Continue</button>
       </div>
+      {review && over.biggestPly !== null && <MistakeReview g={g} ply={over.biggestPly} added={!!over.reviewAdded} onClose={() => setReview(false)} />}
+    </Sheet>
+  );
+}
+
+/** One tap: the position before your biggest mistake, what you played and what was better. */
+function MistakeReview({ g, ply, added, onClose }: { g: CupGameState; ply: number; added: boolean; onClose: () => void }) {
+  const p = g.plies[ply];
+  const best = p.comment?.bestUci;
+  return (
+    <Sheet onClose={onClose} z={75}>
+      <div className="run-label text-center">Your biggest mistake · move {Math.floor(ply / 2) + 1}</div>
+      <div className="mx-auto mt-2 max-w-[300px]">
+        <RunBoard
+          fen={p.fenBefore}
+          orientation={g.userColor === 'w' ? 'white' : 'black'}
+          movable={null}
+          arrows={[{ from: p.uci.slice(0, 2), to: p.uci.slice(2, 4), tone: 'bad' as const }, ...(best ? [{ from: best.slice(0, 2), to: best.slice(2, 4), tone: 'good' as const }] : [])]}
+        />
+      </div>
+      <div className="run-sans mt-2 text-sm">
+        You played <b>{p.san}</b>{p.classification ? ` (${CLASS_LABEL[p.classification].toLowerCase()})` : ''}. {best ? <>Better was the green arrow.</> : null}
+      </div>
+      {p.comment?.text.slice(0, 2).map((t) => <div key={t} className="run-sans mt-1 text-sm text-[var(--ink-dim)]">{t}</div>)}
+      <div className="run-sans mt-2 text-xs text-[var(--gold-2)]">{added ? 'Added to your reviews (Daily training, “From a cup”).' : 'Already in your reviews.'}</div>
+      <button className="run-btn mt-3 w-full" onClick={onClose}>Back</button>
     </Sheet>
   );
 }
@@ -227,7 +263,15 @@ export function CupGameScreen() {
   const opp = otherColor(me);
   const toMove = turnOf(fen);
   const last = g.plies[g.plies.length - 1];
-  const greet = useMemo(() => (o ? pickLine(o, 'greet') : ''), [o]);
+  const [greet, setGreet] = useState('');
+  // Rivals remember: a line about your past cups or games against them, else their usual greeting.
+  useEffect(() => {
+    if (!o) return;
+    void getOpponentRecords().then((recs) => {
+      const line = rivalLine({ record: recs[o.id], ...cupMemory(useCupsMeta.getState().history ?? [], o.id) });
+      setGreet(line ?? pickLine(o, 'greet'));
+    });
+  }, [o]);
   const cup = useCup((x) => x.cup);
   const spend = useCup((x) => x.spendCharm);
   const [rating, setRating] = useState(1100);

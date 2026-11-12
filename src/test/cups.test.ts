@@ -278,3 +278,68 @@ describe('cups: opponent quirks', () => {
     expect(quirkOpening({ ...g, quirks: ['gambiteer'], hidden: undefined }, ctx({ fen: after('e4 e5'), sans: ['e4', 'e5'] }), () => 0)).toEqual({ uci: 'f2f4', quirk: 'gambiteer' });
   });
 });
+
+import { chatter, chronicle, credit, cupMemory, gameLine, rivalLine } from '../cups/story';
+import { decisiveMoment } from '../cups/game';
+import { summarize } from '../cups/cup';
+
+describe('cups: the story', () => {
+  const noPronouns = (l: string) => expect(/\b(he|she|him|her|his|hers)\b/i.test(l), l).toBe(false);
+  const finished = () => {
+    let c = newCup('silver', 11, 1000);
+    const rec = (result: 'win' | 'loss' | 'draw', extra = {}) => ({ opponentId: yourOpponent(c)!, elo: opponentRating(c), color: yourColor(c), result, reason: 'checkmate', moves: 22, accuracy: 80, opening: 'Italian Game', ...extra });
+    c = applyResult(c, rec('win'));
+    c = applyResult(c, rec('draw', { reason: 'repetition' }));
+    c = applyResult(c, rec('win', { reason: 'time', clockLeft: 4, events: [{ ply: 30, kind: 'boon', id: 'secondWind', text: 'Second Wind: +30 s' }] }), { now: 2000 });
+    return { ...c, boons: ['secondWind' as const] };
+  };
+  it('chats about the other matches and the road ahead, naming characters without pronouns', () => {
+    const c = finished();
+    for (let r = 0; r < 3; r++) {
+      const lines = chatter(c, r);
+      expect(lines.length).toBeGreaterThanOrEqual(1);
+      expect(lines.length).toBeLessThanOrEqual(2);
+      lines.forEach(noPronouns);
+    }
+    expect(chatter(c, 2).join(' ')).toMatch(/cup is yours/);
+  });
+  it('rivals remember cups and results', () => {
+    const h = [{ id: 'x', tier: 'silver', place: 'semi' as const, endedAt: 5, moves: 40, charmsUsed: 0, secondChance: false, eliminatedBy: 'tom', beaten: ['lily'] }];
+    expect(cupMemory(h, 'lily')).toEqual({ youKnockedOut: 'silver' });
+    expect(cupMemory(h, 'tom')).toEqual({ theyKnockedYouOut: 'silver' });
+    expect(cupMemory(h, 'mei')).toEqual({});
+    expect(rivalLine({ youKnockedOut: 'silver' }, () => 0)).toBe('You knocked me out of the Silver Cup. Not this time.');
+    expect(rivalLine({ theyKnockedYouOut: 'gold' }, () => 0)).toMatch(/Gold Cup/);
+    expect(rivalLine({ record: { w: 3, l: 1, d: 0, stars: 0, bestAccuracy: 0 } }, () => 0)).toMatch(/beaten me 3 times/);
+    expect(rivalLine({ record: { w: 0, l: 2, d: 0, stars: 0, bestAccuracy: 0 } }, () => 0)).toMatch(/won 2 of our 2/);
+    expect(rivalLine({})).toBeNull();
+  });
+  it('credits the boon or charm that made a visible difference', () => {
+    const base = { round: 2, opponentId: 'tom', elo: 800, color: 'w' as const, moves: 30, advanced: true };
+    expect(credit({ ...base, result: 'win', reason: 'time', clockLeft: 4 }, ['extraMinute'])).toBe('Extra Minute');
+    expect(credit({ ...base, result: 'draw', reason: 'repetition' }, ['drawOdds'])).toBe('Draw Odds');
+    expect(credit({ ...base, result: 'win', reason: 'checkmate', events: [{ ply: 5, kind: 'charm', id: 'threatBell', text: 'Threat Bell rang: …' }] }, [])).toBe('Threat Bell');
+    expect(credit({ ...base, result: 'win', reason: 'checkmate' }, [])).toBeNull();
+  });
+  it('writes one line per game from what happened, and highlight stats', () => {
+    const c = finished();
+    const ch = chronicle(c, 'Dom');
+    expect(ch.lines.length).toBe(3);
+    expect(ch.lines[0]).toMatch(/^Quarter-final: checkmated .+ in 22 moves in the Italian Game\.$/);
+    expect(ch.lines[1]).toMatch(/drew with .+ and went through/);
+    expect(ch.lines[2]).toBe(`Final: won on time against ${OPPONENTS.find((o) => o.id === c.yours[2].opponentId)!.name} with 4 seconds left in the Italian Game, thanks to Second Wind.`);
+    ch.lines.forEach(noPronouns);
+    expect(ch.title).toBe('Silver Cup · Champion');
+    expect(ch.stats.find((s) => s.label === 'Games')!.value).toBe('3');
+    expect(gameLine({ round: 0, opponentId: 'tom', elo: 400, color: 'w', result: 'loss', reason: 'resignation', moves: 18, advanced: false, decisive: { who: 'you', san: 'Qxb7', moveNo: 12, kind: 'blunder' } }, [])).toMatch(/12\.Qxb7 was the turning point/);
+    expect(summarize(c)).toMatchObject({ tier: 'silver', place: 'winner', moves: 66, beaten: c.yours.map((r) => r.opponentId) });
+  });
+  it('finds the decisive moment', () => {
+    const cp = (v: number) => ({ type: 'cp' as const, value: v });
+    const p = (isUser: boolean, san: string, ev: number, extra = {}) => ({ uci: 'e2e4', san, color: (isUser ? 'w' : 'b') as 'w' | 'b', fenBefore: '', fenAfter: '', isUser, evalAfter: cp(ev), ...extra });
+    const plies = [p(true, 'e4', 30), p(false, 'f6', 40), p(true, 'Nf3', 40), p(false, 'g5', 900), p(true, 'Qh5', 10000)];
+    expect(decisiveMoment(plies, 'w', 'win')).toEqual({ who: 'them', san: 'g5', moveNo: 2, kind: 'blunder' });
+    const lost = [p(true, 'e4', 30), p(false, 'e5', 30), p(true, 'Qh5', -400, { wpLoss: 35, classification: 'blunder' })];
+    expect(decisiveMoment(lost, 'w', 'loss')).toEqual({ who: 'you', san: 'Qh5', moveNo: 2, kind: 'blunder' });
+  });
+});

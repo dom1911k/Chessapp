@@ -29,6 +29,8 @@ export interface RoundRecord {
   events?: CupEvent[];
   /** A lost game that Second Chance replayed. */
   replayed?: boolean;
+  /** The moment that decided it. */
+  decisive?: import('./game').Decisive;
 }
 
 export interface CupState {
@@ -145,3 +147,20 @@ export const cupMoves = (c: CupState) => c.yours.reduce((n, r) => n + r.moves, 0
 
 /** Has your next game already been decided by a past round (guards against double counting)? */
 export const roundDone = (c: CupState, round: number) => c.yours.some((r) => r.round === round && !r.replayed);
+
+/** The cup as remembered once it is over. */
+export function summarize(c: CupState): import('./meta').CupSummary {
+  const games = counted(c);
+  const lost = games.find((r) => !r.advanced);
+  return {
+    id: c.id,
+    tier: c.tier,
+    place: c.place ?? 'quarter',
+    endedAt: c.endedAt ?? Date.now(),
+    moves: games.reduce((n, r) => n + r.moves, 0),
+    charmsUsed: c.charmsUsed,
+    secondChance: !!c.secondChanceUsed,
+    eliminatedBy: lost?.opponentId,
+    beaten: games.filter((r) => r.advanced).map((r) => r.opponentId),
+  };
+}
