@@ -1,7 +1,9 @@
 import { RivalryCard, RivalryChip } from '../components/Rivalry';
 import { Dock, DockButton } from '../components/Dock';
 import { courseLevel, courseState } from '../lib/course';
-import { CUPS, ROUND_NAMES, currentRound, getCup } from '../lib/cups';
+import { kvGet } from '../lib/db';
+import { useRunFlag } from '../cups/flag';
+import { TUNING as CUPS_T } from '../cups/tuning';
 import { UserAvatar, useMyName } from '../components/UserAvatar';
 import { getRating as getPuzzleRating } from '../lib/puzzles/rating';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -240,7 +242,9 @@ function HomeLinks() {
   // A cup in progress: say what is waiting (refreshed when you come back from a game).
   const [cupLine, setCupLine] = useState<string | null>(null);
   const phase = usePlay((st) => st.phase);
-  useEffect(() => void getCup().then((c) => setCupLine(c && !c.place ? (c.awaiting ? `${CUPS[c.tier].name}: open it to see your result` : `${CUPS[c.tier].name}: your ${ROUND_NAMES[currentRound(c)].toLowerCase()} is waiting`) : null)), [phase]);
+  const cupsOn = useRunFlag((f) => f.enabled);
+  // A cup in progress: say which round is waiting (read straight from storage, no Cups code loaded).
+  useEffect(() => void kvGet<{ v?: number; tier: string; rounds: string[][]; place?: string } | null>('cupState', null).then((c) => setCupLine(c && c.v === 2 && !c.place ? `${CUPS_T.ladder.tiers.find((t) => t.id === c.tier)?.name}: your ${['quarter-final', 'semi-final', 'final'][c.rounds.length - 1] ?? 'next match'} is waiting` : null)), [phase]);
   const tile = (icon: ReactNode, tone: string, title: string, sub: ReactNode, onClick: () => void, badge?: ReactNode) => (
     <button className="card tile relative flex flex-col items-start gap-2 !p-3.5 text-left" onClick={onClick}>
       <span className={`flex h-10 w-10 items-center justify-center rounded-[14px] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_6px_12px_-6px_rgba(0,0,0,0.4)] ${tone}`}>{icon}</span>
@@ -257,14 +261,14 @@ function HomeLinks() {
       {tile(<CalendarCheck size={20} />, 'bg-gradient-to-br from-sky-400 to-indigo-500', 'Daily training', due ? `${due} to review today` : 'Picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-red-500 text-white">{due}</span> : null)}
       {tile(<BookOpen size={20} />, 'bg-gradient-to-br from-emerald-400 to-teal-600', 'Course', lvl ? <>Level <b className="text-stone-700 tabular-nums dark:text-stone-200">{lvl.level}</b> · {lvl.stepsDone}/{lvl.steps} done</> : 'Learn step by step', () => setTab('learn'))}
       {tile(<History size={20} />, 'bg-gradient-to-br from-violet-400 to-purple-600', 'Past games', 'Reviews of your games', () => push({ name: 'history' }))}
-      <button className="card tile col-span-2 flex items-center gap-3 !p-3.5 text-left" onClick={() => push({ name: 'cups' })}>
+      {cupsOn && <button className="card tile col-span-2 flex items-center gap-3 !p-3.5 text-left" onClick={() => setTab('run')}>
         <span className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-gradient-to-br from-amber-300 to-amber-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_6px_12px_-6px_rgba(0,0,0,0.4)]"><Trophy size={20} /></span>
         <span className="flex-1 leading-tight">
           <span className="block font-semibold">Cups</span>
-          <span className="mt-0.5 block text-xs text-stone-500">{cupLine ?? 'Knockout tournaments against the bots'}</span>
+          <span className="mt-0.5 block text-xs text-stone-500">{cupLine ?? 'Knockout tournaments in the Cups tab'}</span>
         </span>
         <ChevronRight size={18} className="text-stone-400" />
-      </button>
+      </button>}
     </div>
   );
 }

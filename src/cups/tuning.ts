@@ -18,6 +18,26 @@ export const TUNING = {
     /** Haptics (ms). */
     haptic: { tick: 8, slam: 30, boon: 18 },
   },
+  /** The cup ladder: tight rating bands, one tier opens the next. */
+  ladder: {
+    tiers: [
+      { id: 'bronze', name: 'Bronze Cup', band: [400, 600] },
+      { id: 'silver', name: 'Silver Cup', band: [600, 800] },
+      { id: 'gold', name: 'Gold Cup', band: [800, 1000] },
+      { id: 'platinum', name: 'Platinum Cup', band: [1000, 1200] },
+      { id: 'diamond', name: 'Diamond Cup', band: [1200, 1400] },
+    ] as { id: string; name: string; band: [number, number] }[],
+    /** Where in the band your opponent plays in each round (0 = bottom, 1 = top): the final is the strongest. */
+    roundShare: [0, 0.5, 1],
+    /** Characters in a cup besides you. */
+    fieldSize: 7,
+    /** Default clock for cup games. */
+    timeControl: '600+0',
+    /** XP for where you finish (per tier: + tierXpStep × tier index). */
+    xp: { winner: 80, final: 40, semi: 20, tierXpStep: 20 },
+    /** Simulated matches: typical game length (moves) for the bracket chatter. */
+    simMoves: [22, 58],
+  },
   /** Old Run mode progress (Embers, materials, unlocks) becomes this many Laurels, once. */
   legacyLaurels: 3,
 };

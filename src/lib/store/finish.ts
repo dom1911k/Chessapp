@@ -67,10 +67,15 @@ export interface GameRewards {
   unlocked?: string;
 }
 
-export async function finishGame(g: SavedGame, result: GameResult, reason: string): Promise<FinishInfo | null> {
+/**
+ * `opts.cup`: a game from the Cups tab. It is stored and rewarded like any game, but leaves the
+ * game in progress on the Play tab alone, and adds no review cards (Cups adds its own through
+ * src/cups/bridge.ts).
+ */
+export async function finishGame(g: SavedGame, result: GameResult, reason: string, opts: { cup?: boolean } = {}): Promise<FinishInfo | null> {
   // Each game is recorded (and rewarded) exactly once.
   if (await db.games.filter((r) => r.startedAt === g.startedAt).first()) {
-    await db.current.delete('play');
+    if (!opts.cup) await db.current.delete('play');
     return null;
   }
   const userResult =
@@ -95,6 +100,7 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
   };
   const gameId = await db.transaction('rw', [db.games, db.current, db.cards], async () => {
     const id = await db.games.add(record);
+    if (opts.cup) return id;
     await db.current.delete('play');
     const cards: Card[] = [];
     g.plies.forEach((p, i) => {

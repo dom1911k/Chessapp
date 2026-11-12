@@ -1,0 +1,472 @@
+// A cup game: a real game under Match conditions (no take-backs, hints, coach or warnings)
+// against a character playing Maia at the cup's band rating. Boons and charms are the only help
+// (stages 3–4 plug in through mods.ts). The game is saved after every move and resumes after a
+// restart; like Match conditions, the clock keeps running while the app is closed.
+import { Chess } from 'chess.js';
+import { create } from 'zustand';
+import { kvGet, kvSet } from '../lib/db';
+import { chooseBotMove, botParams } from '../lib/bot';
+import { chooseHumanMove, humanParams, maiaLogits } from '../lib/maia';
+import { moveAccuracy, povScore, scoreToCp, winPct, type Score } from '../lib/chess/evaluation';
+import { gameOverInfo, START_FEN, tryMove, type GameResult, type MoveInput } from '../lib/chess/game';
+import type { Color } from '../lib/chess/pos';
+import { explainMove } from '../lib/coach';
+import { CancelledError, getEngine, type AnalysisResult } from '../lib/engine';
+import { analysisLimits } from '../lib/engine/speed';
+import { bookMove } from '../lib/people/openings';
+import { flagResult, humanThinkMs, parseTc, sensibleMoves } from '../lib/clock';
+import { specialMove, tacticsOfMove, type TacticCounts } from '../lib/rewards/career';
+import { finishGame } from '../lib/store/finish';
+import { db } from '../lib/db';
+import type { PlyRecord, SavedGame } from '../lib/store/types';
+import { detectOpening } from '../lib/openings';
+import { botMods } from './mods';
+import { useCelebrate } from '../lib/celebrate';
+import { moveSound, sfx } from './sfx';
+
+export type GamePhase = 'intro' | 'userTurn' | 'analyzing' | 'botThinking' | 'over';
+
+/** Something a boon, charm or quirk did during the game (for the boon rail and the chronicle). */
+export interface CupEvent {
+  ply: number;
+  kind: 'boon' | 'charm' | 'quirk';
+  id: string;
+  text: string;
+}
+
+export interface CupGameState {
+  v: 1;
+  cupId: string;
+  tier: string;
+  round: number;
+  opponentId: string;
+  /** The band rating the opponent plays at. */
+  elo: number;
+  userColor: Color;
+  startFen: string;
+  /** Moves played before the game proper (Home Prep), shown but not part of `plies`. */
+  prelude?: string[];
+  startedAt: number;
+  timeControl: string;
+  plies: PlyRecord[];
+  clock: { w: number; b: number; turnStart: number };
+  /** Increment per side (ms) — boons can give you more than the opponent. */
+  inc: { w: number; b: number };
+  /** Seconds left on the mover's clock after each ply. */
+  clocks: number[];
+  /** Your next moves that cost no clock time (Opening Prep). */
+  freeMoves: number;
+  /** The clock runs once the intro is over. */
+  started: boolean;
+  events: CupEvent[];
+  /** Rewind charms used (count as take-backs in your records). */
+  rewinds: number;
+  result?: { result: GameResult; reason: string };
+  /** The end screen's data, once the game is recorded. */
+  over?: GameOver;
+}
+
+/** What the screen shows after the game. */
+export interface GameOver {
+  result: GameResult;
+  reason: string;
+  userResult: 'win' | 'loss' | 'draw';
+  gameId?: number;
+  accuracy: number;
+  moves: number;
+  opening?: string;
+  clockLeft: number;
+  /** Your great and brilliant moves. */
+  greats: number;
+  /** The ply of your biggest mistake, if any. */
+  biggestPly: number | null;
+}
+
+export interface StartParams {
+  cupId: string;
+  tier: string;
+  round: number;
+  opponentId: string;
+  elo: number;
+  userColor: Color;
+  startFen?: string;
+  prelude?: string[];
+  timeControl: string;
+  /** Extra starting time per side (ms). */
+  extraMs?: { w?: number; b?: number };
+  /** Extra increment per side (ms). */
+  extraInc?: { w?: number; b?: number };
+  freeMoves?: number;
+}
+
+const KEY = 'cupGame';
+const OWNER = 'cups';
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export const fenOf = (g: CupGameState) => (g.plies.length ? g.plies[g.plies.length - 1].fenAfter : g.startFen);
+export const turnOf = (fen: string) => fen.split(' ')[1] as Color;
+export const otherColor = (c: Color): Color => (c === 'w' ? 'b' : 'w');
+
+/** Time left for `side` now. */
+export function clockLeft(g: CupGameState, side: Color, now = Date.now()): number {
+  if (!g.started || g.result) return Math.max(0, g.clock[side]);
+  const toMove = turnOf(fenOf(g));
+  return Math.max(0, g.clock[side] - (side === toMove ? now - g.clock.turnStart : 0));
+}
+
+/** After `mover` moves at `now`: charge the time (unless it's a free move) and add the increment. */
+export function pressCupClock(g: Pick<CupGameState, 'clock' | 'inc' | 'freeMoves' | 'userColor'>, mover: Color, now: number): { clock: CupGameState['clock']; freeMoves: number } {
+  const free = mover === g.userColor && g.freeMoves > 0;
+  const left = free ? g.clock[mover] : Math.max(0, g.clock[mover] - (now - g.clock.turnStart));
+  return { clock: { ...g.clock, [mover]: left + g.inc[mover], turnStart: now }, freeMoves: free ? g.freeMoves - 1 : g.freeMoves };
+}
+
+/** A new game's state. */
+export function newCupGame(p: StartParams, now = Date.now()): CupGameState {
+  const { base, inc } = parseTc(p.timeControl);
+  return {
+    v: 1,
+    cupId: p.cupId,
+    tier: p.tier,
+    round: p.round,
+    opponentId: p.opponentId,
+    elo: p.elo,
+    userColor: p.userColor,
+    startFen: p.startFen ?? START_FEN,
+    prelude: p.prelude,
+    startedAt: now,
+    timeControl: p.timeControl,
+    plies: [],
+    clock: { w: base + (p.extraMs?.w ?? 0), b: base + (p.extraMs?.b ?? 0), turnStart: now },
+    inc: { w: inc + (p.extraInc?.w ?? 0), b: inc + (p.extraInc?.b ?? 0) },
+    clocks: [],
+    freeMoves: p.freeMoves ?? 0,
+    started: false,
+    events: [],
+    rewinds: 0,
+  };
+}
+
+/** The game as the app's SavedGame (for the history, ratings and rivalries). */
+export function toSavedGame(g: CupGameState): SavedGame {
+  return {
+    id: 'play',
+    userColor: g.userColor,
+    elo: g.elo,
+    opponentId: g.opponentId,
+    startFen: g.startFen,
+    startedAt: g.startedAt,
+    plies: g.plies,
+    takebacks: g.rewinds,
+    hintsUsed: 0,
+    told: [],
+    match: true,
+    timeControl: g.timeControl,
+    clock: g.clock,
+    clocks: g.clocks,
+    cup: { id: g.cupId, tier: g.tier, round: g.round },
+  };
+}
+
+function terminalScore(fen: string): Score {
+  const info = gameOverInfo(fen);
+  if (info?.reason === 'checkmate') return { type: 'mate', value: info.result === '1-0' ? 1 : -1 } as Score;
+  return { type: 'cp', value: 0 };
+}
+
+async function analyze(fen: string, multipv = 3, depth?: number): Promise<AnalysisResult> {
+  const l = analysisLimits();
+  return getEngine().analyze(fen, { depth: depth ?? l.depth, movetime: l.movetime, multipv, owner: OWNER });
+}
+
+interface Store {
+  game: CupGameState | null;
+  phase: GamePhase;
+  over: GameOver | null;
+  /** A boon/charm/quirk that just acted (the rail lights it up). */
+  pulse: { id: string; kind: CupEvent['kind']; at: number } | null;
+  loaded: boolean;
+  load(): Promise<void>;
+  start(p: StartParams): void;
+  /** The intro is over: the clock starts, and the opponent moves if it is White. */
+  begin(): void;
+  userMove(m: MoveInput): boolean;
+  resign(): Promise<void>;
+  /** Forget the finished game (after the cup has taken its result). */
+  clear(): void;
+  /** Record a boon/charm/quirk event and light it up. */
+  note(e: Omit<CupEvent, 'ply'>): void;
+  /** Change the game (charms, boons) and save. */
+  mutate(fn: (g: CupGameState) => void): void;
+}
+
+let token = 0;
+let ticker: ReturnType<typeof setInterval> | null = null;
+
+export const useCupGame = create<Store>((set, get) => {
+  const save = () => {
+    const g = get().game;
+    void kvSet(KEY, g ? structuredClone(g) : null);
+  };
+  const update = (fn: (g: CupGameState) => void) => {
+    const g = get().game;
+    if (!g) return;
+    const copy: CupGameState = { ...g, plies: [...g.plies], clocks: [...g.clocks], events: [...g.events], clock: { ...g.clock } };
+    fn(copy);
+    set({ game: copy });
+    save();
+  };
+  const press = (gg: CupGameState, mover: Color) => {
+    const r = pressCupClock(gg, mover, Date.now());
+    gg.clock = r.clock;
+    gg.freeMoves = r.freeMoves;
+    gg.clocks = [...gg.clocks.slice(0, gg.plies.length - 1), Math.round(gg.clock[mover] / 100) / 10];
+  };
+
+  const startTicker = () => {
+    if (ticker) clearInterval(ticker);
+    ticker = setInterval(() => {
+      const { game: g, phase } = get();
+      if (!g || !g.started || g.result || phase === 'over' || phase === 'intro') return;
+      const toMove = turnOf(fenOf(g));
+      if (clockLeft(g, toMove) <= 0) {
+        const f = flagResult(fenOf(g), toMove);
+        void endGame(f.result, f.reason);
+      }
+    }, 200);
+  };
+
+  const checkOver = async (): Promise<boolean> => {
+    const g = get().game!;
+    const info = gameOverInfo(fenOf(g), [g.startFen, ...g.plies.map((p) => p.fenAfter)]);
+    if (!info) return false;
+    await endGame(info.result, info.reason);
+    return true;
+  };
+
+  const endGame = async (result: GameResult, reason: string) => {
+    const g = get().game;
+    if (!g || g.result) return;
+    token++;
+    getEngine().cancelAll(OWNER);
+    const final = { ...g, clock: { ...g.clock, [turnOf(fenOf(g))]: clockLeft(g, turnOf(fenOf(g))) }, result: { result, reason } };
+    set({ game: final, phase: 'over' });
+    save();
+    const userResult = result === '1/2-1/2' ? 'draw' : (result === '1-0') === (g.userColor === 'w') ? 'win' : 'loss';
+    sfx(userResult === 'win' ? 'win' : userResult === 'loss' ? 'over' : 'clear');
+    // Stored like any game (history, rating journey, rivalry) — without touching the Play tab.
+    // The app's own toasts stay quiet: the cup shows its own results.
+    useCelebrate.getState().setMuted(true);
+    let gameId: number | undefined;
+    let accuracy = 0;
+    let biggestPly: number | null = null;
+    try {
+      const info = await finishGame(toSavedGame(final), result, reason, { cup: true });
+      // Already recorded (the app closed right after the game): find it again.
+      const rec = info ? await db.games.get(info.gameId) : await db.games.filter((r) => r.startedAt === g.startedAt).first();
+      gameId = rec?.id;
+      accuracy = rec?.summary.accuracy ?? 0;
+      biggestPly = rec?.summary.biggestMistakePly ?? null;
+    } catch (e) {
+      console.warn('cup game not recorded', e);
+    }
+    const over: GameOver = {
+        result,
+        reason,
+        userResult,
+        gameId,
+        accuracy,
+        moves: g.plies.filter((p) => p.isUser).length,
+        opening: g.startFen === START_FEN ? detectOpening(g.plies.map((p) => p.san))?.name : undefined,
+        clockLeft: Math.round(clockLeft(final, g.userColor) / 1000),
+        greats: g.plies.filter((p) => p.isUser && p.special).length,
+        biggestPly,
+      };
+    set({ over });
+    update((gg) => void (gg.over = over));
+  };
+
+  /** Classify your move (for accuracy, gold and the review) while the opponent's clock runs. */
+  const reviewUserMove = async (i: number) => {
+    const my = token;
+    set({ phase: 'analyzing' });
+    try {
+      const g = get().game!;
+      const ply = g.plies[i];
+      const before = await analyze(ply.fenBefore, 3);
+      const gameOver = !!gameOverInfo(ply.fenAfter);
+      const after = gameOver ? null : await analyze(ply.fenAfter, 3);
+      if (my !== token) return;
+      const comment = explainMove({ fenBefore: ply.fenBefore, uci: ply.uci, before, after, history: g.plies.slice(0, i).map((p) => p.uci), startFen: g.startFen, suppress: [] });
+      const sound = comment.classification === 'best' || comment.classification === 'good';
+      const tactics: TacticCounts = sound ? tacticsOfMove(ply.fenBefore, ply.uci) : {};
+      const special = specialMove(ply.fenBefore, ply.uci, before, after, comment.classification === 'best', g.plies[i - 1]?.uci) ?? undefined;
+      if (special) tactics[special] = 1;
+      const bScore = before.lines[0]?.score;
+      const aScore: Score | undefined = after?.lines[0]?.score ?? (gameOver ? terminalScore(ply.fenAfter) : undefined);
+      const wpB = bScore ? winPct(povScore(bScore, ply.color)) : 50;
+      const wpA = aScore ? winPct(povScore(aScore, ply.color)) : wpB;
+      update((gg) => {
+        if (gg.plies[i]?.uci !== ply.uci) return;
+        gg.plies[i] = { ...ply, evalAfter: aScore, classification: comment.classification, accuracy: moveAccuracy(wpB, wpA), wpLoss: Math.max(0, wpB - wpA), comment, special, tactics: Object.keys(tactics).length ? tactics : undefined };
+      });
+      if (await checkOver()) return;
+      await botMove();
+    } catch (e) {
+      if (!(e instanceof CancelledError)) console.error(e);
+    }
+  };
+
+  const botMove = async () => {
+    const my = token;
+    const g = get().game!;
+    const fen = fenOf(g);
+    set({ phase: 'botThinking' });
+    try {
+      const mods = botMods(g);
+      const sans = [...(g.prelude ?? []), ...g.plies.map((p) => p.san)];
+      const fromStart = g.startFen === START_FEN || !!g.prelude;
+      const planned = fromStart ? (mods.openingMove?.(sans, fen) ?? null) : null;
+      const book = planned ?? (g.startFen === START_FEN ? bookMove(g.opponentId, sans) : null);
+      let uci = book;
+      let sensible = book ? 1 : 3;
+      if (!uci) {
+        try {
+          const fens = [g.startFen, ...g.plies.map((p) => p.fenAfter)];
+          const [logits, a] = await Promise.all([maiaLogits(fens, g.elo), analyze(fen, 8, Math.max(analysisLimits().depth, botParams(g.elo).depth)).catch(() => null)]);
+          const turn = turnOf(fen);
+          const candidates = a ? new Map(a.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], scoreToCp(povScore(l.score, turn))])) : undefined;
+          const weighted = mods.reweight ? new Map([...logits].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, mods.reweight!(m, fen)))])) : logits;
+          const temperature = Math.max(0.2, humanParams(g.elo).temperature + mods.tempDelta);
+          uci = chooseHumanMove(weighted, g.elo, candidates, Math.random, { params: { temperature } });
+          sensible = sensibleMoves(logits);
+        } catch (e) {
+          console.warn('Maia failed, using Stockfish', e);
+        }
+        if (my !== token) return;
+      }
+      if (!uci) {
+        const a = await analyze(fen, botParams(g.elo).multipv);
+        if (my !== token) return;
+        uci = chooseBotMove(fen, a, g.elo, Math.random);
+      }
+      const gc = get().game!;
+      const turn = turnOf(fen);
+      const target =
+        humanThinkMs({
+          moveNo: Math.floor(gc.plies.length / 2) + 1,
+          sensible,
+          leftMs: clockLeft(gc, turn),
+          tc: gc.timeControl,
+          book: !!book,
+          forced: new Chess(fen).moves().length === 1,
+        }) * mods.thinkFactor;
+      await sleep(Math.max(0, Math.min(target, clockLeft(gc, turn) - 50) - (Date.now() - gc.clock.turnStart)));
+      if (my !== token || !uci) return;
+      const r = tryMove(fen, uci);
+      if (!r) return;
+      update((gg) => {
+        gg.plies.push({ uci, san: r.move.san, color: r.move.color as Color, fenBefore: fen, fenAfter: r.fen, isUser: false });
+        press(gg, r.move.color as Color);
+      });
+      sfx(moveSound(r.move.san), 0, true);
+      if (await checkOver()) return;
+      set({ phase: 'userTurn' });
+    } catch (e) {
+      if (!(e instanceof CancelledError)) console.error(e);
+    }
+  };
+
+  return {
+    game: null,
+    phase: 'intro',
+    over: null,
+    pulse: null,
+    loaded: false,
+
+    async load() {
+      if (get().loaded) return;
+      const saved = await kvGet<CupGameState | null>(KEY, null);
+      set({ loaded: true });
+      if (!saved || saved.v !== 1) return;
+      token++;
+      set({ game: saved, over: null });
+      if (saved.over) return set({ phase: 'over', over: saved.over });
+      if (saved.result) {
+        // Ended but not yet recorded (the app closed at that moment): record it now.
+        set({ game: { ...saved, result: undefined } });
+        await endGame(saved.result.result, saved.result.reason);
+        return;
+      }
+      if (!saved.started) return set({ phase: 'intro' });
+      startTicker();
+      const last = saved.plies[saved.plies.length - 1];
+      if (await checkOver()) return;
+      if (last?.isUser && !last.classification) void reviewUserMove(saved.plies.length - 1);
+      else if (turnOf(fenOf(saved)) !== saved.userColor) void botMove();
+      else set({ phase: 'userTurn' });
+    },
+
+    start(p) {
+      token++;
+      getEngine().cancelAll(OWNER);
+      set({ game: newCupGame(p), phase: 'intro', over: null, pulse: null });
+      save();
+    },
+
+    begin() {
+      const g = get().game;
+      if (!g || g.started) return;
+      update((gg) => {
+        gg.started = true;
+        gg.clock = { ...gg.clock, turnStart: Date.now() };
+      });
+      startTicker();
+      if (turnOf(fenOf(get().game!)) !== g.userColor) void botMove();
+      else set({ phase: 'userTurn' });
+    },
+
+    userMove(m) {
+      const { game: g, phase } = get();
+      if (!g || phase !== 'userTurn' || !g.started) return false;
+      const fen = fenOf(g);
+      if (turnOf(fen) !== g.userColor) return false;
+      const r = tryMove(fen, m);
+      if (!r) return false;
+      update((gg) => {
+        gg.plies.push({ uci: r.move.lan, san: r.move.san, color: r.move.color as Color, fenBefore: fen, fenAfter: r.fen, isUser: true });
+        press(gg, r.move.color as Color);
+      });
+      sfx(moveSound(r.move.san));
+      void reviewUserMove(get().game!.plies.length - 1);
+      return true;
+    },
+
+    async resign() {
+      const g = get().game;
+      if (!g || g.result) return;
+      await endGame(g.userColor === 'w' ? '0-1' : '1-0', 'resignation');
+    },
+
+    clear() {
+      token++;
+      getEngine().cancelAll(OWNER);
+      if (ticker) clearInterval(ticker);
+      ticker = null;
+      set({ game: null, phase: 'intro', over: null, pulse: null });
+      useCelebrate.getState().setMuted(false);
+      void kvSet(KEY, null);
+    },
+
+    note(e) {
+      const g = get().game;
+      if (!g) return;
+      update((gg) => void gg.events.push({ ...e, ply: gg.plies.length }));
+      set({ pulse: { id: e.id, kind: e.kind, at: Date.now() } });
+    },
+
+    mutate(fn) {
+      update(fn);
+    },
+  };
+});

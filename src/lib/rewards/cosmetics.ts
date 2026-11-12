@@ -21,7 +21,7 @@ export type Unlock =
   | { kind: 'achievement'; id: string; label: string }
   | { kind: 'challenge'; opponentId: string }
   | { kind: 'gold'; n: number }
-  | { kind: 'cup'; tier: 'bronze' | 'silver' | 'gold' };
+  | { kind: 'cup'; tier: 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' };
 
 export interface Cosmetic {
   /** `${kind}-${key}` */
@@ -123,7 +123,7 @@ export interface UnlockContext {
   challenges: Set<string>;
   gold: number;
   /** Cups won, per tier. */
-  cups?: Partial<Record<'bronze' | 'silver' | 'gold', number>>;
+  cups?: Partial<Record<'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond', number>>;
 }
 
 export async function unlockContext(): Promise<UnlockContext> {
@@ -135,7 +135,7 @@ export async function unlockContext(): Promise<UnlockContext> {
     achievements: await kvGet<Record<string, number>>('achievements', {}),
     challenges: new Set(Object.entries(records).filter(([, r]) => r.challengeDone).map(([id]) => id)),
     gold: Object.values(skills).filter((s) => s.tier === 3).length,
-    cups: await kvGet<Partial<Record<'bronze' | 'silver' | 'gold', number>>>('cupTrophies', {}),
+    cups: await kvGet<Partial<Record<'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond', number>>>('cupTrophies', {}),
   };
 }
 

@@ -39,7 +39,6 @@ import { PieceDefs } from './components/PieceDefs';
 import { WebUpdateBanner } from './components/UpdatePanel';
 import { ModelGameScreen } from './screens/ModelGameScreen';
 import { LibraryScreen } from './screens/LibraryScreen';
-import { CupsScreen } from './screens/CupsScreen';
 import { RepertoireBuildScreen, RepertoireScreen, RepertoireTrainScreen } from './screens/RepertoireScreen';
 import { LessonScreen } from './screens/LessonScreen';
 import { UpdateDialog } from './components/UpdatePanel';
@@ -140,8 +139,6 @@ function StackScreen({ screen }: { screen: Screen }) {
       return <ModelGameScreen gameId={screen.gameId} />;
     case 'library':
       return <LibraryScreen />;
-    case 'cups':
-      return <CupsScreen />;
     case 'repertoire':
       return <RepertoireScreen />;
     case 'repertoireTrain':

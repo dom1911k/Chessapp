@@ -66,6 +66,8 @@ export interface SavedGame {
   clock?: { w: number; b: number; turnStart: number };
   /** Seconds left on the mover's clock after each ply. */
   clocks?: number[];
+  /** Played in a cup (Cups tab): which cup, tier and round. */
+  cup?: { id: string; tier: string; round: number };
 }
 
 export interface GameSummary {

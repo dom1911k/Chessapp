@@ -88,3 +88,13 @@ export function usePromise(make: () => Promise<string>, dep: string, cacheKey?: 
   }, [dep]);
   return v;
 }
+
+/** Your avatar as a pixel portrait (same treatment as the cast). */
+export function PixelAvatar({ avatarId, url, size = 64, px = 40, className = '' }: { avatarId: string; url: string; size?: number; px?: number; className?: string }) {
+  const src = usePromise(() => pixelPortrait(`me-${avatarId}`, url, px, false), `me-${avatarId}:${px}`, `pt:me-${avatarId}:${px}:false`);
+  return (
+    <span className={`inline-block shrink-0 ${className}`} style={{ width: size, height: size }}>
+      {src && <img src={src} alt="" width={size} height={size} style={{ imageRendering: 'pixelated', width: size, height: size }} draggable={false} />}
+    </span>
+  );
+}

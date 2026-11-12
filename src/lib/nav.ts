@@ -26,7 +26,6 @@ export type Screen =
   | { name: 'placement' }
   | { name: 'modelGame'; gameId: string }
   | { name: 'library' }
-  | { name: 'cups' }
   | { name: 'repertoire' }
   | { name: 'repertoireTrain'; lineId: string }
   | { name: 'repertoireBuild' }
