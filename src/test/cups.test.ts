@@ -243,9 +243,9 @@ describe('cups: opponent quirks', () => {
     expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 30, botLeftMs: 40_000 })).temp).toBeCloseTo(0.6);
     expect(quirkEffects(['slowStarter'], ctx({ moveNo: 3 })).temp).toBeCloseTo(0.6);
     expect(quirkEffects(['slowStarter'], ctx({ moveNo: 13 })).temp).toBe(0);
-    expect(quirkEffects(['comebackKid'], ctx({ botEval: -200 })).temp).toBeCloseTo(-0.6);
+    expect(quirkEffects(['comebackKid'], ctx({ botEval: -200 })).temp).toBeCloseTo(TUNING.quirks.comebackKid.temp);
     expect(quirkEffects(['comebackKid'], ctx({ botEval: 50 })).temp).toBe(0);
-    expect(quirkEffects(['tilter'], ctx({ state: { tilt: 3 } })).temp).toBeCloseTo(0.7);
+    expect(quirkEffects(['tilter'], ctx({ state: { tilt: 3 } })).temp).toBeCloseTo(TUNING.quirks.tilter.temp);
     expect(quirkById('tilter')!.afterUserMove!(ctx(), 3)).toEqual({ tilt: 6 });
   });
   it('opening quirks pick real book lines: gambits, traps, an early queen', () => {
@@ -266,7 +266,7 @@ describe('cups: opponent quirks', () => {
     const fc = after('e4 e5 Nf3 Nc6 Bc4 Bc5');
     expect(quirkEffects(['uncastled'], ctx({ fen: fc, moveNo: 4 })).weight(move(fc, 'O-O'))).toBeCloseTo(0.03);
     const fm = after('e4');
-    expect(quirkEffects(['copycat'], ctx({ fen: fm, bot: 'b', me: 'w', lastUserUci: 'e2e4' })).weight(move(fm, 'e5'))).toBe(25);
+    expect(quirkEffects(['copycat'], ctx({ fen: fm, bot: 'b', me: 'w', lastUserUci: 'e2e4' })).weight(move(fm, 'e5'))).toBe(TUNING.quirks.copycat.weight);
     const ft = after('e4 e5 Nf3 Nc6 Bb5 a6');
     expect(quirkEffects(['turtle'], ctx({ fen: ft, moveNo: 4 })).weight(move(ft, 'Bxc6'))).toBeCloseTo(2.2);
     expect(quirkEffects(['endgameGrinder'], ctx({ fen: ft, moveNo: 4, botEval: 20 })).weight(move(ft, 'Bxc6'))).toBe(2.5);
