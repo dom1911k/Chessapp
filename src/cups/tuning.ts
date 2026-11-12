@@ -100,6 +100,28 @@ export const TUNING = {
     copycat: { untilMove: 8, weight: 25 },
     uncastled: { untilMove: 25, castleWeight: 0.03, noticeAtMove: 12 },
   },
+  /** Laurels: earned when a cup ends, spent in the Laurel shop between cups. */
+  laurels: {
+    earn: { quarter: 0, semi: 1, final: 2, winner: 3 } as Record<'quarter' | 'semi' | 'final' | 'winner', number>,
+    /** Laurel shop prices. */
+    prices: {
+      drawOdds: 4,
+      secondChance: 6,
+      homePrep: 3,
+      longNight: 4,
+      battlefield: 3,
+      'board:bone': 2,
+      'board:frost': 3,
+      'board:ember': 4,
+      'pieces:runic': 4,
+      'pieces:gilded': 5,
+      'frame:bronze': 2,
+      'frame:silver': 3,
+      'frame:gold': 4,
+      'frame:platinum': 5,
+      'frame:diamond': 6,
+    } as Record<string, number>,
+  },
   /** Old Run mode progress (Embers, materials, unlocks) becomes this many Laurels, once. */
   legacyLaurels: 3,
 };

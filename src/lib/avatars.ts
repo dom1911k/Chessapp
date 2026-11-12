@@ -31,6 +31,11 @@ export const FRAMES: Frame[] = [
   { id: 'flame', name: 'Flame', ring: lg('#ffd84a', '#f0531c', '#ffb02e'), unlock: { kind: 'gold', n: 1 } },
   { id: 'cup', name: 'Cup winner', ring: 'conic-gradient(from 0deg, #ffe07a, #c98a12, #fff3b8, #d19a16, #ffe07a)', unlock: { kind: 'cup', tier: 'bronze' } },
   { id: 'laurel', name: 'Champion', ring: 'conic-gradient(from 45deg, #7ef0b0, #ffe07a, #12805a, #fff3b8, #7ef0b0)', unlock: { kind: 'cup', tier: 'gold' } },
+  { id: 'tier-bronze', name: 'Bronze Cup', ring: lg('#f6c198', '#9a5a2a', '#e8a46a'), unlock: { kind: 'laurel', id: 'frame:bronze' } },
+  { id: 'tier-silver', name: 'Silver Cup', ring: lg('#ffffff', '#a8b4c0', '#e6edf4'), unlock: { kind: 'laurel', id: 'frame:silver' } },
+  { id: 'tier-gold', name: 'Gold Cup', ring: lg('#fff5b8', '#e0a21a', '#fff0a0'), unlock: { kind: 'laurel', id: 'frame:gold' } },
+  { id: 'tier-platinum', name: 'Platinum Cup', ring: lg('#f2fffa', '#7fd8c0', '#e0fff4'), unlock: { kind: 'laurel', id: 'frame:platinum' } },
+  { id: 'tier-diamond', name: 'Diamond Cup', ring: 'conic-gradient(from 120deg, #ffd0f4, #9be7ff, #ffffff, #b9a6ff, #ffd0f4)', unlock: { kind: 'laurel', id: 'frame:diamond' } },
   { id: 'diamond', name: 'Diamond', ring: 'conic-gradient(from 210deg, #9be7ff, #ffffff, #b9a6ff, #9be7ff, #e6fbff, #9be7ff)', unlock: { kind: 'rating', n: 1800 } },
 ];
 
@@ -51,6 +56,8 @@ export const TITLES: Title[] = [
   { id: 'cupwinner', label: 'Cup Winner', unlock: { kind: 'cup', tier: 'bronze' } },
   { id: 'silvercup', label: 'Silver Cup Holder', unlock: { kind: 'cup', tier: 'silver' } },
   { id: 'champion', label: 'Champion', unlock: { kind: 'cup', tier: 'gold' } },
+  { id: 'platinumcup', label: 'Platinum Cup Holder', unlock: { kind: 'cup', tier: 'platinum' } },
+  { id: 'diamondcup', label: 'Diamond Champion', unlock: { kind: 'cup', tier: 'diamond' } },
 ];
 
 /** The title to show: the chosen one if it is still unlocked, else your level's title. */

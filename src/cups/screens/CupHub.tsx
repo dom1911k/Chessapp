@@ -16,6 +16,7 @@ import { BOONS, CHARMS } from '../boons';
 import { TarotCard } from '../ui/bits';
 import { ChronicleCard } from '../ui/ChronicleCard';
 import { chatter } from '../story';
+import { laurelsFor } from '../laurels';
 
 const PLACE_TEXT = { winner: 'Cup won!', final: 'Runner-up', semi: 'Out in the semi-final', quarter: 'Out in the quarter-final' } as const;
 
@@ -53,7 +54,10 @@ function CupHubMain({ c }: { c: CupState }) {
           <div className="run-sans mt-1 text-sm text-[var(--ink-dim)]">
             {c.place === 'winner' ? `Three wins in a row. The ${tierInfo(c.tier).name} is yours.` : champ && champ !== YOU ? `${opponentById(champ)?.name} went on to win it.` : ''}
           </div>
-          {cupXp(c.tier, c.place) > 0 && <div className="run-sans mt-2 text-sm font-black text-[var(--gold-2)]">+{cupXp(c.tier, c.place)} XP</div>}
+          <div className="run-sans mt-2 flex gap-3 text-sm font-black text-[var(--gold-2)]">
+            {cupXp(c.tier, c.place) > 0 && <span>+{cupXp(c.tier, c.place)} XP</span>}
+            {laurelsFor(c.place) > 0 && <span className="run-slam">+{laurelsFor(c.place)} Laurel{laurelsFor(c.place) === 1 ? '' : 's'}</span>}
+          </div>
           <button className="run-btn mt-4 w-full" onClick={() => (sfx('card'), void s.leave())}>Back to the cups</button>
         </div>
       ) : (

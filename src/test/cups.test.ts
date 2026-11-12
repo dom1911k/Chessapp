@@ -343,3 +343,56 @@ describe('cups: the story', () => {
     expect(decisiveMoment(lost, 'w', 'loss')).toEqual({ who: 'you', san: 'Qh5', moveNo: 2, kind: 'blunder' });
   });
 });
+
+import { LAUREL_SHOP, boardOwned, cabinet, canBuy, laurelsFor, piecesOwned, shopItem } from '../cups/laurels';
+import { sponsorOffers } from '../cups/sponsors';
+import { FRAMES, TITLES } from '../lib/avatars';
+import { meets } from '../lib/rewards/cosmetics';
+
+describe('cups: Laurels, the Laurel shop and the trophy cabinet', () => {
+  it('pays Laurels by finish: semi 1, final 2, win 3, quarter 0', () => {
+    expect((['quarter', 'semi', 'final', 'winner'] as const).map(laurelsFor)).toEqual([0, 1, 2, 3]);
+  });
+  it('sells the four boon unlocks, Battlefield, 5 pixel skins and a frame per tier at 2–6 Laurels', () => {
+    expect(LAUREL_SHOP.filter((i) => i.kind === 'boon').map((i) => i.id).sort()).toEqual(['drawOdds', 'homePrep', 'longNight', 'secondChance']);
+    expect(LAUREL_SHOP.filter((i) => i.kind === 'charm').map((i) => i.id)).toEqual(['battlefield']);
+    expect(LAUREL_SHOP.filter((i) => i.kind === 'board' || i.kind === 'pieces').length).toBe(5);
+    expect(LAUREL_SHOP.filter((i) => i.kind === 'frame').length).toBe(5);
+    for (const i of LAUREL_SHOP) {
+      expect(i.price).toBeGreaterThanOrEqual(2);
+      expect(i.price).toBeLessThanOrEqual(6);
+    }
+    // Unlocked boons and charms join the random offers.
+    expect(boonPool(['drawOdds'])).toContain('drawOdds');
+  });
+  it('checks price, ownership and the tier trophy for frames', () => {
+    const frame = shopItem('frame:gold')!;
+    expect(canBuy(frame, 10, [], {})).toEqual({ ok: false, why: 'Win the Gold Cup first' });
+    expect(canBuy(frame, 10, [], { gold: 1 })).toEqual({ ok: true });
+    expect(canBuy(shopItem('secondChance')!, 3, [], {})).toEqual({ ok: false, why: '6 Laurels' });
+    expect(canBuy(shopItem('homePrep')!, 9, ['homePrep'], {})).toEqual({ ok: false, why: 'Owned' });
+    expect(boardOwned([], 'crypt')).toBe(true);
+    expect(boardOwned([], 'frost')).toBe(false);
+    expect(boardOwned(['board:frost'], 'frost')).toBe(true);
+    expect(piecesOwned([], 'board')).toBe(true);
+    expect(piecesOwned(['pieces:runic'], 'runic')).toBe(true);
+  });
+  it('tier frames unlock through the shop and titles through cup wins', () => {
+    const f = FRAMES.find((x) => x.id === 'tier-platinum')!;
+    const ctx = { level: 1, peak: 800, achievements: {}, challenges: new Set<string>(), gold: 0 };
+    expect(meets(f.unlock, ctx)).toBe(false);
+    expect(meets(f.unlock, { ...ctx, laurel: ['frame:platinum'] })).toBe(true);
+    expect(TITLES.some((t) => t.label === 'Diamond Champion')).toBe(true);
+  });
+  it('fills the trophy cabinet from finished cups and old trophies', () => {
+    const h = (o: object) => ({ id: Math.random().toString(), tier: 'bronze', place: 'winner' as const, endedAt: 1, moves: 80, charmsUsed: 1, secondChance: false, beaten: [], ...o });
+    const rows = cabinet([h({ moves: 70 }), h({ moves: 95, charmsUsed: 0 }), h({ place: 'semi', tier: 'silver' }), h({ tier: 'silver', secondChance: true })], { bronze: 3, gold: 1 });
+    expect(rows.find((r) => r.tier === 'bronze')).toEqual({ tier: 'bronze', won: 3, best: 'winner', fastest: 70, noCharms: true, secondChance: false });
+    expect(rows.find((r) => r.tier === 'silver')).toMatchObject({ won: 1, best: 'winner', secondChance: true });
+    expect(rows.find((r) => r.tier === 'gold')).toMatchObject({ won: 1, best: 'winner', fastest: null });
+    expect(rows.find((r) => r.tier === 'diamond')).toMatchObject({ won: 0, best: null });
+  });
+  it('has the Sponsors hook in place but empty', () => {
+    expect(sponsorOffers('gold')).toEqual([]);
+  });
+});

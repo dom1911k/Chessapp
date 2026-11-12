@@ -11,6 +11,8 @@ import { TUNING } from './tuning';
 import { boonOffer, charmPrice, gameStartMods, goldFor, shopOffer, type BoonId, type CharmId } from './boons';
 import { useCupsMeta } from './meta';
 import { hiddenQuirk } from './quirks';
+import { laurelsFor } from './laurels';
+import { sponsorOffers } from './sponsors';
 
 const KEY = 'cupState';
 
@@ -91,6 +93,8 @@ export const useCup = create<CupStore>((set, get) => {
     let trophies = get().trophies;
     if (next.place) {
       await useCupsMeta.getState().recordCup(summarize(next));
+      const laurels = laurelsFor(next.place);
+      if (laurels) await useCupsMeta.getState().addLaurels(laurels);
       const xp = cupXp(next.tier, next.place);
       if (xp) await awardXp(xp, true);
       if (next.place === 'winner') trophies = await addTrophy(next.tier);
@@ -125,6 +129,8 @@ export const useCup = create<CupStore>((set, get) => {
     },
 
     async enter(tier) {
+      // SPONSORS HOOK: sponsorOffers(tier) is always empty for now; see src/cups/sponsors.ts.
+      void sponsorOffers(tier);
       await put(newCup(tier, Math.floor(Math.random() * 1e9), Date.now(), useCupsMeta.getState().recentQuirks ?? []));
     },
 

@@ -21,7 +21,9 @@ export type Unlock =
   | { kind: 'achievement'; id: string; label: string }
   | { kind: 'challenge'; opponentId: string }
   | { kind: 'gold'; n: number }
-  | { kind: 'cup'; tier: 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' };
+  | { kind: 'cup'; tier: 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' }
+  /** Bought with Laurels in the Cups tab. */
+  | { kind: 'laurel'; id: string };
 
 export interface Cosmetic {
   /** `${kind}-${key}` */
@@ -113,6 +115,8 @@ export function unlockText(u: Unlock): string {
       return u.n === 1 ? 'Get a skill to gold' : `Get ${u.n} skills to gold`;
     case 'cup':
       return `Win the ${u.tier[0].toUpperCase()}${u.tier.slice(1)} Cup`;
+    case 'laurel':
+      return 'Buy it in the Cups Laurel shop';
   }
 }
 
@@ -124,6 +128,8 @@ export interface UnlockContext {
   gold: number;
   /** Cups won, per tier. */
   cups?: Partial<Record<'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond', number>>;
+  /** Items bought in the Cups Laurel shop. */
+  laurel?: string[];
 }
 
 export async function unlockContext(): Promise<UnlockContext> {
@@ -136,6 +142,7 @@ export async function unlockContext(): Promise<UnlockContext> {
     challenges: new Set(Object.entries(records).filter(([, r]) => r.challengeDone).map(([id]) => id)),
     gold: Object.values(skills).filter((s) => s.tier === 3).length,
     cups: await kvGet<Partial<Record<'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond', number>>>('cupTrophies', {}),
+    laurel: (await kvGet<{ unlocks?: string[] }>('cupsMeta', {})).unlocks ?? [],
   };
 }
 
@@ -158,6 +165,8 @@ export function meets(u: Unlock, ctx: UnlockContext): boolean {
       return ctx.gold >= u.n;
     case 'cup':
       return (ctx.cups?.[u.tier] ?? 0) > 0;
+    case 'laurel':
+      return !!ctx.laurel?.includes(u.id);
   }
 }
 

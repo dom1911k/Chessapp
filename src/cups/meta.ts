@@ -42,6 +42,8 @@ interface MetaStore extends CupsMeta {
   faced(quirks: string[]): Promise<void>;
   /** A cup is over: remember it. */
   recordCup(c: CupSummary): Promise<void>;
+  /** Buy a Laurel-shop item (returns false if you can't afford it or already own it). */
+  buy(id: string, price: number): Promise<boolean>;
 }
 
 const save = (m: CupsMeta) => kvSet(KEY, m);
@@ -67,6 +69,13 @@ export const useCupsMeta = create<MetaStore>((set, get) => ({
     if (get().history.some((h) => h.id === c.id)) return;
     set({ history: [...get().history, c] });
     await save(pick(get()));
+  },
+  async buy(id, price) {
+    const m = get();
+    if (m.unlocks.includes(id) || m.laurels < price) return false;
+    set({ laurels: m.laurels - price, unlocks: [...m.unlocks, id] });
+    await save(pick(get()));
+    return true;
   },
   async addLaurels(n) {
     set({ laurels: Math.max(0, get().laurels + n) });
