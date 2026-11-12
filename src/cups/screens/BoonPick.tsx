@@ -14,7 +14,7 @@ export function BoonPick({ c }: { c: CupState }) {
   const offer = c.offer ?? [];
   return (
     <div className="run-fadeup flex h-full flex-col items-center overflow-y-auto px-4 pt-6 pb-6 text-center">
-      <div className="run-label">Round won · boon {c.boons.length + 1} of {TUNING.boons.maxPerCup}</div>
+      <div className="run-label">{c.yours.length === 0 ? 'Before the quarter-final' : 'Round won'} · boon {c.boons.length + 1} of {TUNING.boons.maxPerCup}</div>
       <PixelText text="Choose a boon" size={3} />
       <div className="run-sans mt-1 text-xs text-[var(--ink-dim)]">It lasts for the rest of the cup.</div>
       <div className="mt-5 flex flex-wrap justify-center gap-2.5">
@@ -23,7 +23,7 @@ export function BoonPick({ c }: { c: CupState }) {
         ))}
       </div>
       {sel && <div className="run-sans mt-4 max-w-xs text-sm">{BOONS[sel as keyof typeof BOONS].text}</div>}
-      <button className="run-btn mt-5 w-full max-w-xs text-lg" disabled={!sel} onClick={() => (sfx('relic'), void pick(sel as keyof typeof BOONS))}>Take it</button>
+      <button className="run-btn mt-5 w-full max-w-xs text-lg" disabled={!sel} data-testid="take-boon" onClick={() => (sfx('relic'), void pick(sel as keyof typeof BOONS))}>Take it</button>
       {c.boons.length > 0 && (
         <div className="mt-6">
           <div className="run-label">Your boons</div>

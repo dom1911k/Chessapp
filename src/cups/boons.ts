@@ -50,6 +50,8 @@ export const CHARMS: Record<CharmId, CharmInfo> = {
 export const ALL_BOONS = Object.keys(BOONS) as BoonId[];
 export const ALL_CHARMS = Object.keys(CHARMS) as CharmId[];
 export const charmPrice = (id: CharmId) => C.prices[id] ?? 5;
+/** Some charms may only be held once at a time (Rewind). */
+export const canHoldCharm = (held: CharmId[], id: CharmId) => held.filter((h) => h === id).length < (C.maxHeld[id] ?? Infinity);
 
 /** Boons and charms you can be offered: the starting ones plus what you unlocked with Laurels. */
 export const boonPool = (unlocked: string[]) => ALL_BOONS.filter((b) => BOONS[b].starting || unlocked.includes(b));

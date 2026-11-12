@@ -8,7 +8,7 @@ import { addTrophy, advances, cupXp, getTrophies, type CupTier, type Trophies } 
 import { useCupGame, type GameOver } from './game';
 import { NOTICE_KEY } from './legacy';
 import { TUNING } from './tuning';
-import { boonOffer, charmPrice, gameStartMods, goldFor, shopOffer, type BoonId, type CharmId } from './boons';
+import { boonOffer, canHoldCharm, charmPrice, gameStartMods, goldFor, shopOffer, type BoonId, type CharmId } from './boons';
 import { useCupsMeta } from './meta';
 import { hiddenQuirk } from './quirks';
 import { laurelsFor } from './laurels';
@@ -131,7 +131,10 @@ export const useCup = create<CupStore>((set, get) => {
     async enter(tier) {
       // SPONSORS HOOK: sponsorOffers(tier) is always empty for now; see src/cups/sponsors.ts.
       void sponsorOffers(tier);
-      await put(newCup(tier, Math.floor(Math.random() * 1e9), Date.now(), useCupsMeta.getState().recentQuirks ?? []));
+      const cup = newCup(tier, Math.floor(Math.random() * 1e9), Date.now(), useCupsMeta.getState().recentQuirks ?? []);
+      // A free boon before the quarter-final (with the picks after the quarter- and semi-final: 3 for the final).
+      const offer = boonOffer([], unlocked(), Math.random);
+      await put(offer.length ? { ...cup, flow: 'boon', offer } : cup);
     },
 
     async playNext() {
@@ -188,6 +191,8 @@ export const useCup = create<CupStore>((set, get) => {
       const c = get().cup;
       if (!c || c.flow !== 'boon') return;
       const boons = id && c.offer?.includes(id) && !c.boons.includes(id) ? [...c.boons, id] : c.boons;
+      // The pick before the first game goes straight to the match (no gold to spend yet).
+      if (c.yours.length === 0) return put({ ...c, boons, flow: undefined, offer: undefined });
       await put({ ...c, boons, flow: 'shop', offer: undefined, shop: shopOffer(unlocked(), Math.random) });
     },
 
@@ -195,7 +200,7 @@ export const useCup = create<CupStore>((set, get) => {
       const c = get().cup;
       if (!c || c.flow !== 'shop' || !c.shop?.includes(id)) return false;
       const price = charmPrice(id);
-      if (c.gold < price || c.charms.length >= TUNING.charms.slots) return false;
+      if (!canHoldCharm(c.charms, id) || c.gold < price || c.charms.length >= TUNING.charms.slots) return false;
       const shop = [...c.shop];
       shop.splice(shop.indexOf(id), 1);
       await put({ ...c, gold: c.gold - price, charms: [...c.charms, id], shop });

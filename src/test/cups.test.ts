@@ -139,7 +139,7 @@ describe('cups: game clock and records', () => {
   });
 });
 
-import { ALL_BOONS, ALL_CHARMS, BOONS, CHARMS, boonOffer, boonPool, charmPool, charmPrice, gameStartMods, goldFor, shopOffer } from '../cups/boons';
+import { ALL_BOONS, ALL_CHARMS, BOONS, CHARMS, boonOffer, canHoldCharm, boonPool, charmPool, charmPrice, gameStartMods, goldFor, shopOffer } from '../cups/boons';
 import { applySecondChance, secondChanceApplies } from '../cups/cup';
 import { battlefieldOptions, battlefieldPool } from '../cups/battlefield';
 import { Chess } from 'chess.js';
@@ -154,6 +154,10 @@ describe('cups: boons and charms', () => {
     expect(ALL_CHARMS.length).toBe(5);
     for (const b of ALL_BOONS) expect(BOONS[b].text.length).toBeGreaterThan(20);
     for (const c of ALL_CHARMS) expect(charmPrice(c)).toBeGreaterThan(0);
+    expect(charmPrice('rewind')).toBe(8);
+    expect(canHoldCharm([], 'rewind')).toBe(true);
+    expect(canHoldCharm(['rewind'], 'rewind')).toBe(false);
+    expect(canHoldCharm(['threatBell'], 'threatBell')).toBe(true);
     expect(CHARMS.colour.pregame).toBe(true);
   });
   it('offers three boons you do not have', () => {
@@ -167,7 +171,7 @@ describe('cups: boons and charms', () => {
     expect(new Set(shopOffer([], Math.random)).size).toBe(3);
   });
   it('pays gold for a win, accuracy above the floor and great moves', () => {
-    expect(goldFor({ userResult: 'win', advanced: true, accuracy: 80, greats: 1 })).toEqual({ parts: [{ label: 'Win', amount: 6 }, { label: 'Accuracy 80%', amount: 5 }, { label: '1 great move', amount: 2 }], total: 13 });
+    expect(goldFor({ userResult: 'win', advanced: true, accuracy: 80, greats: 1 })).toEqual({ parts: [{ label: 'Win', amount: 4 }, { label: 'Accuracy 80%', amount: 5 }, { label: '1 great move', amount: 2 }], total: 11 });
     expect(goldFor({ userResult: 'draw', advanced: true, accuracy: 50, greats: 0 }).total).toBe(3);
     expect(goldFor({ userResult: 'loss', advanced: false, accuracy: 50, greats: 0 }).total).toBe(0);
   });
@@ -371,6 +375,7 @@ describe('cups: Laurels, the Laurel shop and the trophy cabinet', () => {
     expect(canBuy(frame, 10, [], { gold: 1 })).toEqual({ ok: true });
     expect(canBuy(shopItem('secondChance')!, 3, [], {})).toEqual({ ok: false, why: '6 Laurels' });
     expect(canBuy(shopItem('homePrep')!, 9, ['homePrep'], {})).toEqual({ ok: false, why: 'Owned' });
+    expect(shopItem('homePrep')!.price).toBe(2);
     expect(boardOwned([], 'crypt')).toBe(true);
     expect(boardOwned([], 'frost')).toBe(false);
     expect(boardOwned(['board:frost'], 'frost')).toBe(true);

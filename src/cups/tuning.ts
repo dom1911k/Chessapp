@@ -43,7 +43,7 @@ export const TUNING = {
     /** Gold you start a cup with. */
     start: 0,
     /** A win pays this; a draw that sends you through pays goldDraw. */
-    goldWin: 6,
+    goldWin: 4,
     goldDraw: 3,
     /** Accuracy above this floor pays goldPerAccPoint per point (rounded down). */
     goldAccFloor: 60,
@@ -51,7 +51,7 @@ export const TUNING = {
     /** Per great or brilliant move. */
     goldGreat: 2,
   },
-  /** Boons last the whole cup; after each won round you pick one of `offer`. */
+  /** Boons last the whole cup: a free pick before the quarter-final, then one after each won round (1 of `offer`). */
   boons: {
     maxPerCup: 3,
     offer: 3,
@@ -72,7 +72,9 @@ export const TUNING = {
   charms: {
     slots: 2,
     shopOffer: 3,
-    prices: { rewind: 6, threatBell: 4, candidates: 5, colour: 3, battlefield: 4 } as Record<string, number>,
+    prices: { rewind: 8, threatBell: 4, candidates: 5, colour: 3, battlefield: 4 } as Record<string, number>,
+    /** At most this many of a charm in your slots at once. */
+    maxHeld: { rewind: 1 } as Record<string, number>,
     /** Battlefield positions come from the opening book, this many half-moves in. */
     battlefieldPlies: [4, 8] as [number, number],
   },
@@ -97,7 +99,7 @@ export const TUNING = {
     endgameGrinder: { evenCp: 80, tradeWeight: 2.5, queenTradeWeight: 4, queensOffTemp: -0.4 },
     pawnStormer: { fromMove: 6, weight: 3 },
     pawnGrabber: { weight: 4 },
-    copycat: { untilMove: 8, weight: 25 },
+    copycat: { untilMove: 6, weight: 25 },
     uncastled: { untilMove: 25, castleWeight: 0.03, noticeAtMove: 12 },
   },
   /** Laurels: earned when a cup ends, spent in the Laurel shop between cups. */
@@ -107,7 +109,7 @@ export const TUNING = {
     prices: {
       drawOdds: 4,
       secondChance: 6,
-      homePrep: 3,
+      homePrep: 2,
       longNight: 4,
       battlefield: 3,
       'board:bone': 2,

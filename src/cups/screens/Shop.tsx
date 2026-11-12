@@ -1,5 +1,5 @@
 // The shop between rounds: three charms for gold, two slots.
-import { CHARMS, charmPrice, type CharmId } from '../boons';
+import { CHARMS, canHoldCharm, charmPrice, type CharmId } from '../boons';
 import type { CupState } from '../cup';
 import { useCup } from '../store';
 import { TarotCard } from '../ui/bits';
@@ -32,7 +32,8 @@ export function Shop({ c }: { c: CupState }) {
       <div className="mt-5 flex flex-wrap justify-center gap-2.5">
         {(c.shop ?? []).map((id: CharmId, i) => {
           const price = charmPrice(id);
-          const can = c.gold >= price && !full;
+          const held = !canHoldCharm(c.charms, id);
+          const can = c.gold >= price && !full && !held;
           return (
             <TarotCard
               key={`${id}-${i}`}
@@ -42,7 +43,7 @@ export function Shop({ c }: { c: CupState }) {
               onClick={can ? () => void s.buyCharm(id).then((ok) => ok && sfx('coin')) : undefined}
               className={`run-deal ${can ? '' : 'opacity-50'}`}
               style={{ animationDelay: `${i * 90}ms` }}
-              footer={<span className="run-sans inline-flex items-center gap-1 text-xs font-black text-[var(--gold-2)]"><Sprite name="coin" size={12} px={10} /> {price}</span>}
+              footer={held ? <span className="run-sans text-[10px] font-bold text-[var(--ink-dim)]">Hold one at a time</span> : <span className="run-sans inline-flex items-center gap-1 text-xs font-black text-[var(--gold-2)]"><Sprite name="coin" size={12} px={10} /> {price}</span>}
             />
           );
         })}
