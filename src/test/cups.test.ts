@@ -138,3 +138,68 @@ describe('cups: game clock and records', () => {
     expect(material('rnb1kbnr/pppp1ppp/8/8/8/8/PPPPPPPP/RNBQKB1R w KQkq - 0 1')).toEqual({ lost: { w: ['n'], b: ['p', 'q'] }, diff: 7 });
   });
 });
+
+import { ALL_BOONS, ALL_CHARMS, BOONS, CHARMS, boonOffer, boonPool, charmPool, charmPrice, gameStartMods, goldFor, shopOffer } from '../cups/boons';
+import { applySecondChance, secondChanceApplies } from '../cups/cup';
+import { battlefieldOptions, battlefieldPool } from '../cups/battlefield';
+import { Chess } from 'chess.js';
+
+describe('cups: boons and charms', () => {
+  it('starts with six boons and four charms; the rest are Laurel-shop unlocks', () => {
+    expect(boonPool([]).sort()).toEqual(['extraMinute', 'openingPrep', 'rattled', 'scoutReport', 'secondWind', 'steadyHand'].sort());
+    expect(charmPool([]).sort()).toEqual(['candidates', 'colour', 'rewind', 'threatBell'].sort());
+    expect(boonPool(['drawOdds', 'homePrep'])).toContain('drawOdds');
+    expect(charmPool(['battlefield'])).toContain('battlefield');
+    expect(ALL_BOONS.length).toBe(10);
+    expect(ALL_CHARMS.length).toBe(5);
+    for (const b of ALL_BOONS) expect(BOONS[b].text.length).toBeGreaterThan(20);
+    for (const c of ALL_CHARMS) expect(charmPrice(c)).toBeGreaterThan(0);
+    expect(CHARMS.colour.pregame).toBe(true);
+  });
+  it('offers three boons you do not have', () => {
+    let i = 0;
+    const r = () => ((i++ * 0.37) % 1);
+    const o = boonOffer(['extraMinute'], [], r);
+    expect(o.length).toBe(3);
+    expect(new Set(o).size).toBe(3);
+    expect(o).not.toContain('extraMinute');
+    expect(boonOffer(boonPool([]), [], Math.random)).toEqual([]);
+    expect(new Set(shopOffer([], Math.random)).size).toBe(3);
+  });
+  it('pays gold for a win, accuracy above the floor and great moves', () => {
+    expect(goldFor({ userResult: 'win', advanced: true, accuracy: 80, greats: 1 })).toEqual({ parts: [{ label: 'Win', amount: 6 }, { label: 'Accuracy 80%', amount: 5 }, { label: '1 great move', amount: 2 }], total: 13 });
+    expect(goldFor({ userResult: 'draw', advanced: true, accuracy: 50, greats: 0 }).total).toBe(3);
+    expect(goldFor({ userResult: 'loss', advanced: false, accuracy: 50, greats: 0 }).total).toBe(0);
+  });
+  it('turns time boons into clock settings for your colour only', () => {
+    expect(gameStartMods(['extraMinute', 'steadyHand', 'openingPrep'], 'b')).toEqual({ extraMs: { b: 60_000 }, extraInc: { b: 2_000 }, freeMoves: 8 });
+    expect(gameStartMods([], 'w')).toEqual({ extraMs: {}, extraInc: {}, freeMoves: 0 });
+  });
+  it('Second Chance replays a knockout once, colours swapped; Long Night weakens the finalist', () => {
+    let c: ReturnType<typeof newCup> = { ...newCup('gold', 3, 0), boons: ['secondChance'] };
+    const rec = { opponentId: yourOpponent(c)!, elo: 800, color: 'w' as const, result: 'loss' as const, reason: 'time', moves: 30 };
+    expect(secondChanceApplies(c, 'loss', 'w')).toBe(true);
+    expect(secondChanceApplies(c, 'draw', 'b')).toBe(false);
+    c = applySecondChance(c, rec);
+    expect(currentRound(c)).toBe(0);
+    expect(yourColor(c)).toBe('b');
+    expect(c.yours[0].replayed).toBe(true);
+    expect(secondChanceApplies(c, 'loss', 'b')).toBe(false);
+    let d = newCup('gold', 3, 0);
+    d = applyResult(d, { ...rec, result: 'win' });
+    d = applyResult(d, { ...rec, color: 'b', result: 'win', opponentId: yourOpponent(d)! });
+    expect(opponentRating(d)).toBe(1000);
+    expect(opponentRating({ ...d, boons: ['longNight'] })).toBe(950);
+  });
+  it('Battlefield offers three different book positions 4–8 half-moves in', () => {
+    const pool = battlefieldPool();
+    expect(pool.length).toBeGreaterThan(10);
+    for (const p of pool) {
+      expect(p.sans.length).toBeGreaterThanOrEqual(4);
+      expect(p.sans.length).toBeLessThanOrEqual(8);
+      expect(() => new Chess(p.fen)).not.toThrow();
+    }
+    const o = battlefieldOptions(Math.random);
+    expect(new Set(o.map((x) => x.fen)).size).toBe(3);
+  });
+});

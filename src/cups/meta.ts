@@ -6,10 +6,12 @@ import { migrateLegacyRun } from './legacy';
 
 export interface CupsMeta {
   laurels: number;
+  /** Boons, charms and cosmetics bought in the Laurel shop. */
+  unlocks: string[];
 }
 
 const KEY = 'cupsMeta';
-export const EMPTY_META: CupsMeta = { laurels: 0 };
+export const EMPTY_META: CupsMeta = { laurels: 0, unlocks: [] };
 
 interface MetaStore extends CupsMeta {
   loaded: boolean;
@@ -18,7 +20,7 @@ interface MetaStore extends CupsMeta {
 }
 
 const save = (m: CupsMeta) => kvSet(KEY, m);
-const pick = (s: MetaStore): CupsMeta => ({ laurels: s.laurels });
+const pick = (s: MetaStore): CupsMeta => ({ laurels: s.laurels, unlocks: s.unlocks });
 
 export const useCupsMeta = create<MetaStore>((set, get) => ({
   ...EMPTY_META,

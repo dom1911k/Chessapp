@@ -21,6 +21,9 @@ import { db } from '../lib/db';
 import type { PlyRecord, SavedGame } from '../lib/store/types';
 import { detectOpening } from '../lib/openings';
 import { botMods } from './mods';
+import { material } from './material';
+import { preMoveCheck } from '../lib/coach/precheck';
+import { TUNING } from './tuning';
 import { useCelebrate } from '../lib/celebrate';
 import { moveSound, sfx } from './sfx';
 
@@ -61,6 +64,13 @@ export interface CupGameState {
   events: CupEvent[];
   /** Rewind charms used (count as take-backs in your records). */
   rewinds: number;
+  /** Your boons for this cup (they act during the game). */
+  boons: string[];
+  /** Rattled: opponent moves left with a looser temperature. */
+  rattled: number;
+  secondWindUsed?: boolean;
+  /** Threat Bell is armed for your next move. */
+  armed?: 'threatBell';
   result?: { result: GameResult; reason: string };
   /** The end screen's data, once the game is recorded. */
   over?: GameOver;
@@ -97,6 +107,7 @@ export interface StartParams {
   /** Extra increment per side (ms). */
   extraInc?: { w?: number; b?: number };
   freeMoves?: number;
+  boons?: string[];
 }
 
 const KEY = 'cupGame';
@@ -144,6 +155,8 @@ export function newCupGame(p: StartParams, now = Date.now()): CupGameState {
     started: false,
     events: [],
     rewinds: 0,
+    boons: p.boons ?? [],
+    rattled: 0,
   };
 }
 
@@ -174,6 +187,12 @@ function terminalScore(fen: string): Score {
   return { type: 'cp', value: 0 };
 }
 
+/** Your material lead in a position (pawn = 1). */
+function balance(fen: string, me: Color): number {
+  const d = material(fen).diff;
+  return me === 'w' ? d : -d;
+}
+
 async function analyze(fen: string, multipv = 3, depth?: number): Promise<AnalysisResult> {
   const l = analysisLimits();
   return getEngine().analyze(fen, { depth: depth ?? l.depth, movetime: l.movetime, multipv, owner: OWNER });
@@ -198,6 +217,17 @@ interface Store {
   note(e: Omit<CupEvent, 'ply'>): void;
   /** Change the game (charms, boons) and save. */
   mutate(fn: (g: CupGameState) => void): void;
+  /** Threat Bell's warning: the move it stopped and why. */
+  warning: { text: string; sq: string } | null;
+  /** Candidate Cards on show. */
+  cands: { uci: string; san: string }[] | null;
+  /** Charm: take back your last move (and the reply). */
+  rewind(): boolean;
+  /** Charm: arm Threat Bell for your next move. */
+  armThreatBell(): void;
+  /** Charm: three candidate moves (engine best + Maia's likely moves at `rating`). */
+  showCandidates(rating: number): Promise<boolean>;
+  dismissCands(): void;
 }
 
 let token = 0;
@@ -229,6 +259,16 @@ export const useCupGame = create<Store>((set, get) => {
       const { game: g, phase } = get();
       if (!g || !g.started || g.result || phase === 'over' || phase === 'intro') return;
       const toMove = turnOf(fenOf(g));
+      // Second Wind: once per game, below the threshold, more time.
+      if (g.boons.includes('secondWind') && !g.secondWindUsed && clockLeft(g, g.userColor) > 0 && clockLeft(g, g.userColor) < TUNING.boons.secondWindBelowMs) {
+        update((gg) => {
+          gg.secondWindUsed = true;
+          gg.clock = { ...gg.clock, [gg.userColor]: gg.clock[gg.userColor] + TUNING.boons.secondWindAddMs };
+        });
+        get().note({ kind: 'boon', id: 'secondWind', text: `Second Wind: +${TUNING.boons.secondWindAddMs / 1000} s` });
+        sfx('relic');
+        return;
+      }
       if (clockLeft(g, toMove) <= 0) {
         const f = flagResult(fenOf(g), toMove);
         void endGame(f.result, f.reason);
@@ -368,6 +408,7 @@ export const useCupGame = create<Store>((set, get) => {
       update((gg) => {
         gg.plies.push({ uci, san: r.move.san, color: r.move.color as Color, fenBefore: fen, fenAfter: r.fen, isUser: false });
         press(gg, r.move.color as Color);
+        if (gg.rattled > 0) gg.rattled--;
       });
       sfx(moveSound(r.move.san), 0, true);
       if (await checkOver()) return;
@@ -433,11 +474,37 @@ export const useCupGame = create<Store>((set, get) => {
       if (turnOf(fen) !== g.userColor) return false;
       const r = tryMove(fen, m);
       if (!r) return false;
+      // Threat Bell: this one move is checked; a hanging piece or mate-in-one rings the bell.
+      if (g.armed === 'threatBell') {
+        const check = preMoveCheck(fen, r.move.lan);
+        update((gg) => void (gg.armed = undefined));
+        if (check) {
+          set({ warning: { text: check.reveal, sq: check.sq }, cands: null });
+          get().note({ kind: 'charm', id: 'threatBell', text: `Threat Bell rang: ${check.reveal}` });
+          sfx('fail');
+          return false;
+        }
+        get().note({ kind: 'charm', id: 'threatBell', text: 'Threat Bell: the move was safe.' });
+      }
+      const free = g.freeMoves > 0;
+      const before = g.plies.length >= 2 ? balance(g.plies[g.plies.length - 1].fenBefore, g.userColor) : balance(fen, g.userColor);
       update((gg) => {
         gg.plies.push({ uci: r.move.lan, san: r.move.san, color: r.move.color as Color, fenBefore: fen, fenAfter: r.fen, isUser: true });
         press(gg, r.move.color as Color);
       });
+      set({ warning: null, cands: null });
       sfx(moveSound(r.move.san));
+      // Boons that act on your move light up.
+      const ng = get().game!;
+      if (free) {
+        if (ng.freeMoves === 0) get().note({ kind: 'boon', id: 'openingPrep', text: `Opening Prep: ${TUNING.boons.openingPrepMoves} moves played on the house.` });
+        else set({ pulse: { id: 'openingPrep', kind: 'boon', at: Date.now() } });
+      } else if (g.boons.includes('steadyHand')) set({ pulse: { id: 'steadyHand', kind: 'boon', at: Date.now() } });
+      // Rattled: you just came out ahead in material.
+      if (g.boons.includes('rattled') && r.move.captured && balance(r.fen, g.userColor) > before) {
+        update((gg) => void (gg.rattled = TUNING.boons.rattledMoves));
+        get().note({ kind: 'boon', id: 'rattled', text: 'Rattled: they lost material and look shaken.' });
+      }
       void reviewUserMove(get().game!.plies.length - 1);
       return true;
     },
@@ -453,7 +520,7 @@ export const useCupGame = create<Store>((set, get) => {
       getEngine().cancelAll(OWNER);
       if (ticker) clearInterval(ticker);
       ticker = null;
-      set({ game: null, phase: 'intro', over: null, pulse: null });
+      set({ game: null, phase: 'intro', over: null, pulse: null, warning: null, cands: null });
       useCelebrate.getState().setMuted(false);
       void kvSet(KEY, null);
     },
@@ -467,6 +534,57 @@ export const useCupGame = create<Store>((set, get) => {
 
     mutate(fn) {
       update(fn);
+    },
+
+    warning: null,
+    cands: null,
+
+    rewind() {
+      const { game: g, phase } = get();
+      if (!g || g.result || !['userTurn', 'botThinking', 'analyzing'].includes(phase)) return false;
+      const lastUser = g.plies.map((p) => p.isUser).lastIndexOf(true);
+      if (lastUser < 0) return false;
+      token++;
+      getEngine().cancelAll(OWNER);
+      update((gg) => {
+        gg.plies = gg.plies.slice(0, lastUser);
+        gg.clocks = gg.clocks.slice(0, lastUser);
+        gg.clock = { ...gg.clock, turnStart: Date.now() };
+        gg.rewinds++;
+      });
+      set({ phase: 'userTurn', warning: null, cands: null });
+      get().note({ kind: 'charm', id: 'rewind', text: `Rewind: took back ${g.plies[lastUser].san}.` });
+      sfx('whoosh');
+      return true;
+    },
+
+    armThreatBell() {
+      update((gg) => void (gg.armed = 'threatBell'));
+      set({ pulse: { id: 'threatBell', kind: 'charm', at: Date.now() } });
+      sfx('card');
+    },
+
+    async showCandidates(rating) {
+      const g = get().game;
+      if (!g || get().phase !== 'userTurn') return false;
+      const fen = fenOf(g);
+      try {
+        const [a, logits] = await Promise.all([analyze(fen, 1), maiaLogits([g.startFen, ...g.plies.map((p) => p.fenAfter)], rating)]);
+        if (fenOf(get().game!) !== fen) return false;
+        const best = a.lines[0]?.pv[0] ?? a.bestMove;
+        if (!best) return false;
+        const likely = [...logits].filter(([m]) => m !== best).sort((x, y) => y[1] - x[1]).slice(0, 2).map(([m]) => m);
+        const cands = [best, ...likely].map((uci) => ({ uci, san: tryMove(fen, uci)?.move.san ?? uci })).sort(() => Math.random() - 0.5);
+        set({ cands });
+        get().note({ kind: 'charm', id: 'candidates', text: `Candidate Cards: ${cands.map((c) => c.san).join(', ')}.` });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+
+    dismissCands() {
+      set({ cands: null });
     },
   };
 });

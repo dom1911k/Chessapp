@@ -38,6 +38,44 @@ export const TUNING = {
     /** Simulated matches: typical game length (moves) for the bracket chatter. */
     simMoves: [22, 58],
   },
+  /** Gold: earned per game, spent on charms in the shop between rounds. */
+  gold: {
+    /** Gold you start a cup with. */
+    start: 0,
+    /** A win pays this; a draw that sends you through pays goldDraw. */
+    goldWin: 6,
+    goldDraw: 3,
+    /** Accuracy above this floor pays goldPerAccPoint per point (rounded down). */
+    goldAccFloor: 60,
+    goldPerAccPoint: 0.25,
+    /** Per great or brilliant move. */
+    goldGreat: 2,
+  },
+  /** Boons last the whole cup; after each won round you pick one of `offer`. */
+  boons: {
+    maxPerCup: 3,
+    offer: 3,
+    /** Chance a rare boon may appear in an offer (when unlocked). */
+    rareChance: 0.35,
+    extraMinuteMs: 60_000,
+    steadyHandIncMs: 2_000,
+    openingPrepMoves: 8,
+    secondWindBelowMs: 30_000,
+    secondWindAddMs: 30_000,
+    /** Rattled: after you win material, the opponent's Maia temperature rises by this for `rattledMoves` of its moves. */
+    rattledTemp: 0.5,
+    rattledMoves: 4,
+    /** Long Night: the final opponent plays this many rating points weaker. */
+    longNightElo: 50,
+  },
+  /** Charms: single use, bought with gold between rounds. */
+  charms: {
+    slots: 2,
+    shopOffer: 3,
+    prices: { rewind: 6, threatBell: 4, candidates: 5, colour: 3, battlefield: 4 } as Record<string, number>,
+    /** Battlefield positions come from the opening book, this many half-moves in. */
+    battlefieldPlies: [4, 8] as [number, number],
+  },
   /** Old Run mode progress (Embers, materials, unlocks) becomes this many Laurels, once. */
   legacyLaurels: 3,
 };

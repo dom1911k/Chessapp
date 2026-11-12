@@ -6,7 +6,8 @@ import { useCupsMeta } from '../meta';
 import { useRunSettings } from '../settings';
 import { runMusic } from '../sfx';
 import { PixelText } from '../ui/PixelText';
-import { DevPanel } from '../ui/DevPanel';
+import { DevPanel, devBtn } from '../ui/DevPanel';
+import { ALL_BOONS, ALL_CHARMS, BOONS, CHARMS } from '../boons';
 import { useLongPress } from '../ui/useLongPress';
 import { Sprite } from '../pixel/sprites';
 import { useCup } from '../store';
@@ -66,8 +67,28 @@ export function CupsTab() {
     // During a game the board gets the whole screen (no tab bar), like the Play tab.
     <div className={`run-root ${game ? 'fixed inset-0 z-40' : 'relative h-full'} overflow-hidden ${rs.reduceMotion ? 'run-calm' : ''}`}>
       <div ref={shaker} className={`safe-top h-full ${game ? 'safe-bottom' : ''}`}>{body}</div>
+      {/* Playtest tools: long-press the top-left corner. */}
+      <div {...longPress} className="safe-top absolute top-0 left-0 z-30 h-10 w-10" aria-hidden />
       <div className={`run-crt crt-${rs.crt}`} />
-      {dev && <DevPanel onClose={() => setDev(false)} />}
+      {dev && (
+        <DevPanel onClose={() => setDev(false)}>
+          {cups.cup && !cups.cup.place && (
+            <>
+              <div className="run-label mt-3">Cup · gold {cups.cup.gold}</div>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                <button className={devBtn} onClick={() => void cups.dev.result('win')}>Win round</button>
+                <button className={devBtn} onClick={() => void cups.dev.result('draw')}>Draw round</button>
+                <button className={devBtn} onClick={() => void cups.dev.result('loss')}>Lose round</button>
+                <button className={devBtn} onClick={() => void cups.dev.gold(20)}>+20 gold</button>
+              </div>
+              <div className="run-label mt-3">Give boon</div>
+              <div className="mt-1 flex flex-wrap gap-1.5">{ALL_BOONS.map((b) => <button key={b} className={devBtn} onClick={() => void cups.dev.boon(b)}>{BOONS[b].name}</button>)}</div>
+              <div className="run-label mt-3">Give charm</div>
+              <div className="mt-1 flex flex-wrap gap-1.5">{ALL_CHARMS.map((c) => <button key={c} className={devBtn} onClick={() => void cups.dev.charm(c)}>{CHARMS[c].name}</button>)}</div>
+            </>
+          )}
+        </DevPanel>
+      )}
     </div>
   );
 }

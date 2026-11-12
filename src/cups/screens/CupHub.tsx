@@ -8,10 +8,20 @@ import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { Bracket } from '../ui/Bracket';
 import { PixelText } from '../ui/PixelText';
 import { sfx } from '../sfx';
+import { BoonPick } from './BoonPick';
+import { Shop, GoldCount } from './Shop';
+import { BOONS, CHARMS } from '../boons';
+import { TarotCard } from '../ui/bits';
 
 const PLACE_TEXT = { winner: 'Cup won!', final: 'Runner-up', semi: 'Out in the semi-final', quarter: 'Out in the quarter-final' } as const;
 
 export function CupHub({ c }: { c: CupState }) {
+  if (c.flow === 'boon') return <BoonPick c={c} />;
+  if (c.flow === 'shop') return <Shop c={c} />;
+  return <CupHubMain c={c} />;
+}
+
+function CupHubMain({ c }: { c: CupState }) {
   const s = useCup();
   const myName = useMyName();
   const opp = yourOpponent(c);
@@ -19,10 +29,19 @@ export function CupHub({ c }: { c: CupState }) {
   const champ = champion(c);
   return (
     <div className="flex h-full flex-col overflow-y-auto px-4 pt-4 pb-6">
-      <div className="text-center">
-        <div className="run-label">{tierInfo(c.tier).band.join('–')} rating band</div>
-        <PixelText text={tierInfo(c.tier).name} size={3} />
+      <div className="flex items-start justify-between">
+        <div className="text-left">
+          <div className="run-label">{tierInfo(c.tier).band.join('–')} rating band</div>
+          <PixelText text={tierInfo(c.tier).name} size={3} />
+        </div>
+        <GoldCount value={c.gold} />
       </div>
+      {(c.boons.length > 0 || c.charms.length > 0) && (
+        <div className="mt-3 flex items-end justify-center gap-1.5">
+          {c.boons.map((b) => <TarotCard key={b} info={BOONS[b]} kind="relic" w={50} />)}
+          {c.charms.map((ch, k) => <TarotCard key={`${ch}${k}`} info={CHARMS[ch]} kind="consumable" w={44} />)}
+        </div>
+      )}
       {c.place ? (
         <div className="run-panel run-fadeup mt-4 flex flex-col items-center px-4 py-5 text-center">
           <Sprite name={c.place === 'winner' ? 'crown' : 'shield'} size={64} px={18} />
@@ -36,7 +55,7 @@ export function CupHub({ c }: { c: CupState }) {
       ) : (
         o && (
           <div className="run-panel run-fadeup mt-4 px-3 py-3 text-left">
-            <div className="run-label">{roundName(c)} · your match</div>
+            <div className="run-label">{roundName(c)} · your match{c.secondChanceUsed && c.yours.at(-1)?.replayed && !c.yours.some((r) => r.round === c.yours.at(-1)!.round && !r.replayed) ? ' · Second Chance replay' : ''}</div>
             <div className="mt-2 flex items-center gap-3">
               <PixelPortrait id={o.id} size={56} px={32} />
               <div className="min-w-0 flex-1">
