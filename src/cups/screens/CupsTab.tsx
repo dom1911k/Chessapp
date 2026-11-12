@@ -8,6 +8,7 @@ import { runMusic } from '../sfx';
 import { PixelText } from '../ui/PixelText';
 import { DevPanel, devBtn } from '../ui/DevPanel';
 import { ALL_BOONS, ALL_CHARMS, BOONS, CHARMS } from '../boons';
+import { QUIRKS } from '../quirks';
 import { useLongPress } from '../ui/useLongPress';
 import { Sprite } from '../pixel/sprites';
 import { useCup } from '../store';
@@ -104,6 +105,19 @@ export function CupsTab() {
               <div className="mt-1 flex flex-wrap gap-1.5">{ALL_BOONS.map((b) => <button key={b} className={devBtn} onClick={() => void cups.dev.boon(b)}>{BOONS[b].name}</button>)}</div>
               <div className="run-label mt-3">Give charm</div>
               <div className="mt-1 flex flex-wrap gap-1.5">{ALL_CHARMS.map((c) => <button key={c} className={devBtn} onClick={() => void cups.dev.charm(c)}>{CHARMS[c].name}</button>)}</div>
+            </>
+          )}
+          {game && !game.result && (
+            <>
+              <div className="run-label mt-3">This game</div>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                <button className={devBtn} onClick={() => cups.dev.clock('me', 35)}>My clock 0:35</button>
+                <button className={devBtn} onClick={() => cups.dev.clock('me', 10)}>My clock 0:10</button>
+                <button className={devBtn} onClick={() => cups.dev.clock('them', 50)}>Their clock 0:50</button>
+                <button className={devBtn} onClick={() => { const f = prompt('Start this game from FEN'); if (f) void cups.dev.fen(f.trim()); }}>Start from FEN</button>
+              </div>
+              <div className="run-label mt-3">Their quirk</div>
+              <div className="mt-1 flex flex-wrap gap-1.5">{QUIRKS.map((q) => <button key={q.id} className={devBtn} onClick={() => cups.dev.quirk(q.id)}>{q.name}</button>)}</div>
             </>
           )}
         </DevPanel>

@@ -5,7 +5,7 @@ import { awardXp } from '../lib/progress/xp';
 import { getRepertoire, linePlies, repertoireLines } from '../lib/repertoire';
 import { applyResult, applySecondChance, summarize, currentRound, newCup, opponentRating, roundDone, secondChanceApplies, yourColor, yourOpponent, type CupState } from './cup';
 import { addTrophy, advances, cupXp, getTrophies, type CupTier, type Trophies } from './ladder';
-import { useCupGame, type GameOver } from './game';
+import { fenOf, turnOf, useCupGame, type GameOver } from './game';
 import { NOTICE_KEY } from './legacy';
 import { TUNING } from './tuning';
 import { boonOffer, canHoldCharm, charmPrice, gameStartMods, goldFor, shopOffer, type BoonId, type CharmId } from './boons';
@@ -44,6 +44,12 @@ interface CupStore {
     gold(n: number): Promise<void>;
     boon(b: BoonId): Promise<void>;
     charm(c: CharmId): Promise<void>;
+    /** Set a clock in the game being played (seconds left). */
+    clock(who: 'me' | 'them', sec: number): void;
+    /** Give the current opponent this quirk for the game being played. */
+    quirk(id: string): void;
+    /** Restart the current game from a position (FEN). */
+    fen(fen: string): Promise<void>;
   };
 }
 
@@ -255,6 +261,25 @@ export const useCup = create<CupStore>((set, get) => {
       async charm(ch) {
         const c = get().cup;
         if (c && c.charms.length < TUNING.charms.slots) await put({ ...c, charms: [...c.charms, ch] });
+      },
+      clock(who, sec) {
+        useCupGame.getState().mutate((g) => {
+          const side = who === 'me' ? g.userColor : g.userColor === 'w' ? 'b' : 'w';
+          const running = g.started && !g.result && turnOf(fenOf(g)) === side;
+          g.clock = { ...g.clock, [side]: sec * 1000 + (running ? Date.now() - g.clock.turnStart : 0) };
+        });
+      },
+      quirk(id) {
+        useCupGame.getState().mutate((g) => {
+          g.quirks = [id];
+          g.hidden = undefined;
+          g.revealed = [];
+          g.lastPulse = {};
+          g.qstate = {};
+        });
+      },
+      async fen(fen) {
+        await get().pregame({ start: { fen, sans: [], name: 'Dev position' } });
       },
     },
   };

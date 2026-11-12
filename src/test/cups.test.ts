@@ -180,7 +180,7 @@ describe('cups: boons and charms', () => {
     expect(gameStartMods([], 'w')).toEqual({ extraMs: {}, extraInc: {}, freeMoves: 0 });
   });
   it('Second Chance replays a knockout once, colours swapped; Long Night weakens the finalist', () => {
-    let c: ReturnType<typeof newCup> = { ...newCup('gold', 3, 0), boons: ['secondChance'] };
+    let c: ReturnType<typeof newCup> = { ...newCup('gold', 3, 0), boons: ['secondChance'], nextStart: { fen: 'x', sans: ['e4'], name: 'Battlefield' } };
     const rec = { opponentId: yourOpponent(c)!, elo: 800, color: 'w' as const, result: 'loss' as const, reason: 'time', moves: 30 };
     expect(secondChanceApplies(c, 'loss', 'w')).toBe(true);
     expect(secondChanceApplies(c, 'draw', 'b')).toBe(false);
@@ -188,6 +188,7 @@ describe('cups: boons and charms', () => {
     expect(currentRound(c)).toBe(0);
     expect(yourColor(c)).toBe('b');
     expect(c.yours[0].replayed).toBe(true);
+    expect(c.nextStart).toBeUndefined();
     expect(secondChanceApplies(c, 'loss', 'b')).toBe(false);
     let d = newCup('gold', 3, 0);
     d = applyResult(d, { ...rec, result: 'win' });

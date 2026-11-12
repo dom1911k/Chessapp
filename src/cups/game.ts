@@ -70,6 +70,10 @@ export interface CupGameState {
   boons: string[];
   /** Rattled: opponent moves left with a looser temperature. */
   rattled: number;
+  /** The ply of the capture that set off Rattled (a Rewind past it cancels it). */
+  rattledPly?: number;
+  /** Quirk state before your last move changed it (a Rewind past that move restores it). */
+  qUndo?: { ply: number; qstate: Record<string, number> };
   secondWindUsed?: boolean;
   /** Threat Bell is armed for your next move. */
   armed?: 'threatBell';
@@ -613,13 +617,19 @@ export const useCupGame = create<Store>((set, get) => {
           const q = quirkById(id);
           const change = q?.afterUserMove?.(quirkCtx(ng, r.fen, { botLeftMs: clockLeft(ng, otherColor(g.userColor)) }), lost);
           if (change) {
-            update((gg) => void (gg.qstate = { ...gg.qstate, ...change }));
+            update((gg) => {
+              gg.qUndo = { ply: gg.plies.length - 1, qstate: gg.qstate };
+              gg.qstate = { ...gg.qstate, ...change };
+            });
             reveal(id, q!.act);
           }
         }
       // Rattled: you just came out ahead in material.
       if (g.boons.includes('rattled') && r.move.captured && balance(r.fen, g.userColor) > before) {
-        update((gg) => void (gg.rattled = TUNING.boons.rattledMoves));
+        update((gg) => {
+          gg.rattled = TUNING.boons.rattledMoves;
+          gg.rattledPly = gg.plies.length - 1;
+        });
         get().note({ kind: 'boon', id: 'rattled', text: 'Rattled: they lost material and look shaken.' });
       }
       void reviewUserMove(get().game!.plies.length - 1);
@@ -668,6 +678,15 @@ export const useCupGame = create<Store>((set, get) => {
         gg.clocks = gg.clocks.slice(0, lastUser);
         gg.clock = { ...gg.clock, turnStart: Date.now() };
         gg.rewinds++;
+        // A capture you took back no longer rattles them.
+        if (gg.rattledPly !== undefined && gg.rattledPly >= lastUser) {
+          gg.rattled = 0;
+          gg.rattledPly = undefined;
+        }
+        if (gg.qUndo && gg.qUndo.ply >= lastUser) {
+          gg.qstate = gg.qUndo.qstate;
+          gg.qUndo = undefined;
+        }
       });
       set({ phase: 'userTurn', warning: null, cands: null });
       get().note({ kind: 'charm', id: 'rewind', text: `Rewind: took back ${g.plies[lastUser].san}.` });

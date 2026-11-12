@@ -102,7 +102,8 @@ export const secondChanceApplies = (c: CupState, result: 'win' | 'loss' | 'draw'
 
 /** Second Chance: the lost game is kept for the record; the round is replayed with colours swapped. */
 export function applySecondChance(c: CupState, rec: Omit<RoundRecord, 'round' | 'advanced'>): CupState {
-  return { ...c, secondChanceUsed: true, nextColor: rec.color === 'w' ? 'b' : 'w', yours: [...c.yours, { ...rec, round: currentRound(c), advanced: false, replayed: true }] };
+  // A new game: a Battlefield start chosen for the lost game does not carry over.
+  return { ...c, secondChanceUsed: true, nextColor: rec.color === 'w' ? 'b' : 'w', nextStart: undefined, yours: [...c.yours, { ...rec, round: currentRound(c), advanced: false, replayed: true }] };
 }
 
 /** Your games that counted (not the ones Second Chance replayed). */

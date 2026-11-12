@@ -98,7 +98,7 @@ function OpponentCard({ g, onPlay }: { g: CupGameState; onPlay: () => void }) {
       <div className="run-panel mt-4 w-full max-w-xs px-3 py-2 text-left">
         <div className="run-sans text-sm">You play <b>{g.userColor === 'w' ? 'White' : 'Black'}</b> · {g.timeControl.split('+')[0] === '600' ? '10 minutes' : g.timeControl}</div>
         <div className="run-sans mt-0.5 text-xs text-[var(--ink-dim)]">{g.userColor === 'b' || drawOdds ? 'A draw sends you through.' : 'With White you need a win; a draw sends them through.'}</div>
-        {g.prelude && <div className="run-sans mt-0.5 text-xs text-[var(--gold-2)]">Starts after {g.prelude.length} half-moves ({g.prelude.slice(0, 6).join(' ')}{g.prelude.length > 6 ? ' …' : ''}).</div>}
+        {!!g.prelude?.length && <div className="run-sans mt-0.5 text-xs text-[var(--gold-2)]">Starts after {g.prelude.length} half-moves ({g.prelude.slice(0, 6).join(' ')}{g.prelude.length > 6 ? ' …' : ''}).</div>}
         {cup.note && <div className="run-sans mt-0.5 text-xs text-[var(--gold-2)]">{cup.note}</div>}
         <div className="run-sans mt-0.5 text-xs text-[var(--ink-dim)]">Match conditions: no take-backs, hints or coach.</div>
       </div>
