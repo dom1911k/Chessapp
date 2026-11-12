@@ -1,6 +1,6 @@
-// Run mode's own sounds (Web Audio, no files) + haptics + ambient music. Uses the app's synth
-// voices read-only, on a separate audio context; respects the app's sound on/off and volume,
-// times Run mode's own music/sound levels.
+// The Cups tab's own sounds (Web Audio, no files) + haptics + music. Uses the app's synth voices
+// read-only, on a separate audio context; respects the app's sound on/off and volume, times the
+// tab's own music/sound levels.
 import { marimba, tockWith } from '../lib/sound';
 import { useSettings } from '../lib/settings';
 import { useRunSettings } from './settings';
@@ -440,10 +440,10 @@ export function moveSound(san: string): RunSound {
   return 'move';
 }
 
-// ---- Music director: ambient on the map, a battle theme in rooms --------------------------
+// ---- Music director: an ambient drone between games, a battle theme during them -----------
 let battle: Player | null = null;
 
-/** What should play: 'map' = the ambient drone; a theme = that battle theme; null = silence. */
+/** What should play: 'map' = the ambient drone (hub, shop); a theme = that battle theme; null = silence. */
 export function runMusic(want: 'map' | Theme | null) {
   try {
     const on = want !== null && useSettings.getState().sound && useRunSettings.getState().music > 0;

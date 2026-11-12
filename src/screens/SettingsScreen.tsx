@@ -6,7 +6,7 @@ import { BackupCard } from '../components/BackupCard';
 import { ChessComCard } from '../components/ChessCom';
 import { COACH_LEVELS } from '../lib/coach/level';
 import { ResetCard } from '../components/ResetCard';
-import { useRunFlag } from '../run/flag';
+import { useRunFlag } from '../cups/flag';
 import { UpdateCard } from '../components/UpdatePanel';
 import { FeedbackCard } from '../components/FeedbackCard';
 import { applyReminder, remindersSupported } from '../lib/reminders';
@@ -150,8 +150,8 @@ export function SettingsScreen() {
         <ResetCard />
         <FeedbackCard />
         <div className="card">
-          <Toggle checked={runMode.enabled} onChange={runMode.set} label="Experimental: Run mode" />
-          <p className="mt-1 text-xs text-stone-500">A roguelike demo in its own tab. It never changes your rating, XP or reviews.</p>
+          <Toggle checked={runMode.enabled} onChange={runMode.set} label="Show the Cups tab" />
+          <p className="mt-1 text-xs text-stone-500">Knockout tournaments of real games against the bots, with boons, charms and Laurels to collect.</p>
         </div>
         <p className="px-2 text-xs text-stone-500">
           Chess Coach runs fully offline (the optional chess.com import is the only thing that uses the internet). Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (GPLv3), running Leela Chess Zero networks. Puzzles: Lichess puzzle database (CC0). Standard piece sounds: recordings from Lichess (AGPLv3+). Portraits and avatars: the Avataaars illustration set by Pablo Stanley, assembled with DiceBear.

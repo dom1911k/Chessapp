@@ -1,5 +1,5 @@
-// "Experimental: Run mode" toggle. Kept in localStorage (not in the app's settings) so the
-// experiment stays self-contained and easy to delete.
+// Show or hide the Cups tab (Settings). Kept in localStorage under the old Run mode key, so the
+// choice carries over.
 import { create } from 'zustand';
 
 const KEY = 'chesscoach.runMode';

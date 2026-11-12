@@ -3,7 +3,7 @@ import { needsOnboarding } from './lib/onboarding';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { useEffect, useRef, useState } from 'react';
-import { GraduationCap, House, Menu, Puzzle, Sparkles, type LucideIcon } from 'lucide-react';
+import { GraduationCap, House, Menu, Puzzle, Trophy, type LucideIcon } from 'lucide-react';
 import { requestPersistentStorage } from './lib/db';
 import { handleBack, useNav, type Screen, type Tab } from './lib/nav';
 import { useSettings } from './lib/settings';
@@ -47,8 +47,8 @@ import { CelebrationLayer } from './components/Celebrate';
 import { autoCheck, type UpdateInfo } from './lib/update';
 import { calibrate } from './lib/engine/speed';
 import { applyReminder } from './lib/reminders';
-import { RunScreen } from './run/screens/RunScreen';
-import { useRunFlag } from './run/flag';
+import { CupsTab } from './cups/screens/CupsTab';
+import { useRunFlag } from './cups/flag';
 import { startImports } from './lib/chesscom/store';
 import { preloadSounds } from './lib/sound';
 
@@ -57,8 +57,8 @@ const TABS: { tab: Tab; label: string; icon: LucideIcon }[] = [
   { tab: 'puzzles', label: 'Puzzles', icon: Puzzle },
   { tab: 'learn', label: 'Learn', icon: GraduationCap },
   { tab: 'more', label: 'More', icon: Menu },
-  // Experimental Run mode (src/run), hidden by its toggle in Settings.
-  { tab: 'run', label: 'Run', icon: Sparkles },
+  // Cups (src/cups): knockout tournaments of real games; can be hidden in Settings.
+  { tab: 'run', label: 'Cups', icon: Trophy },
 ];
 
 function TabScreen({ tab }: { tab: Tab }) {
@@ -72,7 +72,7 @@ function TabScreen({ tab }: { tab: Tab }) {
     case 'more':
       return <MoreScreen />;
     case 'run':
-      return <RunScreen />;
+      return <CupsTab />;
   }
 }
 
