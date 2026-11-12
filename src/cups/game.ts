@@ -20,7 +20,8 @@ import { finishGame } from '../lib/store/finish';
 import { db } from '../lib/db';
 import type { PlyRecord, SavedGame } from '../lib/store/types';
 import { detectOpening } from '../lib/openings';
-import { botMods } from './mods';
+import { botMods, quirkCtx, quirkOpening, activeQuirks } from './mods';
+import { quirkById } from './quirks';
 import { material } from './material';
 import { preMoveCheck } from '../lib/coach/precheck';
 import { TUNING } from './tuning';
@@ -71,6 +72,15 @@ export interface CupGameState {
   secondWindUsed?: boolean;
   /** Threat Bell is armed for your next move. */
   armed?: 'threatBell';
+  /** The opponent's visible quirk(s) and the finalist's hidden one. */
+  quirks: string[];
+  hidden?: string;
+  /** Quirks you have seen act (a hidden quirk is revealed on its first act). */
+  revealed: string[];
+  /** Per-quirk counters (Tilter's moves left, one-time notices). */
+  qstate: Record<string, number>;
+  /** Ply each quirk last pulsed (so icons don't flash every move). */
+  lastPulse: Record<string, number>;
   result?: { result: GameResult; reason: string };
   /** The end screen's data, once the game is recorded. */
   over?: GameOver;
@@ -108,6 +118,10 @@ export interface StartParams {
   extraInc?: { w?: number; b?: number };
   freeMoves?: number;
   boons?: string[];
+  quirks?: string[];
+  hidden?: string;
+  /** Scout Report: the hidden quirk is known before the game. */
+  scouted?: boolean;
 }
 
 const KEY = 'cupGame';
@@ -157,6 +171,11 @@ export function newCupGame(p: StartParams, now = Date.now()): CupGameState {
     rewinds: 0,
     boons: p.boons ?? [],
     rattled: 0,
+    quirks: p.quirks ?? [],
+    hidden: p.hidden,
+    revealed: p.scouted && p.hidden ? [p.hidden] : [],
+    qstate: {},
+    lastPulse: {},
   };
 }
 
@@ -361,22 +380,27 @@ export const useCupGame = create<Store>((set, get) => {
     const my = token;
     const g = get().game!;
     const fen = fenOf(g);
+    const turn = turnOf(fen);
     set({ phase: 'botThinking' });
     try {
-      const mods = botMods(g);
-      const sans = [...(g.prelude ?? []), ...g.plies.map((p) => p.san)];
-      const fromStart = g.startFen === START_FEN || !!g.prelude;
-      const planned = fromStart ? (mods.openingMove?.(sans, fen) ?? null) : null;
-      const book = planned ?? (g.startFen === START_FEN ? bookMove(g.opponentId, sans) : null);
+      const baseCtx = quirkCtx(g, fen, { botLeftMs: clockLeft(g, turn) });
+      // Openings: the quirks' plans first (gambits, traps, early queen), then the character's own book.
+      const planned = baseCtx.fromStart ? quirkOpening(g, baseCtx, Math.random) : null;
+      const sans = baseCtx.sans;
+      const book = planned?.uci ?? (g.startFen === START_FEN ? bookMove(g.opponentId, sans) : null);
       let uci = book;
       let sensible = book ? 1 : 3;
+      let mods = botMods(g, baseCtx);
+      let ctx = baseCtx;
       if (!uci) {
         try {
           const fens = [g.startFen, ...g.plies.map((p) => p.fenAfter)];
           const [logits, a] = await Promise.all([maiaLogits(fens, g.elo), analyze(fen, 8, Math.max(analysisLimits().depth, botParams(g.elo).depth)).catch(() => null)]);
-          const turn = turnOf(fen);
           const candidates = a ? new Map(a.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], scoreToCp(povScore(l.score, turn))])) : undefined;
-          const weighted = mods.reweight ? new Map([...logits].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, mods.reweight!(m, fen)))])) : logits;
+          // Now the opponent knows how it stands (Comeback Kid, Endgame Grinder need that).
+          ctx = { ...baseCtx, botEval: candidates?.size ? Math.max(...candidates.values()) : undefined };
+          mods = botMods(g, ctx);
+          const weighted = new Map([...logits].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, mods.reweight?.(m) ?? 1))]));
           const temperature = Math.max(0.2, humanParams(g.elo).temperature + mods.tempDelta);
           uci = chooseHumanMove(weighted, g.elo, candidates, Math.random, { params: { temperature } });
           sensible = sensibleMoves(logits);
@@ -391,7 +415,6 @@ export const useCupGame = create<Store>((set, get) => {
         uci = chooseBotMove(fen, a, g.elo, Math.random);
       }
       const gc = get().game!;
-      const turn = turnOf(fen);
       const target =
         humanThinkMs({
           moveNo: Math.floor(gc.plies.length / 2) + 1,
@@ -409,14 +432,46 @@ export const useCupGame = create<Store>((set, get) => {
         gg.plies.push({ uci, san: r.move.san, color: r.move.color as Color, fenBefore: fen, fenAfter: r.fen, isUser: false });
         press(gg, r.move.color as Color);
         if (gg.rattled > 0) gg.rattled--;
+        if ((gg.qstate.tilt ?? 0) > 0) gg.qstate = { ...gg.qstate, tilt: gg.qstate.tilt - 1 };
       });
       sfx(moveSound(r.move.san), 0, true);
+      noticeQuirks(ctx, r.move, !!planned && planned.uci === uci);
       if (await checkOver()) return;
       set({ phase: 'userTurn' });
     } catch (e) {
       if (!(e instanceof CancelledError)) console.error(e);
     }
   };
+
+  /** Quirks that visibly acted with the opponent's move: the icon pulses, a hidden quirk is revealed. */
+  const noticeQuirks = (ctx: ReturnType<typeof quirkCtx>, m: import('chess.js').Move, fromOpening: boolean) => {
+    const g = get().game!;
+    for (const id of activeQuirks(g)) {
+      const q = quirkById(id);
+      if (!q?.acted?.(ctx, m, fromOpening)) continue;
+      reveal(id, q.act);
+    }
+  };
+
+  /** A quirk acts: note it (first time per game), reveal it if hidden, pulse its icon (throttled). */
+  const reveal = (id: string, text: string) => {
+    const g = get().game!;
+    const ply = g.plies.length;
+    const first = !g.events.some((e) => e.kind === 'quirk' && e.id === id);
+    const wasHidden = id === g.hidden && !g.revealed.includes(id);
+    const last = g.lastPulse[id] ?? -99;
+    if (!first && !wasHidden && ply - last < TUNING.quirks.pulseEvery) return;
+    update((gg) => {
+      gg.lastPulse = { ...gg.lastPulse, [id]: ply };
+      if (!gg.revealed.includes(id)) gg.revealed = [...gg.revealed, id];
+      if (id === 'timeTrouble' && ctxLow(gg)) gg.qstate = { ...gg.qstate, ttLow: 1 };
+      if (id === 'comebackKid') gg.qstate = { ...gg.qstate, ckOn: 1 };
+      if (first || wasHidden) gg.events = [...gg.events, { ply, kind: 'quirk', id, text: wasHidden ? `Hidden quirk revealed — ${text}` : text }];
+    });
+    set({ pulse: { id, kind: 'quirk', at: Date.now() } });
+    if (wasHidden) sfx('slam');
+  };
+  const ctxLow = (gg: CupGameState) => clockLeft(gg, otherColor(gg.userColor)) < TUNING.quirks.timeTrouble.lowMs;
 
   return {
     game: null,
@@ -500,6 +555,17 @@ export const useCupGame = create<Store>((set, get) => {
         if (ng.freeMoves === 0) get().note({ kind: 'boon', id: 'openingPrep', text: `Opening Prep: ${TUNING.boons.openingPrepMoves} moves played on the house.` });
         else set({ pulse: { id: 'openingPrep', kind: 'boon', at: Date.now() } });
       } else if (g.boons.includes('steadyHand')) set({ pulse: { id: 'steadyHand', kind: 'boon', at: Date.now() } });
+      // Quirks that react to your move (Tilter: it just lost material).
+      const lost = balance(r.fen, g.userColor) - before;
+      if (lost > 0)
+        for (const id of activeQuirks(g)) {
+          const q = quirkById(id);
+          const change = q?.afterUserMove?.(quirkCtx(ng, r.fen, { botLeftMs: clockLeft(ng, otherColor(g.userColor)) }), lost);
+          if (change) {
+            update((gg) => void (gg.qstate = { ...gg.qstate, ...change }));
+            reveal(id, q!.act);
+          }
+        }
       // Rattled: you just came out ahead in material.
       if (g.boons.includes('rattled') && r.move.captured && balance(r.fen, g.userColor) > before) {
         update((gg) => void (gg.rattled = TUNING.boons.rattledMoves));

@@ -1,7 +1,9 @@
 // Between games: the bracket, your next match, and the cup's end.
 import { opponentById } from '../../lib/people';
 import { useMyName } from '../../components/UserAvatar';
-import { champion, opponentRating, roundName, yourColor, yourOpponent, type CupState } from '../cup';
+import { champion, currentRound, opponentRating, roundName, yourColor, yourOpponent, type CupState } from '../cup';
+import { quirkById } from '../quirks';
+import { SPIRIT } from '../pixel/pixelize';
 import { YOU, cupXp, tierInfo } from '../ladder';
 import { useCup } from '../store';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
@@ -61,6 +63,7 @@ function CupHubMain({ c }: { c: CupState }) {
               <div className="min-w-0 flex-1">
                 <div className="run-title truncate text-xl font-black">{o.name}</div>
                 <div className="run-sans text-xs text-[var(--ink-dim)]">plays at {opponentRating(c)} · you have {yourColor(c) === 'w' ? 'White' : 'Black'}</div>
+                {c.quirks[o.id] && <div className="run-sans mt-0.5 flex items-center gap-1 text-xs text-[#9fd8ff]"><Sprite name={quirkById(c.quirks[o.id])!.glyph} size={14} px={10} pal={SPIRIT} /> {quirkById(c.quirks[o.id])!.name}{currentRound(c) === 2 ? ' + a hidden quirk' : ''}</div>}
               </div>
             </div>
             <button className="run-btn mt-3 w-full text-lg" onClick={() => (sfx('card'), s.playNext())}>Play the match</button>

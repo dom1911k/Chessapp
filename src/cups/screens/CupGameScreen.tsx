@@ -27,6 +27,7 @@ import { battlefieldOptions, type StartPos } from '../battlefield';
 import { useCupGame as useGameStore } from '../game';
 import { buzz } from '../sfx';
 import { TUNING } from '../tuning';
+import { QuirkIcons, QuirkList } from '../ui/QuirkBadges';
 
 function useNow(ms = 200) {
   const [now, setNow] = useState(Date.now());
@@ -97,6 +98,12 @@ function OpponentCard({ g, onPlay }: { g: CupGameState; onPlay: () => void }) {
         {cup.note && <div className="run-sans mt-0.5 text-xs text-[var(--gold-2)]">{cup.note}</div>}
         <div className="run-sans mt-0.5 text-xs text-[var(--ink-dim)]">Match conditions: no take-backs, hints or coach.</div>
       </div>
+      {(g.quirks.length > 0 || g.hidden) && (
+        <div className="run-panel mt-2 w-full max-w-xs px-3 py-2 text-left">
+          <div className="run-label mb-1">Quirks</div>
+          <QuirkList quirks={g.quirks} hidden={g.hidden} scouted={!!scout} />
+        </div>
+      )}
       {scout && (
         <div className="run-panel mt-2 w-full max-w-xs px-3 py-2 text-left">
           <div className="run-label">Scout Report</div>
@@ -257,11 +264,11 @@ export function CupGameScreen() {
   const myMs = clockLeft(g, me, now);
   const oppMs = clockLeft(g, opp, now);
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       <Bar
         face={<PixelPortrait id={g.opponentId} size={40} px={32} />}
         name={o?.name ?? 'Opponent'}
-        sub={<span className="font-semibold text-[var(--ink-dim)]">({g.elo})</span>}
+        sub={<><span className="font-semibold text-[var(--ink-dim)]">({g.elo})</span> <QuirkIcons /></>}
         clock={<Clock ms={oppMs} running={toMove === opp && !g.result} low={oppMs < 30_000} />}
         captured={<PixelCaptured pieces={mat.lost[me]} color={me} lead={opp === 'w' ? mat.diff : -mat.diff} />}
       />

@@ -27,7 +27,7 @@ describe('cups: reviews bridge', () => {
 });
 
 import { OPPONENTS } from '../lib/people';
-import { TIERS, YOU, advances, cupXp, defaultColor, pickField, roundRating, seedBracket, simulateRound, tierInfo, tierOpen, winChance } from '../cups/ladder';
+import { TIERS, YOU, advances, cupXp, defaultColor, pickField, rng, roundRating, seedBracket, simulateRound, tierInfo, tierOpen, winChance } from '../cups/ladder';
 import { applyResult, champion, currentRound, cupMoves, newCup, opponentRating, yourColor, yourOpponent } from '../cups/cup';
 import { newCupGame, pressCupClock, toSavedGame } from '../cups/game';
 import { material } from '../cups/material';
@@ -201,5 +201,80 @@ describe('cups: boons and charms', () => {
     }
     const o = battlefieldOptions(Math.random);
     expect(new Set(o.map((x) => x.fen)).size).toBe(3);
+  });
+});
+
+import { QUIRKS, QUIRK_IDS, assignQuirks, hiddenQuirk, lineMove, quirkById, quirkEffects, type QuirkCtx } from '../cups/quirks';
+import { botMods, quirkOpening } from '../cups/mods';
+
+describe('cups: opponent quirks', () => {
+  const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  const after = (sans: string) => { const c = new Chess(); for (const m of sans.split(' ').filter(Boolean)) c.move(m); return c.fen(); };
+  const ctx = (o: Partial<QuirkCtx> = {}): QuirkCtx => ({ fen: START, sans: [], moveNo: 1, bot: 'w', me: 'b', botLeftMs: 600_000, state: {}, fromStart: true, ...o });
+  const move = (fen: string, san: string) => new Chess(fen).move(san);
+  it('has the fourteen quirks, each with an icon and one plain sentence', () => {
+    expect(QUIRK_IDS.sort()).toEqual(['comebackKid', 'copycat', 'earlyQueen', 'endgameGrinder', 'gambiteer', 'pawnGrabber', 'pawnStormer', 'slowStarter', 'speedster', 'tilter', 'timeTrouble', 'trapper', 'turtle', 'uncastled'].sort());
+    for (const q of QUIRKS) {
+      expect(q.text.length).toBeGreaterThan(15);
+      expect(q.glyph).toBeTruthy();
+      expect(q.act.startsWith(q.name)).toBe(true);
+    }
+  });
+  it('never repeats a quirk in a cup and avoids recent ones', () => {
+    const field = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+    const recent = ['speedster', 'turtle', 'copycat', 'tilter', 'gambiteer', 'trapper'];
+    const q = assignQuirks(field, recent, rng(5));
+    expect(new Set(Object.values(q)).size).toBe(7);
+    expect(Object.values(q).some((x) => recent.includes(x))).toBe(false);
+    const h = hiddenQuirk(Object.values(q), recent, rng(2));
+    expect(Object.values(q)).not.toContain(h);
+    expect(recent).not.toContain(h);
+  });
+  it('time quirks change think time and temperature only', () => {
+    expect(quirkEffects(['speedster'], ctx()).think).toBe(0.45);
+    expect(quirkEffects(['speedster'], ctx()).temp).toBeCloseTo(0.15);
+    expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 5 })).think).toBe(2.6);
+    expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 20 })).think).toBe(1);
+    expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 30, botLeftMs: 40_000 })).temp).toBeCloseTo(0.6);
+    expect(quirkEffects(['slowStarter'], ctx({ moveNo: 3 })).temp).toBeCloseTo(0.6);
+    expect(quirkEffects(['slowStarter'], ctx({ moveNo: 13 })).temp).toBe(0);
+    expect(quirkEffects(['comebackKid'], ctx({ botEval: -200 })).temp).toBeCloseTo(-0.6);
+    expect(quirkEffects(['comebackKid'], ctx({ botEval: 50 })).temp).toBe(0);
+    expect(quirkEffects(['tilter'], ctx({ state: { tilt: 3 } })).temp).toBeCloseTo(0.7);
+    expect(quirkById('tilter')!.afterUserMove!(ctx(), 3)).toEqual({ tilt: 6 });
+  });
+  it('opening quirks pick real book lines: gambits, traps, an early queen', () => {
+    const r = () => 0;
+    expect(quirkById('gambiteer')!.opening!(ctx({ fen: after('e4 e5'), sans: ['e4', 'e5'], moveNo: 2 }), r)).toBe('f2f4');
+    expect(quirkById('gambiteer')!.opening!(ctx({ fen: after('d4'), sans: ['d4'], bot: 'b', me: 'w' }), r)).toBe('e7e5');
+    expect(quirkById('earlyQueen')!.opening!(ctx({ fen: after('e4 e5'), sans: ['e4', 'e5'], moveNo: 2 }), r)).toBe('d1h5');
+    const trap = quirkById('trapper')!.opening!(ctx({ fen: after('e4 e5'), sans: ['e4', 'e5'], moveNo: 2 }), r);
+    expect(trap).toBeTruthy();
+    expect(quirkById('gambiteer')!.opening!(ctx({ fromStart: false, sans: ['e4', 'e5'], fen: after('e4 e5') }), r)).toBeNull();
+    expect(lineMove([['e4', 'e5', 'Ke2']], ['e4', 'e5'], after('e4 e5'), r)).toBe('e1e2');
+    expect(lineMove([['e4', 'c5']], ['e4', 'e5'], after('e4 e5'), r)).toBeNull();
+  });
+  it('style quirks re-weight Maia’s moves, never adding new ones', () => {
+    const f1 = after('e4 d5');
+    expect(quirkEffects(['pawnGrabber'], ctx({ fen: f1, moveNo: 2 })).weight(move(f1, 'exd5'))).toBe(4);
+    expect(quirkEffects(['earlyQueen'], ctx({ fen: after('e4 e5'), moveNo: 2 })).weight(move(after('e4 e5'), 'Qh5'))).toBe(5);
+    const fc = after('e4 e5 Nf3 Nc6 Bc4 Bc5');
+    expect(quirkEffects(['uncastled'], ctx({ fen: fc, moveNo: 4 })).weight(move(fc, 'O-O'))).toBeCloseTo(0.03);
+    const fm = after('e4');
+    expect(quirkEffects(['copycat'], ctx({ fen: fm, bot: 'b', me: 'w', lastUserUci: 'e2e4' })).weight(move(fm, 'e5'))).toBe(25);
+    const ft = after('e4 e5 Nf3 Nc6 Bb5 a6');
+    expect(quirkEffects(['turtle'], ctx({ fen: ft, moveNo: 4 })).weight(move(ft, 'Bxc6'))).toBeCloseTo(2.2);
+    expect(quirkEffects(['endgameGrinder'], ctx({ fen: ft, moveNo: 4, botEval: 20 })).weight(move(ft, 'Bxc6'))).toBe(2.5);
+    for (const q of QUIRKS) {
+      const e = quirkEffects([q.id], ctx({ fen: ft, moveNo: 4, botEval: 0, lastUserUci: 'a7a6' }));
+      for (const m of new Chess(ft).moves({ verbose: true })) expect(e.weight(m)).toBeGreaterThan(0);
+    }
+  });
+  it('combines quirks with Rattled into the opponent’s settings', () => {
+    const g = { ...newCupGame({ cupId: 'c', tier: 'gold', round: 2, opponentId: 'tom', elo: 900, userColor: 'b', timeControl: '600+0', boons: ['rattled'], quirks: ['speedster'], hidden: 'slowStarter' }, 0), rattled: 2 };
+    const m = botMods(g, ctx());
+    expect(m.thinkFactor).toBe(0.45);
+    expect(m.tempDelta).toBeCloseTo(0.15 + 0.6 + 0.5);
+    expect(quirkOpening({ ...g, quirks: ['gambiteer'], hidden: undefined }, ctx({ fen: after('e4 e5'), sans: ['e4', 'e5'] }), () => 0)).toEqual({ uci: 'f2f4', quirk: 'gambiteer' });
   });
 });

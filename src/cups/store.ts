@@ -10,6 +10,7 @@ import { NOTICE_KEY } from './legacy';
 import { TUNING } from './tuning';
 import { boonOffer, charmPrice, gameStartMods, goldFor, shopOffer, type BoonId, type CharmId } from './boons';
 import { useCupsMeta } from './meta';
+import { hiddenQuirk } from './quirks';
 
 const KEY = 'cupState';
 
@@ -108,7 +109,7 @@ export const useCup = create<CupStore>((set, get) => {
     async load() {
       if (get().loaded) return;
       const raw = await kvGet<(CupState & { v?: number }) | null>(KEY, null);
-      let cup: CupState | null = raw && raw.v === 2 ? { ...raw, charmsUsed: raw.charmsUsed ?? 0, boons: raw.boons ?? [], charms: raw.charms ?? [], gold: raw.gold ?? 0 } : null;
+      let cup: CupState | null = raw && raw.v === 2 ? { ...raw, charmsUsed: raw.charmsUsed ?? 0, boons: raw.boons ?? [], charms: raw.charms ?? [], gold: raw.gold ?? 0, quirks: raw.quirks ?? {} } : null;
       // A cup from the old format (played from the Play tab) can't continue here.
       if (raw && raw.v !== 2) {
         await save(null);
@@ -122,13 +123,21 @@ export const useCup = create<CupStore>((set, get) => {
     },
 
     async enter(tier) {
-      await put(newCup(tier, Math.floor(Math.random() * 1e9)));
+      await put(newCup(tier, Math.floor(Math.random() * 1e9), Date.now(), useCupsMeta.getState().recentQuirks ?? []));
     },
 
     async playNext() {
-      const c = get().cup;
+      let c = get().cup;
       const opp = c && yourOpponent(c);
       if (!c || !opp) return;
+      // The finalist gets a hidden second quirk.
+      if (currentRound(c) === 2 && !c.hidden) {
+        c = { ...c, hidden: hiddenQuirk(Object.values(c.quirks), useCupsMeta.getState().recentQuirks ?? [], Math.random) };
+        await put(c);
+      }
+      const quirks = c.quirks[opp] ? [c.quirks[opp]] : [];
+      const hidden = currentRound(c) === 2 ? c.hidden : undefined;
+      void useCupsMeta.getState().faced([...quirks, ...(hidden ? [hidden] : [])]);
       const color = yourColor(c);
       const mods = gameStartMods(c.boons, color);
       let start = c.nextStart ?? null;
@@ -149,6 +158,9 @@ export const useCup = create<CupStore>((set, get) => {
         startFen: start?.fen,
         prelude: start?.sans,
         boons: c.boons,
+        quirks,
+        hidden,
+        scouted: c.boons.includes('scoutReport'),
         ...mods,
       });
     },

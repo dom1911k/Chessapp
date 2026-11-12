@@ -76,6 +76,30 @@ export const TUNING = {
     /** Battlefield positions come from the opening book, this many half-moves in. */
     battlefieldPlies: [4, 8] as [number, number],
   },
+  /**
+   * Opponent quirks: only Maia/engine behaviour (opening choice, temperature, think time,
+   * re-weighting Maia's move probabilities). Temperatures are added to the opponent's Maia
+   * temperature (about 2.6 at 400, 2.25 at 1200, 1.8 at 1400).
+   */
+  quirks: {
+    /** Quirks you faced most recently are avoided when picking a cup's quirks. */
+    recentMemory: 6,
+    /** A quirk's icon pulses at most once per this many plies. */
+    pulseEvery: 6,
+    speedster: { think: 0.45, temp: 0.15 },
+    timeTrouble: { openingMoves: 12, think: 2.6, lowMs: 60_000, lowTemp: 0.6 },
+    gambiteer: { offerMaxMove: 6 },
+    earlyQueen: { untilMove: 10, weight: 5 },
+    turtle: { tradeWeight: 2.2, checkWeight: 0.6, temp: -0.15 },
+    tilter: { moves: 6, temp: 0.7 },
+    comebackKid: { belowCp: -150, temp: -0.6 },
+    slowStarter: { moves: 12, temp: 0.6 },
+    endgameGrinder: { evenCp: 80, tradeWeight: 2.5, queenTradeWeight: 4, queensOffTemp: -0.4 },
+    pawnStormer: { fromMove: 6, weight: 3 },
+    pawnGrabber: { weight: 4 },
+    copycat: { untilMove: 8, weight: 25 },
+    uncastled: { untilMove: 25, castleWeight: 0.03, noticeAtMove: 12 },
+  },
   /** Old Run mode progress (Embers, materials, unlocks) becomes this many Laurels, once. */
   legacyLaurels: 3,
 };

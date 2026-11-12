@@ -1,6 +1,8 @@
 // One cup from start to finish (pure state transitions; the store saves them).
 import { ROUND_NAMES, YOU, advances, defaultColor, pickField, roundRating, seedBracket, simulateRound, type CupTier, type Place, type SimMatch } from './ladder';
 import { TUNING } from './tuning';
+import { assignQuirks } from './quirks';
+import { rng } from './ladder';
 import type { BoonId, CharmId, GoldPart } from './boons';
 import type { CupEvent } from './game';
 
@@ -64,11 +66,15 @@ export interface CupState {
   secondChanceUsed?: boolean;
   /** Charms used in this cup (the cabinet records wins without any). */
   charmsUsed: number;
+  /** Each character's visible quirk, and the finalist's hidden one (set when the final starts). */
+  quirks: Record<string, string>;
+  hidden?: string;
 }
 
-export function newCup(tier: CupTier, seed: number, now = Date.now()): CupState {
+export function newCup(tier: CupTier, seed: number, now = Date.now(), recentQuirks: string[] = []): CupState {
   const { field, ratings } = pickField(tier, seed);
-  return { v: 2, id: `${tier}-${now}`, tier, seed, startedAt: now, field, ratings, rounds: [seedBracket(field)], sims: [], yours: [], boons: [], charms: [], gold: TUNING.gold.start, charmsUsed: 0 };
+  const quirks = assignQuirks(field, recentQuirks, rng(seed + 7));
+  return { v: 2, id: `${tier}-${now}`, tier, seed, startedAt: now, field, ratings, rounds: [seedBracket(field)], sims: [], yours: [], boons: [], charms: [], gold: TUNING.gold.start, charmsUsed: 0, quirks };
 }
 
 export const currentRound = (c: CupState) => c.rounds.length - 1;
