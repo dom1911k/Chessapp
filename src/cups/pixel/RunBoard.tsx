@@ -8,6 +8,7 @@ import { isPromotion, type MoveInput } from '../../lib/chess/game';
 import type { CoachArrow, CoachHighlight } from '../../lib/coach/types';
 import { BOARD_THEMES, overlaySprite, pieceSprite, squareVariant, tileSprite, type BoardTheme, type OverlayKind } from './board';
 import { useRunSettings } from '../settings';
+import { useDragWatchdog } from '../../components/dragWatchdog';
 
 const TYPES = ['P', 'N', 'B', 'R', 'Q', 'K'] as const;
 const TONE: Record<string, string> = { good: 'rgba(94, 229, 154, 0.9)', bad: 'rgba(255, 90, 106, 0.9)', info: 'rgba(111, 211, 255, 0.9)' };
@@ -57,6 +58,7 @@ export function RunBoard({ fen, orientation, movable, onMove, arrows = [], highl
   const theme = useBoardTheme();
   const set = usePieceSet();
   const pieces = useMemo(() => piecesFor(theme, set), [theme, set]);
+  const watchdog = useDragWatchdog();
 
   const chess = useMemo(() => new Chess(fen), [fen]);
   useEffect(() => setSelected(null), [fen]);
@@ -121,6 +123,7 @@ export function RunBoard({ fen, orientation, movable, onMove, arrows = [], highl
         ))}
       <div style={{ boxShadow: 'inset 0 0 0 2px #1b0f22' }}>
         <Chessboard
+          key={watchdog.epoch}
           options={{
             id,
             position: fen,
@@ -137,8 +140,15 @@ export function RunBoard({ fen, orientation, movable, onMove, arrows = [], highl
             pieces,
             dragActivationDistance: 6,
             canDragPiece: ({ square }) => !mini && !!square && own(square),
-            onPieceDrag: ({ square }) => square && setSelected(square),
-            onPieceDrop: ({ sourceSquare, targetSquare }) => (!targetSquare || sourceSquare === targetSquare ? false : attempt(sourceSquare, targetSquare)),
+            onPieceDrag: ({ square }) => {
+              watchdog.started();
+              if (square) setSelected(square);
+            },
+            onPieceDragCancel: watchdog.finished,
+            onPieceDrop: ({ sourceSquare, targetSquare }) => {
+              watchdog.finished();
+              return !targetSquare || sourceSquare === targetSquare ? false : attempt(sourceSquare, targetSquare);
+            },
             onSquareClick: mini ? undefined : onSquareClick,
           }}
         />

@@ -1,3 +1,4 @@
+import { useDragWatchdog } from './dragWatchdog';
 import { Chess, type Square } from 'chess.js';
 import { Component, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Chessboard, defaultPieces, type PieceRenderObject } from 'react-chessboard';
@@ -129,6 +130,7 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   // Each board needs its own id: the library looks squares up by id across the whole page.
   const [boardId] = useState(() => `board${++boardCount}`);
   const [selected, setSelected] = useState<string | null>(null);
+  const watchdog = useDragWatchdog();
   const [promo, setPromo] = useState<{ from: string; to: string } | null>(null);
   const [pending, setPending] = useState<{ move: MoveInput; fen: string; label: string } | null>(null);
   const theme = useSettings((s) => BOARD_THEMES[s.boardTheme] ?? BOARD_THEMES.green);
@@ -365,6 +367,7 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   return (
     <div ref={boardEl} className="relative w-full touch-none select-none" {...drawHandlers}>
       <Chessboard
+        key={watchdog.epoch}
         options={{
           position: fen,
           boardOrientation: orientation,
@@ -381,6 +384,7 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
           dragActivationDistance: 6,
           canDragPiece: ({ square }) => !!square && ownPiece(square) && !draw.current?.active,
           onPieceDrag: ({ square }) => {
+            watchdog.started();
             // A real drag has started: it wins over a pending long-press (otherwise the drawing
             // would swallow the pointer and leave the drag stuck).
             if (draw.current && !draw.current.active) {
@@ -389,7 +393,9 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
             }
             if (square) setSelected(square);
           },
+          onPieceDragCancel: watchdog.finished,
           onPieceDrop: ({ sourceSquare, targetSquare }) => {
+            watchdog.finished();
             if (!targetSquare || sourceSquare === targetSquare) return false;
             return attempt(sourceSquare, targetSquare, true);
           },

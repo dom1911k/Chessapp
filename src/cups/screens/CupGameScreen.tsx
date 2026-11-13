@@ -1,6 +1,6 @@
 // A cup game in pixel style: the opponent card, the VS slam, then a real game under Match
 // conditions. The bottom bar holds Resign (and the charms, stage 3).
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { opponentById, pickLine } from '../../lib/people';
 import { avatarUrl } from '../../lib/avatars';
 import { fmtClock } from '../../lib/clock';
@@ -237,6 +237,38 @@ function CandidateCards() {
   );
 }
 
+/** The moves so far, numbered, newest highlighted; scrolls to the latest. Opening moves the game
+ *  started after (Home Prep, Battlefield) are shown dimmed. */
+function CupMoveList({ prelude, sans, startFen }: { prelude: string[]; sans: string[]; startFen: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [sans.length]);
+  const [, side, , , , full] = startFen.split(' ');
+  type Tok = { no?: string; san: string; dim: boolean; last: boolean };
+  const toks: Tok[] = [];
+  const push = (list: string[], firstNo: number, blackFirst: boolean, dim: boolean, lastIdx: number) =>
+    list.forEach((san, i) => {
+      const k = i + (blackFirst ? 1 : 0);
+      const no = firstNo + Math.floor(k / 2);
+      toks.push({ no: k % 2 === 0 ? `${no}.` : i === 0 ? `${no}…` : undefined, san, dim, last: i === lastIdx });
+    });
+  if (prelude.length) push(prelude, 1, false, true, -1);
+  push(sans, Number(full) || 1, side === 'b', false, sans.length - 1);
+  if (!toks.length) return null;
+  return (
+    <div ref={box} className="run-sans mx-3 mt-1.5 max-h-[8.5rem] overflow-y-auto rounded bg-black/25 px-2 py-1 text-[13px] leading-6" style={{ boxShadow: 'inset 0 0 0 1px rgba(242,199,92,.18)' }} aria-label="Moves">
+      {toks.map((t, i) => (
+        <span key={i} className="mr-1.5 inline-block whitespace-nowrap">
+          {t.no && <span className="mr-0.5 text-[var(--ink-dim)]">{t.no}</span>}
+          <span className={t.last ? 'rounded bg-[var(--gold)]/25 px-1 font-bold text-[var(--gold-2)]' : t.dim ? 'text-[var(--ink-dim)] opacity-70' : 'text-[var(--ink)]'}>{t.san}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /** The charms you hold, usable from the bar during the game. */
 function CharmButton({ id, onUse, disabled }: { id: CharmId; onUse: () => void; disabled: boolean }) {
   const info = CHARMS[id];
@@ -342,6 +374,7 @@ export function CupGameScreen() {
         </div>
       )}
       <CandidateCards />
+      <CupMoveList prelude={g.prelude ?? []} sans={g.plies.map((x) => x.san)} startFen={g.startFen} />
       <div className="mt-auto" />
       {cup && <BoonRail boons={cup.boons as BoonId[]} />}
       {!g.result && (
