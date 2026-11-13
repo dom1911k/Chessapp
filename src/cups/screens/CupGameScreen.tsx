@@ -18,6 +18,7 @@ import { PixelText } from '../ui/PixelText';
 import { ROUND_NAMES } from '../ladder';
 import { Sheet } from '../ui/Sheet';
 import { BoonRail } from '../ui/BoonRail';
+import { moveTokens } from '../moveList';
 import { PixelNum } from '../ui/bits';
 import { CHARMS, goldFor, type BoonId, type CharmId } from '../boons';
 import { advances } from '../ladder';
@@ -245,17 +246,7 @@ function CupMoveList({ prelude, sans, startFen }: { prelude: string[]; sans: str
     const el = box.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [sans.length]);
-  const [, side, , , , full] = startFen.split(' ');
-  type Tok = { no?: string; san: string; dim: boolean; last: boolean };
-  const toks: Tok[] = [];
-  const push = (list: string[], firstNo: number, blackFirst: boolean, dim: boolean, lastIdx: number) =>
-    list.forEach((san, i) => {
-      const k = i + (blackFirst ? 1 : 0);
-      const no = firstNo + Math.floor(k / 2);
-      toks.push({ no: k % 2 === 0 ? `${no}.` : i === 0 ? `${no}…` : undefined, san, dim, last: i === lastIdx });
-    });
-  if (prelude.length) push(prelude, 1, false, true, -1);
-  push(sans, Number(full) || 1, side === 'b', false, sans.length - 1);
+  const toks = moveTokens(prelude, sans, startFen);
   if (!toks.length) return null;
   return (
     <div ref={box} className="run-sans mx-3 mt-1.5 max-h-[8.5rem] overflow-y-auto rounded bg-black/25 px-2 py-1 text-[13px] leading-6" style={{ boxShadow: 'inset 0 0 0 1px rgba(242,199,92,.18)' }} aria-label="Moves">

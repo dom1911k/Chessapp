@@ -402,3 +402,22 @@ describe('cups: Laurels, the Laurel shop and the trophy cabinet', () => {
     expect(sponsorOffers('gold')).toEqual([]);
   });
 });
+
+import { moveTokens } from '../cups/moveList';
+describe('cups: move list', () => {
+  const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  it('numbers moves from the start and marks the newest', () => {
+    const t = moveTokens([], ['e4', 'e5', 'Nf3'], START);
+    expect(t.map((x) => `${x.no ?? ''}${x.san}`)).toEqual(['1.e4', 'e5', '2.Nf3']);
+    expect(t.map((x) => x.last)).toEqual([false, false, true]);
+  });
+  it('shows the opening the game started after dimmed, then continues the numbering', () => {
+    const t = moveTokens(['e4', 'c6'], ['d4'], 'rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2');
+    expect(t.map((x) => `${x.no ?? ''}${x.san}`)).toEqual(['1.e4', 'c6', '2.d4']);
+    expect(t.map((x) => x.dim)).toEqual([true, true, false]);
+  });
+  it('starts with "n…" when Black moves first', () => {
+    const t = moveTokens([], ['e5', 'Nf3'], 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1');
+    expect(t.map((x) => `${x.no ?? ''}${x.san}`)).toEqual(['1…e5', '2.Nf3']);
+  });
+});
