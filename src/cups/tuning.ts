@@ -51,32 +51,96 @@ export const TUNING = {
     /** Per great or brilliant move. */
     goldGreat: 2,
   },
-  /** Boons last the whole cup: a free pick before the quarter-final, then one after each won round (1 of `offer`). */
+  /**
+   * Boons last the whole cup: a free pick before the quarter-final, then one after each won round
+   * (1 of `offer`). Numbers in [I, II, III] lists are per upgrade level: II is the original
+   * strength, I a little weaker, III stronger (see `levels` for the Laurel cost).
+   */
   boons: {
     maxPerCup: 3,
     offer: 3,
     /** Chance a rare boon may appear in an offer (when unlocked). */
     rareChance: 0.35,
-    extraMinuteMs: 60_000,
-    steadyHandIncMs: 2_000,
-    openingPrepMoves: 8,
+    extraMinuteMs: [40_000, 60_000, 90_000],
+    steadyHandIncMs: [1_000, 2_000, 3_000],
+    openingPrepMoves: [5, 8, 12],
     secondWindBelowMs: 30_000,
-    secondWindAddMs: 30_000,
+    secondWindAddMs: [20_000, 30_000, 45_000],
     /** Rattled: after you win material, the opponent's Maia temperature rises by this for `rattledMoves` of its moves. */
-    rattledTemp: 0.5,
-    rattledMoves: 4,
+    rattledTemp: [0.35, 0.5, 0.6],
+    rattledMoves: [3, 4, 5],
     /** Long Night: the final opponent plays this many rating points weaker. */
-    longNightElo: 50,
+    longNightElo: [30, 50, 80],
+    /** Draw Odds works up to this round (0 quarter … 2 final); at III such a draw pays the win gold. */
+    drawOddsMaxRound: [1, 2, 2],
+    drawOddsWinGold: [false, false, true],
+    /** Second Chance can save a lost final from II; at III the replay gives you extra time. */
+    secondChanceFinal: [false, true, true],
+    secondChanceExtraMs: [0, 0, 60_000],
+    /** Home Prep works with Black from II; at III your next moves after the line are free. */
+    homePrepBlack: [false, true, true],
+    homePrepFreeMoves: [0, 0, 5],
+    /** Scout Report: I quirks only, II also favourite openings, III also a 4th card in boon picks. */
+    scoutOpenings: [false, true, true],
+    scoutOffer: [3, 3, 4],
   },
-  /** Charms: single use, bought with gold between rounds. */
+  /** Charms: single use, bought with gold between rounds. Lists are per upgrade level [I, II, III]. */
   charms: {
     slots: 2,
     shopOffer: 3,
-    prices: { rewind: 8, threatBell: 4, candidates: 5, colour: 3, battlefield: 4 } as Record<string, number>,
+    prices: { rewind: [10, 8, 6], threatBell: [4, 4, 4], candidates: [5, 5, 5], colour: [4, 3, 2], battlefield: [4, 4, 4] } as Record<string, number[]>,
     /** At most this many of a charm in your slots at once. */
     maxHeld: { rewind: 1 } as Record<string, number>,
     /** Battlefield positions come from the opening book, this many half-moves in. */
     battlefieldPlies: [4, 8] as [number, number],
+    battlefieldOptions: [2, 3, 4],
+    /** Threat Bell: the cheapest piece it guards (I: rook or queen only), and how many of your moves. */
+    threatBellMinValue: [5, 3, 3],
+    threatBellMoves: [1, 1, 2],
+    /** Candidate Cards: cards shown (one is the engine's best). Fewer is easier. */
+    candidateCards: [4, 3, 2],
+  },
+  /** Upgrades: every boon and charm starts at level I; Laurels raise it to II, then III. */
+  levels: {
+    max: 3,
+    /** Laurels for level II and level III. */
+    cost: [2, 4],
+  },
+  /** Heat: optional challenges chosen when entering a cup you have won before. */
+  heat: {
+    mods: {
+      sharper: { heat: 1, elo: 50 },
+      shortClock: { heat: 1, ms: 480_000 },
+      noShop: { heat: 1 },
+      stingy: { heat: 1, goldFactor: 0.5 },
+      fewerBoons: { heat: 1, maxBoons: 2 },
+      doubleQuirk: { heat: 2 },
+      noDrawOdds: { heat: 2 },
+    } as Record<string, { heat: number; elo?: number; ms?: number; goldFactor?: number; maxBoons?: number }>,
+    /** Bonus Laurels per heat point, by finish (rounded down). */
+    laurelsPerHeat: { winner: 1, final: 0.5, semi: 0.25, quarter: 0 } as Record<'quarter' | 'semi' | 'final' | 'winner', number>,
+  },
+  /** Sponsors: one contract per cup; fulfil it for bonus Laurels. */
+  sponsors: {
+    offer: 3,
+    /** Gold you start the cup with when you sign. */
+    signingGold: 2,
+    /** Extra Laurels per contract from this tier index up (platinum, diamond). */
+    bonusFromTier: 3,
+  },
+  /** Mastery: three stars per tier; the codex of quirks; your nemesis. */
+  mastery: {
+    /** Laurels for each new star. */
+    starLaurels: 2,
+    /** Heat needed for the third star. */
+    starHeat: 3,
+    /** Laurels the first time you beat an opponent with a quirk. */
+    codexLaurels: 1,
+    /** Your nemesis plays this much stronger per grudge (times they knocked you out), up to maxGrudge. */
+    grudgeElo: 25,
+    maxGrudge: 3,
+    /** Laurels for beating your nemesis. */
+    nemesisLaurels: 2,
   },
   /**
    * Opponent quirks: only Maia/engine behaviour (opening choice, temperature, think time,

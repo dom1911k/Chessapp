@@ -107,6 +107,12 @@ export function CupsTab() {
               <div className="mt-1 flex flex-wrap gap-1.5">{ALL_CHARMS.map((c) => <button key={c} className={devBtn} onClick={() => void cups.dev.charm(c)}>{CHARMS[c].name}</button>)}</div>
             </>
           )}
+          <div className="run-label mt-3">Meta</div>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            <button className={devBtn} onClick={() => void meta.addLaurels(10)}>+10 Laurels</button>
+            <button className={devBtn} onClick={() => void meta.patch({ nemesis: { id: 'viktor', grudge: 2, quirk: 'turtle', tier: 'bronze' } })}>Nemesis: Viktor</button>
+            <button className={devBtn} onClick={() => void meta.patch({ levels: {} })}>Reset levels</button>
+          </div>
           {game && !game.result && (
             <>
               <div className="run-label mt-3">This game</div>

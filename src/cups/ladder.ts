@@ -81,13 +81,15 @@ export interface SimMatch {
 }
 
 /** Plays the bots' matches of a round (everything except yours). */
-export function simulateRound(alive: string[], ratings: Record<string, number>, seed: number, round: number): SimMatch[] {
+export function simulateRound(alive: string[], ratings: Record<string, number>, seed: number, round: number, nemesis?: string): SimMatch[] {
   const r = rng(seed * 31 + round);
   const out: SimMatch[] = [];
   for (let i = 0; i < alive.length; i += 2) {
     const [a, b] = [alive[i], alive[i + 1]];
     if (a === YOU || b === YOU) continue;
-    const winner = r() < winChance(ratings[a] ?? 800, ratings[b] ?? 800) ? a : b;
+    const roll = r();
+    // Your nemesis is on a mission: they win their other matches.
+    const winner = nemesis === a ? a : nemesis === b ? b : roll < winChance(ratings[a] ?? 800, ratings[b] ?? 800) ? a : b;
     out.push({ a, b, winner, moves: Math.round(L.simMoves[0] + r() * (L.simMoves[1] - L.simMoves[0])) });
   }
   return out;

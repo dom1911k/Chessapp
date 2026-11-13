@@ -4,6 +4,7 @@ import { Chess, type Move } from 'chess.js';
 import type { CupGameState } from './game';
 import { quirkEffects, quirkById, type QuirkCtx } from './quirks';
 import { TUNING } from './tuning';
+import { at, lv } from './boons';
 
 export interface BotMods {
   /** Added to the opponent's Maia temperature (higher = looser, more human slips). */
@@ -40,7 +41,7 @@ export function botMods(g: CupGameState, ctx: QuirkCtx): BotMods {
   const q = quirkEffects(activeQuirks(g), ctx);
   let tempDelta = q.temp;
   // Rattled (boon): the opponent plays looser for a few moves after losing material.
-  if (g.rattled > 0 && g.boons.includes('rattled')) tempDelta += TUNING.boons.rattledTemp;
+  if (g.rattled > 0 && g.boons.includes('rattled')) tempDelta += at(TUNING.boons.rattledTemp, lv(g.levels, 'rattled'));
   const moves = new Map<string, Move>(new Chess(ctx.fen).moves({ verbose: true }).map((m) => [m.lan, m]));
   return {
     tempDelta,

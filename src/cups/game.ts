@@ -26,6 +26,7 @@ import { quirkById } from './quirks';
 import { material } from './material';
 import { preMoveCheck } from '../lib/coach/precheck';
 import { TUNING } from './tuning';
+import { at, lv } from './boons';
 import { useCelebrate } from '../lib/celebrate';
 import { moveSound, sfx } from './sfx';
 
@@ -68,6 +69,10 @@ export interface CupGameState {
   rewinds: number;
   /** Your boons for this cup (they act during the game). */
   boons: string[];
+  /** Boon and charm levels for this cup. */
+  levels?: Record<string, number>;
+  /** Threat Bell moves still guarded (Threat Bell III guards two). */
+  bellLeft?: number;
   /** Rattled: opponent moves left with a looser temperature. */
   rattled: number;
   /** The ply of the capture that set off Rattled (a Rewind past it cancels it). */
@@ -164,6 +169,7 @@ export interface StartParams {
   extraInc?: { w?: number; b?: number };
   freeMoves?: number;
   boons?: string[];
+  levels?: Record<string, number>;
   quirks?: string[];
   hidden?: string;
   /** Scout Report: the hidden quirk is known before the game. */
@@ -216,6 +222,7 @@ export function newCupGame(p: StartParams, now = Date.now()): CupGameState {
     events: [],
     rewinds: 0,
     boons: p.boons ?? [],
+    levels: p.levels ?? {},
     rattled: 0,
     quirks: p.quirks ?? [],
     hidden: p.hidden,
@@ -328,9 +335,9 @@ export const useCupGame = create<Store>((set, get) => {
       if (g.boons.includes('secondWind') && !g.secondWindUsed && clockLeft(g, g.userColor) > 0 && clockLeft(g, g.userColor) < TUNING.boons.secondWindBelowMs) {
         update((gg) => {
           gg.secondWindUsed = true;
-          gg.clock = { ...gg.clock, [gg.userColor]: gg.clock[gg.userColor] + TUNING.boons.secondWindAddMs };
+          gg.clock = { ...gg.clock, [gg.userColor]: gg.clock[gg.userColor] + at(TUNING.boons.secondWindAddMs, lv(gg.levels, 'secondWind')) };
         });
-        get().note({ kind: 'boon', id: 'secondWind', text: `Second Wind: +${TUNING.boons.secondWindAddMs / 1000} s` });
+        get().note({ kind: 'boon', id: 'secondWind', text: `Second Wind: +${at(TUNING.boons.secondWindAddMs, lv(g.levels, 'secondWind')) / 1000} s` });
         sfx('relic');
         return;
       }
@@ -586,8 +593,14 @@ export const useCupGame = create<Store>((set, get) => {
       if (!r) return false;
       // Threat Bell: this one move is checked; a hanging piece or mate-in-one rings the bell.
       if (g.armed === 'threatBell') {
-        const check = preMoveCheck(fen, r.move.lan);
-        update((gg) => void (gg.armed = undefined));
+        const bl = lv(g.levels, 'threatBell');
+        const check = preMoveCheck(fen, r.move.lan, { minValue: at(TUNING.charms.threatBellMinValue, bl) });
+        // Threat Bell III checks two moves; I and II check one.
+        const left = (g.bellLeft ?? at(TUNING.charms.threatBellMoves, bl)) - 1;
+        update((gg) => {
+          gg.armed = left > 0 ? 'threatBell' : undefined;
+          gg.bellLeft = left > 0 ? left : undefined;
+        });
         if (check) {
           set({ warning: { text: check.reveal, sq: check.sq }, cands: null });
           get().note({ kind: 'charm', id: 'threatBell', text: `Threat Bell rang: ${check.reveal}` });
@@ -607,7 +620,7 @@ export const useCupGame = create<Store>((set, get) => {
       // Boons that act on your move light up.
       const ng = get().game!;
       if (free) {
-        if (ng.freeMoves === 0) get().note({ kind: 'boon', id: 'openingPrep', text: `Opening Prep: ${TUNING.boons.openingPrepMoves} moves played on the house.` });
+        if (ng.freeMoves === 0) get().note({ kind: 'boon', id: 'openingPrep', text: 'Opening Prep: your free moves are used up.' });
         else set({ pulse: { id: 'openingPrep', kind: 'boon', at: Date.now() } });
       } else if (g.boons.includes('steadyHand')) set({ pulse: { id: 'steadyHand', kind: 'boon', at: Date.now() } });
       // Quirks that react to your move (Tilter: it just lost material).
@@ -627,7 +640,7 @@ export const useCupGame = create<Store>((set, get) => {
       // Rattled: you just came out ahead in material.
       if (g.boons.includes('rattled') && r.move.captured && balance(r.fen, g.userColor) > before) {
         update((gg) => {
-          gg.rattled = TUNING.boons.rattledMoves;
+          gg.rattled = at(TUNING.boons.rattledMoves, lv(gg.levels, 'rattled'));
           gg.rattledPly = gg.plies.length - 1;
         });
         get().note({ kind: 'boon', id: 'rattled', text: 'Rattled: they lost material and look shaken.' });
@@ -695,7 +708,10 @@ export const useCupGame = create<Store>((set, get) => {
     },
 
     armThreatBell() {
-      update((gg) => void (gg.armed = 'threatBell'));
+      update((gg) => {
+        gg.armed = 'threatBell';
+        gg.bellLeft = at(TUNING.charms.threatBellMoves, lv(gg.levels, 'threatBell'));
+      });
       set({ pulse: { id: 'threatBell', kind: 'charm', at: Date.now() } });
       sfx('card');
     },
@@ -709,7 +725,7 @@ export const useCupGame = create<Store>((set, get) => {
         if (fenOf(get().game!) !== fen) return false;
         const best = a.lines[0]?.pv[0] ?? a.bestMove;
         if (!best) return false;
-        const likely = [...logits].filter(([m]) => m !== best).sort((x, y) => y[1] - x[1]).slice(0, 2).map(([m]) => m);
+        const likely = [...logits].filter(([m]) => m !== best).sort((x, y) => y[1] - x[1]).slice(0, at(TUNING.charms.candidateCards, lv(g.levels, 'candidates')) - 1).map(([m]) => m);
         const cands = [best, ...likely].map((uci) => ({ uci, san: tryMove(fen, uci)?.move.san ?? uci })).sort(() => Math.random() - 0.5);
         set({ cands });
         get().note({ kind: 'charm', id: 'candidates', text: `Candidate Cards: ${cands.map((c) => c.san).join(', ')}.` });

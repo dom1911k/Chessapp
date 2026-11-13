@@ -3,16 +3,16 @@ import { create } from 'zustand';
 import { kvGet, kvSet } from '../lib/db';
 import { awardXp } from '../lib/progress/xp';
 import { getRepertoire, linePlies, repertoireLines } from '../lib/repertoire';
-import { applyResult, applySecondChance, summarize, currentRound, newCup, opponentRating, roundDone, secondChanceApplies, yourColor, yourOpponent, type CupState } from './cup';
-import { addTrophy, advances, cupXp, getTrophies, type CupTier, type Trophies } from './ladder';
+import { applyResult, applySecondChance, cupAdvances, cupGold, heatOn, summarize, currentRound, newCup, opponentRating, roundDone, secondChanceApplies, yourColor, yourOpponent, type CupState } from './cup';
+import { addTrophy, cupXp, getTrophies, rng, type CupTier, type Trophies } from './ladder';
 import { fenOf, turnOf, useCupGame, type GameOver } from './game';
 import { NOTICE_KEY } from './legacy';
 import { TUNING } from './tuning';
-import { boonOffer, canHoldCharm, charmPrice, gameStartMods, goldFor, shopOffer, type BoonId, type CharmId } from './boons';
+import { at, boonOffer, canHoldCharm, charmPrice, gameStartMods, lv, offerSize, shopOffer, type BoonId, type CharmId } from './boons';
 import { useCupsMeta } from './meta';
 import { hiddenQuirk } from './quirks';
-import { laurelsFor } from './laurels';
-import { sponsorOffers } from './sponsors';
+import { codexAfterGame, codexDone, cupEnd, flawless } from './mastery';
+import { heatOf, type HeatId } from './heat';
 
 const KEY = 'cupState';
 
@@ -23,8 +23,8 @@ interface CupStore {
   /** A short message for the hub (e.g. Home Prep found no line). */
   note: string | null;
   load(): Promise<void>;
-  /** Start a cup of this tier. */
-  enter(tier: CupTier): Promise<void>;
+  /** Start a cup of this tier, with heat challenges and a sponsor's contract. */
+  enter(tier: CupTier, opts?: { heat?: HeatId[]; sponsor?: string; seed?: number }): Promise<void>;
   /** Set up your next game (the opponent card and intro come first). */
   playNext(): Promise<void>;
   /** Your game is over: gold, then the round (or Second Chance), then the boon pick and shop. */
@@ -55,6 +55,10 @@ interface CupStore {
 
 const save = (c: CupState | null) => kvSet(KEY, c);
 const unlocked = () => useCupsMeta.getState().unlocks ?? [];
+/** Boons you may hold this cup (Lean Deck heat allows fewer). */
+const maxBoons = (c: CupState) => (heatOn(c, 'fewerBoons') ? TUNING.heat.mods.fewerBoons.maxBoons ?? 2 : TUNING.boons.maxPerCup);
+/** After a boon pick: the shop, unless Closed Shop heat. */
+const toShop = (c: CupState): CupState => (heatOn(c, 'noShop') ? { ...c, flow: undefined, offer: undefined, shop: undefined } : { ...c, flow: 'shop', offer: undefined, shop: shopOffer(unlocked(), Math.random) });
 
 /** Home Prep: one of your repertoire lines for your colour, played to its end (null if you have none). */
 async function homePrepLine(color: 'w' | 'b'): Promise<{ fen: string; sans: string[]; name: string } | null> {
@@ -75,9 +79,9 @@ export const useCup = create<CupStore>((set, get) => {
     set({ cup });
   };
   /** A game's result goes into the cup: gold, then the round (or Second Chance), then boon pick and shop. */
-  const settle = async (c: CupState, g: { color: 'w' | 'b'; opponentId: string; elo: number; events: CupState['yours'][number]['events'] }, over: Pick<GameOver, 'userResult' | 'reason' | 'moves' | 'opening' | 'accuracy' | 'clockLeft' | 'gameId' | 'greats' | 'decisive'>) => {
-    const through = advances(over.userResult, g.color, c.boons.includes('drawOdds'));
-    const gold = goldFor({ userResult: over.userResult, advanced: through, accuracy: over.accuracy, greats: over.greats });
+  const settle = async (c: CupState, g: { color: 'w' | 'b'; opponentId: string; elo: number; events: CupState['yours'][number]['events']; quirks?: string[]; hidden?: string }, over: Pick<GameOver, 'userResult' | 'reason' | 'moves' | 'opening' | 'accuracy' | 'clockLeft' | 'gameId' | 'greats' | 'decisive'>) => {
+    const through = cupAdvances(c, over.userResult, g.color);
+    const gold = cupGold(c, { userResult: over.userResult, color: g.color, accuracy: over.accuracy, greats: over.greats });
     const rec = {
       opponentId: g.opponentId,
       elo: g.elo,
@@ -92,22 +96,34 @@ export const useCup = create<CupStore>((set, get) => {
       gold: gold.total,
       events: g.events,
       decisive: over.decisive,
+      greats: over.greats,
     };
     let next: CupState = { ...c, gold: c.gold + gold.total, lastGold: gold.parts };
     if (secondChanceApplies(c, over.userResult, g.color)) next = applySecondChance(next, rec);
-    else next = applyResult(next, rec, { drawOdds: c.boons.includes('drawOdds') });
+    else next = applyResult(next, rec);
+    // The quirk codex: every quirk you played against, and the first win against each.
+    const meta = useCupsMeta.getState();
+    const faced = [...(g.quirks ?? []), ...(g.hidden ? [g.hidden] : [])];
+    const cx = codexAfterGame(meta.codex ?? {}, faced, over.userResult === 'win');
+    const codexLaurels = cx.firsts.length * TUNING.mastery.codexLaurels;
+    // A full codex unlocks the Quirk Hunter title and frame.
+    const hunter = codexDone(cx.codex) && !meta.unlocks.includes('title:hunter') ? ['title:hunter', 'frame:hunter'] : [];
+    await meta.patch({ codex: cx.codex, laurels: meta.laurels + codexLaurels, unlocks: [...meta.unlocks, ...hunter] });
+    if (cx.firsts.length) next = { ...next, codexNew: [...(next.codexNew ?? []), ...cx.firsts] };
     let trophies = get().trophies;
     if (next.place) {
-      await useCupsMeta.getState().recordCup(summarize(next));
-      const laurels = laurelsFor(next.place);
-      if (laurels) await useCupsMeta.getState().addLaurels(laurels);
-      const xp = cupXp(next.tier, next.place);
+      await useCupsMeta.getState().recordCup({ ...summarize(next), heat: heatOf(next.heat), flawless: flawless(next) });
+      const end = cupEnd(next, useCupsMeta.getState());
+      const laurels = end.lines.reduce((n, l) => n + l.laurels, 0);
+      await useCupsMeta.getState().patch({ ...end.patch, laurels: useCupsMeta.getState().laurels + laurels });
+      next = { ...next, rewards: end.lines };
+      const xp = cupXp(next.tier, next.place!);
       if (xp) await awardXp(xp, true);
       if (next.place === 'winner') trophies = await addTrophy(next.tier);
     } else if (through) {
       // Between rounds: a boon (while you have room), then the shop.
-      const offer = next.boons.length < TUNING.boons.maxPerCup ? boonOffer(next.boons, unlocked(), Math.random) : [];
-      next = offer.length ? { ...next, flow: 'boon', offer } : { ...next, flow: 'shop', shop: shopOffer(unlocked(), Math.random) };
+      const offer = next.boons.length < maxBoons(next) ? boonOffer(next.boons, unlocked(), Math.random, offerSize(next.boons, next.levels)) : [];
+      next = offer.length ? { ...next, flow: 'boon', offer } : toShop(next);
     }
     set({ trophies });
     await put(next);
@@ -121,7 +137,7 @@ export const useCup = create<CupStore>((set, get) => {
     async load() {
       if (get().loaded) return;
       const raw = await kvGet<(CupState & { v?: number }) | null>(KEY, null);
-      let cup: CupState | null = raw && raw.v === 2 ? { ...raw, charmsUsed: raw.charmsUsed ?? 0, boons: raw.boons ?? [], charms: raw.charms ?? [], gold: raw.gold ?? 0, quirks: raw.quirks ?? {} } : null;
+      let cup: CupState | null = raw && raw.v === 2 ? { ...raw, charmsUsed: raw.charmsUsed ?? 0, boons: raw.boons ?? [], charms: raw.charms ?? [], gold: raw.gold ?? 0, quirks: raw.quirks ?? {}, levels: raw.levels ?? {}, heat: raw.heat ?? [] } : null;
       // A cup from the old format (played from the Play tab) can't continue here.
       if (raw && raw.v !== 2) {
         await save(null);
@@ -134,12 +150,13 @@ export const useCup = create<CupStore>((set, get) => {
       await useCupGame.getState().load();
     },
 
-    async enter(tier) {
-      // SPONSORS HOOK: sponsorOffers(tier) is always empty for now; see src/cups/sponsors.ts.
-      void sponsorOffers(tier);
-      const cup = newCup(tier, Math.floor(Math.random() * 1e9), Date.now(), useCupsMeta.getState().recentQuirks ?? []);
-      // A free boon before the quarter-final (with the picks after the quarter- and semi-final: 3 for the final).
-      const offer = boonOffer([], unlocked(), Math.random);
+    async enter(tier, opts = {}) {
+      const meta = useCupsMeta.getState();
+      const seed = opts.seed ?? Math.floor(Math.random() * 1e9);
+      const cup = newCup(tier, seed, Date.now(), meta.recentQuirks ?? [], { levels: { ...meta.levels }, heat: opts.heat ?? [], sponsor: opts.sponsor, nemesis: meta.nemesis });
+      // A free boon before the quarter-final (with the picks after the quarter- and semi-final: 3 for the final),
+      // unless Lean Deck heat.
+      const offer = heatOn(cup, 'fewerBoons') ? [] : boonOffer([], unlocked(), Math.random);
       await put(offer.length ? { ...cup, flow: 'boon', offer } : cup);
     },
 
@@ -147,21 +164,35 @@ export const useCup = create<CupStore>((set, get) => {
       let c = get().cup;
       const opp = c && yourOpponent(c);
       if (!c || !opp) return;
-      // The finalist gets a hidden second quirk.
-      if (currentRound(c) === 2 && !c.hidden) {
+      const round = currentRound(c);
+      // The finalist gets a hidden second quirk (with Two-Faced heat, every opponent does).
+      if (round === 2 && !c.hidden) {
         c = { ...c, hidden: hiddenQuirk(Object.values(c.quirks), useCupsMeta.getState().recentQuirks ?? [], Math.random) };
+        await put(c);
+      } else if (round < 2 && heatOn(c, 'doubleQuirk') && !c.hiddens?.[round]) {
+        const own = c.quirks[opp];
+        c = { ...c, hiddens: { ...c.hiddens, [round]: hiddenQuirk(own ? [own] : [], [], rng(c.seed + 13 * round)) } };
         await put(c);
       }
       const quirks = c.quirks[opp] ? [c.quirks[opp]] : [];
-      const hidden = currentRound(c) === 2 ? c.hidden : undefined;
+      const hidden = round === 2 ? c.hidden : c.hiddens?.[round];
       void useCupsMeta.getState().faced([...quirks, ...(hidden ? [hidden] : [])]);
       const color = yourColor(c);
-      const mods = gameStartMods(c.boons, color);
+      const mods = gameStartMods(c.boons, color, c.levels);
+      // Short Clock heat takes time off your clock; Second Chance III adds some to the replay.
+      const shortMs = heatOn(c, 'shortClock') ? (TUNING.heat.mods.shortClock.ms ?? 480_000) - 600_000 : 0;
+      const plusMs = shortMs + (c.nextExtraMs ?? 0);
+      if (plusMs) mods.extraMs = { ...mods.extraMs, [color]: (mods.extraMs[color] ?? 0) + plusMs };
       let start = c.nextStart ?? null;
       let note: string | null = null;
+      const hpl = lv(c.levels, 'homePrep');
       if (!start && c.boons.includes('homePrep')) {
-        start = await homePrepLine(color);
-        note = start ? `Home Prep: the game starts after your ${start.name} line.` : `Home Prep: you have no repertoire line for ${color === 'w' ? 'White' : 'Black'}, so it does nothing this game.`;
+        if (color === 'b' && !at(TUNING.boons.homePrepBlack, hpl)) note = 'Home Prep I only works with White.';
+        else {
+          start = await homePrepLine(color);
+          note = start ? `Home Prep: the game starts after your ${start.name} line.` : `Home Prep: you have no repertoire line for ${color === 'w' ? 'White' : 'Black'}, so it does nothing this game.`;
+          if (start) mods.freeMoves += at(TUNING.boons.homePrepFreeMoves, hpl);
+        }
       }
       set({ note });
       useCupGame.getState().start({
@@ -175,6 +206,7 @@ export const useCup = create<CupStore>((set, get) => {
         startFen: start?.fen,
         prelude: start?.sans,
         boons: c.boons,
+        levels: c.levels,
         quirks,
         hidden,
         scouted: c.boons.includes('scoutReport'),
@@ -189,7 +221,7 @@ export const useCup = create<CupStore>((set, get) => {
         useCupGame.getState().clear();
         return;
       }
-      await settle(c, { color: g.userColor, opponentId: g.opponentId, elo: g.elo, events: g.events }, over);
+      await settle(c, { color: g.userColor, opponentId: g.opponentId, elo: g.elo, events: g.events, quirks: g.quirks, hidden: g.hidden }, over);
       useCupGame.getState().clear();
     },
 
@@ -199,13 +231,13 @@ export const useCup = create<CupStore>((set, get) => {
       const boons = id && c.offer?.includes(id) && !c.boons.includes(id) ? [...c.boons, id] : c.boons;
       // The pick before the first game goes straight to the match (no gold to spend yet).
       if (c.yours.length === 0) return put({ ...c, boons, flow: undefined, offer: undefined });
-      await put({ ...c, boons, flow: 'shop', offer: undefined, shop: shopOffer(unlocked(), Math.random) });
+      await put(toShop({ ...c, boons }));
     },
 
     async buyCharm(id) {
       const c = get().cup;
       if (!c || c.flow !== 'shop' || !c.shop?.includes(id)) return false;
-      const price = charmPrice(id);
+      const price = charmPrice(id, c.levels);
       if (!canHoldCharm(c.charms, id) || c.gold < price || c.charms.length >= TUNING.charms.slots) return false;
       const shop = [...c.shop];
       shop.splice(shop.indexOf(id), 1);
@@ -248,7 +280,7 @@ export const useCup = create<CupStore>((set, get) => {
         const opp = c && yourOpponent(c);
         if (!c || !opp) return;
         useCupGame.getState().clear();
-        await settle(c, { color: yourColor(c), opponentId: opp, elo: opponentRating(c), events: [] }, { userResult: r, reason: r === 'draw' ? 'agreement' : 'checkmate', moves: 24, accuracy: 82, clockLeft: 120, greats: 1 });
+        await settle(c, { color: yourColor(c), opponentId: opp, elo: opponentRating(c), events: [], quirks: c.quirks[opp] ? [c.quirks[opp]] : [] }, { userResult: r, reason: r === 'draw' ? 'agreement' : 'checkmate', moves: 24, accuracy: 82, clockLeft: 120, greats: 1 });
       },
       async gold(n) {
         const c = get().cup;

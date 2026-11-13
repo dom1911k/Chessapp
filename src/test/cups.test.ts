@@ -28,7 +28,7 @@ describe('cups: reviews bridge', () => {
 
 import { OPPONENTS } from '../lib/people';
 import { TIERS, YOU, advances, cupXp, defaultColor, pickField, rng, roundRating, seedBracket, simulateRound, tierInfo, tierOpen, winChance } from '../cups/ladder';
-import { applyResult, champion, currentRound, cupMoves, newCup, opponentRating, yourColor, yourOpponent } from '../cups/cup';
+import { applyResult, champion, currentRound, cupMoves, newCup, opponentRating, yourColor, yourOpponent, type RoundRecord } from '../cups/cup';
 import { newCupGame, pressCupClock, toSavedGame } from '../cups/game';
 import { material } from '../cups/material';
 
@@ -139,7 +139,7 @@ describe('cups: game clock and records', () => {
   });
 });
 
-import { ALL_BOONS, ALL_CHARMS, BOONS, CHARMS, boonOffer, canHoldCharm, boonPool, charmPool, charmPrice, gameStartMods, goldFor, shopOffer } from '../cups/boons';
+import { ALL_BOONS, ALL_CHARMS, BOONS, CHARMS, boonOffer, canHoldCharm, boonPool, charmPool, charmPrice, gameStartMods, goldFor, shopOffer, type BoonId } from '../cups/boons';
 import { applySecondChance, secondChanceApplies } from '../cups/cup';
 import { battlefieldOptions, battlefieldPool } from '../cups/battlefield';
 import { Chess } from 'chess.js';
@@ -154,7 +154,9 @@ describe('cups: boons and charms', () => {
     expect(ALL_CHARMS.length).toBe(5);
     for (const b of ALL_BOONS) expect(BOONS[b].text.length).toBeGreaterThan(20);
     for (const c of ALL_CHARMS) expect(charmPrice(c)).toBeGreaterThan(0);
-    expect(charmPrice('rewind')).toBe(8);
+    expect(charmPrice('rewind')).toBe(10);
+    expect(charmPrice('rewind', { rewind: 2 })).toBe(8);
+    expect(charmPrice('rewind', { rewind: 3 })).toBe(6);
     expect(canHoldCharm([], 'rewind')).toBe(true);
     expect(canHoldCharm(['rewind'], 'rewind')).toBe(false);
     expect(canHoldCharm(['threatBell'], 'threatBell')).toBe(true);
@@ -176,7 +178,9 @@ describe('cups: boons and charms', () => {
     expect(goldFor({ userResult: 'loss', advanced: false, accuracy: 50, greats: 0 }).total).toBe(0);
   });
   it('turns time boons into clock settings for your colour only', () => {
-    expect(gameStartMods(['extraMinute', 'steadyHand', 'openingPrep'], 'b')).toEqual({ extraMs: { b: 60_000 }, extraInc: { b: 2_000 }, freeMoves: 8 });
+    expect(gameStartMods(['extraMinute', 'steadyHand', 'openingPrep'], 'b')).toEqual({ extraMs: { b: 40_000 }, extraInc: { b: 1_000 }, freeMoves: 5 });
+    expect(gameStartMods(['extraMinute', 'steadyHand', 'openingPrep'], 'b', { extraMinute: 2, steadyHand: 2, openingPrep: 2 })).toEqual({ extraMs: { b: 60_000 }, extraInc: { b: 2_000 }, freeMoves: 8 });
+    expect(gameStartMods(['extraMinute', 'steadyHand', 'openingPrep'], 'w', { extraMinute: 3, steadyHand: 3, openingPrep: 3 })).toEqual({ extraMs: { w: 90_000 }, extraInc: { w: 3_000 }, freeMoves: 12 });
     expect(gameStartMods([], 'w')).toEqual({ extraMs: {}, extraInc: {}, freeMoves: 0 });
   });
   it('Second Chance replays a knockout once, colours swapped; Long Night weakens the finalist', () => {
@@ -194,7 +198,13 @@ describe('cups: boons and charms', () => {
     d = applyResult(d, { ...rec, result: 'win' });
     d = applyResult(d, { ...rec, color: 'b', result: 'win', opponentId: yourOpponent(d)! });
     expect(opponentRating(d)).toBe(1000);
-    expect(opponentRating({ ...d, boons: ['longNight'] })).toBe(950);
+    expect(opponentRating({ ...d, boons: ['longNight'] })).toBe(970);
+    expect(opponentRating({ ...d, boons: ['longNight'], levels: { longNight: 2 } })).toBe(950);
+    expect(opponentRating({ ...d, boons: ['longNight'], levels: { longNight: 3 } })).toBe(920);
+    // Second Chance I can't save a final; II can, III adds a minute to the replay.
+    expect(secondChanceApplies({ ...d, boons: ['secondChance'] }, 'loss', 'w')).toBe(false);
+    expect(secondChanceApplies({ ...d, boons: ['secondChance'], levels: { secondChance: 2 } }, 'loss', 'w')).toBe(true);
+    expect(applySecondChance({ ...d, boons: ['secondChance'], levels: { secondChance: 3 } }, rec).nextExtraMs).toBe(60_000);
   });
   it('Battlefield offers three different book positions 4–8 half-moves in', () => {
     const pool = battlefieldPool();
@@ -279,7 +289,8 @@ describe('cups: opponent quirks', () => {
     const g = { ...newCupGame({ cupId: 'c', tier: 'gold', round: 2, opponentId: 'tom', elo: 900, userColor: 'b', timeControl: '600+0', boons: ['rattled'], quirks: ['speedster'], hidden: 'slowStarter' }, 0), rattled: 2 };
     const m = botMods(g, ctx());
     expect(m.thinkFactor).toBe(0.45);
-    expect(m.tempDelta).toBeCloseTo(0.15 + 0.6 + 0.5);
+    expect(m.tempDelta).toBeCloseTo(0.15 + 0.6 + TUNING.boons.rattledTemp[0]);
+    expect(botMods({ ...g, levels: { rattled: 3 } }, ctx()).tempDelta).toBeCloseTo(0.15 + 0.6 + TUNING.boons.rattledTemp[2]);
     expect(quirkOpening({ ...g, quirks: ['gambiteer'], hidden: undefined }, ctx({ fen: after('e4 e5'), sans: ['e4', 'e5'] }), () => 0)).toEqual({ uci: 'f2f4', quirk: 'gambiteer' });
   });
 });
@@ -398,8 +409,11 @@ describe('cups: Laurels, the Laurel shop and the trophy cabinet', () => {
     expect(rows.find((r) => r.tier === 'gold')).toMatchObject({ won: 1, best: 'winner', fastest: null });
     expect(rows.find((r) => r.tier === 'diamond')).toMatchObject({ won: 0, best: null });
   });
-  it('has the Sponsors hook in place but empty', () => {
-    expect(sponsorOffers('gold')).toEqual([]);
+  it('offers three different sponsor contracts, the same for the same seed', () => {
+    const a = sponsorOffers('gold', 5);
+    expect(a).toHaveLength(3);
+    expect(new Set(a.map((s) => s.id)).size).toBe(3);
+    expect(sponsorOffers('gold', 5).map((s) => s.id)).toEqual(a.map((s) => s.id));
   });
 });
 
@@ -419,5 +433,111 @@ describe('cups: move list', () => {
   it('starts with "n…" when Black moves first', () => {
     const t = moveTokens([], ['e5', 'Nf3'], 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1');
     expect(t.map((x) => `${x.no ?? ''}${x.san}`)).toEqual(['1…e5', '2.Nf3']);
+  });
+});
+
+import { boonCard, charmCard, offerSize } from '../cups/boons';
+import { cupAdvances, drawPaysWin, heatOn } from '../cups/cup';
+import { HEATS, heatLaurels, heatOf } from '../cups/heat';
+import { codexAfterGame, cupEnd, nemesisAfterCup, starsEarned } from '../cups/mastery';
+import { EMPTY_META, upgradeCost } from '../cups/meta';
+import { SPONSORS, sponsorById, sponsorReward } from '../cups/sponsors';
+describe('cups: upgrades', () => {
+  it('level II is the original strength; I weaker, III stronger, for every list', () => {
+    const lists: number[][] = [TUNING.boons.extraMinuteMs, TUNING.boons.steadyHandIncMs, TUNING.boons.openingPrepMoves, TUNING.boons.secondWindAddMs, TUNING.boons.rattledTemp, TUNING.boons.rattledMoves, TUNING.boons.longNightElo, TUNING.charms.battlefieldOptions];
+    for (const l of lists) expect(l[0] < l[1] && l[1] < l[2]).toBe(true);
+    // Lower is better for prices and candidate cards.
+    for (const p of Object.values(TUNING.charms.prices)) expect(p[0] >= p[1] && p[1] >= p[2]).toBe(true);
+    expect(TUNING.charms.candidateCards).toEqual([4, 3, 2]);
+  });
+  it('costs Laurels to level up, up to level III', () => {
+    expect(upgradeCost(1)).toBe(TUNING.levels.cost[0]);
+    expect(upgradeCost(2)).toBe(TUNING.levels.cost[1]);
+    expect(upgradeCost(3)).toBeNull();
+  });
+  it('describes every boon and charm at every level', () => {
+    for (const l of [1, 2, 3]) {
+      for (const b of ALL_BOONS) expect(boonCard(b, l).text.length).toBeGreaterThan(20);
+      for (const c of ALL_CHARMS) expect(charmCard(c, l).text.length).toBeGreaterThan(20);
+    }
+    expect(boonCard('extraMinute', 1).short).toBe('+0:40 on your clock');
+    expect(boonCard('extraMinute', 3).short).toBe('+1:30 on your clock');
+    expect(charmCard('candidates', 3).short).toBe('2 moves, one best');
+  });
+  it('Draw Odds I works up to the semi-final; III pays win gold; Scout Report III shows 4 boons', () => {
+    let c = { ...newCup('gold', 3, 0), boons: ['drawOdds'] as BoonId[] };
+    expect(cupAdvances(c, 'draw', 'w')).toBe(true);
+    c = applyResult(c, { opponentId: yourOpponent(c)!, elo: 800, color: 'w', result: 'win', reason: 'mate', moves: 20 });
+    c = applyResult(c, { opponentId: yourOpponent(c)!, elo: 900, color: 'b', result: 'win', reason: 'mate', moves: 20 });
+    expect(cupAdvances(c, 'draw', 'w')).toBe(false);
+    expect(cupAdvances({ ...c, levels: { drawOdds: 2 } }, 'draw', 'w')).toBe(true);
+    expect(drawPaysWin({ ...c, levels: { drawOdds: 3 } }, 'draw', 'w')).toBe(true);
+    expect(offerSize(['scoutReport'], { scoutReport: 3 })).toBe(4);
+    expect(offerSize(['scoutReport'])).toBe(3);
+  });
+});
+describe('cups: heat', () => {
+  it('adds up heat and pays Laurels by finish', () => {
+    expect(heatOf(['sharper', 'doubleQuirk'])).toBe(3);
+    expect(heatLaurels(4, 'winner')).toBe(4);
+    expect(heatLaurels(4, 'final')).toBe(2);
+    expect(heatLaurels(4, 'quarter')).toBe(0);
+    expect(HEATS.length).toBe(7);
+  });
+  it('Sharper Field raises ratings; No Draw Odds takes away Black’s draw', () => {
+    const c = newCup('silver', 4, 0, [], { heat: ['sharper', 'noDrawOdds'] });
+    expect(heatOn(c, 'sharper')).toBe(true);
+    expect(opponentRating(c)).toBe(600 + 50);
+    expect(cupAdvances(c, 'draw', 'b')).toBe(false);
+    expect(cupAdvances(newCup('silver', 4, 0), 'draw', 'b')).toBe(true);
+  });
+});
+describe('cups: sponsors, stars, codex, nemesis', () => {
+  const win = (c: ReturnType<typeof newCup>, extra: Partial<RoundRecord> = {}) => applyResult(c, { opponentId: yourOpponent(c)!, elo: 800, color: yourColor(c), result: 'win', reason: 'mate', moves: 25, accuracy: 85, clockLeft: 450, greats: 1, ...extra });
+  it('signing a sponsor pays starting gold; contracts check the finished cup', () => {
+    let c = newCup('gold', 8, 0, [], { sponsor: 'flawless', heat: ['sharper', 'doubleQuirk'] });
+    expect(c.gold).toBe(TUNING.sponsors.signingGold);
+    c = win(win(win(c)));
+    expect(c.place).toBe('winner');
+    for (const s of SPONSORS) expect(typeof s.done(c)).toBe('boolean');
+    expect(sponsorById('flawless')!.done(c)).toBe(true);
+    expect(sponsorById('quick')!.done(c)).toBe(true);
+    expect(sponsorById('tactician')!.done(c)).toBe(true);
+    expect(sponsorReward(sponsorById('quick')!, 'diamond')).toBe(sponsorById('quick')!.reward + 1);
+    expect(starsEarned(c)).toEqual([true, true, true]);
+    const end = cupEnd(c, EMPTY_META);
+    expect(end.lines.map((l) => l.label)).toEqual(['Cup won', 'Heat 3', 'Endgame Insurance contract', 'Star: Win the cup', 'Star: Win every game', 'Star: Win at heat 3+']);
+    expect(end.patch.stars?.gold).toEqual([true, true, true]);
+    expect(end.patch.heatBest?.gold).toBe(3);
+    // Stars already earned pay nothing again.
+    expect(cupEnd(c, { ...EMPTY_META, stars: { gold: [true, true, true] } }).lines.some((l) => l.label.startsWith('Star'))).toBe(false);
+  });
+  it('the codex counts games and first wins per quirk', () => {
+    const a = codexAfterGame({}, ['speedster', 'copycat'], true);
+    expect(a.firsts).toEqual(['speedster', 'copycat']);
+    const b = codexAfterGame(a.codex, ['speedster'], true);
+    expect(b.firsts).toEqual([]);
+    expect(b.codex.speedster).toEqual({ faced: 2, beaten: 2 });
+  });
+  it('who knocks you out becomes your nemesis; they return angrier until you beat them', () => {
+    let c = newCup('silver', 9, 0);
+    const opp = yourOpponent(c)!;
+    c = applyResult(c, { opponentId: opp, elo: 600, color: 'w', result: 'loss', reason: 'mate', moves: 30 });
+    const n1 = nemesisAfterCup(undefined, c);
+    expect(n1.nemesis?.id).toBe(opp);
+    expect(n1.nemesis?.grudge).toBe(1);
+    expect(nemesisAfterCup(n1.nemesis, c).nemesis?.grudge).toBe(2);
+    // Next cup: the nemesis is in the other half and wins their matches.
+    let d = newCup('silver', 77, 0, [], { nemesis: { id: opp, grudge: 2 } });
+    expect(d.rounds[0].slice(4)).toContain(opp);
+    d = win(d);
+    expect(d.rounds[1]).toContain(opp);
+    d = win(d);
+    expect(yourOpponent(d)).toBe(opp);
+    expect(opponentRating(d)).toBe(800 + 2 * TUNING.mastery.grudgeElo);
+    d = win(d);
+    const n2 = nemesisAfterCup({ id: opp, grudge: 2, tier: 'silver' }, d);
+    expect(n2.beaten).toBe(opp);
+    expect(n2.nemesis).toBeUndefined();
   });
 });

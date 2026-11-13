@@ -20,8 +20,8 @@ import { Sheet } from '../ui/Sheet';
 import { BoonRail } from '../ui/BoonRail';
 import { moveTokens } from '../moveList';
 import { PixelNum } from '../ui/bits';
-import { CHARMS, goldFor, type BoonId, type CharmId } from '../boons';
-import { advances } from '../ladder';
+import { CHARMS, at, charmCard, lv, type BoonId, type CharmId } from '../boons';
+import { cupAdvances, cupGold } from '../cup';
 import { REPERTOIRES } from '../../lib/people/openings';
 import { getGameRating } from '../../lib/rewards/rating';
 import { battlefieldOptions, type StartPos } from '../battlefield';
@@ -63,12 +63,12 @@ function Bar({ face, name, sub, clock, captured }: { face: ReactNode; name: stri
 }
 
 /** Battlefield: three opening positions as mini-boards; pick one. */
-function BattlefieldSheet({ color, onPick, onClose }: { color: 'w' | 'b'; onPick: (p: StartPos) => void; onClose: () => void }) {
-  const [opts] = useState(() => battlefieldOptions(Math.random));
+function BattlefieldSheet({ color, n, onPick, onClose }: { color: 'w' | 'b'; n: number; onPick: (p: StartPos) => void; onClose: () => void }) {
+  const [opts] = useState(() => battlefieldOptions(Math.random, n));
   return (
     <Sheet onClose={onClose}>
       <div className="run-label text-center">Battlefield · choose where the game starts</div>
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className={`mt-3 grid gap-2 ${opts.length > 3 ? 'grid-cols-2' : opts.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
         {opts.map((o) => (
           <button key={o.fen} className="run-panel flex flex-col items-center gap-1 p-1.5 active:scale-95" onClick={() => onPick(o)}>
             <div className="pointer-events-none w-full"><RunBoard fen={o.fen} orientation={color === 'w' ? 'white' : 'black'} movable={null} mini showCoordinates={false} /></div>
@@ -88,8 +88,11 @@ function OpponentCard({ g, onPlay }: { g: CupGameState; onPlay: () => void }) {
   const [colourOpen, setColourOpen] = useState(false);
   const [field, setField] = useState(false);
   const scout = c?.boons.includes('scoutReport');
+  const scoutOpenings = scout && at(TUNING.boons.scoutOpenings, lv(c?.levels, 'scoutReport'));
+  const nemesis = c?.nemesis?.id === g.opponentId ? c.nemesis : undefined;
+  const startMs = g.clock[g.userColor];
   const has = (id: CharmId) => !!c?.charms.includes(id);
-  const drawOdds = c?.boons.includes('drawOdds');
+  const drawThrough = c ? cupAdvances(c, 'draw', g.userColor, g.round) : g.userColor === 'b';
   return (
     <div className="run-fadeup flex h-full flex-col items-center overflow-y-auto px-6 pt-6 pb-6 text-center">
       <div className="run-label">{tierInfo(g.tier as CupTier).name} · {ROUND_NAMES[g.round]}</div>
@@ -97,8 +100,8 @@ function OpponentCard({ g, onPlay }: { g: CupGameState; onPlay: () => void }) {
       <div className="run-title mt-2 text-3xl font-black">{o?.name}</div>
       <div className="run-sans text-sm text-[var(--ink-dim)]">plays at {g.elo} · {o?.tagline}</div>
       <div className="run-panel mt-4 w-full max-w-xs px-3 py-2 text-left">
-        <div className="run-sans text-sm">You play <b>{g.userColor === 'w' ? 'White' : 'Black'}</b> · {g.timeControl.split('+')[0] === '600' ? '10 minutes' : g.timeControl}</div>
-        <div className="run-sans mt-0.5 text-xs text-[var(--ink-dim)]">{g.userColor === 'b' || drawOdds ? 'A draw sends you through.' : 'With White you need a win; a draw sends them through.'}</div>
+        <div className="run-sans text-sm">You play <b>{g.userColor === 'w' ? 'White' : 'Black'}</b> · {Math.floor(startMs / 60_000)}:{String(Math.round((startMs % 60_000) / 1000)).padStart(2, '0')} on your clock</div>
+        <div className="run-sans mt-0.5 text-xs text-[var(--ink-dim)]">{drawThrough ? 'A draw sends you through.' : 'You need a win; a draw sends them through.'}</div>
         {!!g.prelude?.length && <div className="run-sans mt-0.5 text-xs text-[var(--gold-2)]">Starts after {g.prelude.length} half-moves ({g.prelude.slice(0, 6).join(' ')}{g.prelude.length > 6 ? ' …' : ''}).</div>}
         {cup.note && <div className="run-sans mt-0.5 text-xs text-[var(--gold-2)]">{cup.note}</div>}
         <div className="run-sans mt-0.5 text-xs text-[var(--ink-dim)]">Match conditions: no take-backs, hints or coach.</div>
@@ -109,7 +112,13 @@ function OpponentCard({ g, onPlay }: { g: CupGameState; onPlay: () => void }) {
           <QuirkList quirks={g.quirks} hidden={g.hidden} scouted={!!scout} />
         </div>
       )}
-      {scout && (
+      {nemesis && (
+        <div className="run-panel mt-2 w-full max-w-xs px-3 py-2 text-left" style={{ boxShadow: '0 0 0 2px var(--blood), 0 0 16px rgba(255,74,94,.35)' }}>
+          <div className="run-label text-[#ff8a98]!">Your nemesis</div>
+          <div className="run-sans text-sm">{o?.name} knocked you out {nemesis.grudge === 1 ? 'once' : `${nemesis.grudge} times`} and plays {TUNING.mastery.grudgeElo * Math.min(TUNING.mastery.maxGrudge, nemesis.grudge)} points stronger for it. Beat them to settle it.</div>
+        </div>
+      )}
+      {scoutOpenings && (
         <div className="run-panel mt-2 w-full max-w-xs px-3 py-2 text-left">
           <div className="run-label">Scout Report</div>
           <div className="run-sans text-sm">Favourite openings: <b>{REPERTOIRES[g.opponentId]?.favourite ?? 'nothing fixed — expect anything'}</b></div>
@@ -135,7 +144,7 @@ function OpponentCard({ g, onPlay }: { g: CupGameState; onPlay: () => void }) {
           <div className="run-sans mt-2 text-center text-xs text-[var(--ink-dim)]">With Black, a draw sends you through.</div>
         </Sheet>
       )}
-      {field && <BattlefieldSheet color={g.userColor} onClose={() => setField(false)} onPick={(p) => void cup.spendCharm('battlefield').then((ok) => (ok ? cup.pregame({ start: p }) : undefined)).then(() => setField(false))} />}
+      {field && <BattlefieldSheet color={g.userColor} n={at(TUNING.charms.battlefieldOptions, lv(c?.levels, 'battlefield'))} onClose={() => setField(false)} onPick={(p) => void cup.spendCharm('battlefield').then((ok) => (ok ? cup.pregame({ start: p }) : undefined)).then(() => setField(false))} />}
     </div>
   );
 }
@@ -147,8 +156,8 @@ function GameOverPanel({ onContinue }: { onContinue: () => void }) {
   const o = opponentById(g.opponentId);
   const [shown, setShown] = useState(0);
   const [review, setReview] = useState(false);
-  const through = over ? advances(over.userResult, g.userColor, !!c?.boons.includes('drawOdds')) : false;
-  const gold = over ? goldFor({ userResult: over.userResult, advanced: through, accuracy: over.accuracy, greats: over.greats }) : { parts: [], total: 0 };
+  const through = over && c ? cupAdvances(c, over.userResult, g.userColor, g.round) : false;
+  const gold = over && c ? cupGold(c, { userResult: over.userResult, color: g.userColor, accuracy: over.accuracy, greats: over.greats }) : { parts: [], total: 0 };
   // The gold lines slam in one by one (tap to skip), short and snappy.
   useEffect(() => {
     if (!over || shown >= gold.parts.length) return;
@@ -260,9 +269,12 @@ function CupMoveList({ prelude, sans, startFen }: { prelude: string[]; sans: str
   );
 }
 
+const NEMESIS_LINES = ['You again? I remember how our last game ended.', 'Twice I sent you home. Let’s make it three.', 'I’ve been waiting for this. Every time, it ends the same way.'];
+
 /** The charms you hold, usable from the bar during the game. */
 function CharmButton({ id, onUse, disabled }: { id: CharmId; onUse: () => void; disabled: boolean }) {
-  const info = CHARMS[id];
+  const levels = useCup((s) => s.cup?.levels);
+  const info = charmCard(id, lv(levels, id));
   return (
     <button disabled={disabled} className="run-btn ghost flex flex-1 flex-col items-center gap-0.5 px-1! py-1.5! text-[11px] disabled:opacity-35" onClick={onUse} title={info.text}>
       <Sprite name={info.glyph} size={20} px={12} /> {info.name.replace('Candidate Cards', 'Candidates').replace('Choose Your Colour', 'Colour')}
@@ -291,6 +303,8 @@ export function CupGameScreen() {
   useEffect(() => {
     if (!o) return;
     void getOpponentRecords().then((recs) => {
+      const nem = useCup.getState().cup?.nemesis;
+      if (nem?.id === o.id) return setGreet(NEMESIS_LINES[(nem.grudge - 1) % NEMESIS_LINES.length]);
       const line = rivalLine({ record: recs[o.id], ...cupMemory(useCupsMeta.getState().history ?? [], o.id) });
       setGreet(line ?? pickLine(o, 'greet'));
     });

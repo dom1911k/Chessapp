@@ -15,7 +15,8 @@ export interface PreCheck {
   sq: string;
 }
 
-export function preMoveCheck(fen: string, uci: string): PreCheck | null {
+/** `minValue`: the cheapest piece that counts as hanging (3 = minor pieces and up). */
+export function preMoveCheck(fen: string, uci: string, opts: { minValue?: number } = {}): PreCheck | null {
   const c = new Chess(fen);
   const me = c.turn();
   let m;
@@ -44,7 +45,7 @@ export function preMoveCheck(fen: string, uci: string): PreCheck | null {
   const gained = m.captured ? VALUE[m.captured] : 0;
   const hang = hangingPieces(after, me).find((h) => {
     const p = after[h.sq]!;
-    if (VALUE[p.type] < 3 || h.loss < 2) return false;
+    if (VALUE[p.type] < (opts.minValue ?? 3) || h.loss < 2) return false;
     if (h.sq === to) return h.loss > gained; // the moved piece (an even trade is fine)
     return !wasHanging.has(h.sq);
   });

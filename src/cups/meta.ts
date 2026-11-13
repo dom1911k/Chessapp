@@ -13,6 +13,20 @@ export interface CupsMeta {
   recentQuirks: string[];
   /** Every finished cup (rivals remember; the trophy cabinet reads it). */
   history: CupSummary[];
+  /** Boon and charm upgrade levels (missing = level I). */
+  levels: Record<string, number>;
+  /** Highest heat you won each tier at. */
+  heatBest: Partial<Record<string, number>>;
+  /** Mastery stars per tier: [cup won, won without dropping a game, won at heat 3+]. */
+  stars: Partial<Record<string, boolean[]>>;
+  /** Quirk codex: games against each quirk, and wins. */
+  codex: Record<string, { faced: number; beaten: number }>;
+  /** The character who last knocked you out, until you beat them. */
+  nemesis?: { id: string; grudge: number; quirk?: string; tier: string };
+  /** Nemeses you have beaten (character ids, once per victory). */
+  nemesesBeaten: string[];
+  /** Sponsor contracts fulfilled. */
+  contractsDone: number;
 }
 
 /** One finished cup, as remembered afterwards. */
@@ -29,10 +43,16 @@ export interface CupSummary {
   /** Who knocked you out, and who you beat on the way. */
   eliminatedBy?: string;
   beaten: string[];
+  heat?: number;
+  /** Every counted game won (no draws, no Second Chance). */
+  flawless?: boolean;
 }
 
 const KEY = 'cupsMeta';
-export const EMPTY_META: CupsMeta = { laurels: 0, unlocks: [], recentQuirks: [], history: [] };
+
+/** Laurels to raise a boon or charm from `level` to the next (null at the top). */
+export const upgradeCost = (level: number): number | null => (level < TUNING.levels.max ? TUNING.levels.cost[level - 1] ?? null : null);
+export const EMPTY_META: CupsMeta = { laurels: 0, unlocks: [], recentQuirks: [], history: [], levels: {}, heatBest: {}, stars: {}, codex: {}, nemesesBeaten: [], contractsDone: 0 };
 
 interface MetaStore extends CupsMeta {
   loaded: boolean;
@@ -44,10 +64,14 @@ interface MetaStore extends CupsMeta {
   recordCup(c: CupSummary): Promise<void>;
   /** Buy a Laurel-shop item (returns false if you can't afford it or already own it). */
   buy(id: string, price: number): Promise<boolean>;
+  /** Raise a boon or charm one level (returns false if maxed or you can't afford it). */
+  upgrade(id: string): Promise<boolean>;
+  /** Change several fields at once and save (cup end: stars, codex, nemesis, heat). */
+  patch(p: Partial<CupsMeta>): Promise<void>;
 }
 
 const save = (m: CupsMeta) => kvSet(KEY, m);
-const pick = (s: MetaStore): CupsMeta => ({ laurels: s.laurels, unlocks: s.unlocks, recentQuirks: s.recentQuirks, history: s.history });
+const pick = (s: MetaStore): CupsMeta => ({ laurels: s.laurels, unlocks: s.unlocks, recentQuirks: s.recentQuirks, history: s.history, levels: s.levels, heatBest: s.heatBest, stars: s.stars, codex: s.codex, nemesis: s.nemesis, nemesesBeaten: s.nemesesBeaten, contractsDone: s.contractsDone });
 
 export const useCupsMeta = create<MetaStore>((set, get) => ({
   ...EMPTY_META,
@@ -76,6 +100,19 @@ export const useCupsMeta = create<MetaStore>((set, get) => ({
     set({ laurels: m.laurels - price, unlocks: [...m.unlocks, id] });
     await save(pick(get()));
     return true;
+  },
+  async upgrade(id) {
+    const m = get();
+    const cur = m.levels[id] ?? 1;
+    const cost = upgradeCost(cur);
+    if (cost === null || m.laurels < cost) return false;
+    set({ laurels: m.laurels - cost, levels: { ...m.levels, [id]: cur + 1 } });
+    await save(pick(get()));
+    return true;
+  },
+  async patch(p) {
+    set(p);
+    await save(pick(get()));
   },
   async addLaurels(n) {
     set({ laurels: Math.max(0, get().laurels + n) });

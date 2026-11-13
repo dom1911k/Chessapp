@@ -19,6 +19,8 @@ export interface CardInfo {
   /** Sprite key (see pixel/sprites). */
   glyph: string;
   rarity?: Rarity;
+  /** Upgrade level (boons and charms), shown as pips. */
+  level?: number;
 }
 
 /** 12345 → 12.3k, 1234567 → 1.23M. */
@@ -99,6 +101,7 @@ export function TarotCard({
         <div className="flex w-full items-center justify-between px-0.5">
           <span className="numeral text-[11px]">{info.numeral}</span>
           <span className="flex items-center gap-1">
+            {!!info.level && info.level > 1 && <span className="numeral text-[9px] text-[var(--gold-2)]" title={`Level ${info.level}`}>{'◆'.repeat(info.level - 1)}</span>}
             {info.rarity && <span className="pixel-gem" style={{ background: RARITY_COLOR[info.rarity] }} title={info.rarity} />}
           </span>
         </div>

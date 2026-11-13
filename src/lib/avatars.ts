@@ -43,6 +43,8 @@ export const FRAMES: Frame[] = [
   { id: 'tier-gold', name: 'Gold Cup', ring: lg('#fff5b8', '#e0a21a', '#fff0a0'), unlock: { kind: 'laurel', id: 'frame:gold' } },
   { id: 'tier-platinum', name: 'Platinum Cup', ring: lg('#f2fffa', '#7fd8c0', '#e0fff4'), unlock: { kind: 'laurel', id: 'frame:platinum' } },
   { id: 'tier-diamond', name: 'Diamond Cup', ring: 'conic-gradient(from 120deg, #ffd0f4, #9be7ff, #ffffff, #b9a6ff, #ffd0f4)', unlock: { kind: 'laurel', id: 'frame:diamond' } },
+  { id: 'hunter', name: 'Quirk Hunter', ring: 'repeating-conic-gradient(from 0deg, #9fd8ff 0 30deg, #3a2a6a 30deg 60deg)', unlock: { kind: 'laurel', id: 'frame:hunter', label: 'Beat every quirk in the Cups codex' } },
+  { id: 'grand', name: 'Grand Champion', ring: 'conic-gradient(from 0deg, #ffe07a, #ff8a98, #9fd8ff, #7ef0b0, #ffe07a)', unlock: { kind: 'laurel', id: 'frame:grand', label: 'Earn all 15 Cups stars' } },
   { id: 'diamond', name: 'Diamond', ring: 'conic-gradient(from 210deg, #9be7ff, #ffffff, #b9a6ff, #9be7ff, #e6fbff, #9be7ff)', unlock: { kind: 'rating', n: 1800 } },
 ];
 
@@ -65,6 +67,8 @@ export const TITLES: Title[] = [
   { id: 'champion', label: 'Champion', unlock: { kind: 'cup', tier: 'gold' } },
   { id: 'platinumcup', label: 'Platinum Cup Holder', unlock: { kind: 'cup', tier: 'platinum' } },
   { id: 'diamondcup', label: 'Diamond Champion', unlock: { kind: 'cup', tier: 'diamond' } },
+  { id: 'hunter', label: 'Quirk Hunter', unlock: { kind: 'laurel', id: 'title:hunter', label: 'Beat every quirk in the Cups codex' } },
+  { id: 'grand', label: 'Grand Champion', unlock: { kind: 'laurel', id: 'title:grand', label: 'Earn all 15 Cups stars' } },
 ];
 
 /** The title to show: the chosen one if it is still unlocked, else your level's title. */

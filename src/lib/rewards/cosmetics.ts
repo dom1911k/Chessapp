@@ -23,7 +23,7 @@ export type Unlock =
   | { kind: 'gold'; n: number }
   | { kind: 'cup'; tier: 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' }
   /** Bought with Laurels in the Cups tab. */
-  | { kind: 'laurel'; id: string };
+  | { kind: 'laurel'; id: string; label?: string };
 
 export interface Cosmetic {
   /** `${kind}-${key}` */
@@ -116,7 +116,7 @@ export function unlockText(u: Unlock): string {
     case 'cup':
       return `Win the ${u.tier[0].toUpperCase()}${u.tier.slice(1)} Cup`;
     case 'laurel':
-      return 'Buy it in the Cups Laurel shop';
+      return u.label ?? 'Buy it in the Cups Laurel shop';
   }
 }
 
