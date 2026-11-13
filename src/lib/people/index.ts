@@ -46,10 +46,10 @@ export interface Opponent {
 
 export const COACH = { id: 'coach', name: 'Coach Sam' };
 
-const urls = import.meta.glob('../../assets/people/*.svg', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const urls = import.meta.glob('../../assets/people/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 
 export function portrait(id: string, mood: Mood = 'neutral'): string {
-  return urls[`../../assets/people/${id}-${mood}.svg`] ?? urls[`../../assets/people/${id}-neutral.svg`] ?? '';
+  return urls[`../../assets/people/${id}-${mood}.webp`] ?? urls[`../../assets/people/${id}-neutral.webp`] ?? '';
 }
 
 export const OPPONENTS: Opponent[] = [

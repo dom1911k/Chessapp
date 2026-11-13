@@ -2,7 +2,7 @@
 // game-over sheet, reviews, profile).
 import { useEffect, useState } from 'react';
 import { Check, Lock, X } from 'lucide-react';
-import { AVATARS, FRAMES, TITLES, avatarUrl, frameById, type Frame } from '../lib/avatars';
+import { AVATARS, FRAMES, TITLES, avatarId, avatarUrl, frameById, type Frame } from '../lib/avatars';
 import { getXp, levelFor } from '../lib/progress/xp';
 import { meets, unlockContext, unlockText, type UnlockContext } from '../lib/rewards/cosmetics';
 import { useSettings } from '../lib/settings';
@@ -57,7 +57,7 @@ export function AvatarPicker({ onClose }: { onClose: () => void }) {
         <h3 className="section-title mt-4">Avatar</h3>
         <div className="mt-2 grid grid-cols-4 gap-3">
           {AVATARS.map((a) => (
-            <button key={a.id} aria-label={`Avatar ${a.id}`} aria-pressed={s.avatar === a.id} className={`relative justify-self-center rounded-[30%] transition-transform active:scale-95 ${s.avatar === a.id ? 'ring-[3px] ring-brand-600 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''}`} onClick={() => s.set({ avatar: a.id })}>
+            <button key={a.id} aria-label={`Avatar ${a.id}`} aria-pressed={avatarId(s.avatar) === a.id} className={`relative justify-self-center rounded-[30%] transition-transform active:scale-95 ${avatarId(s.avatar) === a.id ? 'ring-[3px] ring-brand-600 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''}`} onClick={() => s.set({ avatar: a.id })}>
               <AvatarImg id={a.id} size={68} />
             </button>
           ))}

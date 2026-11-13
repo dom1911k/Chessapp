@@ -163,10 +163,13 @@ function nearest(pal: RGB[], r: number, g: number, b: number): RGB {
 /** A portrait as dithered pixel art (transparent background, gold or blood rim). */
 export function pixelPortrait(id: string, url: string, size = 40, boss = false): Promise<string> {
   return memo(`pt:${id}:${size}:${boss}`, async () => {
-    let svg = await fetch(url).then((r) => r.text());
-    // Drop the pastel background so the character sits on the felt.
-    svg = svg.replace(/<rect width="200" height="200" fill="url\(#[^)]*bg\)"\/>/, '').replace(/<circle cx="150" cy="40" r="60" fill="#fff" opacity="0.18"\/>/, '');
-    const img = await loadImage(svgUrl(svg));
+    let img: HTMLImageElement;
+    if (/\.svg(\?|$)/.test(url) || url.startsWith('data:image/svg')) {
+      let svg = await fetch(url).then((r) => r.text());
+      // Drop the pastel background so the character sits on the felt.
+      svg = svg.replace(/<rect width="200" height="200" fill="url\(#[^)]*bg\)"\/>/, '').replace(/<circle cx="150" cy="40" r="60" fill="#fff" opacity="0.18"\/>/, '');
+      img = await loadImage(svgUrl(svg));
+    } else img = await loadImage(url); // painted portraits keep their backdrop
     const n = size;
     const { g } = canvas(n, n);
     g.imageSmoothingEnabled = true;

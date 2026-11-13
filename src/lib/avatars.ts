@@ -3,13 +3,20 @@
 import { LEVEL_TITLES } from './progress/xp';
 import { meets, unlockText, type Unlock, type UnlockContext } from './rewards/cosmetics';
 
-const urls = import.meta.glob('../assets/avatars/*.svg', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const urls = import.meta.glob('../assets/avatars/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 
 export const AVATARS: { id: string; url: string }[] = Object.entries(urls)
-  .map(([path, url]) => ({ id: path.split('/').pop()!.replace('.svg', ''), url }))
+  .map(([path, url]) => ({ id: path.split('/').pop()!.replace('.webp', ''), url }))
   .sort((a, b) => a.id.localeCompare(b.id));
 
-export const avatarUrl = (id: string) => (AVATARS.find((a) => a.id === id) ?? AVATARS[0])?.url ?? '';
+/** An avatar id that still exists (ids from the earlier, larger set map onto the current ones). */
+export function avatarId(id: string): string {
+  if (AVATARS.some((a) => a.id === id)) return id;
+  const n = Number(/^a(\d+)$/.exec(id)?.[1]);
+  return n > 0 && AVATARS.length ? AVATARS[(n - 1) % AVATARS.length].id : (AVATARS[0]?.id ?? id);
+}
+
+export const avatarUrl = (id: string) => AVATARS.find((a) => a.id === avatarId(id))?.url ?? '';
 
 export interface Frame {
   id: string;

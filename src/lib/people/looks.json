@@ -1,12 +1,82 @@
 {
-  "coach":  { "top": "shortWaved", "hairColor": "4a312c", "skinColor": "edb98a", "accessories": "round", "facialHair": "beardLight", "facialHairColor": "4a312c", "clothing": "blazerAndSweater", "clothesColor": "2f5d50", "neutral": { "mouth": "smile", "eyebrows": "defaultNatural" }, "bg": { "colors": ["#d6efe0", "#8fc7a8"] } },
-  "lily":   { "top": "curvy", "hairColor": "c93305", "skinColor": "ffdbb4", "clothing": "overall", "clothesColor": "ff5c8a", "neutral": { "mouth": "smile", "eyebrows": "raisedExcitedNatural", "eyes": "default" }, "happy": { "mouth": "tongue", "eyes": "winkWacky" }, "bg": { "colors": ["#ffe3ea", "#ffb3c4"] } },
-  "tom":    { "top": "sides", "hairColor": "e8e1e1", "skinColor": "edb98a", "accessories": "prescription02", "facialHair": "moustacheMagnum", "facialHairColor": "e8e1e1", "clothing": "collarAndSweater", "clothesColor": "5f7350", "neutral": { "mouth": "default", "eyebrows": "defaultNatural", "eyes": "squint" }, "bg": { "colors": ["#fbeec2", "#f0cf78"] } },
-  "maya":   { "top": "fro", "hairColor": "2c1b18", "skinColor": "ae5d29", "clothing": "shirtScoopNeck", "clothesColor": "ffb238", "neutral": { "mouth": "twinkle", "eyebrows": "upDownNatural" }, "bg": { "colors": ["#bff0e6", "#3fb8a8"] } },
-  "jonas":  { "top": "winterHat02", "hatColor": "e2574c", "hairColor": "b58143", "skinColor": "ffdbb4", "facialHair": "beardMedium", "facialHairColor": "b58143", "clothing": "hoodie", "clothesColor": "3b4a63", "neutral": { "mouth": "default", "eyebrows": "default" }, "bg": { "colors": ["#dcebfd", "#8fbcf0"] } },
-  "priya":  { "top": "straight01", "hairColor": "2c1b18", "skinColor": "d08b5b", "accessories": "prescription01", "clothing": "blazerAndShirt", "clothesColor": "5468d4", "neutral": { "mouth": "smile", "eyebrows": "default" }, "bg": { "colors": ["#ebe5ff", "#b9a8f5"] } },
-  "marcus": { "top": "dreads01", "hairColor": "2c1b18", "skinColor": "614335", "facialHair": "beardLight", "facialHairColor": "2c1b18", "clothing": "graphicShirt", "clothingGraphic": "skullOutline", "clothesColor": "d9473b", "neutral": { "mouth": "twinkle", "eyebrows": "upDown", "eyes": "side" }, "bg": { "colors": ["#ffe2b3", "#ff9f5a"] } },
-  "sofia":  { "top": "bob", "hairColor": "8a1f2d", "skinColor": "ffdbb4", "clothing": "shirtVNeck", "clothesColor": "262e33", "neutral": { "mouth": "serious", "eyebrows": "raisedExcited", "eyes": "default" }, "bg": { "colors": ["#fbe1e4", "#e06a7c"] } },
-  "viktor": { "top": "theCaesarAndSidePart", "hairColor": "a8adb5", "skinColor": "edb98a", "facialHair": "beardMedium", "facialHairColor": "a8adb5", "accessories": "prescription01", "clothing": "blazerAndShirt", "clothesColor": "2a2f45", "neutral": { "mouth": "serious", "eyebrows": "angryNatural" }, "happy": { "mouth": "twinkle", "eyes": "default", "eyebrows": "raisedExcitedNatural" }, "bg": { "colors": ["#cdd3e8", "#5a6590"] } },
-  "mei":    { "top": "bun", "hairColor": "17131c", "skinColor": "ffdbb4", "clothing": "shirtCrewNeck", "clothesColor": "c2313d", "neutral": { "mouth": "serious", "eyebrows": "flatNatural", "eyes": "default" }, "happy": { "mouth": "smile", "eyes": "default", "eyebrows": "defaultNatural" }, "bg": { "colors": ["#fbeadf", "#f0a58f"] } }
+ "coach": {
+  "bg": {
+   "colors": [
+    "#b5c6bb",
+    "#828e86"
+   ]
+  }
+ },
+ "jonas": {
+  "bg": {
+   "colors": [
+    "#f9d19c",
+    "#b39670"
+   ]
+  }
+ },
+ "lily": {
+  "bg": {
+   "colors": [
+    "#f6d4c9",
+    "#b19890"
+   ]
+  }
+ },
+ "marcus": {
+  "bg": {
+   "colors": [
+    "#f1d4ab",
+    "#ad987b"
+   ]
+  }
+ },
+ "maya": {
+  "bg": {
+   "colors": [
+    "#aab890",
+    "#7a8467"
+   ]
+  }
+ },
+ "mei": {
+  "bg": {
+   "colors": [
+    "#c3ccc2",
+    "#8c928b"
+   ]
+  }
+ },
+ "priya": {
+  "bg": {
+   "colors": [
+    "#d3c6d7",
+    "#978e9a"
+   ]
+  }
+ },
+ "sofia": {
+  "bg": {
+   "colors": [
+    "#f5cbbc",
+    "#b09287"
+   ]
+  }
+ },
+ "tom": {
+  "bg": {
+   "colors": [
+    "#c3d1c1",
+    "#8c968a"
+   ]
+  }
+ },
+ "viktor": {
+  "bg": {
+   "colors": [
+    "#bbc8d2",
+    "#869097"
+   ]
+  }
+ }
 }
