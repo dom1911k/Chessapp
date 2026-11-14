@@ -27,7 +27,7 @@ function Card({ o, i, rec, open, active, onTap }: { o: Opponent; i: number; rec?
     >
       <div className="relative flex h-[132px] w-full items-end justify-center">
         <div className="absolute inset-0 dark:opacity-35" style={{ background: `linear-gradient(180deg, ${TINT[i % TINT.length]}, transparent)` }} />
-        <span className="absolute top-2.5 left-3 rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold text-stone-700 dark:bg-black/30 dark:text-stone-100">~{o.elo}</span>
+        <span className="absolute top-2.5 left-3 rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold text-stone-700 dark:bg-black/30 dark:text-stone-100">{o.elo}</span>
         {open && (
           <span className="absolute top-2.5 right-3 flex gap-px">
             {Array.from({ length: MAX_STARS }, (_, k) => (

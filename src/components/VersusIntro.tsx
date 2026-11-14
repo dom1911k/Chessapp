@@ -65,7 +65,7 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
           <div className="flex items-center gap-4">
             <span className="text-right">
               <span className="block font-display text-3xl font-semibold">{o ? o.name : 'Bot'}</span>
-              <span className="mt-1 inline-flex rounded-full bg-white/15 px-2 py-0.5 text-xs font-semibold">~{elo}{o ? ` · ${o.tagline}` : ''}</span>
+              <span className="mt-1 inline-flex rounded-full bg-white/15 px-2 py-0.5 text-xs font-semibold">{elo}{o ? ` · ${o.tagline}` : ''}</span>
             </span>
             {o ? (
               <Portrait id={o.id} size={96} mood="happy" className="ring-4 ring-white/80 shadow-[0_12px_30px_rgba(0,0,0,0.45)]" />

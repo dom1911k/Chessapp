@@ -65,7 +65,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: '',
     portrait: o.id,
     title: `Beat ${o.name}`,
-    description: `Win a game against ${o.name} (~${o.elo}).`,
+    description: `Win a game against ${o.name} (${o.elo}).`,
     check: (s: Stats) => s.beaten.has(o.id),
   })),
   { id: 'stars-3', icon: 'star', title: 'Five-star friend', description: 'Collect all 5 stars with one opponent.', ...count(1, (s) => s.fiveStars) },
