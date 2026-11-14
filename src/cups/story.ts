@@ -101,7 +101,9 @@ export function gameLine(rec: RoundRecord, cupBoons: string[]): string {
         ? `won on time against ${who}${rec.clockLeft !== undefined ? ` with ${fmtLeft(rec.clockLeft)} left` : ''}`
         : rec.reason === 'checkmate'
           ? `checkmated ${who} in ${rec.moves} moves`
-          : `beat ${who} (${rec.reason})`
+          : rec.reason === 'resignation'
+            ? `beat ${who}, who resigned after ${rec.moves} moves`
+            : `beat ${who} (${rec.reason})`
       : rec.result === 'draw'
         ? `drew with ${who}${rec.advanced ? ' and went through' : ' and went out'}`
         : rec.reason === 'time'

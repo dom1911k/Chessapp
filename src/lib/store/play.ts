@@ -31,8 +31,10 @@ import { setPlayActiveCheck } from '../chesscom/store';
 import { aidsFor } from '../coach/level';
 import { flagResult, lowTime as isLowTime, newClock, pressClock, timeLeft } from '../clock';
 import { botThinkMs, positionInfo, pressureParams, swingTracker, timePressure } from '../thinktime';
+import { evalHistory, shouldResign } from '../resign';
 
 const swingOf = swingTracker();
+const evalsOf = evalHistory();
 import { Chess } from 'chess.js';
 
 export type Phase = 'loading' | 'setup' | 'userTurn' | 'analyzing' | 'botThinking' | 'paused' | 'over';
@@ -239,7 +241,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     set({ phase: 'over', hint: null });
     playSound('gameEnd');
     const botWon = result !== '1/2-1/2' && (result === '1-0') !== (g.userColor === 'w');
-    say(reason === 'resignation' ? 'userResigned' : result === '1/2-1/2' ? 'draw' : botWon ? 'botWins' : 'botLoses');
+    say(reason === 'resignation' && botWon ? 'userResigned' : result === '1/2-1/2' ? 'draw' : botWon ? 'botWins' : 'botLoses');
     if (!botWon && result !== '1/2-1/2') setTimeout(() => playSound('win'), 350);
     // The results screen shows the rewards; keep the usual toasts quiet meanwhile.
     useCelebrate.getState().setMuted(true);
@@ -424,8 +426,16 @@ export const usePlay = create<PlayStore>((set, get) => {
         uci = chooseBotMove(fen, a, g.elo, Math.random, opponentById(g.opponentId)?.style);
         seen = { candidates: new Map(a.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], scoreToCp(povScore(l.score, turnOf(fen)))])) };
       }
-      // With a clock the opponent thinks like a person; otherwise a short pause.
       const gc = get().game!;
+      // A clearly lost opponent may resign instead of moving (strong ones do, beginners play on).
+      const bestNow = seen.candidates?.size ? Math.max(...seen.candidates.values()) : undefined;
+      if (!book && shouldResign({ elo: g.elo, moveNo: Math.floor(gc.plies.length / 2) + 1, evals: evalsOf(gc.startedAt, bestNow) })) {
+        await sleep(1200 + 1500 * Math.random());
+        if (my !== token) return;
+        await endGame(g.userColor === 'w' ? '1-0' : '0-1', 'resignation');
+        return;
+      }
+      // With a clock the opponent thinks like a person; otherwise a short pause.
       if (gc.clock && gc.timeControl) {
         const turn = turnOf(fen);
         const info = uci ? positionInfo(seen.logits, seen.candidates, uci, gc.plies[gc.plies.length - 1]) : {};
@@ -809,7 +819,7 @@ export function resultLines(userResult: 'win' | 'loss' | 'draw', reason: string,
   const who = opponent ?? 'the bot';
   if (userResult === 'win')
     return [
-      `You won against ${who}${reason === 'checkmate' ? ' by checkmate' : ''}! 🎉`,
+      `You won against ${who}${reason === 'checkmate' ? ' by checkmate' : reason === 'resignation' ? ` — ${opponent ?? 'the bot'} resigned` : ''}! 🎉`,
       ...(opponent ? [stars >= 5 ? `That's all 5 stars with ${who}!` : `Star ${stars} of 5 with ${who}. Five stars open ${who}'s special challenge.`] : []),
     ];
   if (userResult === 'draw') return [`A draw (${reason}). That's a solid result!`];

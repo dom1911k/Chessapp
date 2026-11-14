@@ -16,8 +16,10 @@ import { analysisLimits } from '../lib/engine/speed';
 import { bookMove } from '../lib/people/openings';
 import { flagResult, parseTc } from '../lib/clock';
 import { botThinkMs, positionInfo, pressureParams, swingTracker, timePressure } from '../lib/thinktime';
+import { evalHistory, shouldResign } from '../lib/resign';
 
 const swingOf = swingTracker();
+const evalsOf = evalHistory();
 import { specialMove, tacticsOfMove, type TacticCounts } from '../lib/rewards/career';
 import { finishGame } from '../lib/store/finish';
 import { db } from '../lib/db';
@@ -482,6 +484,14 @@ export const useCupGame = create<Store>((set, get) => {
         uci = chooseBotMove(fen, a, g.elo, Math.random);
       }
       const gc = get().game!;
+      // A clearly lost opponent may resign (never in a final before move 20).
+      const bestNow = seen.candidates?.size ? Math.max(...seen.candidates.values()) : undefined;
+      if (!book && shouldResign({ elo: g.elo, moveNo: Math.floor(gc.plies.length / 2) + 1, evals: evalsOf(gc.startedAt, bestNow), cupFinal: g.round === 2 })) {
+        await sleep(Math.min(1200 + 1500 * Math.random(), Math.max(0, clockLeft(gc, turn) - 50)));
+        if (my !== token) return;
+        await endGame(g.userColor === 'w' ? '1-0' : '0-1', 'resignation');
+        return;
+      }
       const info = uci ? positionInfo(seen.logits, seen.candidates, uci, gc.plies[gc.plies.length - 1]) : {};
       const target =
         botThinkMs({
