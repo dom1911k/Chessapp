@@ -22,8 +22,6 @@ export interface OpponentRecord {
   badges?: string[];
   /** Current run of wins against them. */
   streak?: number;
-  /** Stays open after a record reset (see resetOpponentRecords). */
-  opened?: boolean;
 }
 
 /** Rivalry points, including for records from before rivalries existed (win 3, draw 2, loss 1). */
@@ -75,25 +73,15 @@ export async function recordOpponentGame(g: GameRecord): Promise<{ stars: number
 export function isUnlocked(id: string, records: Record<string, OpponentRecord>): boolean {
   const i = OPPONENTS.findIndex((o) => o.id === id);
   if (i < 3) return true;
-  if (records[id]?.opened) return true;
   if ((records[id]?.w ?? 0) + (records[id]?.l ?? 0) + (records[id]?.d ?? 0) > 0) return true;
   return (records[OPPONENTS[i - 1].id]?.w ?? 0) > 0;
 }
 
 /**
- * Fresh head-to-head records against every bot: wins, draws, losses, stars, rivalry points/level
- * and streaks go back to zero. Your game history stays, opponents you had opened stay open, and
- * earned badges and finished challenges are kept.
+ * A fresh start against the bots: every record (wins, draws, losses, stars, rivalry, badges,
+ * challenges and unlocks) is cleared, so the ladder starts again from the first opponent.
+ * Your game history is not touched.
  */
 export async function resetOpponentRecords(): Promise<void> {
-  const all = await getOpponentRecords();
-  const fresh: Record<string, OpponentRecord> = {};
-  for (const o of OPPONENTS) {
-    const r = all[o.id];
-    const opened = isUnlocked(o.id, all);
-    // Opponents you had opened stay open, even ones you haven't played yet.
-    if (!r && !opened) continue;
-    fresh[o.id] = { ...empty(), rp: 0, opened: opened || undefined, badges: r?.badges?.length ? r.badges : undefined, challengeDone: r?.challengeDone || undefined };
-  }
-  await kvSet(KEY, fresh);
+  await kvSet(KEY, {});
 }

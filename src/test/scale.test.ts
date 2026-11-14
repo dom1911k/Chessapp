@@ -55,23 +55,19 @@ describe('chess.com rating scale', () => {
   });
 });
 
-import { getOpponentRecords, isUnlocked, resetOpponentRecords, starsOf, rpOf } from '../lib/people/record';
-describe('fresh bot records', () => {
-  it('zeroes W/D/L, stars and rivalry, keeps unlocks, badges and challenges', async () => {
-    await kvSet('opponentStats', {
-      lily: { w: 6, d: 1, l: 2, stars: 5, bestAccuracy: 90, rp: 40, badges: ['clean'], challengeDone: true, streak: 3, last: 'win' },
-      maya: { w: 1, d: 0, l: 0, stars: 1, bestAccuracy: 70, rp: 4 },
-    });
-    const before = await getOpponentRecords();
-    const fourth = OPPONENTS[3].id;
-    const opened = isUnlocked(fourth, before);
+import { getOpponentRecords, isUnlocked, resetOpponentRecords, starsOf } from '../lib/people/record';
+import { getGameRating, restartGameRating } from '../lib/rewards/rating';
+describe('fresh start against the bots', () => {
+  it('clears every bot record and restarts the rating at 200', async () => {
+    await kvSet('opponentStats', { lily: { w: 6, d: 1, l: 2, stars: 5, bestAccuracy: 90, rp: 40, badges: ['clean'], challengeDone: true }, maya: { w: 1, d: 0, l: 0, stars: 1, bestAccuracy: 70 } });
+    await kvSet('gameRating', { rating: 700, peak: 900, games: 40, history: [{ at: 1, rating: 700 }] });
     await resetOpponentRecords();
-    const after = await getOpponentRecords();
-    expect(after.lily).toMatchObject({ w: 0, d: 0, l: 0, rp: 0, badges: ['clean'], challengeDone: true });
-    expect(starsOf(after.lily)).toBe(0);
-    expect(rpOf(after.lily)).toBe(0);
-    expect(after.lily.streak).toBeUndefined();
-    expect(isUnlocked(fourth, after)).toBe(opened);
-    for (const o of OPPONENTS) if (isUnlocked(o.id, before)) expect(isUnlocked(o.id, after)).toBe(true);
+    await restartGameRating(OPPONENTS[0].elo);
+    const recs = await getOpponentRecords();
+    expect(recs).toEqual({});
+    expect(starsOf(recs.lily)).toBe(0);
+    expect(OPPONENTS.slice(0, 3).every((o) => isUnlocked(o.id, recs))).toBe(true);
+    expect(isUnlocked(OPPONENTS[3].id, recs)).toBe(false);
+    expect(await getGameRating()).toMatchObject({ rating: 200, peak: 200, games: 0 });
   });
 });

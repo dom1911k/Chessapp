@@ -37,6 +37,13 @@ export async function rateGame(opponentElo: number, score: number, helpUsed: num
   return { before, after };
 }
 
+/** Starts your game rating again at `rating` (history and game count cleared, so it settles fast). */
+export async function restartGameRating(rating: number): Promise<void> {
+  const fresh: GameRating = { rating, peak: rating, games: 0, history: [{ at: Date.now(), rating }] };
+  await kvSet(KEY, fresh);
+  setPlayerRating(rating);
+}
+
 export interface Milestone {
   rating: number;
   title: string;
