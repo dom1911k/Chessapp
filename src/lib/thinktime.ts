@@ -35,11 +35,13 @@ export const THINK = {
   movesLeftAt: 48,
   minMovesLeft: 16,
   /** Share of the per-move budget a player actually uses (by rating): weaker players play faster. */
-  useOfBudget: [[100, 0.5], [600, 0.6], [1000, 0.68], [1600, 0.8], [2000, 0.9]] as Curve,
+  useOfBudget: [[100, 0.47], [600, 0.55], [1000, 0.6], [1600, 0.78], [2000, 0.88]] as Curve,
   /** How strongly difficulty stretches the think (by rating): strong players think where it matters. */
   difficultyWeight: [[100, 0.4], [800, 0.75], [1800, 1.0]] as Curve,
-  /** Endgames are played faster. */
-  endgameFactor: 0.6,
+  /** Endgames are played faster (by rating: weaker players speed up more). */
+  endgameFactor: [[100, 0.6], [1000, 0.6], [1600, 1.0]] as Curve,
+  /** Opening moves by rating: weaker players spend longer on them, stronger ones know them. */
+  openingScale: [[100, 1.3], [800, 1.0], [1600, 0.72]] as Curve,
   /** Opening moves (by move number) are quicker. */
   phase: [[1, 0.35], [6, 0.6], [10, 0.85], [12, 1.0]] as Curve,
   /** Difficulty from the spread: 1 - top probability, mapped to a factor. */
@@ -158,7 +160,7 @@ export function botThinkMs(o: ThinkInput, rng: () => number = Math.random): numb
   const budget = left / movesLeft + inc * 0.8;
   const w = lerp(THINK.difficultyWeight, o.elo);
   const diff = 1 + w * (difficulty(o) - 1);
-  let ms = budget * lerp(THINK.useOfBudget, o.elo) * lerp(THINK.phase, o.moveNo) * (o.endgame ? THINK.endgameFactor : 1) * diff * Math.exp(THINK.sigma * normal(rng) - THINK.sigma ** 2 / 2);
+  let ms = budget * lerp(THINK.useOfBudget, o.elo) * lerp(THINK.phase, o.moveNo) * (o.endgame ? lerp(THINK.endgameFactor, o.elo) : 1) * (o.moveNo <= 10 ? lerp(THINK.openingScale, o.elo) : 1) * diff * Math.exp(THINK.sigma * normal(rng) - THINK.sigma ** 2 / 2);
 
   // 3. At a critical moment, now and then a real long think (stronger players more often).
   if (o.moveNo > 8 && critical(o) && rng() < THINK.longThinkChance * w * (1 - pressure)) ms *= THINK.longThink[0] + (THINK.longThink[1] - THINK.longThink[0]) * rng();

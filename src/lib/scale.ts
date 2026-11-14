@@ -20,12 +20,14 @@ const lerp = (c: Curve, x: number) => {
 /** [old app rating, chess.com rating it plays like]. Increasing in both columns. */
 export const LEGACY_TO_CC: Curve = [
   [400, 100],
-  [900, 200],
+  [700, 130],
+  [900, 180],
   [1100, 400],
-  [1300, 750],
-  [1500, 1050],
-  [1700, 1350],
-  [2000, 1700],
+  [1300, 900],
+  [1500, 1300],
+  [1700, 1620],
+  [1900, 1850],
+  [2000, 1950],
 ];
 
 export const CC_MIN = 100;
