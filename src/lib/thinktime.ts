@@ -35,13 +35,13 @@ export const THINK = {
   movesLeftAt: 48,
   minMovesLeft: 16,
   /** Share of the per-move budget a player actually uses (by rating): weaker players play faster. */
-  useOfBudget: [[100, 0.47], [600, 0.55], [1000, 0.6], [1200, 0.62], [1600, 0.68], [2000, 0.77]] as Curve,
+  useOfBudget: [[100, 0.47], [400, 0.65], [800, 0.68], [1000, 0.62], [1200, 0.62], [1600, 0.68], [2000, 0.77]] as Curve,
   /** How strongly difficulty stretches the think (by rating): strong players think where it matters. */
   difficultyWeight: [[100, 0.4], [800, 0.75], [1800, 1.0]] as Curve,
   /** Endgames are played faster (by rating: weaker players speed up more). */
   endgameFactor: [[100, 0.6], [1000, 0.6], [1600, 1.0]] as Curve,
   /** Opening moves by rating: weaker players spend longer on them, stronger ones know them. */
-  openingScale: [[100, 1.3], [400, 1.6], [600, 1.55], [800, 1.38], [1000, 0.97], [1200, 0.86], [1600, 0.72]] as Curve,
+  openingScale: [[100, 1.3], [400, 1.3], [600, 1.4], [800, 1.38], [1000, 0.97], [1200, 0.86], [1600, 0.72]] as Curve,
   /** Extra chance of a quick, instinctive move (weaker players play more of them). */
   quickChance: [[100, 0.08], [600, 0.04], [1000, 0]] as Curve,
   /** Opening moves (by move number) are quicker. */
