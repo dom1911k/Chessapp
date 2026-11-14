@@ -8,6 +8,7 @@ import { BackupCard } from '../components/BackupCard';
 import { ChessComCard } from '../components/ChessCom';
 import { COACH_LEVELS } from '../lib/coach/level';
 import { ResetCard } from '../components/ResetCard';
+import { ResetRecordsCard } from '../components/ResetRecordsCard';
 import { useRunFlag } from '../cups/flag';
 import { UpdateCard } from '../components/UpdatePanel';
 import { FeedbackCard } from '../components/FeedbackCard';
@@ -165,6 +166,7 @@ export function SettingsScreen() {
         <ReminderCard />
         <UpdateCard />
         <BackupCard />
+        <ResetRecordsCard />
         <ResetCard />
         <FeedbackCard />
         <div className="card">

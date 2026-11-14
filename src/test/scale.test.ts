@@ -54,3 +54,24 @@ describe('chess.com rating scale', () => {
     expect((await db.games.toArray())[0].elo).toBe(fromLegacy(1300));
   });
 });
+
+import { getOpponentRecords, isUnlocked, resetOpponentRecords, starsOf, rpOf } from '../lib/people/record';
+describe('fresh bot records', () => {
+  it('zeroes W/D/L, stars and rivalry, keeps unlocks, badges and challenges', async () => {
+    await kvSet('opponentStats', {
+      lily: { w: 6, d: 1, l: 2, stars: 5, bestAccuracy: 90, rp: 40, badges: ['clean'], challengeDone: true, streak: 3, last: 'win' },
+      maya: { w: 1, d: 0, l: 0, stars: 1, bestAccuracy: 70, rp: 4 },
+    });
+    const before = await getOpponentRecords();
+    const fourth = OPPONENTS[3].id;
+    const opened = isUnlocked(fourth, before);
+    await resetOpponentRecords();
+    const after = await getOpponentRecords();
+    expect(after.lily).toMatchObject({ w: 0, d: 0, l: 0, rp: 0, badges: ['clean'], challengeDone: true });
+    expect(starsOf(after.lily)).toBe(0);
+    expect(rpOf(after.lily)).toBe(0);
+    expect(after.lily.streak).toBeUndefined();
+    expect(isUnlocked(fourth, after)).toBe(opened);
+    for (const o of OPPONENTS) if (isUnlocked(o.id, before)) expect(isUnlocked(o.id, after)).toBe(true);
+  });
+});
