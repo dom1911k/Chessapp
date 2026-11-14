@@ -10,7 +10,7 @@ export const MAIA3 = {
   /** Model size used by the opponents. */
   size: '23m' as const,
   /** The model's SelfElo for an opponent label (stretches the model's rating axis if needed). */
-  selfElo: [[400, 75], [600, 290], [800, 505], [1000, 725], [1200, 1030], [1400, 1395], [1600, 1695], [1800, 1985], [2000, 2345]] as Curve,
+  selfElo: [[400, 75], [600, 365], [800, 545], [1000, 665], [1200, 810], [1400, 985], [1600, 1220], [1800, 1545], [2000, 1950]] as Curve,
   temperature: [[400, 1.0], [2000, 1.0]] as Curve,
   topP: [[400, 0.99], [1000, 0.985], [2000, 0.98]] as Curve,
   minP: [[400, 0.005], [1000, 0.008], [2000, 0.01]] as Curve,
