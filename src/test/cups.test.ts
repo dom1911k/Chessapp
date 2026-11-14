@@ -250,8 +250,8 @@ describe('cups: opponent quirks', () => {
     expect(quirkEffects(['speedster'], ctx()).temp).toBeCloseTo(0.15);
     expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 5 })).think).toBe(2.6);
     expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 20 })).think).toBe(1);
-    expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 30, botLeftMs: 40_000 })).temp).toBeCloseTo(0.6);
-    expect(quirkEffects(['slowStarter'], ctx({ moveNo: 3 })).temp).toBeCloseTo(0.6);
+    expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 30, botLeftMs: 40_000 })).temp).toBeCloseTo(TUNING.quirks.timeTrouble.lowTemp);
+    expect(quirkEffects(['slowStarter'], ctx({ moveNo: 3 })).temp).toBeCloseTo(TUNING.quirks.slowStarter.temp);
     expect(quirkEffects(['slowStarter'], ctx({ moveNo: 13 })).temp).toBe(0);
     expect(quirkEffects(['comebackKid'], ctx({ botEval: -200 })).temp).toBeCloseTo(TUNING.quirks.comebackKid.temp);
     expect(quirkEffects(['comebackKid'], ctx({ botEval: 50 })).temp).toBe(0);
@@ -289,8 +289,8 @@ describe('cups: opponent quirks', () => {
     const g = { ...newCupGame({ cupId: 'c', tier: 'gold', round: 2, opponentId: 'tom', elo: 900, userColor: 'b', timeControl: '600+0', boons: ['rattled'], quirks: ['speedster'], hidden: 'slowStarter' }, 0), rattled: 2 };
     const m = botMods(g, ctx());
     expect(m.thinkFactor).toBe(0.45);
-    expect(m.tempDelta).toBeCloseTo(0.15 + 0.6 + TUNING.boons.rattledTemp[0]);
-    expect(botMods({ ...g, levels: { rattled: 3 } }, ctx()).tempDelta).toBeCloseTo(0.15 + 0.6 + TUNING.boons.rattledTemp[2]);
+    expect(m.tempDelta).toBeCloseTo(0.15 + TUNING.quirks.slowStarter.temp + TUNING.boons.rattledTemp[0]);
+    expect(botMods({ ...g, levels: { rattled: 3 } }, ctx()).tempDelta).toBeCloseTo(0.15 + TUNING.quirks.slowStarter.temp + TUNING.boons.rattledTemp[2]);
     expect(quirkOpening({ ...g, quirks: ['gambiteer'], hidden: undefined }, ctx({ fen: after('e4 e5'), sans: ['e4', 'e5'] }), () => 0)).toEqual({ uci: 'f2f4', quirk: 'gambiteer' });
   });
 });
