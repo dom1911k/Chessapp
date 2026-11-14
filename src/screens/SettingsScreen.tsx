@@ -1,3 +1,4 @@
+import { Maia3Bench } from '../components/Maia3Bench';
 import { Header, Segmented, Toggle } from '../components/ui';
 import { useSettings } from '../lib/settings';
 import { useNav } from '../lib/nav';
@@ -107,6 +108,34 @@ export function SettingsScreen() {
               ]}
             />
           </div>
+          {s.opponentEngine === 'maia' && (
+            <div className="py-2">
+              <div className="mb-1.5 text-sm">Human-like brain</div>
+              <Segmented
+                value={s.maiaVersion}
+                onChange={(v) => s.set({ maiaVersion: v })}
+                options={[
+                  { value: 'maia1', label: 'Maia-1 (classic)' },
+                  { value: 'maia3', label: 'Maia-3 (preview)' },
+                ]}
+              />
+              {s.maiaVersion === 'maia3' && (
+                <div className="mt-2">
+                  <Segmented
+                    value={s.maia3Size}
+                    onChange={(v) => s.set({ maia3Size: v })}
+                    options={[
+                      { value: '5m', label: '5M (fast)' },
+                      { value: '23m', label: '23M (sharper)' },
+                    ]}
+                  />
+                </div>
+              )}
+              <p className="mt-1.5 text-xs text-stone-500">
+                {s.maiaVersion === 'maia3' ? 'Maia-3 is one model for every rating. Preview: not tuned for the opponents yet.' : 'One network per rating band, tuned for every opponent.'}
+              </p>
+            </div>
+          )}
           <div className="py-2">
             <div className="mb-1.5 text-sm">Coach level (normal games)</div>
             <Segmented
@@ -153,8 +182,12 @@ export function SettingsScreen() {
           <Toggle checked={runMode.enabled} onChange={runMode.set} label="Show the Cups tab" />
           <p className="mt-1 text-xs text-stone-500">Knockout tournaments of real games against the bots, with boons, charms and Laurels to collect.</p>
         </div>
+        <div className="card">
+          <div className="section-title">Developer</div>
+          <Maia3Bench />
+        </div>
         <p className="px-2 text-xs text-stone-500">
-          Chess Coach runs fully offline (the optional chess.com import is the only thing that uses the internet). Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (GPLv3), running Leela Chess Zero networks. Puzzles: Lichess puzzle database (CC0). Standard piece sounds: recordings from Lichess (AGPLv3+). Portraits and avatars: the Avataaars illustration set by Pablo Stanley, assembled with DiceBear.
+          Chess Coach runs fully offline (the optional chess.com import is the only thing that uses the internet). Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (Maia-1: GPLv3, Leela Chess Zero networks; Maia-3 preview: AGPLv3, run with ONNX Runtime, MIT). Puzzles: Lichess puzzle database (CC0). Standard piece sounds: recordings from Lichess (AGPLv3+). Portraits and avatars: painted illustrations made for this app.
         </p>
       </div>
     </div>

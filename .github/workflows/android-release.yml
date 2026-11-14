@@ -76,6 +76,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Maia-3 models are not committed: fetched (pinned, checksummed) and converted to ONNX.
+      - name: Cache Maia-3 models
+        uses: actions/cache@v4
+        with:
+          path: public/maia3
+          key: maia3-${{ hashFiles('scripts/maia3/convert.py', 'scripts/maia3/fetch.sh') }}
+
+      - name: Build Maia-3 models
+        run: bash scripts/maia3/fetch.sh
+
       - name: Build the web app
         run: |
           npm run build

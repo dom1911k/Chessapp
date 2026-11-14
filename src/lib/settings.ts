@@ -9,6 +9,10 @@ export interface Settings {
   botElo: number;
   /** Opponents play with Maia (human-like) or Stockfish (classic, with random slips). */
   opponentEngine: 'maia' | 'stockfish';
+  /** Which Maia plays the human-like opponents: the classic per-rating nets, or Maia-3 (one model, any rating). */
+  maiaVersion: 'maia1' | 'maia3';
+  /** Maia-3 model size. */
+  maia3Size: '5m' | '23m';
   /** Chosen opponent, or 'custom' for the strength slider. */
   opponentId: string;
   colorPref: 'w' | 'b' | 'random';
@@ -138,6 +142,8 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   botElo: DEFAULT_ELO,
   opponentEngine: 'maia',
+  maiaVersion: 'maia1',
+  maia3Size: '5m',
   opponentId: 'tom',
   colorPref: 'w',
   safetyOverlay: false,

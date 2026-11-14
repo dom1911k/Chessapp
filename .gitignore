@@ -1,6 +1,7 @@
 node_modules
 dist
 public/engine
+public/maia3
 *.keystore
 *.jks
 keystore-base64.txt
@@ -16,3 +17,4 @@ android/capacitor-cordova-android-plugins/build
 android/.idea
 .cache
 *.tsbuildinfo
+__pycache__/

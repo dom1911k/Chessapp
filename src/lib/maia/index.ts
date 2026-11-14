@@ -2,6 +2,8 @@
 // rating would play; we sample from that, with a temperature per opponent level.
 import { Chess } from 'chess.js';
 import type { PlayStyle } from '../people';
+import { useSettings } from '../settings';
+import { maia3Logits } from '../maia3';
 
 /** Bundled Maia networks (public/maia). */
 export const MAIA_RATINGS = [1100, 1200, 1400, 1600, 1800, 1900] as const;
@@ -172,6 +174,18 @@ export async function maiaLogits(fens: string[], elo: number): Promise<Map<strin
   const fen = fens[fens.length - 1];
   const moves = new Chess(fen).moves({ verbose: true });
   if (!moves.length) return new Map();
+  const st = useSettings.getState();
+  if (st.maiaVersion === 'maia3') {
+    try {
+      // PREVIEW (until the Maia-3 retune): the rating comes from the model itself, so cancel the
+      // Maia-1 temperature the callers apply (logits × T, then ÷ T) and play at temperature 1.
+      const lg = await maia3Logits(fens, elo, elo, st.maia3Size);
+      const t = humanParams(elo).temperature;
+      return new Map([...lg].map(([m, v]) => [m, v * t]));
+    } catch (e) {
+      console.warn('Maia-3 failed, using Maia-1', e);
+    }
+  }
   const { rating } = maiaParams(elo);
   const id = nextId++;
   return new Promise<Map<string, number>>((resolve, reject) => {
