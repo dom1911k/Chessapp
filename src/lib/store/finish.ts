@@ -17,6 +17,7 @@ import { MAX_STARS } from '../people/record';
 import { OPPONENTS } from '../people';
 import { TACTIC_KEYS } from '../rewards/career';
 import { BEST_WIN_STREAK, currentWinStreak } from '../stats';
+import { afterSparring, getSparring, saveSparring } from '../sparring';
 
 export const FOCUS_KEY = 'focusTheme';
 
@@ -97,6 +98,7 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     summary,
     opening: g.startFen === START_FEN ? detectOpening(g.plies.map((p) => p.san))?.name : undefined,
     tactics: gameTactics(g),
+    opponentName: g.sparring ? 'Sparring partner' : undefined,
   };
   const gameId = await db.transaction('rw', [db.games, db.current, db.cards], async () => {
     const id = await db.games.add(record);
@@ -134,6 +136,8 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
   const rec = await recordOpponentGame({ ...record, id: gameId });
   if (rec?.rivalry.xp) await awardXp(rec.rivalry.xp, true);
   await addToCareer(record.tactics ?? {});
+  // The sparring partner moves its rating to keep you near 50%.
+  if (g.sparring && !opts.cup) await saveSparring(afterSparring(await getSparring(g.elo), userResult));
   const { before: rb, after: ra } = await rateGame(g.elo, userResult === 'win' ? 1 : userResult === 'draw' ? 0.5 : 0, g.hintsUsed + g.takebacks);
   await progress({ kind: 'game', result: userResult, accuracy: summary.accuracy });
   // A recurring pattern beats a one-game lesson for steering puzzle practice.

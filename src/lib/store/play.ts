@@ -63,7 +63,7 @@ interface PlayStore {
   /** "Are you sure?" before a risky move. */
   precheck: { move: MoveInput; uci: string; check: PreCheck; revealed: boolean } | null;
   load(): Promise<void>;
-  newGame(color: Color, elo: number, startFen?: string, opponentId?: string, opts?: { match?: boolean; timeControl?: string }): void;
+  newGame(color: Color, elo: number, startFen?: string, opponentId?: string, opts?: { match?: boolean; timeControl?: string; sparring?: boolean }): void;
   userMove(m: MoveInput, force?: boolean): boolean;
   /** Play the move the "are you sure?" check stopped. */
   confirmPrecheck(): void;
@@ -594,6 +594,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         timeControl: opts.timeControl || undefined,
         clock: opts.timeControl ? newClock(opts.timeControl, Date.now()) : undefined,
         clocks: opts.timeControl ? [] : undefined,
+        sparring: opts.sparring || undefined,
       };
       lastBestTag = -99;
       set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: Date.now(), lowTime: false });

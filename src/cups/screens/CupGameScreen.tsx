@@ -1,5 +1,6 @@
 // A cup game in pixel style: the opponent card, the VS slam, then a real game under Match
 // conditions. The bottom bar holds Resign (and the charms, stage 3).
+import { CcLabel } from '../../components/CcLabel';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { opponentById, pickLine } from '../../lib/people';
 import { avatarUrl } from '../../lib/avatars';
@@ -98,7 +99,7 @@ function OpponentCard({ g, onPlay }: { g: CupGameState; onPlay: () => void }) {
       <div className="run-label">{tierInfo(g.tier as CupTier).name} · {ROUND_NAMES[g.round]}</div>
       <PixelPortrait id={g.opponentId} size={128} boss={g.round === 2} className="mt-3 run-boss-glow" />
       <div className="run-title mt-2 text-3xl font-black">{o?.name}</div>
-      <div className="run-sans text-sm text-[var(--ink-dim)]">plays at {g.elo} · {o?.tagline}</div>
+      <div className="run-sans text-sm text-[var(--ink-dim)]">plays at {g.elo} (<CcLabel elo={g.elo} />) · {o?.tagline}</div>
       <div className="run-panel mt-4 w-full max-w-xs px-3 py-2 text-left">
         <div className="run-sans text-sm">You play <b>{g.userColor === 'w' ? 'White' : 'Black'}</b> · {Math.floor(startMs / 60_000)}:{String(Math.round((startMs % 60_000) / 1000)).padStart(2, '0')} on your clock</div>
         <div className="run-sans mt-0.5 text-xs text-[var(--ink-dim)]">{drawThrough ? 'A draw sends you through.' : 'You need a win; a draw sends them through.'}</div>

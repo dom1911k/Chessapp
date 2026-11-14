@@ -7,8 +7,11 @@ import { TUNING as CUPS_T } from '../cups/tuning';
 import { UserAvatar, useMyName } from '../components/UserAvatar';
 import { getRating as getPuzzleRating } from '../lib/puzzles/rating';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Flame, FlipVertical2, Puzzle, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
+import { Flame, FlipVertical2, Puzzle, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
+import { getSparring, sparringStep, type SparringState } from '../lib/sparring';
+import { getPlayerRating } from '../lib/playerRating';
+import { CcLabel, CcLine } from '../components/CcLabel';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
 import { START_FEN } from '../lib/chess/game';
@@ -59,14 +62,22 @@ export function PlayScreen() {
   return <GameView />;
 }
 
+const sparringTagline = (s: SparringState | null) => (s && s.games ? `Keeps you near 50% · ${s.w}W ${s.d}D ${s.l}L` : 'Its rating follows yours, game by game');
+
 function SetupView() {
   const settings = useSettings();
   const newGame = usePlay((s) => s.newGame);
   const custom = settings.opponentId === 'custom';
+  // The sparring partner: its rating follows yours to keep games near 50%.
+  const sparring = settings.opponentId === 'sparring';
+  const [spar, setSpar] = useState<SparringState | null>(null);
+  const phaseNow = usePlay((s) => s.phase);
+  useEffect(() => void getSparring(getPlayerRating()).then(setSpar), [phaseNow]);
   const [records, setRecords] = useState<Record<string, OpponentRecord>>({});
   useEffect(() => void getOpponentRecords().then(setRecords), []);
-  const chosen = opponentById(settings.opponentId) ?? (custom ? undefined : OPPONENTS[1]);
-  const opp = custom ? null : chosen ?? null;
+  const chosen = opponentById(settings.opponentId) ?? (custom || sparring ? undefined : OPPONENTS[1]);
+  const opp = custom || sparring ? null : chosen ?? null;
+  const botElo = opp ? opp.elo : sparring ? spar?.rating ?? getPlayerRating() : settings.botElo;
   // Match conditions: any opponent from the ladder, no rating gate.
   const match = settings.matchMode;
   const locked = !match && !!opp && !isUnlocked(opp.id, records);
@@ -85,7 +96,7 @@ function SetupView() {
     const color = settings.colorPref === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : settings.colorPref;
     // Starting over ends the game in progress (counts as resigned after a few moves).
     if (running) await usePlay.getState().abandon();
-    newGame(color, opp ? opp.elo : settings.botElo, undefined, opp?.id, match ? { match: true, timeControl: matchTc } : { timeControl: settings.coachedTimeControl || undefined });
+    newGame(color, botElo, undefined, opp?.id, { ...(match ? { match: true, timeControl: matchTc } : { timeControl: settings.coachedTimeControl || undefined }), sparring });
   };
   const [sheet, setSheet] = useState<'opponent' | 'options' | null>(null);
   const tc = match ? matchTc : settings.coachedTimeControl;
@@ -105,16 +116,17 @@ function SetupView() {
             style={{ background: opp ? `linear-gradient(115deg, color-mix(in srgb, ${portraitColors(opp.id)[1]} 34%, transparent), color-mix(in srgb, ${portraitColors(opp.id)[0]} 10%, transparent))` : undefined }}
             onClick={() => setSheet('opponent')}
           >
-            {opp ? <Portrait id={opp.id} size={84} className="ring-2 ring-white/80 dark:ring-white/20" /> : <span className="flex h-[84px] w-[84px] items-center justify-center rounded-[30%] bg-stone-200 dark:bg-stone-800"><Bot size={36} /></span>}
+            {opp ? <Portrait id={opp.id} size={84} className="ring-2 ring-white/80 dark:ring-white/20" /> : <span className="flex h-[84px] w-[84px] items-center justify-center rounded-[30%] bg-stone-200 dark:bg-stone-800">{sparring ? <Dumbbell size={36} /> : <Bot size={36} />}</span>}
             <span className="min-w-0 flex-1">
               <span className="block text-[10px] font-bold tracking-[0.1em] text-stone-500 uppercase dark:text-stone-400">Your opponent</span>
-              <span className="block truncate font-display text-[22px] leading-tight font-semibold">{opp ? opp.name : 'Custom bot'}</span>
+              <span className="block truncate font-display text-[22px] leading-tight font-semibold">{opp ? opp.name : sparring ? 'Sparring partner' : 'Custom bot'}</span>
               <span className="mt-0.5 flex items-center gap-1.5">
-                <span className="rounded-md bg-stone-900/85 px-1.5 py-px text-xs font-bold text-white tabular-nums dark:bg-white/90 dark:text-stone-900">{opp ? opp.elo : settings.botElo}</span>
+                <span className="rounded-md bg-stone-900/85 px-1.5 py-px text-xs font-bold text-white tabular-nums dark:bg-white/90 dark:text-stone-900">{botElo}</span>
+                <CcLabel elo={botElo} className="text-xs text-stone-500 dark:text-stone-400" />
                 {opp && <Stars n={stars} of={MAX_STARS} size={12} />}
                 {opp && <RivalryChip rec={rec} />}
               </span>
-              <span className="mt-0.5 block truncate text-xs text-stone-600 dark:text-stone-400">{opp ? opp.tagline : eloLabel(settings.botElo)}</span>
+              <span className="mt-0.5 block truncate text-xs text-stone-600 dark:text-stone-400">{opp ? opp.tagline : sparring ? sparringTagline(spar) : eloLabel(settings.botElo)}</span>
             </span>
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/80 text-stone-700 shadow-sm dark:bg-white/10 dark:text-stone-200" aria-label="Change opponent"><ChevronRight size={18} /></span>
           </button>
@@ -157,21 +169,39 @@ function SetupView() {
       </div>
       <Dialog open={sheet === 'opponent'} onClose={() => setSheet(null)} title="Choose your opponent">
         <div className="-mx-4">
-          {!custom && <OpponentCarousel records={records} allOpen={match} selected={settings.opponentId} onSelect={(id) => settings.set({ opponentId: id })} />}
+          {!custom && !sparring && <OpponentCarousel records={records} allOpen={match} selected={settings.opponentId} onSelect={(id) => settings.set({ opponentId: id })} />}
         </div>
         {custom && (
           <div className="py-2">
             <div className="mb-1 flex items-baseline justify-between">
               <span className="section-title">Bot strength</span>
-              <span className="text-sm font-bold">~{settings.botElo} <span className="font-normal text-stone-500">· {eloLabel(settings.botElo)}</span></span>
+              <span className="text-sm font-bold">~{settings.botElo} <span className="font-normal text-stone-500">· <CcLabel elo={settings.botElo} /></span></span>
             </div>
             <input type="range" min={MIN_ELO} max={MAX_ELO} step={50} value={settings.botElo} onChange={(e) => settings.set({ botElo: Number(e.target.value) })} className="w-full accent-brand-600" />
           </div>
         )}
+        {sparring && (
+          <div className="space-y-1.5 py-2">
+            <div className="flex items-baseline justify-between">
+              <span className="section-title">Sparring partner</span>
+              <span className="text-sm font-bold">{botElo} <span className="font-normal text-stone-500">· <CcLabel elo={botElo} /></span></span>
+            </div>
+            <p className="text-sm text-stone-600 dark:text-stone-300">
+              Its rating moves after every game to keep you near 50%: up {sparringStep(spar?.games ?? 0)} when you win, down {sparringStep(spar?.games ?? 0)} when you lose{(spar?.games ?? 0) < 10 ? ' (smaller steps once it knows you)' : ''}.
+            </p>
+            {spar && spar.games > 0 && <p className="text-xs font-semibold text-stone-500">{spar.w}W · {spar.d}D · {spar.l}L in {spar.games} game{spar.games === 1 ? '' : 's'}</p>}
+          </div>
+        )}
+        {!sparring && <CcLine className="mt-2 px-1" />}
         {opp && !locked && stars < MAX_STARS && <ChallengeCard opponentId={opp.id} stars={stars} done={!!rec?.challengeDone} />}
         <div className="mt-3 flex gap-2">
-          <button className="btn-ghost flex-1 text-sm" onClick={() => settings.set({ opponentId: custom ? OPPONENTS[1].id : 'custom' })}>
-            <SlidersHorizontal size={14} /> {custom ? 'Back to opponents' : 'Custom strength'}
+          {!sparring && (
+            <button className="btn-ghost flex-1 text-sm" onClick={() => settings.set({ opponentId: custom ? OPPONENTS[1].id : 'custom' })}>
+              <SlidersHorizontal size={14} /> {custom ? 'Opponents' : 'Custom'}
+            </button>
+          )}
+          <button className="btn-ghost flex-1 text-sm" onClick={() => settings.set({ opponentId: sparring ? OPPONENTS[1].id : 'sparring' })}>
+            <Dumbbell size={14} /> {sparring ? 'Opponents' : 'Sparring'}
           </button>
           <button className="btn-primary flex-1" onClick={() => setSheet(null)}>Done</button>
         </div>
@@ -362,7 +392,7 @@ function PlayerBar({ me }: { me: boolean }) {
       </span>
       <div className="min-w-0 flex-1 leading-tight">
         <div className="truncate text-sm font-semibold">
-          {me ? myName : o ? o.name : 'Bot'} {!me && <span className="font-normal text-stone-400">({g.elo})</span>}
+          {me ? myName : o ? o.name : g.sparring ? 'Sparring partner' : 'Bot'} {!me && <span className="font-normal text-stone-400">({g.elo})</span>}
         </div>
         <Captured fen={currentFen(g)} startFen={g.startFen} side={side} />
       </div>

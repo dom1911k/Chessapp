@@ -6,6 +6,7 @@ import { OPPONENTS, type Opponent } from '../lib/people';
 import { isUnlocked, MAX_STARS, starsOf, type OpponentRecord } from '../lib/people/record';
 import { REPERTOIRES } from '../lib/people/openings';
 import { Portrait } from './Coach';
+import { CcLabel } from './CcLabel';
 
 const CARD = 236;
 const GAP = 12;
@@ -47,6 +48,7 @@ function Card({ o, i, rec, open, active, onTap }: { o: Opponent; i: number; rec?
       </div>
       <div className={`w-full px-4 pt-5 pb-4 transition-opacity duration-300 ${active ? "" : "opacity-0"}`}>
         <div className="font-display text-xl font-semibold">{o.name}</div>
+        <div className="text-[11px] text-stone-500">Maia {o.elo} · <CcLabel elo={o.elo} /></div>
         <div className="text-xs font-semibold text-brand-700 dark:text-brand-500">{open ? o.tagline : `Beat ${OPPONENTS[i - 1].name} to unlock`}</div>
         <p className="mt-2 line-clamp-3 min-h-[3.75em] text-[13px] leading-[1.25em] text-stone-600 dark:text-stone-300">{o.bio}</p>
         <div className="mt-2 flex items-center justify-center gap-3 text-[11px] text-stone-500">

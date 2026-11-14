@@ -63,7 +63,7 @@ export function HistoryScreen() {
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">
                   {cc && <ChessComBadge className="mr-1" />}
-                  {g.userColor === 'w' ? 'White' : 'Black'} vs {cc ? `${imported.opponentName} (${g.elo})` : `${opponentById(g.opponentId)?.name ?? 'Bot'} ~${g.elo}`}
+                  {g.userColor === 'w' ? 'White' : 'Black'} vs {cc ? `${imported.opponentName} (${g.elo})` : `${g.opponentName ?? opponentById(g.opponentId)?.name ?? 'Bot'} ~${g.elo}`}
                 </span>
                 <span className="block truncate text-xs text-stone-500">
                   {formatDate(g.endedAt)} · {cc ? `${timeControlLabel(imported.timeControl)} · ` : g.match ? 'Match conditions · ' : ''}
