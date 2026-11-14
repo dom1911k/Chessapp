@@ -1,7 +1,7 @@
 // Play-vs-bot state machine with live coaching.
 import { create } from 'zustand';
 import { chooseBotMove, botParams } from '../bot';
-import { chooseHumanMove, maiaLogits } from '../maia';
+import { chooseHumanMove, humanParams, maiaLogits } from '../maia';
 import { moveAccuracy, winPct, povScore, scoreToCp, type Score } from '../chess/evaluation';
 import { gameOverInfo, START_FEN, tryMove, type GameResult, type MoveInput } from '../chess/game';
 import { hangingPieces, other, parseFen, PIECE_NAME, VALUE, type Color, type PieceType } from '../chess/pos';
@@ -29,7 +29,10 @@ import { specialMove, tacticsOfMove, TACTIC_KEYS, type Special, type TacticCount
 import { checkAchievements } from '../progress/achievements';
 import { setPlayActiveCheck } from '../chesscom/store';
 import { aidsFor } from '../coach/level';
-import { flagResult, humanThinkMs, lowTime as isLowTime, newClock, pressClock, sensibleMoves, timeLeft } from '../clock';
+import { flagResult, lowTime as isLowTime, newClock, pressClock, timeLeft } from '../clock';
+import { botThinkMs, positionInfo, pressureParams, swingTracker, timePressure } from '../thinktime';
+
+const swingOf = swingTracker();
 import { Chess } from 'chess.js';
 
 export type Phase = 'loading' | 'setup' | 'userTurn' | 'analyzing' | 'botThinking' | 'paused' | 'over';
@@ -391,8 +394,10 @@ export const usePlay = create<PlayStore>((set, get) => {
       // Opponents play their favourite openings from a small book first.
       const book = g.startFen === START_FEN ? bookMove(g.opponentId, g.plies.map((p) => p.san)) : null;
       let uci = book;
-      // Moves a human would weigh here (for the opponent's thinking time).
-      let sensible: number | undefined = book ? 1 : undefined;
+      // What the position looks like to a human (for the opponent's thinking time).
+      let seen: { logits?: Map<string, number>; candidates?: Map<string, number> } = {};
+      const gc0 = get().game!;
+      const pressure = gc0.clock && gc0.timeControl ? timePressure(timeLeft(gc0.clock, turnOf(fen), turnOf(fen), gc0.clock.turnStart), gc0.timeControl) : 0;
       // Human-like (Maia) or classic (Stockfish) opponent; Stockfish also covers any Maia failure.
       if (!uci && useSettings.getState().opponentEngine === 'maia') {
         try {
@@ -405,8 +410,9 @@ export const usePlay = create<PlayStore>((set, get) => {
           ]);
           const turn = turnOf(fen);
           const candidates = a ? new Map(a.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], scoreToCp(povScore(l.score, turn))])) : undefined;
-          uci = chooseHumanMove(logits, g.elo, candidates, Math.random, { style: opponentById(g.opponentId)?.style });
-          sensible = sensibleMoves(logits);
+          // Short of time, a person plays faster and looser.
+          uci = chooseHumanMove(logits, g.elo, candidates, Math.random, { style: opponentById(g.opponentId)?.style, params: pressure ? pressureParams(humanParams(g.elo), pressure) : undefined });
+          seen = { logits, candidates };
         } catch (e) {
           console.warn('Maia failed, using Stockfish', e);
         }
@@ -416,20 +422,22 @@ export const usePlay = create<PlayStore>((set, get) => {
         const a = await analyze(fen, params.multipv, Math.max(analysisLimits().depth, params.depth));
         if (my !== token) return;
         uci = chooseBotMove(fen, a, g.elo, Math.random, opponentById(g.opponentId)?.style);
-        const top = a.lines[0] ? scoreToCp(povScore(a.lines[0].score, turnOf(fen))) : 0;
-        sensible = a.lines.filter((l) => top - scoreToCp(povScore(l.score, turnOf(fen))) <= 60).length || 1;
+        seen = { candidates: new Map(a.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], scoreToCp(povScore(l.score, turnOf(fen)))])) };
       }
       // With a clock the opponent thinks like a person; otherwise a short pause.
       const gc = get().game!;
       if (gc.clock && gc.timeControl) {
         const turn = turnOf(fen);
-        const target = humanThinkMs({
+        const info = uci ? positionInfo(seen.logits, seen.candidates, uci, gc.plies[gc.plies.length - 1]) : {};
+        const target = botThinkMs({
+          elo: g.elo,
           moveNo: Math.floor(gc.plies.length / 2) + 1,
-          sensible: sensible ?? 3,
           leftMs: timeLeft(gc.clock, turn, turn, gc.clock.turnStart),
           tc: gc.timeControl,
           book: !!book,
           forced: new Chess(fen).moves().length === 1,
+          ...info,
+          swing: swingOf(gc.startedAt, info.best),
         });
         await sleep(Math.max(0, target - (Date.now() - gc.clock.turnStart)));
       } else await sleep(Math.max(0, (book ? 700 : 600) - (Date.now() - started)));

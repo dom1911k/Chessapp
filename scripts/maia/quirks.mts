@@ -6,10 +6,11 @@
 import { readFileSync, appendFileSync } from 'node:fs';
 import { Chess } from 'chess.js';
 import { moveLogits, parseNet, type MaiaNet } from '../../src/lib/maia/net.ts';
-import { chooseHumanMove, maia3SelfElo, maiaParams, setBrain, shiftedTemperature } from '../../src/lib/maia/index.ts';
+import { chooseHumanMove, humanParams, maia3SelfElo, maiaParams, setBrain, shiftedTemperature } from '../../src/lib/maia/index.ts';
 import { engine, maia3 } from '../maia3/players.mts';
 import { povScore, scoreToCp } from '../../src/lib/chess/evaluation.ts';
-import { flagResult, humanThinkMs, sensibleMoves } from '../../src/lib/clock.ts';
+import { flagResult } from '../../src/lib/clock.ts';
+import { botThinkMs, positionInfo, pressureParams, swingTracker, timePressure } from '../../src/lib/thinktime.ts';
 import { quirkById, quirkEffects, type QuirkCtx } from '../../src/cups/quirks.ts';
 import { material } from '../../src/cups/material.ts';
 import { TUNING } from '../../src/cups/tuning.ts';
@@ -31,6 +32,7 @@ const DEPTH = Number(process.env.DEPTH ?? 8);
 const ADJ = Number(process.env.ADJ ?? 700);
 let copyChances = 0;
 let copies = 0;
+const swings = { w: swingTracker(), b: swingTracker() };
 
 async function play(quirkWhite: boolean): Promise<number> {
   const c = new Chess();
@@ -50,7 +52,8 @@ async function play(quirkWhite: boolean): Promise<number> {
     const ctx: QuirkCtx = { fen, sans: [...sans], moveNo, bot: qSide, me: qSide === 'w' ? 'b' : 'w', botLeftMs: clock[side], state, lastUserUci: ucis[ucis.length - 1], fromStart: true };
     let uci: string | null = isQ ? (quirk!.opening?.(ctx, Math.random) ?? null) : null;
     const book = !!uci;
-    let sensible = 1;
+    let seen: { lg?: Map<string, number>; cand?: Map<string, number> } = {};
+    const pressure = timePressure(clock[side], '600+0');
     let think = 1;
     if (!uci) {
       const lg = BRAIN === 'maia3'
@@ -61,14 +64,14 @@ async function play(quirkWhite: boolean): Promise<number> {
       // Adjudicate a clearly decided game (both sides are the same strength) to save time on mop-ups.
       const best = cand.size ? Math.max(...cand.values()) : 0;
       if (sans.length >= 20 && Math.abs(best) >= ADJ) return (best > 0) === isQ ? 1 : 0;
-      sensible = sensibleMoves(lg);
+      seen = { lg, cand };
       if (isQ) {
         const e = quirkEffects([id], { ...ctx, botEval: cand.size ? Math.max(...cand.values()) : undefined });
         const byUci = new Map(moves.map((m) => [m.lan, m]));
         const w = new Map([...lg].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, e.weight(byUci.get(m)!)))]));
-        uci = chooseHumanMove(w, elo, cand, Math.random, { params: { temperature: shiftedTemperature(elo, e.temp) } });
+        uci = chooseHumanMove(w, elo, cand, Math.random, { params: pressureParams({ ...humanParams(elo), temperature: shiftedTemperature(elo, e.temp) }, pressure) });
         think = e.think;
-      } else uci = chooseHumanMove(lg, elo, cand, Math.random);
+      } else uci = chooseHumanMove(lg, elo, cand, Math.random, { params: pressureParams(humanParams(elo), pressure) });
     } else think = quirkEffects([id], ctx).think;
     if (isQ && id === 'copycat' && moveNo <= TUNING.quirks.copycat.untilMove && ucis.length) {
       const m = mirror(ucis[ucis.length - 1]);
@@ -77,7 +80,8 @@ async function play(quirkWhite: boolean): Promise<number> {
         if (uci === m) copies++;
       }
     }
-    const spent = humanThinkMs({ moveNo, sensible, leftMs: clock[side], tc: '600+0', book, forced: moves.length === 1 }) * think;
+    const info = positionInfo(seen.lg, seen.cand, uci!, ucis.length ? { uci: ucis[ucis.length - 1], san: sans[sans.length - 1] } : undefined);
+    const spent = botThinkMs({ elo, moveNo, leftMs: clock[side], tc: '600+0', book, forced: moves.length === 1, ...info, swing: swings[side](0, info.best) }) * think;
     clock[side] -= spent;
     if (clock[side] <= 0) {
       const f = flagResult(fen, side);

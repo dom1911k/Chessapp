@@ -6,7 +6,7 @@ import { Chess } from 'chess.js';
 import { create } from 'zustand';
 import { kvGet, kvSet } from '../lib/db';
 import { chooseBotMove, botParams } from '../lib/bot';
-import { chooseHumanMove, maiaLogits, shiftedTemperature } from '../lib/maia';
+import { chooseHumanMove, humanParams, maiaLogits, shiftedTemperature } from '../lib/maia';
 import { moveAccuracy, povScore, scoreToCp, winPct, type Score } from '../lib/chess/evaluation';
 import { gameOverInfo, START_FEN, tryMove, type GameResult, type MoveInput } from '../lib/chess/game';
 import type { Color } from '../lib/chess/pos';
@@ -14,7 +14,10 @@ import { explainMove } from '../lib/coach';
 import { CancelledError, getEngine, type AnalysisResult } from '../lib/engine';
 import { analysisLimits } from '../lib/engine/speed';
 import { bookMove } from '../lib/people/openings';
-import { flagResult, humanThinkMs, parseTc, sensibleMoves } from '../lib/clock';
+import { flagResult, parseTc } from '../lib/clock';
+import { botThinkMs, positionInfo, pressureParams, swingTracker, timePressure } from '../lib/thinktime';
+
+const swingOf = swingTracker();
 import { specialMove, tacticsOfMove, type TacticCounts } from '../lib/rewards/career';
 import { finishGame } from '../lib/store/finish';
 import { db } from '../lib/db';
@@ -451,7 +454,8 @@ export const useCupGame = create<Store>((set, get) => {
       const sans = baseCtx.sans;
       const book = planned?.uci ?? (g.startFen === START_FEN ? bookMove(g.opponentId, sans) : null);
       let uci = book;
-      let sensible = book ? 1 : 3;
+      let seen: { logits?: Map<string, number>; candidates?: Map<string, number> } = {};
+      const pressure = timePressure(clockLeft(g, turn), g.timeControl);
       let mods = botMods(g, baseCtx);
       let ctx = baseCtx;
       if (!uci) {
@@ -463,9 +467,10 @@ export const useCupGame = create<Store>((set, get) => {
           ctx = { ...baseCtx, botEval: candidates?.size ? Math.max(...candidates.values()) : undefined };
           mods = botMods(g, ctx);
           const weighted = new Map([...logits].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, mods.reweight?.(m) ?? 1))]));
-          const temperature = shiftedTemperature(g.elo, mods.tempDelta);
-          uci = chooseHumanMove(weighted, g.elo, candidates, Math.random, { params: { temperature } });
-          sensible = sensibleMoves(logits);
+          // Quirks shift the temperature; short of time, the opponent also plays looser.
+          const params = pressureParams({ ...humanParams(g.elo), temperature: shiftedTemperature(g.elo, mods.tempDelta) }, pressure);
+          uci = chooseHumanMove(weighted, g.elo, candidates, Math.random, { params });
+          seen = { logits, candidates };
         } catch (e) {
           console.warn('Maia failed, using Stockfish', e);
         }
@@ -477,14 +482,17 @@ export const useCupGame = create<Store>((set, get) => {
         uci = chooseBotMove(fen, a, g.elo, Math.random);
       }
       const gc = get().game!;
+      const info = uci ? positionInfo(seen.logits, seen.candidates, uci, gc.plies[gc.plies.length - 1]) : {};
       const target =
-        humanThinkMs({
+        botThinkMs({
+          elo: g.elo,
           moveNo: Math.floor(gc.plies.length / 2) + 1,
-          sensible,
           leftMs: clockLeft(gc, turn),
           tc: gc.timeControl,
           book: !!book,
           forced: new Chess(fen).moves().length === 1,
+          ...info,
+          swing: swingOf(gc.startedAt, info.best),
         }) * mods.thinkFactor;
       await sleep(Math.max(0, Math.min(target, clockLeft(gc, turn) - 50) - (Date.now() - gc.clock.turnStart)));
       if (my !== token || !uci) return;

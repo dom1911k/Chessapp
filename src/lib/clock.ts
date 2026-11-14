@@ -53,59 +53,6 @@ export function fmtClock(ms: number): string {
   return `${m}:${String(ss).padStart(2, '0')}`;
 }
 
-/** A standard normal sample (Box–Muller) from a 0..1 source. */
-function normal(rng: () => number): number {
-  const u = Math.max(1e-9, rng());
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng());
-}
-
-/** Below this much time left, a person starts to speed up (and keeps speeding up). */
-export const PRESSURE_MS = 180_000;
-
-/**
- * How long a human-like opponent thinks (ms). People don't think for a steady share of their time:
- * - some moves are instinctive and come at once (forced moves, book moves, obvious replies);
- * - the rest spread out the way human think times do — mostly short, now and then much longer;
- * - occasionally they sink into a real think at a critical moment;
- * - with less than about three minutes left they get faster and faster, still with the odd
- *   longer think in between; in the last seconds they bang out moves.
- * `sensible` = moves a human would seriously consider (Maia's likely moves or near-equal engine
- * lines). `rng` gives 0..1 samples.
- */
-export function humanThinkMs(
-  o: { moveNo: number; sensible: number; leftMs: number; tc: string; book?: boolean; forced?: boolean },
-  rng: () => number = Math.random,
-): number {
-  const { base, inc } = parseTc(o.tc);
-  const left = Math.max(0, o.leftMs);
-  // Faster games are played faster across the board (a 3-minute player rarely pauses 2 s on a recapture).
-  const pace = Math.min(1, Math.max(0.45, base / 600_000) ** 0.35);
-  // Time pressure: 1 = relaxed, falling smoothly towards ~0.2 as the clock runs down from 3 minutes.
-  const pressure = left >= PRESSURE_MS ? 1 : 0.25 + 0.75 * (left / PRESSURE_MS) ** 1.25;
-  const cap = Math.min(60_000, left * (pressure < 1 ? 0.1 : 0.2));
-  const floor = left < 15_000 ? 250 : 300;
-  // The floor itself wobbles a little: even the fastest moves aren't metronomic.
-  const clamp = (ms: number) => Math.round(Math.max(floor + 150 * rng(), Math.min(ms, cap)));
-
-  // 1. Instinctive moves: no real thought, just the time to see it and move the piece.
-  const instinct = o.forced ? 0.85 : o.book ? 0.65 : o.sensible <= 1 ? 0.5 : o.sensible === 2 ? 0.25 : 0.12;
-  if (rng() < instinct + (1 - pressure) * 0.25) {
-    const quick = (400 + 900 * rng() ** 1.6) * pace * (0.6 + 0.4 * pressure);
-    return clamp(quick);
-  }
-
-  // 2. A normal think: a share of the time left (expecting ~40 moves, at least 10 more), shaped by
-  //    the stage of the game and how many moves are worth considering, with a human-like spread.
-  const budget = left / Math.max(14, 50 - o.moveNo) + inc * 0.8;
-  const phase = o.moveNo <= 6 ? 0.25 : o.moveNo <= 12 ? 0.7 : 1;
-  const complexity = 0.6 + 0.15 * Math.min(6, Math.max(1, o.sensible));
-  let ms = 0.75 * budget * phase * complexity * pressure * Math.exp(0.55 * normal(rng) - 0.15);
-
-  // 3. Now and then a long think — less often, and shorter, when time is short.
-  if (o.moveNo > 8 && rng() < 0.09 * (0.4 + 0.6 * pressure)) ms *= 2.2 + 1.8 * rng();
-  return clamp(ms);
-}
-
 /** Moves a human would consider: Maia's moves with at least `min` probability. */
 export function sensibleMoves(logits: Map<string, number>, min = 0.05): number {
   const vals = [...logits.values()];
