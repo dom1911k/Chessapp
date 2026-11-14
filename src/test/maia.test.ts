@@ -63,7 +63,7 @@ describe('Maia opponent settings', () => {
     const { chooseMaiaMove } = await import('../lib/maia');
     const logits = new Map([['a', 5], ['b', 0]]); // Maia loves "a"
     const cands = new Map([['a', -400], ['b', 50]]); // …but "a" loses a lot
-    expect(chooseMaiaMove(logits, 0.01, 2000, cands, () => 0.5)).toBe('b');
+    expect(chooseMaiaMove(logits, 0.01, 2000, cands, () => 0.1)).toBe('b');
     expect(chooseMaiaMove(logits, 0.01, 800, cands, () => 0.5)).toBe('a');
   });
 });
