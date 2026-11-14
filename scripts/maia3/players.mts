@@ -98,7 +98,7 @@ export async function pick(p: PlayerSpec, fens: string[], oppoElo: number, extra
   }
   const brain = p.kind === 'bot' ? 'maia3' : 'maia1';
   setBrain(brain);
-  const logits = p.kind === 'bot' ? (await maia3(fens, maia3SelfElo(p.elo), maia3SelfElo(p.oppo ?? oppoElo), p.size)).logits : maia1(fens, p.elo);
+  const logits = p.kind === 'bot' ? (await maia3(fens, p.params?.rating ?? maia3SelfElo(p.elo), maia3SelfElo(p.oppo ?? oppoElo), p.size)).logits : maia1(fens, p.elo);
   const cand = await candidates(fen, botParams(p.elo).depth);
   const uci = chooseHumanMove(logits, p.elo, cand, Math.random, { brain, params: { ...(p.params as Partial<ReturnType<typeof humanParams>>), ...extra } })!;
   return { uci, prob: prob(logits, uci), cand, logits };
