@@ -10,16 +10,16 @@ export const MAIA3 = {
   /** Model size used by the opponents. */
   size: '23m' as const,
   /** The model's SelfElo for an opponent label (stretches the model's rating axis if needed). */
-  selfElo: [[400, 400], [2000, 2000]] as Curve,
+  selfElo: [[400, 75], [600, 290], [800, 505], [1000, 725], [1200, 1030], [1400, 1395], [1600, 1695], [1800, 1985], [2000, 2345]] as Curve,
   temperature: [[400, 1.0], [2000, 1.0]] as Curve,
-  topP: [[400, 0.98], [2000, 0.98]] as Curve,
-  minP: [[400, 0.01], [2000, 0.01]] as Curve,
+  topP: [[400, 0.99], [1000, 0.985], [2000, 0.98]] as Curve,
+  minP: [[400, 0.005], [1000, 0.008], [2000, 0.01]] as Curve,
   /** Moves losing more than `free` cp are made rarer with scale `lossScale` (bigger = gentler). */
-  free: [[400, 300], [1000, 250], [1600, 160], [2000, 120]] as Curve,
-  lossScale: [[400, 2000], [1000, 900], [1400, 400], [2000, 200]] as Curve,
+  free: [[400, 300], [1000, 260], [1600, 220], [2000, 180]] as Curve,
+  lossScale: [[400, 2500], [1000, 1200], [1400, 700], [2000, 450]] as Curve,
   soft: [[400, 0], [2000, 0]] as Curve,
   /** Stockfish veto: cp limit and how often it applies (none below 1600). */
   vetoFrom: 1600,
-  vetoLimit: [[1600, 500], [1800, 300], [2000, 180]] as Curve,
-  vetoChance: [[1600, 0.2], [1800, 0.5], [2000, 0.8]] as Curve,
+  vetoLimit: [[1600, 600], [1800, 400], [2000, 300]] as Curve,
+  vetoChance: [[1600, 0.1], [1800, 0.25], [2000, 0.4]] as Curve,
 };

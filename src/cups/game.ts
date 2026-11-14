@@ -6,7 +6,7 @@ import { Chess } from 'chess.js';
 import { create } from 'zustand';
 import { kvGet, kvSet } from '../lib/db';
 import { chooseBotMove, botParams } from '../lib/bot';
-import { chooseHumanMove, humanParams, maiaLogits } from '../lib/maia';
+import { chooseHumanMove, maiaLogits, shiftedTemperature } from '../lib/maia';
 import { moveAccuracy, povScore, scoreToCp, winPct, type Score } from '../lib/chess/evaluation';
 import { gameOverInfo, START_FEN, tryMove, type GameResult, type MoveInput } from '../lib/chess/game';
 import type { Color } from '../lib/chess/pos';
@@ -463,7 +463,7 @@ export const useCupGame = create<Store>((set, get) => {
           ctx = { ...baseCtx, botEval: candidates?.size ? Math.max(...candidates.values()) : undefined };
           mods = botMods(g, ctx);
           const weighted = new Map([...logits].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, mods.reweight?.(m) ?? 1))]));
-          const temperature = Math.max(0.2, humanParams(g.elo).temperature + mods.tempDelta);
+          const temperature = shiftedTemperature(g.elo, mods.tempDelta);
           uci = chooseHumanMove(weighted, g.elo, candidates, Math.random, { params: { temperature } });
           sensible = sensibleMoves(logits);
         } catch (e) {

@@ -146,6 +146,17 @@ export function humanParams(elo: number, brain: Brain = currentBrain()): { ratin
   };
 }
 
+/**
+ * The opponent's temperature with a Cups quirk or boon offset. The offsets are written for Maia-1
+ * temperatures (about 2.25 at 1200); with Maia-3 (about 1.0) they are scaled by the ratio, so a
+ * quirk changes the shape of the distribution by the same relative amount.
+ */
+export function shiftedTemperature(elo: number, delta: number, brain: Brain = currentBrain()): number {
+  const base = humanParams(elo, brain).temperature;
+  const scale = brain === 'maia1' ? 1 : base / humanParams(elo, 'maia1').temperature;
+  return Math.max(0.2 * (brain === 'maia1' ? 1 : scale), base + delta * scale);
+}
+
 /** Maia's move probabilities (plain softmax), most likely first. */
 export function moveProbs(logits: Map<string, number>): [string, number][] {
   const entries = [...logits].filter(([, v]) => v > -1e8);
@@ -215,7 +226,7 @@ export async function maiaLogits(fens: string[], elo: number, oppoElo: number = 
   if (!moves.length) return new Map();
   if (currentBrain() === 'maia3') {
     try {
-      return await maia3Logits(fens, maia3SelfElo(elo), oppoElo, MAIA3.size);
+      return await maia3Logits(fens, maia3SelfElo(elo), maia3SelfElo(oppoElo), MAIA3.size);
     } catch (e) {
       console.warn('Maia-3 failed, using Maia-1', e);
     }
