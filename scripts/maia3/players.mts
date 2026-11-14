@@ -89,7 +89,7 @@ const prob = (lg: Map<string, number>, u: string) => {
   return Math.exp((lg.get(u) ?? -1e9) - mx) / z;
 };
 
-export async function pick(p: PlayerSpec, fens: string[], oppoElo: number): Promise<Pick> {
+export async function pick(p: PlayerSpec, fens: string[], oppoElo: number, extra?: Record<string, number>): Promise<Pick> {
   const fen = fens[fens.length - 1];
   if (p.kind === 'raw') {
     const { logits } = await maia3(fens, p.elo, p.oppo ?? oppoElo, p.size);
@@ -100,6 +100,6 @@ export async function pick(p: PlayerSpec, fens: string[], oppoElo: number): Prom
   setBrain(brain);
   const logits = p.kind === 'bot' ? (await maia3(fens, maia3SelfElo(p.elo), maia3SelfElo(p.oppo ?? oppoElo), p.size)).logits : maia1(fens, p.elo);
   const cand = await candidates(fen, botParams(p.elo).depth);
-  const uci = chooseHumanMove(logits, p.elo, cand, Math.random, { brain, params: p.params as Partial<ReturnType<typeof humanParams>> })!;
+  const uci = chooseHumanMove(logits, p.elo, cand, Math.random, { brain, params: { ...(p.params as Partial<ReturnType<typeof humanParams>>), ...extra } })!;
   return { uci, prob: prob(logits, uci), cand, logits };
 }

@@ -23,6 +23,8 @@ export const MAIA3 = {
   free: [[400, 300], [1000, 260], [1600, 220], [2000, 180]] as Curve,
   lossScale: [[400, 2500], [1000, 1200], [1400, 700], [2000, 450]] as Curve,
   soft: [[400, 0], [2000, 0]] as Curve,
+  /** Extra weight on Maia's 2nd and 3rd choices (weak players go with their second idea more). */
+  alt: [[400, 0], [2000, 0]] as Curve,
   /** Stockfish veto: cp limit and how often it applies (none below 1600). */
   vetoFrom: 1600,
   vetoLimit: [[1600, 600], [1800, 400], [2000, 300]] as Curve,

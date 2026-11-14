@@ -1,4 +1,5 @@
 import { Maia3Bench } from '../components/Maia3Bench';
+import { BotHumanBench } from '../components/BotHumanBench';
 import { Header, Segmented, Toggle } from '../components/ui';
 import { useSettings } from '../lib/settings';
 import { useNav } from '../lib/nav';
@@ -173,6 +174,7 @@ export function SettingsScreen() {
         <div className="card">
           <div className="section-title">Developer</div>
           <Maia3Bench />
+          <BotHumanBench />
         </div>
         <p className="px-2 text-xs text-stone-500">
           Chess Coach runs fully offline (the optional chess.com import is the only thing that uses the internet). Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (Maia-1: GPLv3, Leela Chess Zero networks; Maia-3: AGPLv3, run with ONNX Runtime, MIT). Puzzles: Lichess puzzle database (CC0). Standard piece sounds: recordings from Lichess (AGPLv3+). Portraits and avatars: painted illustrations made for this app.

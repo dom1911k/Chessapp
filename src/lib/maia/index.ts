@@ -121,7 +121,7 @@ export function chooseMaiaMove(logits: Map<string, number>, temperature: number,
  * - To keep the overall strength the same, the temperature is a little higher, so the bot
  *   more often plays its second or third choice — slightly worse moves, not blunders.
  */
-export function humanParams(elo: number, brain: Brain = currentBrain()): { rating: number; temperature: number; topP: number; minP: number; lossScale: number; free: number; soft: number } {
+export function humanParams(elo: number, brain: Brain = currentBrain()): { rating: number; temperature: number; topP: number; minP: number; lossScale: number; free: number; soft: number; alt: number } {
   if (brain === 'maia3')
     return {
       rating: maia3SelfElo(elo),
@@ -131,6 +131,7 @@ export function humanParams(elo: number, brain: Brain = currentBrain()): { ratin
       lossScale: lerp(MAIA3.lossScale, elo),
       free: lerp(MAIA3.free, elo),
       soft: lerp(MAIA3.soft, elo),
+      alt: lerp(MAIA3.alt, elo),
     };
   const base = maiaParams(elo);
   // Tuned with scripts/maia/versus.mts (same strength as plain sampling) and
@@ -143,6 +144,7 @@ export function humanParams(elo: number, brain: Brain = currentBrain()): { ratin
     lossScale: lerp([[400, 1200], [800, 600], [1000, 285], [1200, 150], [1600, 120], [2000, 90]], elo),
     free: lerp([[400, 400], [800, 350], [1000, 290], [1200, 250], [1600, 170], [2000, 110]], elo),
     soft: lerp([[400, 0], [800, 19], [1000, 19], [1200, 24], [1600, 14], [2000, 2]], elo),
+    alt: 0,
   };
 }
 
@@ -193,8 +195,10 @@ export function chooseHumanMove(logits: Map<string, number>, elo: number, candid
   }
   // Maia-1: the veto always applies from 1500. Maia-3: only now and then, from 1600.
   const limit = brain === 'maia1' || rand() < vetoChance(elo, brain) ? vetoLimit(elo, brain) : null;
-  const weights = kept.map(([m, pr]) => {
+  const weights = kept.map(([m, pr], i) => {
     let w = Math.pow(pr, 1 / t);
+    // Weak players more often go with their second or third idea (still a move people play).
+    if (p.alt && (i === 1 || i === 2)) w *= 1 + p.alt;
     if (candidates?.size) {
       // A move the engine did not even list is worse than everything it did: treat it as a real error.
       const loss = Math.min(1500, candidates.has(m) ? best - candidates.get(m)! : Math.max(best - worst + 100, 350));
