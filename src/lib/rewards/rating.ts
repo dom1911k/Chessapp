@@ -2,6 +2,7 @@
 // opponent. The journey map is drawn from your best (peak) rating, so a bad day
 // never takes a milestone away.
 import { kvGet, kvSet } from '../db';
+import { setPlayerRating } from '../playerRating';
 
 export interface GameRating {
   rating: number;
@@ -31,6 +32,7 @@ export async function rateGame(opponentElo: number, score: number, helpUsed: num
     history: [...before.history, { at: Date.now(), rating }].slice(-200),
   };
   await kvSet(KEY, after);
+  setPlayerRating(after.rating);
   return { before, after };
 }
 

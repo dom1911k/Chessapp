@@ -115,24 +115,12 @@ export function SettingsScreen() {
                 value={s.maiaVersion}
                 onChange={(v) => s.set({ maiaVersion: v })}
                 options={[
+                  { value: 'maia3', label: 'Maia-3' },
                   { value: 'maia1', label: 'Maia-1 (classic)' },
-                  { value: 'maia3', label: 'Maia-3 (preview)' },
                 ]}
               />
-              {s.maiaVersion === 'maia3' && (
-                <div className="mt-2">
-                  <Segmented
-                    value={s.maia3Size}
-                    onChange={(v) => s.set({ maia3Size: v })}
-                    options={[
-                      { value: '5m', label: '5M (fast)' },
-                      { value: '23m', label: '23M (sharper)' },
-                    ]}
-                  />
-                </div>
-              )}
               <p className="mt-1.5 text-xs text-stone-500">
-                {s.maiaVersion === 'maia3' ? 'Maia-3 is one model for every rating. Preview: not tuned for the opponents yet.' : 'One network per rating band, tuned for every opponent.'}
+                {s.maiaVersion === 'maia3' ? 'One model for every rating that also knows your strength: its mistakes are the ones real players at that level make.' : 'The original networks, one per rating band. Use this if Maia-3 is slow on your device.'}
               </p>
             </div>
           )}
@@ -187,7 +175,7 @@ export function SettingsScreen() {
           <Maia3Bench />
         </div>
         <p className="px-2 text-xs text-stone-500">
-          Chess Coach runs fully offline (the optional chess.com import is the only thing that uses the internet). Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (Maia-1: GPLv3, Leela Chess Zero networks; Maia-3 preview: AGPLv3, run with ONNX Runtime, MIT). Puzzles: Lichess puzzle database (CC0). Standard piece sounds: recordings from Lichess (AGPLv3+). Portraits and avatars: painted illustrations made for this app.
+          Chess Coach runs fully offline (the optional chess.com import is the only thing that uses the internet). Engine: Stockfish 19 (GPLv3). Human-like opponents: Maia by the University of Toronto CSSLab (Maia-1: GPLv3, Leela Chess Zero networks; Maia-3: AGPLv3, run with ONNX Runtime, MIT). Puzzles: Lichess puzzle database (CC0). Standard piece sounds: recordings from Lichess (AGPLv3+). Portraits and avatars: painted illustrations made for this app.
         </p>
       </div>
     </div>

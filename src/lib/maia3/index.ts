@@ -1,12 +1,13 @@
 // Maia-3: one transformer for every rating. Given the game so far and both players' ratings it
 // predicts the move a human would play, how the game stands (win/draw/loss) and how long a human
-// would think. Runs in a worker (onnxruntime-web, wasm or WebGPU).
+// would think. Runs in a worker (onnxruntime-web, WebAssembly with SIMD). WebGPU was measured on a
+// phone and was no faster, so only the wasm build ships.
 import { Chess } from 'chess.js';
 import { encodeHistory, moveIndex } from './encode';
 import type { Maia3Request, Maia3Response, Maia3Size } from './runner';
 
 export type { Maia3Size } from './runner';
-export type Maia3Backend = 'wasm' | 'webgpu';
+export type Maia3Backend = 'wasm';
 
 export interface Maia3Result {
   /** Logits for the legal moves (UCI, castling as e1g1). */
@@ -25,9 +26,7 @@ let nextId = 1;
 function worker(backend: Maia3Backend): Worker {
   let w = workers.get(backend);
   if (!w) {
-    w = backend === 'webgpu'
-      ? new Worker(new URL('./maia3gpu.worker.ts', import.meta.url), { type: 'module' })
-      : new Worker(new URL('./maia3.worker.ts', import.meta.url), { type: 'module' });
+    w = new Worker(new URL('./maia3.worker.ts', import.meta.url), { type: 'module' });
     w.onmessage = (e: MessageEvent<Maia3Response>) => {
       const p = pending.get(e.data.id);
       if (!p) return;
@@ -48,7 +47,7 @@ export async function maia3Eval(fens: string[], selfElo: number, oppoElo: number
   const legal = moves.map((m) => m.lan);
   const req: Maia3Request = {
     id: nextId++,
-    size: opts.size ?? '5m',
+    size: opts.size ?? '23m',
     base: document.baseURI,
     tokens: encodeHistory(fens),
     selfElo,
@@ -63,7 +62,7 @@ export async function maia3Eval(fens: string[], selfElo: number, oppoElo: number
 }
 
 /** Logits only, in the shape the bots use (Map of UCI → logit). */
-export async function maia3Logits(fens: string[], selfElo: number, oppoElo: number, size: Maia3Size = '5m'): Promise<Map<string, number>> {
+export async function maia3Logits(fens: string[], selfElo: number, oppoElo: number, size: Maia3Size = '23m'): Promise<Map<string, number>> {
   if (!new Chess(fens[fens.length - 1]).moves().length) return new Map();
   return (await maia3Eval(fens, selfElo, oppoElo, { size })).logits;
 }

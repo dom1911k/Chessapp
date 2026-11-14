@@ -1,4 +1,6 @@
 import { Onboarding } from './components/Onboarding';
+import { getGameRating } from './lib/rewards/rating';
+import { setPlayerRating } from './lib/playerRating';
 import { needsOnboarding } from './lib/onboarding';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
@@ -223,6 +225,7 @@ export function App() {
   useEffect(() => {
     requestPersistentStorage();
     void preloadSounds();
+    void getGameRating().then((r) => setPlayerRating(r.rating));
     void useSettings.getState().load().then(() => {
       const st = useSettings.getState();
       if (st.reminderEnabled) void applyReminder(true, st.reminderTime);

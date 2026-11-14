@@ -1,4 +1,4 @@
-// Shared by the Maia-3 workers: load a model once, run one position per request.
+// Used by the Maia-3 worker: load a model once, run one position per request.
 import type * as Ort from 'onnxruntime-web';
 import { TOKEN_DIM } from './encode';
 
@@ -30,7 +30,7 @@ export interface Maia3Response {
 
 const sessions = new Map<string, Promise<{ s: Ort.InferenceSession; loadMs: number; backend: string }>>();
 
-function session(ort: typeof Ort, size: Maia3Size, base: string, want: 'wasm' | 'webgpu') {
+function session(ort: typeof Ort, size: Maia3Size, base: string, want: 'wasm') {
   const key = `${size}:${want}`;
   let p = sessions.get(key);
   if (!p) {
@@ -42,9 +42,8 @@ function session(ort: typeof Ort, size: Maia3Size, base: string, want: 'wasm' | 
         if (!r.ok) throw new Error(`Maia-3 ${size}: HTTP ${r.status}`);
         return r.arrayBuffer();
       });
-      const gpu = want === 'webgpu' && 'gpu' in navigator && !!(await (navigator as unknown as { gpu: { requestAdapter(): Promise<unknown> } }).gpu.requestAdapter().catch(() => null));
-      const s = await ort.InferenceSession.create(buf, { executionProviders: gpu ? ['webgpu', 'wasm'] : ['wasm'], graphOptimizationLevel: 'all' });
-      return { s, loadMs: performance.now() - t, backend: gpu ? 'webgpu' : 'wasm' };
+      const s = await ort.InferenceSession.create(buf, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
+      return { s, loadMs: performance.now() - t, backend: want };
     })();
     p.catch(() => sessions.delete(key));
     sessions.set(key, p);
@@ -52,7 +51,7 @@ function session(ort: typeof Ort, size: Maia3Size, base: string, want: 'wasm' | 
   return p;
 }
 
-export async function handle(ort: typeof Ort, req: Maia3Request, want: 'wasm' | 'webgpu') {
+export async function handle(ort: typeof Ort, req: Maia3Request, want: 'wasm') {
   const post = (r: Maia3Response) => (self as unknown as Worker).postMessage(r);
   try {
     const fresh = !sessions.has(`${req.size}:${want}`);

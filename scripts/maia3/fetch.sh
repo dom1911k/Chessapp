@@ -4,11 +4,11 @@
 # from github.com/CSSLab/maia3 (AGPL-3.0, used only to load the weights), and converts them
 # with scripts/maia3/convert.py (float16 weights, checked against PyTorch).
 #
-# Usage: bash scripts/maia3/fetch.sh            (sizes: MAIA3_SIZES, default "5m 23m")
+# Usage: bash scripts/maia3/fetch.sh            (sizes: MAIA3_SIZES, default "23m"; "5m" also works)
 # Needs python3 with venv; installs CPU PyTorch and onnx into .cache/maia3/venv.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-SIZES="${MAIA3_SIZES:-5m 23m}"
+SIZES="${MAIA3_SIZES:-23m}"
 CACHE=.cache/maia3
 OUT=public/maia3
 CODE_REV=1e13597c42d4858b7cfd7cfdae01e297263364b2

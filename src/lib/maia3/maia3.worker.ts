@@ -1,5 +1,4 @@
-// Runs Maia-3 (ONNX) off the main thread with onnxruntime-web. This worker uses the plain
-// WebAssembly build (SIMD); maia3gpu.worker.ts is the same with the WebGPU build.
+// Runs Maia-3 (ONNX) off the main thread with onnxruntime-web (WebAssembly build with SIMD).
 import * as ort from 'onnxruntime-web/wasm';
 import { handle } from './runner';
 

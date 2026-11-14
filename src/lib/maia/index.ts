@@ -4,6 +4,27 @@ import { Chess } from 'chess.js';
 import type { PlayStyle } from '../people';
 import { useSettings } from '../settings';
 import { maia3Logits } from '../maia3';
+import { MAIA3 } from './maia3tuning';
+import { getPlayerRating } from '../playerRating';
+
+/** Which model plays: Maia-3 (one model, any rating) or the classic Maia-1 nets (fallback). */
+export type Brain = 'maia1' | 'maia3';
+let brainOverride: Brain | null = null;
+/** Scripts (calibration) choose the brain explicitly; the app follows the setting. */
+export const setBrain = (b: Brain | null) => void (brainOverride = b);
+export function currentBrain(): Brain {
+  if (brainOverride) return brainOverride;
+  try {
+    return useSettings.getState().maiaVersion ?? 'maia3';
+  } catch {
+    return 'maia3';
+  }
+}
+
+export { getPlayerRating, setPlayerRating } from '../playerRating';
+
+/** Maia-3's SelfElo for an opponent label. */
+export const maia3SelfElo = (elo: number) => lerp(MAIA3.selfElo, elo);
 
 /** Bundled Maia networks (public/maia). */
 export const MAIA_RATINGS = [1100, 1200, 1400, 1600, 1800, 1900] as const;
@@ -68,12 +89,14 @@ export function sampleMove(logits: Map<string, number>, temperature: number, ran
  * From 1500 up, Stockfish vetoes Maia's blunders: only moves that lose at most
  * this many centipawns compared with the best move may be played.
  */
-export function vetoLimit(elo: number): number | null {
+export function vetoLimit(elo: number, brain: Brain = currentBrain()): number | null {
+  if (brain === 'maia3') return elo < MAIA3.vetoFrom ? null : lerp(MAIA3.vetoLimit, elo);
   return elo < 1500 ? null : lerp([[1500, 500], [1600, 400], [1800, 200], [2000, 120]], elo);
 }
 
 /** How often the veto is used: even "only big blunders" is worth hundreds of rating points. */
-export function vetoChance(elo: number): number {
+export function vetoChance(elo: number, brain: Brain = currentBrain()): number {
+  if (brain === 'maia3') return elo < MAIA3.vetoFrom ? 0 : lerp(MAIA3.vetoChance, elo);
   return lerp([[1400, 0], [1600, 0.2], [1800, 0.5], [2000, 0.8]], elo);
 }
 
@@ -98,7 +121,17 @@ export function chooseMaiaMove(logits: Map<string, number>, temperature: number,
  * - To keep the overall strength the same, the temperature is a little higher, so the bot
  *   more often plays its second or third choice — slightly worse moves, not blunders.
  */
-export function humanParams(elo: number): { rating: number; temperature: number; topP: number; minP: number; lossScale: number; free: number; soft: number } {
+export function humanParams(elo: number, brain: Brain = currentBrain()): { rating: number; temperature: number; topP: number; minP: number; lossScale: number; free: number; soft: number } {
+  if (brain === 'maia3')
+    return {
+      rating: maia3SelfElo(elo),
+      temperature: lerp(MAIA3.temperature, elo),
+      topP: lerp(MAIA3.topP, elo),
+      minP: lerp(MAIA3.minP, elo),
+      lossScale: lerp(MAIA3.lossScale, elo),
+      free: lerp(MAIA3.free, elo),
+      soft: lerp(MAIA3.soft, elo),
+    };
   const base = maiaParams(elo);
   // Tuned with scripts/maia/versus.mts (same strength as plain sampling) and
   // scripts/maia/losses.mts (share of blunders). Weak opponents keep most of their blunders.
@@ -127,8 +160,9 @@ export function moveProbs(logits: Map<string, number>): [string, number][] {
  * Picks a human-like move. `candidates` (from a Stockfish MultiPV search) maps moves to their
  * centipawn score for the mover; moves it does not list count as clear errors.
  */
-export function chooseHumanMove(logits: Map<string, number>, elo: number, candidates?: Map<string, number>, rand: () => number = Math.random, opts: { style?: PlayStyle; params?: Partial<ReturnType<typeof humanParams>> } = {}): string | null {
-  const p = { ...humanParams(elo), ...opts.params };
+export function chooseHumanMove(logits: Map<string, number>, elo: number, candidates?: Map<string, number>, rand: () => number = Math.random, opts: { style?: PlayStyle; params?: Partial<ReturnType<typeof humanParams>>; brain?: Brain } = {}): string | null {
+  const brain = opts.brain ?? currentBrain();
+  const p = { ...humanParams(elo, brain), ...opts.params };
   const probs = moveProbs(logits);
   if (!probs.length) return null;
   // The moves people actually play: the top of the distribution, never the stray tail.
@@ -146,7 +180,8 @@ export function chooseHumanMove(logits: Map<string, number>, elo: number, candid
     best = Math.max(...candidates.values());
     worst = Math.min(...candidates.values());
   }
-  const limit = vetoLimit(elo);
+  // Maia-1: the veto always applies from 1500. Maia-3: only now and then, from 1600.
+  const limit = brain === 'maia1' || rand() < vetoChance(elo, brain) ? vetoLimit(elo, brain) : null;
   const weights = kept.map(([m, pr]) => {
     let w = Math.pow(pr, 1 / t);
     if (candidates?.size) {
@@ -169,19 +204,18 @@ export function chooseHumanMove(logits: Map<string, number>, elo: number, candid
   return kept[kept.length - 1][0];
 }
 
-/** Maia's logits for the last position in `fens` (the game so far, oldest first). */
-export async function maiaLogits(fens: string[], elo: number): Promise<Map<string, number>> {
+/**
+ * The model's logits for the last position in `fens` (the game so far, oldest first) for an
+ * opponent rated `elo`. Maia-3 also takes the rating of the player it faces (`oppoElo`, default:
+ * your rating); Maia-1 is the fallback.
+ */
+export async function maiaLogits(fens: string[], elo: number, oppoElo: number = getPlayerRating()): Promise<Map<string, number>> {
   const fen = fens[fens.length - 1];
   const moves = new Chess(fen).moves({ verbose: true });
   if (!moves.length) return new Map();
-  const st = useSettings.getState();
-  if (st.maiaVersion === 'maia3') {
+  if (currentBrain() === 'maia3') {
     try {
-      // PREVIEW (until the Maia-3 retune): the rating comes from the model itself, so cancel the
-      // Maia-1 temperature the callers apply (logits × T, then ÷ T) and play at temperature 1.
-      const lg = await maia3Logits(fens, elo, elo, st.maia3Size);
-      const t = humanParams(elo).temperature;
-      return new Map([...lg].map(([m, v]) => [m, v * t]));
+      return await maia3Logits(fens, maia3SelfElo(elo), oppoElo, MAIA3.size);
     } catch (e) {
       console.warn('Maia-3 failed, using Maia-1', e);
     }
@@ -203,6 +237,6 @@ export async function maiaLogits(fens: string[], elo: number): Promise<Map<strin
 
 /** Temperature for an opponent ("wild" players like Lily are a little more unpredictable). */
 export function maiaTemperature(elo: number, style?: PlayStyle): number {
-  const t = maiaParams(elo).temperature;
+  const t = currentBrain() === 'maia3' ? humanParams(elo, 'maia3').temperature : maiaParams(elo).temperature;
   return style === 'wild' ? t * 1.1 : t;
 }

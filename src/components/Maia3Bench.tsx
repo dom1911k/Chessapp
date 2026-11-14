@@ -3,12 +3,7 @@
 import { useState } from 'react';
 import { benchmark, type BenchResult, type Maia3Backend, type Maia3Size } from '../lib/maia3';
 
-const RUNS: { size: Maia3Size; backend: Maia3Backend; label: string }[] = [
-  { size: '5m', backend: 'wasm', label: '5M · wasm' },
-  { size: '23m', backend: 'wasm', label: '23M · wasm' },
-  { size: '5m', backend: 'webgpu', label: '5M · WebGPU' },
-  { size: '23m', backend: 'webgpu', label: '23M · WebGPU' },
-];
+const RUNS: { size: Maia3Size; backend: Maia3Backend; label: string }[] = [{ size: '23m', backend: 'wasm', label: 'Maia-3 23M' }];
 
 const ms = (x: number) => `${Math.round(x)} ms`;
 
@@ -36,7 +31,6 @@ export function Maia3Bench() {
       <div className="mb-1 text-sm">Maia-3 speed test</div>
       <p className="mb-2 text-xs text-stone-500">Times 50 positions on this device. Target: under 300 ms per move.</p>
       <div className="flex flex-wrap gap-1.5">
-        <button className="btn-secondary px-3 py-1.5 text-xs" disabled={!!busy} onClick={() => void run(RUNS)}>Run all</button>
         {RUNS.map((r) => (
           <button key={r.label} className="btn-secondary px-3 py-1.5 text-xs" disabled={!!busy} onClick={() => void run([r])}>{r.label}</button>
         ))}

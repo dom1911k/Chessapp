@@ -36,8 +36,11 @@ describe('repertoire', () => {
   });
 });
 
-import { chooseHumanMove, humanParams, moveProbs } from '../lib/maia';
-describe('human-like move choice', () => {
+import { chooseHumanMove, humanParams, moveProbs, setBrain } from '../lib/maia';
+import { afterAll, beforeAll } from 'vitest';
+describe('human-like move choice (Maia-1 tuning)', () => {
+  beforeAll(() => setBrain('maia1'));
+  afterAll(() => setBrain(null));
   // Logits for: a main move, a decent second, a howler people do play sometimes, and a stray tail move.
   const logits = new Map([['e2e4', 2.0], ['d2d4', 1.2], ['g1f3', 0.3], ['a2a4', -3.5]]);
   const seq = (n: number) => { let i = 0; return () => ((i++ * 0.6180339887) % 1 + 1 / (2 * n)) % 1; };
