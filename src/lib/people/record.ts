@@ -1,5 +1,6 @@
 // Head-to-head records and stars per opponent; drives the ladder.
 import { kvGet, kvSet } from '../db';
+import { announceChange } from '../changes';
 import type { GameRecord } from '../store/types';
 import { OPPONENTS } from './index';
 import { challengeFor } from './challenges';
@@ -66,6 +67,7 @@ export async function recordOpponentGame(g: GameRecord): Promise<{ stars: number
   for (let l = levelBefore + 1; l <= levelAfter; l++) xp += rivalryXp(l);
   all[g.opponentId] = r;
   await kvSet(KEY, all);
+  announceChange('records');
   return { stars: starsOf(r), starsBefore, firstWin, challengeDone, rivalry: { pointsBefore, pointsAfter: r.rp, gained, levelBefore, levelAfter, newBadges, xp } };
 }
 
@@ -84,4 +86,5 @@ export function isUnlocked(id: string, records: Record<string, OpponentRecord>):
  */
 export async function resetOpponentRecords(): Promise<void> {
   await kvSet(KEY, {});
+  announceChange('records');
 }

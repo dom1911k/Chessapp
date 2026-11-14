@@ -12,6 +12,7 @@ import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { getSparring, sparringStep, type SparringState } from '../lib/sparring';
 import { getPlayerRating } from '../lib/playerRating';
 import { ScaleNews } from '../components/ScaleNews';
+import { onChange } from '../lib/changes';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
 import { START_FEN } from '../lib/chess/game';
@@ -74,7 +75,11 @@ function SetupView() {
   const phaseNow = usePlay((s) => s.phase);
   useEffect(() => void getSparring(getPlayerRating()).then(setSpar), [phaseNow]);
   const [records, setRecords] = useState<Record<string, OpponentRecord>>({});
-  useEffect(() => void getOpponentRecords().then(setRecords), []);
+  useEffect(() => {
+    void getOpponentRecords().then(setRecords);
+    // Reload when records change elsewhere (a game finished, a reset in Settings).
+    return onChange('records', () => void getOpponentRecords().then(setRecords));
+  }, []);
   const chosen = opponentById(settings.opponentId) ?? (custom || sparring ? undefined : OPPONENTS[1]);
   const opp = custom || sparring ? null : chosen ?? null;
   const botElo = opp ? opp.elo : sparring ? spar?.rating ?? getPlayerRating() : settings.botElo;

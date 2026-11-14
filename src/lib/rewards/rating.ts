@@ -1,6 +1,7 @@
 // Your game rating: an Elo-style number that moves after every game against an
 // opponent. The journey map is drawn from your best (peak) rating, so a bad day
 // never takes a milestone away.
+import { announceChange } from '../changes';
 import { kvGet, kvSet } from '../db';
 import { setPlayerRating } from '../playerRating';
 
@@ -34,6 +35,7 @@ export async function rateGame(opponentElo: number, score: number, helpUsed: num
   };
   await kvSet(KEY, after);
   setPlayerRating(after.rating);
+  announceChange('rating');
   return { before, after };
 }
 
@@ -42,6 +44,7 @@ export async function restartGameRating(rating: number): Promise<void> {
   const fresh: GameRating = { rating, peak: rating, games: 0, history: [{ at: Date.now(), rating }] };
   await kvSet(KEY, fresh);
   setPlayerRating(rating);
+  announceChange('rating');
 }
 
 export interface Milestone {
