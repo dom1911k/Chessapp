@@ -10,6 +10,7 @@ import { Profile } from '../../src/lib/benchmark/profile.ts';
 import { addGame, type BenchDeps } from '../../src/lib/benchmark/humans.ts';
 import { parseClocks } from '../../src/lib/chesscom/parse.ts';
 import { povScore, scoreToCp } from '../../src/lib/chess/evaluation.ts';
+import { maia3SelfElo } from '../../src/lib/maia/index.ts';
 
 const [file, minS, maxS, out] = process.argv.slice(2);
 const band = BANDS.find((b) => b.min === Number(minS))!;
@@ -27,7 +28,7 @@ export const nodeDeps: BenchDeps = {
     return scoreToCp(povScore(a.lines[0].score, turn));
   },
   async prob(fens, uci, self, oppo) {
-    const lg = (await maia3(fens, self, oppo)).logits;
+    const lg = (await maia3(fens, maia3SelfElo(self), maia3SelfElo(oppo))).logits;
     const vals = [...lg.values()];
     const mx = Math.max(...vals);
     const z = vals.reduce((s, v) => s + Math.exp(v - mx), 0);

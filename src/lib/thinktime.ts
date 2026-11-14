@@ -35,6 +35,8 @@ export const THINK = {
   useOfBudget: [[400, 0.55], [800, 0.7], [1200, 0.85], [1600, 0.95], [2000, 1.0]] as Curve,
   /** How strongly difficulty stretches the think (by rating): strong players think where it matters. */
   difficultyWeight: [[400, 0.4], [1200, 0.75], [2000, 1.0]] as Curve,
+  /** Endgames are played faster. */
+  endgameFactor: 1.0,
   /** Opening moves (by move number) are quicker. */
   phase: [[1, 0.2], [6, 0.35], [10, 0.7], [14, 1.0]] as Curve,
   /** Difficulty from the spread: 1 - top probability, mapped to a factor. */
@@ -88,6 +90,8 @@ export interface ThinkInput {
   second?: number;
   /** How much the evaluation moved (for the bot) since its previous move, cp. */
   swing?: number;
+  /** Little material left (people play endgames faster, mostly on instinct and technique). */
+  endgame?: boolean;
 }
 
 /** 0 = relaxed … 1 = flag about to fall. */
@@ -151,7 +155,7 @@ export function botThinkMs(o: ThinkInput, rng: () => number = Math.random): numb
   const budget = left / movesLeft + inc * 0.8;
   const w = lerp(THINK.difficultyWeight, o.elo);
   const diff = 1 + w * (difficulty(o) - 1);
-  let ms = budget * lerp(THINK.useOfBudget, o.elo) * lerp(THINK.phase, o.moveNo) * diff * Math.exp(THINK.sigma * normal(rng) - THINK.sigma ** 2 / 2);
+  let ms = budget * lerp(THINK.useOfBudget, o.elo) * lerp(THINK.phase, o.moveNo) * (o.endgame ? THINK.endgameFactor : 1) * diff * Math.exp(THINK.sigma * normal(rng) - THINK.sigma ** 2 / 2);
 
   // 3. At a critical moment, now and then a real long think (stronger players more often).
   if (o.moveNo > 8 && critical(o) && rng() < THINK.longThinkChance * w * (1 - pressure)) ms *= THINK.longThink[0] + (THINK.longThink[1] - THINK.longThink[0]) * rng();

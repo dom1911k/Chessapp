@@ -18,14 +18,14 @@ export const TUNING = {
     /** Haptics (ms). */
     haptic: { tick: 8, slam: 30, boon: 18 },
   },
-  /** The cup ladder: tight rating bands, one tier opens the next. */
+  /** The cup ladder: tight chess.com-rating bands (200 wide), one tier opens the next. */
   ladder: {
     tiers: [
-      { id: 'bronze', name: 'Bronze Cup', band: [400, 600] },
-      { id: 'silver', name: 'Silver Cup', band: [600, 800] },
-      { id: 'gold', name: 'Gold Cup', band: [800, 1000] },
-      { id: 'platinum', name: 'Platinum Cup', band: [1000, 1200] },
-      { id: 'diamond', name: 'Diamond Cup', band: [1200, 1400] },
+      { id: 'bronze', name: 'Bronze Cup', band: [100, 300] },
+      { id: 'silver', name: 'Silver Cup', band: [300, 500] },
+      { id: 'gold', name: 'Gold Cup', band: [500, 700] },
+      { id: 'platinum', name: 'Platinum Cup', band: [700, 900] },
+      { id: 'diamond', name: 'Diamond Cup', band: [900, 1100] },
     ] as { id: string; name: string; band: [number, number] }[],
     /** Where in the band your opponent plays in each round (0 = bottom, 1 = top): the final is the strongest. */
     roundShare: [0, 0.5, 1],

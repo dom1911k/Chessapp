@@ -3,6 +3,7 @@
 import { Preferences } from '@capacitor/preferences';
 import { create } from 'zustand';
 import { DEFAULT_ELO } from './bot';
+import { fromLegacy } from './scale';
 
 export interface Settings {
   theme: 'system' | 'light' | 'dark';
@@ -53,6 +54,8 @@ export interface Settings {
   soundsV2: boolean;
   /** Set once the move strip under the board became the default. */
   moveStripV1: boolean;
+  /** Bot strength setting already on the chess.com scale. */
+  ccScaleV1: boolean;
   /** Set once chess.com sync on opening the app became the default. */
   ccSyncV1: boolean;
   /** Dots on the squares a selected piece can go to. */
@@ -166,6 +169,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ccAutoSync: true,
   soundsV2: true,
   moveStripV1: true,
+  ccScaleV1: true,
   ccSyncV1: true,
   showLegalMoves: true,
   moveSpeed: 'normal',
@@ -212,6 +216,11 @@ export const useSettings = create<SettingsStore>((set, get) => ({
         if (!saved.moveStripV1) {
           saved.showMoveList = true;
           saved.moveStripV1 = true;
+        }
+        // One-time: bot ratings are chess.com ratings now (v1.55).
+        if (!saved.ccScaleV1) {
+          if (typeof saved.botElo === 'number') saved.botElo = fromLegacy(saved.botElo);
+          saved.ccScaleV1 = true;
         }
         set({ ...DEFAULT_SETTINGS, ...saved });
       }

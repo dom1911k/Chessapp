@@ -56,7 +56,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'lily',
     name: 'Lily',
-    elo: 400,
+    elo: 200,
     style: 'wild',
     tagline: 'Learned the rules last month',
     bio: 'Lily is eight and LOVES moving her queen everywhere. She forgets her pieces can be taken sometimes — just like all of us did once!',
@@ -86,7 +86,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'tom',
     name: 'Grandpa Tom',
-    elo: 600,
+    elo: 400,
     style: 'solid',
     tagline: 'Retired, plays at the park',
     bio: 'Tom plays with his grandkids and at the park on sunny days. Patient, kind, and always ready with a little story.',
@@ -116,7 +116,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'maya',
     name: 'Maya',
-    elo: 800,
+    elo: 600,
     style: 'balanced',
     tagline: 'Plays between lectures',
     bio: 'Maya is a student who plays quick games on her phone between classes. Relaxed, funny, and a little chaotic.',
@@ -146,7 +146,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'jonas',
     name: 'Jonas',
-    elo: 1000,
+    elo: 800,
     style: 'aggressive',
     tagline: 'Café champion (says Jonas)',
     bio: 'Jonas plays at the café every Sunday and loves to brag about his attacks before they happen. Loud, cheerful, a bit too sure of himself.',
@@ -176,7 +176,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'priya',
     name: 'Priya',
-    elo: 1200,
+    elo: 1000,
     style: 'solid',
     tagline: 'Club player, loves puzzles',
     bio: 'Priya plays at the local club and loves puzzles and patterns. Careful and friendly — she always counts twice before she takes anything.',
@@ -206,7 +206,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'marcus',
     name: 'Marcus',
-    elo: 1400,
+    elo: 1200,
     style: 'aggressive',
     tagline: 'All attack, all the time',
     bio: 'Marcus streams fast games online and never says no to a wild attack. He trash-talks a little, but always with a smile.',
@@ -236,7 +236,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'sofia',
     name: 'Sofia',
-    elo: 1600,
+    elo: 1400,
     style: 'balanced',
     tagline: 'Tournament player',
     bio: "Sofia plays weekend tournaments and doesn't talk much at the board. Cool, focused and quietly competitive.",
@@ -266,7 +266,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'viktor',
     name: 'Viktor',
-    elo: 1800,
+    elo: 1600,
     style: 'solid',
     tagline: 'Strict old chess teacher',
     bio: 'Viktor taught chess at a strict club for forty years. Gruff and demanding, but he respects anyone who tries hard.',
@@ -296,7 +296,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'mei',
     name: 'Mei',
-    elo: 2000,
+    elo: 1800,
     style: 'balanced',
     tagline: 'The champion',
     bio: 'Mei is the strongest player here — calm, kind and almost impossible to rattle. Beating her is the final goal.',

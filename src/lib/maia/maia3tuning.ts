@@ -1,7 +1,7 @@
 // Tuning for the Maia-3 opponents. Maia-3 is conditioned on rating, so weak play comes from the
 // model itself (human mistakes) rather than from sampling noise: the temperature stays near 1 and
 // the rest of the pipeline only trims the stray tail and, higher up, the worst howlers.
-// Calibrated with scripts/maia3/selfplay.mts and scripts/maia3/blunders.mts.
+// Calibrated against real chess.com players (scripts/maia3/humans.mts, profile.mts, table.mts).
 
 /** Piecewise-linear table: [rating, value] points. */
 export type Curve = [number, number][];
@@ -10,22 +10,28 @@ export const MAIA3 = {
   /** Model size used by the opponents. */
   size: '23m' as const,
   /**
-   * The model's SelfElo (and OppoElo) for an opponent label. Raw Maia-3 games between neighbouring
-   * ratings come out only ~100 apart (the model is compressed), so the axis is stretched until
-   * neighbouring bots are ~200 apart; bot 1200 ≈ raw Maia-3 1200 (52.5% in 40 games).
-   * Ladder (40 games/pair): 168, 168, 338, 191, 203, 179, 228, 228 → 400…2000 spans ~1700.
+   * Maia-3's SelfElo (and OppoElo) for a rating on the chess.com scale. Calibrated so each bot's
+   * blunders and mistakes per move match real chess.com players at its rating (public 10+0
+   * sample, scripts/maia3/humans.mts vs profile.mts). Never below 700, the bottom of Maia-3's
+   * training data: weaker bots get there with `temperature` and `alt` instead.
    */
-  selfElo: [[400, 20], [600, 330], [800, 490], [1000, 700], [1200, 920], [1400, 1190], [1600, 1500], [1800, 1765], [2000, 2080]] as Curve,
-  temperature: [[400, 1.0], [2000, 1.0]] as Curve,
+  selfElo: [[100, 700], [200, 700], [400, 790], [600, 895], [800, 1080], [1000, 1180], [1200, 1295], [1400, 1450], [1600, 1650], [1800, 1900], [2000, 2150]] as Curve,
+  temperature: [[100, 1.0], [2000, 1.0]] as Curve,
+  /** Extra weight on Maia's 2nd and 3rd choices (weak players go with their second idea more). */
+  alt: [[100, 0], [2000, 0]] as Curve,
+
+  /*
+   * The rest of the pipeline follows the SelfElo: these curves are keyed by the old app rating
+   * that played at that SelfElo (PIPE_SELF), so a bot at a given SelfElo plays exactly as measured.
+   */
+  pipeSelf: [[400, 20], [600, 330], [800, 490], [1000, 700], [1200, 920], [1400, 1190], [1600, 1500], [1800, 1765], [2000, 2080]] as Curve,
   topP: [[400, 0.99], [1000, 0.985], [2000, 0.98]] as Curve,
   minP: [[400, 0.005], [1000, 0.008], [2000, 0.01]] as Curve,
   /** Moves losing more than `free` cp are made rarer with scale `lossScale` (bigger = gentler). */
   free: [[400, 300], [1000, 260], [1600, 220], [2000, 180]] as Curve,
   lossScale: [[400, 2500], [1000, 1200], [1400, 700], [2000, 450]] as Curve,
   soft: [[400, 0], [2000, 0]] as Curve,
-  /** Extra weight on Maia's 2nd and 3rd choices (weak players go with their second idea more). */
-  alt: [[400, 0], [2000, 0]] as Curve,
-  /** Stockfish veto: cp limit and how often it applies (none below 1600). */
+  /** Stockfish veto: cp limit and how often it applies (pipeline scale; none below 1600). */
   vetoFrom: 1600,
   vetoLimit: [[1600, 600], [1800, 400], [2000, 300]] as Curve,
   vetoChance: [[1600, 0.1], [1800, 0.25], [2000, 0.4]] as Curve,

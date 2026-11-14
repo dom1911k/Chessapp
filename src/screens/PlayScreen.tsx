@@ -11,7 +11,7 @@ import { Flame, FlipVertical2, Puzzle, CalendarCheck, ChevronRight, Timer, Sword
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { getSparring, sparringStep, type SparringState } from '../lib/sparring';
 import { getPlayerRating } from '../lib/playerRating';
-import { CcLabel, CcLine } from '../components/CcLabel';
+import { ScaleNews } from '../components/ScaleNews';
 import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
 import { START_FEN } from '../lib/chess/game';
@@ -106,6 +106,7 @@ function SetupView() {
     <div className="flex h-full flex-col overflow-y-auto">
       <HomeHero right={<SettingsButton />} />
       <div className="mx-auto w-full max-w-md flex-1 space-y-3 p-4">
+        <ScaleNews />
         {running && <ResumeCard />}
         <HomeScreenHint />
         {!match && <StepDownCard />}
@@ -122,7 +123,6 @@ function SetupView() {
               <span className="block truncate font-display text-[22px] leading-tight font-semibold">{opp ? opp.name : sparring ? 'Sparring partner' : 'Custom bot'}</span>
               <span className="mt-0.5 flex items-center gap-1.5">
                 <span className="rounded-md bg-stone-900/85 px-1.5 py-px text-xs font-bold text-white tabular-nums dark:bg-white/90 dark:text-stone-900">{botElo}</span>
-                <CcLabel elo={botElo} className="text-xs text-stone-500 dark:text-stone-400" />
                 {opp && <Stars n={stars} of={MAX_STARS} size={12} />}
                 {opp && <RivalryChip rec={rec} />}
               </span>
@@ -175,7 +175,7 @@ function SetupView() {
           <div className="py-2">
             <div className="mb-1 flex items-baseline justify-between">
               <span className="section-title">Bot strength</span>
-              <span className="text-sm font-bold">~{settings.botElo} <span className="font-normal text-stone-500">· <CcLabel elo={settings.botElo} /></span></span>
+              <span className="text-sm font-bold">{settings.botElo} <span className="font-normal text-stone-500">· {eloLabel(settings.botElo)}</span></span>
             </div>
             <input type="range" min={MIN_ELO} max={MAX_ELO} step={50} value={settings.botElo} onChange={(e) => settings.set({ botElo: Number(e.target.value) })} className="w-full accent-brand-600" />
           </div>
@@ -184,7 +184,7 @@ function SetupView() {
           <div className="space-y-1.5 py-2">
             <div className="flex items-baseline justify-between">
               <span className="section-title">Sparring partner</span>
-              <span className="text-sm font-bold">{botElo} <span className="font-normal text-stone-500">· <CcLabel elo={botElo} /></span></span>
+              <span className="text-sm font-bold">{botElo}</span>
             </div>
             <p className="text-sm text-stone-600 dark:text-stone-300">
               Its rating moves after every game to keep you near 50%: up {sparringStep(spar?.games ?? 0)} when you win, down {sparringStep(spar?.games ?? 0)} when you lose{(spar?.games ?? 0) < 10 ? ' (smaller steps once it knows you)' : ''}.
@@ -192,7 +192,7 @@ function SetupView() {
             {spar && spar.games > 0 && <p className="text-xs font-semibold text-stone-500">{spar.w}W · {spar.d}D · {spar.l}L in {spar.games} game{spar.games === 1 ? '' : 's'}</p>}
           </div>
         )}
-        {!sparring && <CcLine className="mt-2 px-1" />}
+        {!sparring && <p className="mt-2 px-1 text-xs text-stone-500">Ratings are chess.com rapid ratings: each bot plays like real chess.com players at its rating.</p>}
         {opp && !locked && stars < MAX_STARS && <ChallengeCard opponentId={opp.id} stars={stars} done={!!rec?.challengeDone} />}
         <div className="mt-3 flex gap-2">
           {!sparring && (

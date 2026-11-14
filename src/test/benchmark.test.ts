@@ -72,13 +72,12 @@ describe('bot-vs-human benchmark', () => {
     expect(res[0].think!.moves).toBe(8);
   });
 
-  it('pairs each band with the bot whose chess.com estimate is its middle', () => {
-    expect(labelForBand(500, 700, -300)).toBe(900);
-    expect(labelForBand(100, 300, -300)).toBe(500);
-    expect(labelForBand(1700, 1900, -300)).toBe(2000);
+  it('pairs each band with the bot rated in its middle', () => {
+    expect(labelForBand(500, 700)).toBe(600);
+    expect(labelForBand(1700, 1900)).toBe(1800);
     const h = (band: string) => ({ band, games: 5, moves: 300, avgLoss: 0, inacc: 0, mistake: 0, blunder: 10, ofBlunders: { hung: 0, threat: 0, other: 0, randomLooking: 0 } });
     const b = (label: number) => ({ ...h(''), label });
-    const rows = benchTable([h('500–700')], [b(900), b(1300)], -300, [{ ...h('500–700'), blunder: 20 }]);
-    expect(rows.find((r) => r.band === '500–700')).toMatchObject({ label: 900, bot: { label: 900 }, human: { blunder: 20 } });
+    const rows = benchTable([h('500–700')], [b(600), b(1000)], [{ ...h('500–700'), blunder: 20 }]);
+    expect(rows.find((r) => r.band === '500–700')).toMatchObject({ label: 600, bot: { label: 600 }, human: { blunder: 20 } });
   });
 });

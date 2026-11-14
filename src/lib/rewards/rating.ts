@@ -13,7 +13,8 @@ export interface GameRating {
 }
 
 const KEY = 'gameRating';
-export const START_RATING = 450;
+/** A new player starts here (chess.com scale). */
+export const START_RATING = 250;
 
 export const getGameRating = () => kvGet<GameRating>(KEY, { rating: START_RATING, peak: START_RATING, games: 0, history: [] });
 

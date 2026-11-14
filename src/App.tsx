@@ -1,3 +1,4 @@
+import { migrateRatingScale } from './lib/migrate';
 import { Onboarding } from './components/Onboarding';
 import { getGameRating } from './lib/rewards/rating';
 import { setPlayerRating } from './lib/playerRating';
@@ -225,8 +226,10 @@ export function App() {
   useEffect(() => {
     requestPersistentStorage();
     void preloadSounds();
-    void getGameRating().then((r) => setPlayerRating(r.rating));
-    void useSettings.getState().load().then(() => {
+    // Ratings moved to the chess.com scale (v1.55): convert stored ratings once, then load.
+    const migrated = migrateRatingScale().catch(() => false);
+    void migrated.then(() => getGameRating()).then((r) => setPlayerRating(r.rating));
+    void migrated.then(() => useSettings.getState().load()).then(() => {
       const st = useSettings.getState();
       if (st.reminderEnabled) void applyReminder(true, st.reminderTime);
       // Measure engine speed (cached for a month) so analysis fits this phone; runs alongside loading.

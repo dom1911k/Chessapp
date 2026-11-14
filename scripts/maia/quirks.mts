@@ -11,6 +11,7 @@ import { engine, maia3 } from '../maia3/players.mts';
 import { povScore, scoreToCp } from '../../src/lib/chess/evaluation.ts';
 import { flagResult } from '../../src/lib/clock.ts';
 import { botThinkMs, positionInfo, pressureParams, swingTracker, timePressure } from '../../src/lib/thinktime.ts';
+import { phaseOf } from '../../src/lib/benchmark/profile.ts';
 import { quirkById, quirkEffects, type QuirkCtx } from '../../src/cups/quirks.ts';
 import { material } from '../../src/cups/material.ts';
 import { TUNING } from '../../src/cups/tuning.ts';
@@ -81,7 +82,7 @@ async function play(quirkWhite: boolean): Promise<number> {
       }
     }
     const info = positionInfo(seen.lg, seen.cand, uci!, ucis.length ? { uci: ucis[ucis.length - 1], san: sans[sans.length - 1] } : undefined);
-    const spent = botThinkMs({ elo, moveNo, leftMs: clock[side], tc: '600+0', book, forced: moves.length === 1, ...info, swing: swings[side](0, info.best) }) * think;
+    const spent = botThinkMs({ elo, moveNo, leftMs: clock[side], tc: '600+0', book, forced: moves.length === 1, ...info, swing: swings[side](0, info.best), endgame: phaseOf(fen, moveNo) === 'endgame' }) * think;
     clock[side] -= spent;
     if (clock[side] <= 0) {
       const f = flagResult(fen, side);

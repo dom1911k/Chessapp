@@ -3,14 +3,13 @@
 // the same code runs in the app (dev panel) and in Node scripts.
 import { BANDS, bandOf } from './bands';
 import { phaseOf, Profile, PROFILE, thinkTimes, type ProfileSummary } from './profile';
-import { CCMAP } from '../games/ccmap';
 
 export interface BenchDeps {
   /** Stockfish MultiPV: move → cp for the side to move. */
   candidates(fen: string, depth: number, multipv: number): Promise<Map<string, number>>;
   /** Score (cp, for `turn`) of the position after a move the candidates did not list. */
   scoreAfter(fenAfter: string, turn: 'w' | 'b'): Promise<number>;
-  /** Maia-3's probability of `uci` in the last position of `fens` for a player rated `self`. */
+  /** Maia-3's probability of `uci` in the last position of `fens` for a player rated `self` (chess.com). */
   prob(fens: string[], uci: string, self: number, oppo: number): Promise<number>;
 }
 
@@ -41,8 +40,8 @@ export async function addGame(prof: Profile, plies: BenchPly[], clocks: number[]
         const best = cand.size ? Math.max(...cand.values()) : 0;
         if (cand.size && Math.abs(best) < PROFILE.decidedCp) {
           const score = cand.get(p.uci) ?? (await deps.scoreAfter(p.fenAfter, turn));
-          // Maia-3 at the player's own rating on its Lichess-like scale (chess.com + the typical gap).
-          const prob = await deps.prob(fens.slice(-8), p.uci, Math.max(0, p.mover - CCMAP.priorOffset), Math.max(0, p.other - CCMAP.priorOffset));
+          // Maia-3 at the player's own rating (through the same rating map as the bots).
+          const prob = await deps.prob(fens.slice(-8), p.uci, p.mover, p.other);
           prof.addMove({ fen: p.fen, uci: p.uci, fenAfter: p.fenAfter, best, score, ply: i, prob });
         }
       }

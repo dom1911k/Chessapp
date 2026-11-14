@@ -123,6 +123,8 @@ export function unlockText(u: Unlock): string {
 export interface UnlockContext {
   level: number;
   peak: number;
+  /** Peak on the old rating scale (before v1.55): what it earned stays earned. */
+  legacyPeak?: number;
   achievements: Record<string, number>;
   challenges: Set<string>;
   gold: number;
@@ -138,6 +140,7 @@ export async function unlockContext(): Promise<UnlockContext> {
   return {
     level: levelFor(await getXp()).level,
     peak: (await getGameRating()).peak,
+    legacyPeak: await kvGet<number>('legacyPeak', 0),
     achievements: await kvGet<Record<string, number>>('achievements', {}),
     challenges: new Set(Object.entries(records).filter(([, r]) => r.challengeDone).map(([id]) => id)),
     gold: Object.values(skills).filter((s) => s.tier === 3).length,
@@ -156,7 +159,7 @@ export function meets(u: Unlock, ctx: UnlockContext): boolean {
     case 'level':
       return ctx.level >= u.n;
     case 'rating':
-      return ctx.peak >= u.n;
+      return ctx.peak >= u.n || (ctx.legacyPeak ?? 0) >= u.n;
     case 'achievement':
       return !!ctx.achievements[u.id];
     case 'challenge':

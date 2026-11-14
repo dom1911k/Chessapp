@@ -17,6 +17,7 @@ import { bookMove } from '../lib/people/openings';
 import { flagResult, parseTc } from '../lib/clock';
 import { botThinkMs, positionInfo, pressureParams, swingTracker, timePressure } from '../lib/thinktime';
 import { evalHistory, shouldResign } from '../lib/resign';
+import { phaseOf } from '../lib/benchmark/profile';
 
 const swingOf = swingTracker();
 const evalsOf = evalHistory();
@@ -503,6 +504,7 @@ export const useCupGame = create<Store>((set, get) => {
           forced: new Chess(fen).moves().length === 1,
           ...info,
           swing: swingOf(gc.startedAt, info.best),
+          endgame: phaseOf(fen, Math.floor(gc.plies.length / 2) + 1) === 'endgame',
         }) * mods.thinkFactor;
       await sleep(Math.max(0, Math.min(target, clockLeft(gc, turn) - 50) - (Date.now() - gc.clock.turnStart)));
       if (my !== token || !uci) return;

@@ -6,6 +6,7 @@ import { useSettings } from '../settings';
 import { maia3Logits } from '../maia3';
 import { MAIA3 } from './maia3tuning';
 import { getPlayerRating } from '../playerRating';
+import { toLegacy } from '../scale';
 
 /** Which model plays: Maia-3 (one model, any rating) or the classic Maia-1 nets (fallback). */
 export type Brain = 'maia1' | 'maia3';
@@ -23,8 +24,10 @@ export function currentBrain(): Brain {
 
 export { getPlayerRating, setPlayerRating } from '../playerRating';
 
-/** Maia-3's SelfElo for an opponent label. */
+/** Maia-3's SelfElo for a rating (chess.com scale). */
 export const maia3SelfElo = (elo: number) => lerp(MAIA3.selfElo, elo);
+/** Where a Maia-3 bot sits on the pipeline curves (keyed by the old rating that played at its SelfElo). */
+export const maia3Pipe = (elo: number) => lerp(MAIA3.pipeSelf.map(([a, b]) => [b, a] as [number, number]), maia3SelfElo(elo));
 
 /** Bundled Maia networks (public/maia). */
 export const MAIA_RATINGS = [1100, 1200, 1400, 1600, 1800, 1900] as const;
@@ -63,7 +66,9 @@ function lerp(points: [number, number][], x: number): number {
  * temperatures spread the networks further apart. Tuned with
  * scripts/maia/calibrate.mts so neighbouring opponents are ~200 points apart.
  */
-export function maiaParams(elo: number): { rating: number; temperature: number } {
+export function maiaParams(cc: number): { rating: number; temperature: number } {
+  // Tuned on the old app scale: convert the chess.com rating first.
+  const elo = toLegacy(cc);
   const temperature = lerp([[400, 2.6], [600, 1.9], [800, 1.45], [1000, 1.12], [1100, 1.0], [1200, 1.0], [1400, 0.8], [1600, 0.7], [1800, 0.6], [2000, 0.5]], elo);
   if (elo < 1100) return { rating: 1100, temperature };
   const rating = MAIA_RATINGS.reduce((a, b) => (Math.abs(b - elo) < Math.abs(a - elo) ? b : a));
@@ -90,13 +95,15 @@ export function sampleMove(logits: Map<string, number>, temperature: number, ran
  * this many centipawns compared with the best move may be played.
  */
 export function vetoLimit(elo: number, brain: Brain = currentBrain()): number | null {
-  if (brain === 'maia3') return elo < MAIA3.vetoFrom ? null : lerp(MAIA3.vetoLimit, elo);
+  if (brain === 'maia3') { const p = maia3Pipe(elo); return p < MAIA3.vetoFrom ? null : lerp(MAIA3.vetoLimit, p); }
+  elo = toLegacy(elo);
   return elo < 1500 ? null : lerp([[1500, 500], [1600, 400], [1800, 200], [2000, 120]], elo);
 }
 
 /** How often the veto is used: even "only big blunders" is worth hundreds of rating points. */
 export function vetoChance(elo: number, brain: Brain = currentBrain()): number {
-  if (brain === 'maia3') return elo < MAIA3.vetoFrom ? 0 : lerp(MAIA3.vetoChance, elo);
+  if (brain === 'maia3') { const p = maia3Pipe(elo); return p < MAIA3.vetoFrom ? 0 : lerp(MAIA3.vetoChance, p); }
+  elo = toLegacy(elo);
   return lerp([[1400, 0], [1600, 0.2], [1800, 0.5], [2000, 0.8]], elo);
 }
 
@@ -122,18 +129,22 @@ export function chooseMaiaMove(logits: Map<string, number>, temperature: number,
  *   more often plays its second or third choice — slightly worse moves, not blunders.
  */
 export function humanParams(elo: number, brain: Brain = currentBrain()): { rating: number; temperature: number; topP: number; minP: number; lossScale: number; free: number; soft: number; alt: number } {
-  if (brain === 'maia3')
+  if (brain === 'maia3') {
+    const p = maia3Pipe(elo);
     return {
       rating: maia3SelfElo(elo),
       temperature: lerp(MAIA3.temperature, elo),
-      topP: lerp(MAIA3.topP, elo),
-      minP: lerp(MAIA3.minP, elo),
-      lossScale: lerp(MAIA3.lossScale, elo),
-      free: lerp(MAIA3.free, elo),
-      soft: lerp(MAIA3.soft, elo),
+      topP: lerp(MAIA3.topP, p),
+      minP: lerp(MAIA3.minP, p),
+      lossScale: lerp(MAIA3.lossScale, p),
+      free: lerp(MAIA3.free, p),
+      soft: lerp(MAIA3.soft, p),
       alt: lerp(MAIA3.alt, elo),
     };
+  }
   const base = maiaParams(elo);
+  // Maia-1 tuning is on the old app scale.
+  elo = toLegacy(elo);
   // Tuned with scripts/maia/versus.mts (same strength as plain sampling) and
   // scripts/maia/losses.mts (share of blunders). Weak opponents keep most of their blunders.
   return {

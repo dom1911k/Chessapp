@@ -32,6 +32,7 @@ import { aidsFor } from '../coach/level';
 import { flagResult, lowTime as isLowTime, newClock, pressClock, timeLeft } from '../clock';
 import { botThinkMs, positionInfo, pressureParams, swingTracker, timePressure } from '../thinktime';
 import { evalHistory, shouldResign } from '../resign';
+import { phaseOf } from '../benchmark/profile';
 
 const swingOf = swingTracker();
 const evalsOf = evalHistory();
@@ -448,6 +449,7 @@ export const usePlay = create<PlayStore>((set, get) => {
           forced: new Chess(fen).moves().length === 1,
           ...info,
           swing: swingOf(gc.startedAt, info.best),
+          endgame: phaseOf(fen, Math.floor(gc.plies.length / 2) + 1) === 'endgame',
         });
         await sleep(Math.max(0, target - (Date.now() - gc.clock.turnStart)));
       } else await sleep(Math.max(0, (book ? 700 : 600) - (Date.now() - started)));

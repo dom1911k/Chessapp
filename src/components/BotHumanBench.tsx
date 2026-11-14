@@ -6,10 +6,10 @@ import { useEffect, useRef, useState } from 'react';
 import baseline from '../lib/benchmark/baseline.json';
 import { benchTable, type BotRow, type HumanRow } from '../lib/benchmark/table';
 import { benchmarkOpponents, type BandResult, type BenchDeps } from '../lib/benchmark/humans';
-import { useCcMap } from './CcLabel';
 import { db, kvGet, kvSet } from '../lib/db';
 import { getEngine } from '../lib/engine';
 import { maia3Logits } from '../lib/maia3';
+import { maia3SelfElo } from '../lib/maia';
 import { povScore, scoreToCp } from '../lib/chess/evaluation';
 import type { ProfileSummary } from '../lib/benchmark/profile';
 
@@ -33,7 +33,7 @@ const appDeps: BenchDeps = {
     return 0;
   },
   async prob(fens, uci, self, oppo) {
-    const lg = await maia3Logits(fens, self, oppo);
+    const lg = await maia3Logits(fens, maia3SelfElo(self), maia3SelfElo(oppo));
     const vals = [...lg.values()];
     if (!vals.length) return 1;
     const mx = Math.max(...vals);
@@ -63,7 +63,6 @@ function Line({ who, p, highlight }: { who: string; p?: ProfileSummary; highligh
 }
 
 export function BotHumanBench() {
-  const map = useCcMap();
   const [mine, setMine] = useState<Saved | null>(null);
   const [busy, setBusy] = useState<{ done: number; total: number } | null>(null);
   const [count, setCount] = useState(0);
@@ -85,12 +84,12 @@ export function BotHumanBench() {
       setBusy(null);
     }
   };
-  const rows = benchTable(baseline.humans as HumanRow[], baseline.bots as BotRow[], map.offset, mine?.results ?? []);
+  const rows = benchTable(baseline.humans as HumanRow[], baseline.bots as BotRow[], mine?.results ?? []);
   return (
     <div className="border-t border-stone-100 py-2 dark:border-stone-800" data-testid="bot-human-bench">
       <div className="mb-1 text-sm">Bots vs humans</div>
       <p className="mb-2 text-xs text-stone-500">
-        Each chess.com band next to the bot that claims to match it ({map.offset > 0 ? '+' : ''}{Math.round(map.offset)} rating gap). Blunders and mistakes are % of moves in undecided positions; blunder kinds are hung / missed threat / random-looking (%); think time is seconds per move in opening / middlegame / endgame, and the share under 2 s.
+        Each chess.com band next to the bot rated in its middle. Blunders and mistakes are % of moves in undecided positions; blunder kinds are hung / missed threat / random-looking (%); think time is seconds per move in opening / middlegame / endgame, and the share under 2 s.
         Humans: {mine?.results.length ? 'your chess.com opponents where there are 150+ moves, else ' : ''}a public chess.com 10+0 sample{baseline.generated ? ` (${baseline.generated})` : ''}.
       </p>
       <div className="overflow-x-auto">

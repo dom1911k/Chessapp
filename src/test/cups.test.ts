@@ -35,20 +35,20 @@ import { material } from '../cups/material';
 describe('cups: ladder', () => {
   it('has five tiers in tight 200-point bands', () => {
     expect(TIERS).toEqual(['bronze', 'silver', 'gold', 'platinum', 'diamond']);
-    expect(TIERS.map((t) => tierInfo(t).band)).toEqual([[400, 600], [600, 800], [800, 1000], [1000, 1200], [1200, 1400]]);
+    expect(TIERS.map((t) => tierInfo(t).band)).toEqual([[100, 300], [300, 500], [500, 700], [700, 900], [900, 1100]]);
   });
   it('raises the opponent gently through the band, the final strongest', () => {
-    expect([0, 1, 2].map((r) => roundRating('gold', r))).toEqual([800, 900, 1000]);
-    expect(roundRating('bronze', 0)).toBe(400);
+    expect([0, 1, 2].map((r) => roundRating('gold', r))).toEqual([500, 600, 700]);
+    expect(roundRating('bronze', 0)).toBe(100);
   });
   it('picks seven different characters with seed ratings inside the band', () => {
     for (const seed of [1, 2, 3, 99]) {
       const { field, ratings } = pickField('silver', seed);
       expect(new Set(field).size).toBe(7);
       for (const id of field) expect(OPPONENTS.some((o) => o.id === id)).toBe(true);
-      expect(Object.values(ratings).every((r) => r >= 600 && r <= 800)).toBe(true);
-      expect(ratings[field[0]]).toBe(600);
-      expect(ratings[field[6]]).toBe(800);
+      expect(Object.values(ratings).every((r) => r >= 300 && r <= 500)).toBe(true);
+      expect(ratings[field[0]]).toBe(300);
+      expect(ratings[field[6]]).toBe(500);
     }
     const b = seedBracket(pickField('gold', 5).field);
     expect(b[0]).toBe(YOU);
@@ -197,10 +197,10 @@ describe('cups: boons and charms', () => {
     let d = newCup('gold', 3, 0);
     d = applyResult(d, { ...rec, result: 'win' });
     d = applyResult(d, { ...rec, color: 'b', result: 'win', opponentId: yourOpponent(d)! });
-    expect(opponentRating(d)).toBe(1000);
-    expect(opponentRating({ ...d, boons: ['longNight'] })).toBe(970);
-    expect(opponentRating({ ...d, boons: ['longNight'], levels: { longNight: 2 } })).toBe(950);
-    expect(opponentRating({ ...d, boons: ['longNight'], levels: { longNight: 3 } })).toBe(920);
+    expect(opponentRating(d)).toBe(700);
+    expect(opponentRating({ ...d, boons: ['longNight'] })).toBe(670);
+    expect(opponentRating({ ...d, boons: ['longNight'], levels: { longNight: 2 } })).toBe(650);
+    expect(opponentRating({ ...d, boons: ['longNight'], levels: { longNight: 3 } })).toBe(620);
     // Second Chance I can't save a final; II can, III adds a minute to the replay.
     expect(secondChanceApplies({ ...d, boons: ['secondChance'] }, 'loss', 'w')).toBe(false);
     expect(secondChanceApplies({ ...d, boons: ['secondChance'], levels: { secondChance: 2 } }, 'loss', 'w')).toBe(true);
@@ -487,7 +487,7 @@ describe('cups: heat', () => {
   it('Sharper Field raises ratings; No Draw Odds takes away Black’s draw', () => {
     const c = newCup('silver', 4, 0, [], { heat: ['sharper', 'noDrawOdds'] });
     expect(heatOn(c, 'sharper')).toBe(true);
-    expect(opponentRating(c)).toBe(600 + 50);
+    expect(opponentRating(c)).toBe(300 + 50);
     expect(cupAdvances(c, 'draw', 'b')).toBe(false);
     expect(cupAdvances(newCup('silver', 4, 0), 'draw', 'b')).toBe(true);
   });
@@ -534,7 +534,7 @@ describe('cups: sponsors, stars, codex, nemesis', () => {
     expect(d.rounds[1]).toContain(opp);
     d = win(d);
     expect(yourOpponent(d)).toBe(opp);
-    expect(opponentRating(d)).toBe(800 + 2 * TUNING.mastery.grudgeElo);
+    expect(opponentRating(d)).toBe(500 + 2 * TUNING.mastery.grudgeElo);
     d = win(d);
     const n2 = nemesisAfterCup({ id: opp, grudge: 2, tier: 'silver' }, d);
     expect(n2.beaten).toBe(opp);

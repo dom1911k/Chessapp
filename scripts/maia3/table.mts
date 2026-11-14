@@ -3,7 +3,6 @@
 // Usage: npx tsx scripts/maia3/table.mts <humans.jsonl> <bots.jsonl> [--write]
 import { readFileSync, writeFileSync } from 'node:fs';
 import { benchTable, type BotRow, type HumanRow } from '../../src/lib/benchmark/table.ts';
-import { CCMAP } from '../../src/lib/games/ccmap.ts';
 import { maia3SelfElo } from '../../src/lib/maia/index.ts';
 
 const [hf, bf, flag] = process.argv.slice(2);
@@ -11,7 +10,7 @@ const lines = (f: string) => readFileSync(f, 'utf8').split('\n').filter(Boolean)
 // Latest result wins per band / label.
 const humans = [...new Map(lines(hf).map((h) => [h.band, h])).values()] as HumanRow[];
 const bots = [...new Map(lines(bf).map((b) => [b.P.elo, { ...b, label: b.P.elo }])).values()].map(({ who: _w, P: _p, ...b }) => b) as BotRow[];
-const rows = benchTable(humans, bots, CCMAP.priorOffset);
+const rows = benchTable(humans, bots);
 const t = (p?: HumanRow | BotRow) => (p?.think ? `${p.think.opening}/${p.think.middlegame}/${p.think.endgame}` : '–');
 console.log('| chess.com band | games / moves | blunder % | mistake % | hung/threat/random % | think O/M/E s | <2 s % | bot (SelfElo) | blunder % | mistake % | hung/threat/random % | think O/M/E s | <2 s % |');
 console.log('|---|---|---|---|---|---|---|---|---|---|---|---|---|');

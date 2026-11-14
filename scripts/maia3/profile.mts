@@ -14,6 +14,8 @@ const P: PlayerSpec = JSON.parse(process.argv[2]);
 const games = Number(process.argv[3]);
 const out = process.argv[4];
 const TC = '600+0';
+// THINK_ONLY=1: only the think times (no move scoring), for quick think-time tuning.
+const THINK_ONLY = !!process.env.THINK_ONLY;
 setBrain('maia3');
 const prof = new Profile();
 for (let g = 0; g < games; g++) {
@@ -28,10 +30,10 @@ for (let g = 0; g < games; g++) {
     const ply = c.history().length;
     const pressure = timePressure(clock[turn], TC);
     const p = await pick(P, fens, P.elo, pressure && P.kind === 'bot' ? pressureParams(humanParams(P.elo, 'maia3'), pressure) : undefined);
-    const cand = ply >= PROFILE.fromPly ? await candidates(fen, PROFILE.depth, PROFILE.multipv) : new Map<string, number>();
+    const cand = !THINK_ONLY && ply >= PROFILE.fromPly ? await candidates(fen, PROFILE.depth, PROFILE.multipv) : new Map<string, number>();
     const last = c.history({ verbose: true }).at(-1);
     const info = positionInfo(p.logits, p.cand, p.uci, last ? { uci: last.lan, san: last.san } : undefined);
-    const ms = botThinkMs({ elo: P.elo, moveNo: Math.floor(ply / 2) + 1, leftMs: clock[turn], tc: TC, forced: c.moves().length === 1, ...info, swing: swing[turn](g, info.best) });
+    const ms = botThinkMs({ elo: P.elo, moveNo: Math.floor(ply / 2) + 1, leftMs: clock[turn], tc: TC, forced: c.moves().length === 1, ...info, swing: swing[turn](g, info.best), endgame: phaseOf(fen, Math.floor(ply / 2) + 1) === 'endgame' });
     prof.addThink(phaseOf(fen, Math.floor(ply / 2) + 1), ms / 1000);
     clock[turn] -= ms;
     if (clock[turn] <= 0) break;

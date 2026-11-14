@@ -103,7 +103,7 @@ function ConvertDrill() {
     void (async () => {
       let reply: string | null = null;
       try {
-        reply = chooseMaiaMove(await maiaLogits(hist, 1100), maiaTemperature(1100), 1100);
+        reply = chooseMaiaMove(await maiaLogits(hist, 400), maiaTemperature(400), 400);
       } catch {
         reply = (await getEngine().analyze(r.fen, { depth: 6, owner: 'timeDrill' }).catch(() => null))?.bestMove ?? null;
       }

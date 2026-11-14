@@ -8,10 +8,12 @@ import { applyUci, attacksFrom, hangingPieces, parseFen, sqIndex, VALUE } from '
 import { povScore, scoreToCp } from './chess/evaluation';
 import type { AnalysisResult } from './engine/types';
 import type { PlayStyle } from './people';
+import { toLegacy } from './scale';
 
-export const MIN_ELO = 400;
+/** Bot ratings are chess.com ratings (see scale.ts). */
+export const MIN_ELO = 100;
 export const MAX_ELO = 2000;
-export const DEFAULT_ELO = 600;
+export const DEFAULT_ELO = 400;
 
 interface Params {
   depth: number;
@@ -33,7 +35,9 @@ function lerp(points: [number, number][], x: number): number {
   return points[points.length - 1][1];
 }
 
-export function botParams(elo: number): Params {
+export function botParams(cc: number): Params {
+  // Tuned on the old app scale: convert the chess.com rating first.
+  const elo = toLegacy(cc);
   return {
     depth: Math.round(lerp([[400, 5], [800, 7], [1200, 9], [1600, 11], [2000, 14]], elo)),
     multipv: elo < 1500 ? 6 : 4,
@@ -45,11 +49,11 @@ export function botParams(elo: number): Params {
 
 /** Rough description for the strength slider. */
 export function eloLabel(elo: number): string {
-  if (elo < 600) return 'Just learning';
-  if (elo < 900) return 'Beginner';
-  if (elo < 1200) return 'Casual player';
-  if (elo < 1500) return 'Club player';
-  if (elo < 1800) return 'Strong club player';
+  if (elo < 300) return 'Just learning';
+  if (elo < 600) return 'Beginner';
+  if (elo < 900) return 'Casual player';
+  if (elo < 1200) return 'Club player';
+  if (elo < 1600) return 'Strong club player';
   return 'Expert';
 }
 
@@ -79,7 +83,7 @@ export function chooseBotMove(
   // Always take a forced mate-in-1 above beginner level.
   const best = lines[0];
   const bestPov = povScore(best.score, turn);
-  if (bestPov.type === 'mate' && bestPov.value === 1 && elo >= 900) return best.pv[0];
+  if (bestPov.type === 'mate' && bestPov.value === 1 && toLegacy(elo) >= 900) return best.pv[0];
 
   // "Wild" players (Lily) play on instinct more often.
   const humanChance = style === 'wild' ? Math.min(0.6, p.humanMoveChance * 1.3) : p.humanMoveChance;
