@@ -18,7 +18,10 @@ const lerp = (c: Curve, x: number) => {
   return c[c.length - 1][1];
 };
 
-/** Tuning for think times and time-pressure play (checked with scripts/maia3/thinktime.mts). */
+/**
+ * Tuning for think times and time-pressure play. Ratings are chess.com ratings. Matched to real
+ * chess.com 10+0 players per phase (scripts/maia3/profile.mts THINK_ONLY=1 vs humans.mts).
+ */
 export const THINK = {
   /** Instant moves: forced, book, obvious recapture or a move nearly everyone plays. */
   instantMs: [350, 1100] as [number, number],
@@ -32,13 +35,13 @@ export const THINK = {
   movesLeftAt: 48,
   minMovesLeft: 16,
   /** Share of the per-move budget a player actually uses (by rating): weaker players play faster. */
-  useOfBudget: [[400, 0.55], [800, 0.7], [1200, 0.85], [1600, 0.95], [2000, 1.0]] as Curve,
+  useOfBudget: [[100, 0.5], [600, 0.6], [1000, 0.68], [1600, 0.8], [2000, 0.9]] as Curve,
   /** How strongly difficulty stretches the think (by rating): strong players think where it matters. */
-  difficultyWeight: [[400, 0.4], [1200, 0.75], [2000, 1.0]] as Curve,
+  difficultyWeight: [[100, 0.4], [800, 0.75], [1800, 1.0]] as Curve,
   /** Endgames are played faster. */
-  endgameFactor: 1.0,
+  endgameFactor: 0.6,
   /** Opening moves (by move number) are quicker. */
-  phase: [[1, 0.2], [6, 0.35], [10, 0.7], [14, 1.0]] as Curve,
+  phase: [[1, 0.35], [6, 0.6], [10, 0.85], [12, 1.0]] as Curve,
   /** Difficulty from the spread: 1 - top probability, mapped to a factor. */
   spread: [[0, 0.5], [0.3, 0.85], [0.55, 1.15], [0.8, 1.45]] as Curve,
   /** Only one move holds (best minus second best, cp, while the game is still open). */
