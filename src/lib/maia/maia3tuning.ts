@@ -15,10 +15,10 @@ export const MAIA3 = {
    * sample, scripts/maia3/humans.mts vs profile.mts). Never below 700, the bottom of Maia-3's
    * training data: weaker bots get there with `temperature` and `alt` instead.
    */
-  selfElo: [[100, 700], [200, 700], [400, 815], [600, 905], [800, 1020], [1000, 1100], [1200, 1300], [1400, 1450], [1600, 1600], [1800, 1860], [2000, 2100]] as Curve,
-  temperature: [[100, 1.0], [2000, 1.0]] as Curve,
+  selfElo: [[100, 700], [200, 700], [400, 815], [600, 905], [800, 1020], [1000, 1100], [1200, 1300], [1400, 1520], [1600, 1600], [1800, 1860], [2000, 2100]] as Curve,
+  temperature: [[100, 1.12], [200, 1.0], [2000, 1.0]] as Curve,
   /** Extra weight on Maia's 2nd and 3rd choices (weak players go with their second idea more). */
-  alt: [[100, 0.8], [200, 0.3], [400, 0], [2000, 0]] as Curve,
+  alt: [[100, 0.3], [200, 0.3], [400, 0], [2000, 0]] as Curve,
 
   /*
    * The rest of the pipeline follows the SelfElo: these curves are keyed by the old app rating

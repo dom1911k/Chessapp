@@ -31,8 +31,8 @@ describe('human-like move choice (Maia-3 tuning)', () => {
     expect(strong).toBeLessThan(weak * 0.5);
   });
 
-  it('the veto only applies now and then, from 1600', () => {
-    expect(vetoChance(1400, 'maia3')).toBe(0);
+  it('the veto only applies now and then, and only for strong bots', () => {
+    expect(vetoChance(1200, 'maia3')).toBe(0);
     expect(vetoChance(1600, 'maia3')).toBeGreaterThan(0);
     expect(vetoChance(2000, 'maia3')).toBeLessThan(1);
   });

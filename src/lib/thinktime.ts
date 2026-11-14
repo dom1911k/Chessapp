@@ -35,13 +35,15 @@ export const THINK = {
   movesLeftAt: 48,
   minMovesLeft: 16,
   /** Share of the per-move budget a player actually uses (by rating): weaker players play faster. */
-  useOfBudget: [[100, 0.47], [600, 0.55], [1000, 0.6], [1600, 0.78], [2000, 0.88]] as Curve,
+  useOfBudget: [[100, 0.47], [600, 0.55], [1000, 0.6], [1200, 0.62], [1600, 0.68], [2000, 0.77]] as Curve,
   /** How strongly difficulty stretches the think (by rating): strong players think where it matters. */
   difficultyWeight: [[100, 0.4], [800, 0.75], [1800, 1.0]] as Curve,
   /** Endgames are played faster (by rating: weaker players speed up more). */
   endgameFactor: [[100, 0.6], [1000, 0.6], [1600, 1.0]] as Curve,
   /** Opening moves by rating: weaker players spend longer on them, stronger ones know them. */
-  openingScale: [[100, 1.3], [800, 1.0], [1600, 0.72]] as Curve,
+  openingScale: [[100, 1.3], [400, 1.6], [600, 1.55], [800, 1.38], [1000, 0.97], [1200, 0.86], [1600, 0.72]] as Curve,
+  /** Extra chance of a quick, instinctive move (weaker players play more of them). */
+  quickChance: [[100, 0.08], [600, 0.04], [1000, 0]] as Curve,
   /** Opening moves (by move number) are quicker. */
   phase: [[1, 0.35], [6, 0.6], [10, 0.85], [12, 1.0]] as Curve,
   /** Difficulty from the spread: 1 - top probability, mapped to a factor. */
@@ -153,7 +155,7 @@ export function botThinkMs(o: ThinkInput, rng: () => number = Math.random): numb
   const calm = (o.swing ?? 0) < THINK.swingCp;
   const obvious = (o.recapture && (o.topProb ?? 0) >= THINK.recaptureProb) || (calm && (o.topProb ?? 0) >= THINK.obviousProb);
   if (obvious && rng() >= THINK.obviousThinkChance) return instant();
-  if (rng() < THINK.pressureInstant * pressure) return instant();
+  if (rng() < THINK.pressureInstant * pressure + lerp(THINK.quickChance, o.elo)) return instant();
 
   // 2. A normal think: a share of the time left, stretched by how hard the position is.
   const movesLeft = Math.max(THINK.minMovesLeft, THINK.movesLeftAt - o.moveNo);
