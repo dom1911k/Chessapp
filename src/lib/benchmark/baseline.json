@@ -1,1 +1,435 @@
-{ "generated": "", "note": "Run scripts/maia3/table.mts to fill this in.", "humans": [], "bots": [] }
+{
+ "generated": "2026-11-14",
+ "note": "Humans: public chess.com 10+0 rapid sample (both players within 150 of each other). Bots: self-play on a simulated 10+0 clock.",
+ "humans": [
+  {
+   "who": "human",
+   "band": "100–300",
+   "games": 60,
+   "moves": 1043,
+   "avgLoss": 178,
+   "inacc": 21.3,
+   "mistake": 15.4,
+   "blunder": 19.3,
+   "ofBlunders": {
+    "hung": 29.9,
+    "threat": 24.9,
+    "other": 45.3,
+    "randomLooking": 32.3
+   },
+   "think": {
+    "opening": 6.2,
+    "middlegame": 8,
+    "endgame": 4.3,
+    "fast": 24.1,
+    "moves": 3582
+   }
+  },
+  {
+   "who": "human",
+   "band": "300–500",
+   "games": 60,
+   "moves": 1448,
+   "avgLoss": 132,
+   "inacc": 20.4,
+   "mistake": 11.7,
+   "blunder": 15.1,
+   "ofBlunders": {
+    "hung": 24.2,
+    "threat": 21.5,
+    "other": 54.3,
+    "randomLooking": 37
+   },
+   "think": {
+    "opening": 6.8,
+    "middlegame": 9.7,
+    "endgame": 5.3,
+    "fast": 21,
+    "moves": 3634
+   }
+  },
+  {
+   "who": "human",
+   "band": "500–700",
+   "games": 60,
+   "moves": 1709,
+   "avgLoss": 115,
+   "inacc": 20.1,
+   "mistake": 11.2,
+   "blunder": 12.5,
+   "ofBlunders": {
+    "hung": 16.4,
+    "threat": 16.8,
+    "other": 66.8,
+    "randomLooking": 35
+   },
+   "think": {
+    "opening": 6.4,
+    "middlegame": 10.5,
+    "endgame": 5,
+    "fast": 23,
+    "moves": 4087
+   }
+  },
+  {
+   "who": "human",
+   "band": "700–900",
+   "games": 60,
+   "moves": 1973,
+   "avgLoss": 86,
+   "inacc": 21.2,
+   "mistake": 9.2,
+   "blunder": 7.5,
+   "ofBlunders": {
+    "hung": 17.6,
+    "threat": 18.2,
+    "other": 64.2,
+    "randomLooking": 31.8
+   },
+   "think": {
+    "opening": 6.5,
+    "middlegame": 11.3,
+    "endgame": 5.3,
+    "fast": 21.6,
+    "moves": 3516
+   }
+  },
+  {
+   "who": "human",
+   "band": "900–1100",
+   "games": 60,
+   "moves": 2414,
+   "avgLoss": 86,
+   "inacc": 21.4,
+   "mistake": 8.6,
+   "blunder": 7.9,
+   "ofBlunders": {
+    "hung": 18.4,
+    "threat": 16.8,
+    "other": 64.7,
+    "randomLooking": 32.1
+   },
+   "think": {
+    "opening": 5.1,
+    "middlegame": 10.5,
+    "endgame": 5.2,
+    "fast": 25.4,
+    "moves": 4091
+   }
+  },
+  {
+   "who": "human",
+   "band": "1100–1300",
+   "games": 60,
+   "moves": 2636,
+   "avgLoss": 70,
+   "inacc": 19.7,
+   "mistake": 9,
+   "blunder": 5.3,
+   "ofBlunders": {
+    "hung": 15.1,
+    "threat": 13.7,
+    "other": 71.2,
+    "randomLooking": 33.1
+   },
+   "think": {
+    "opening": 4.5,
+    "middlegame": 10.4,
+    "endgame": 6.3,
+    "fast": 26.4,
+    "moves": 4208
+   }
+  },
+  {
+   "who": "human",
+   "band": "1300–1500",
+   "games": 60,
+   "moves": 2547,
+   "avgLoss": 68,
+   "inacc": 21.9,
+   "mistake": 8.8,
+   "blunder": 4.7,
+   "ofBlunders": {
+    "hung": 14.2,
+    "threat": 20,
+    "other": 65.8,
+    "randomLooking": 30.8
+   },
+   "think": {
+    "opening": 4.6,
+    "middlegame": 11.4,
+    "endgame": 5.9,
+    "fast": 21.3,
+    "moves": 3924
+   }
+  },
+  {
+   "who": "human",
+   "band": "1500–1700",
+   "games": 60,
+   "moves": 2715,
+   "avgLoss": 61,
+   "inacc": 19.7,
+   "mistake": 6.3,
+   "blunder": 4.8,
+   "ofBlunders": {
+    "hung": 14.5,
+    "threat": 9.9,
+    "other": 75.6,
+    "randomLooking": 29
+   },
+   "think": {
+    "opening": 4.5,
+    "middlegame": 12.1,
+    "endgame": 6,
+    "fast": 26.4,
+    "moves": 3947
+   }
+  },
+  {
+   "who": "human",
+   "band": "1700–1900",
+   "games": 60,
+   "moves": 3228,
+   "avgLoss": 52,
+   "inacc": 19,
+   "mistake": 5.9,
+   "blunder": 3.3,
+   "ofBlunders": {
+    "hung": 13.3,
+    "threat": 12.4,
+    "other": 74.3,
+    "randomLooking": 25.7
+   },
+   "think": {
+    "opening": 4.4,
+    "middlegame": 11.9,
+    "endgame": 6.7,
+    "fast": 27.5,
+    "moves": 4607
+   }
+  }
+ ],
+ "bots": [
+  {
+   "games": 16,
+   "moves": 578,
+   "avgLoss": 125,
+   "inacc": 22.7,
+   "mistake": 10.9,
+   "blunder": 14,
+   "ofBlunders": {
+    "hung": 35.8,
+    "threat": 17.3,
+    "other": 46.9,
+    "randomLooking": 38.3
+   },
+   "think": {
+    "opening": 5,
+    "middlegame": 8.3,
+    "endgame": 5,
+    "fast": 24,
+    "moves": 647
+   },
+   "label": 100
+  },
+  {
+   "games": 16,
+   "moves": 319,
+   "avgLoss": 167,
+   "inacc": 21.6,
+   "mistake": 13.8,
+   "blunder": 18.5,
+   "ofBlunders": {
+    "hung": 27.1,
+    "threat": 25.4,
+    "other": 47.5,
+    "randomLooking": 23.7
+   },
+   "think": {
+    "opening": 5.7,
+    "middlegame": 8.1,
+    "endgame": 5.2,
+    "fast": 20.5,
+    "moves": 435
+   },
+   "label": 200
+  },
+  {
+   "games": 16,
+   "moves": 442,
+   "avgLoss": 128,
+   "inacc": 19.9,
+   "mistake": 9.3,
+   "blunder": 15.8,
+   "ofBlunders": {
+    "hung": 18.6,
+    "threat": 37.1,
+    "other": 44.3,
+    "randomLooking": 27.1
+   },
+   "think": {
+    "opening": 7.1,
+    "middlegame": 10.6,
+    "endgame": 4.9,
+    "fast": 17.9,
+    "moves": 520
+   },
+   "label": 400
+  },
+  {
+   "games": 16,
+   "moves": 387,
+   "avgLoss": 103,
+   "inacc": 20.7,
+   "mistake": 11.1,
+   "blunder": 10.9,
+   "ofBlunders": {
+    "hung": 11.9,
+    "threat": 28.6,
+    "other": 59.5,
+    "randomLooking": 14.3
+   },
+   "think": {
+    "opening": 7.9,
+    "middlegame": 10.3,
+    "endgame": 8.1,
+    "fast": 15.6,
+    "moves": 372
+   },
+   "label": 600
+  },
+  {
+   "games": 16,
+   "moves": 650,
+   "avgLoss": 91,
+   "inacc": 17.7,
+   "mistake": 10.3,
+   "blunder": 8.5,
+   "ofBlunders": {
+    "hung": 18.2,
+    "threat": 7.3,
+    "other": 74.5,
+    "randomLooking": 20
+   },
+   "think": {
+    "opening": 7.9,
+    "middlegame": 9.8,
+    "endgame": 6.3,
+    "fast": 20.7,
+    "moves": 647
+   },
+   "label": 800
+  },
+  {
+   "games": 16,
+   "moves": 566,
+   "avgLoss": 86,
+   "inacc": 20.1,
+   "mistake": 11.1,
+   "blunder": 7.2,
+   "ofBlunders": {
+    "hung": 14.6,
+    "threat": 24.4,
+    "other": 61,
+    "randomLooking": 14.6
+   },
+   "think": {
+    "opening": 5,
+    "middlegame": 9.5,
+    "endgame": 5.3,
+    "fast": 23.2,
+    "moves": 587
+   },
+   "label": 1000
+  },
+  {
+   "games": 16,
+   "moves": 658,
+   "avgLoss": 79,
+   "inacc": 19.6,
+   "mistake": 8.5,
+   "blunder": 6.7,
+   "ofBlunders": {
+    "hung": 22.7,
+    "threat": 9.1,
+    "other": 68.2,
+    "randomLooking": 18.2
+   },
+   "think": {
+    "opening": 3.9,
+    "middlegame": 11.5,
+    "endgame": 7.3,
+    "fast": 23.1,
+    "moves": 765
+   },
+   "label": 1200
+  },
+  {
+   "games": 16,
+   "moves": 715,
+   "avgLoss": 62,
+   "inacc": 20.4,
+   "mistake": 7.4,
+   "blunder": 4.1,
+   "ofBlunders": {
+    "hung": 13.8,
+    "threat": 20.7,
+    "other": 65.5,
+    "randomLooking": 24.1
+   },
+   "think": {
+    "opening": 4.3,
+    "middlegame": 12.2,
+    "endgame": 6.1,
+    "fast": 27,
+    "moves": 774
+   },
+   "label": 1400
+  },
+  {
+   "games": 16,
+   "moves": 996,
+   "avgLoss": 61,
+   "inacc": 20.5,
+   "mistake": 7.7,
+   "blunder": 4.4,
+   "ofBlunders": {
+    "hung": 18.2,
+    "threat": 4.5,
+    "other": 77.3,
+    "randomLooking": 25
+   },
+   "think": {
+    "opening": 3.9,
+    "middlegame": 12.5,
+    "endgame": 8,
+    "fast": 24.2,
+    "moves": 541
+   },
+   "label": 1600
+  },
+  {
+   "games": 16,
+   "moves": 880,
+   "avgLoss": 45,
+   "inacc": 16.6,
+   "mistake": 5.2,
+   "blunder": 2.6,
+   "ofBlunders": {
+    "hung": 13,
+    "threat": 8.7,
+    "other": 78.3,
+    "randomLooking": 17.4
+   },
+   "think": {
+    "opening": 4.2,
+    "middlegame": 12.3,
+    "endgame": 6.8,
+    "fast": 27.8,
+    "moves": 684
+   },
+   "label": 1800
+  }
+ ]
+}

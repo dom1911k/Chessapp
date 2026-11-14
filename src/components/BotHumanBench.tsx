@@ -93,7 +93,7 @@ export function BotHumanBench() {
         Humans: {mine?.results.length ? 'your chess.com opponents where there are 150+ moves, else ' : ''}a public chess.com 10+0 sample{baseline.generated ? ` (${baseline.generated})` : ''}.
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full text-[11px] tabular-nums">
+        <table className="w-full min-w-[420px] text-[11px] tabular-nums [&_td]:px-1 [&_th]:px-1">
           <thead>
             <tr className="text-stone-500">
               <th className="text-left font-normal" />
