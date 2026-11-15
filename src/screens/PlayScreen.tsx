@@ -1,4 +1,5 @@
 import { RivalryCard, RivalryChip } from '../components/Rivalry';
+import { rematchLabel } from '../lib/rematch';
 import { TurningPrompt } from '../components/TurningCards';
 import { Dock, DockButton } from '../components/Dock';
 import { courseLevel, courseState } from '../lib/course';
@@ -361,7 +362,7 @@ function GameTopBar({ onMenu }: { onMenu: () => void }) {
           <ChevronLeft size={24} strokeWidth={2.2} />
         </IconButton>
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="font-display truncate text-[18px] font-semibold tracking-[-0.01em]">{opening ? opening.name : `vs ${opponentById(g.opponentId)?.name ?? 'Bot'}`}</div>
+          <div className="font-display truncate text-[18px] font-semibold tracking-[-0.01em]">{opening ? opening.name : `vs ${opponentById(g.opponentId)?.name ?? (g.rematch ? `${g.rematch.name} (stand-in)` : g.sparring ? 'Sparring partner' : 'Bot')}`}</div>
           <div className="truncate text-[11px] text-stone-500">{sub}</div>
         </div>
         <IconButton label="Game menu" onClick={onMenu}>
@@ -399,7 +400,7 @@ function PlayerBar({ me }: { me: boolean }) {
       </span>
       <div className="min-w-0 flex-1 leading-tight">
         <div className="truncate text-sm font-semibold">
-          {me ? myName : o ? o.name : g.sparring ? 'Sparring partner' : 'Bot'} {!me && <span className="font-normal text-stone-400">({g.elo})</span>}
+          {me ? myName : o ? o.name : g.rematch ? rematchLabel(g.rematch.name) : g.sparring ? 'Sparring partner' : 'Bot'} {!me && <span className="font-normal text-stone-400">({g.elo})</span>}
         </div>
         <Captured fen={currentFen(g)} startFen={g.startFen} side={side} />
       </div>

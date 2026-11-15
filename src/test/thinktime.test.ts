@@ -77,3 +77,25 @@ describe('bot think time', () => {
     for (const x of sample({ ...mid, book: true, tc: '180+2', leftMs: 180_000 })) expect(x).toBeGreaterThanOrEqual(THINK.floorMs);
   });
 });
+
+import { timeVsBand } from '../lib/timestats';
+describe('time use compared with your rating band', () => {
+  const bands = [{ band: '300–500', think: { opening: 6.8, middlegame: 9.7, endgame: 5.3 } }, { band: '500–700', think: { opening: 6, middlegame: 10.5, endgame: 5 } }];
+  // 20 plies, you are White; every move is "opening" for the phase function below up to ply 9.
+  const plies = Array.from({ length: 24 }, (_, i) => ({ color: i % 2 ? 'b' : 'w', isUser: i % 2 === 0, san: 'x', uci: 'e2e4', fenBefore: String(i), fenAfter: '' })) as never[];
+  const phase = (fen: string) => (Number(fen) < 12 ? 'opening' : 'middlegame') as 'opening' | 'middlegame';
+  const clocksFor = (openSecs: number, midSecs: number) => {
+    const left = { w: 600, b: 600 };
+    return Array.from({ length: 24 }, (_, i) => { const s = i % 2 ? 'b' : 'w'; left[s] -= s === 'b' ? 5 : i < 12 ? openSecs : midSecs; return left[s]; });
+  };
+  it('shows a phase only when you differ by more than 50%', () => {
+    const line = timeVsBand(plies, clocksFor(14, 10), '600', 'w', 520, bands, phase);
+    expect(line).toBe('You spent 14 s per opening move; players at 500 spend about 6.');
+    expect(timeVsBand(plies, clocksFor(7, 11), '600', 'w', 520, bands, phase)).toBeNull();
+    expect(timeVsBand(plies, clocksFor(7, 3), '600', 'w', 520, bands, phase)).toBe('You spent 3 s per middlegame move; players at 500 spend about 11.');
+  });
+  it('scales the 10+0 benchmark to other time controls and skips daily games', () => {
+    expect(timeVsBand(plies, clocksFor(3, 5), '300', 'w', 520, bands, phase)).toBeNull();
+    expect(timeVsBand(plies, clocksFor(14, 10), 'daily', 'w', 520, bands, phase)).toBeNull();
+  });
+});

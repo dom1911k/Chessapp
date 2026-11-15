@@ -66,6 +66,8 @@ export interface SavedGame {
   clock?: { w: number; b: number; turnStart: number };
   /** Seconds left on the mover's clock after each ply. */
   clocks?: number[];
+  /** A rematch against a chess.com opponent (a stand-in bot that opens like them). */
+  rematch?: { name: string; lines: string[][]; bookPlies: number };
   /** Against the sparring partner (its rating follows yours). */
   sparring?: boolean;
   /** Played in a cup (Cups tab): which cup, tier and round. */

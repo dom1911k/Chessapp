@@ -11,7 +11,10 @@ import { timeControlLabel, validUsername } from '../lib/chesscom/parse';
 import { allGames } from '../lib/games';
 import { biggestMistake, gameInsights } from '../lib/games/insights';
 import { gapReport, PERIOD_DAYS } from '../lib/games/gap';
-import { timeStats } from '../lib/timestats';
+import { timeStats, timeVsBand, type BandThink } from '../lib/timestats';
+import baseline from '../lib/benchmark/baseline.json';
+import { phaseOf } from '../lib/benchmark/profile';
+import { getPlayerRating } from '../lib/playerRating';
 import type { GameSource } from '../lib/chesscom/analysis';
 import type { AnyGame, ImportedGame } from '../lib/store/types';
 import { THEMES } from '../lib/themes';
@@ -281,6 +284,9 @@ export function GapCard() {
 /** Time per move as a small bar chart, the longest thinks, slow easy moves, and one sentence of advice. */
 export function TimeStatsCard({ g, onPly }: { g: AnyGame; onPly: (ply: number) => void }) {
   const st = g.clocks && g.timeControl ? timeStats(g.plies, g.clocks, g.timeControl, g.userColor, g.userResult === 'loss' && g.reason === 'time') : null;
+  // Your think time per phase against real players at your rating (the human benchmark).
+  const myRating = g.source === 'chess.com' ? (g as ImportedGame).myRating : getPlayerRating();
+  const vsBand = g.clocks && g.timeControl ? timeVsBand(g.plies, g.clocks, g.timeControl, g.userColor, myRating, baseline.humans as BandThink[], phaseOf) : null;
   if (!st) return null;
   const max = Math.max(1, ...st.moves.map((m) => m.secs));
   const long = new Set(st.longest.map((m) => m.ply));
@@ -321,6 +327,7 @@ export function TimeStatsCard({ g, onPly }: { g: AnyGame; onPly: (ply: number) =
         </div>
       ))}
       <p className="text-sm font-semibold">{st.advice}</p>
+      {vsBand && <p className="text-sm text-stone-600 dark:text-stone-300" data-testid="time-vs-band">{vsBand}</p>}
     </div>
   );
 }

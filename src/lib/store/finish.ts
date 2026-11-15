@@ -1,4 +1,5 @@
 import type { RivalryChange } from '../people/rivalry';
+import { recordRematch } from '../rematch';
 import { START_FEN, type GameResult } from '../chess/game';
 import { bumpActivity, db, kvGet, kvSet } from '../db';
 import { detectOpening } from '../openings';
@@ -98,7 +99,7 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     summary,
     opening: g.startFen === START_FEN ? detectOpening(g.plies.map((p) => p.san))?.name : undefined,
     tactics: gameTactics(g),
-    opponentName: g.sparring ? 'Sparring partner' : undefined,
+    opponentName: g.sparring ? 'Sparring partner' : g.rematch ? `${g.rematch.name} (stand-in)` : undefined,
   };
   const gameId = await db.transaction('rw', [db.games, db.current, db.cards], async () => {
     const id = await db.games.add(record);
@@ -136,6 +137,8 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
   const rec = await recordOpponentGame({ ...record, id: gameId });
   if (rec?.rivalry.xp) await awardXp(rec.rivalry.xp, true);
   await addToCareer(record.tactics ?? {});
+  // Rematches: results per chess.com opponent.
+  if (g.rematch && !opts.cup) await recordRematch(g.rematch.name, userResult);
   // The sparring partner moves its rating to keep you near 50%.
   if (g.sparring && !opts.cup) await saveSparring(afterSparring(await getSparring(g.elo), userResult));
   const { before: rb, after: ra } = await rateGame(g.elo, userResult === 'win' ? 1 : userResult === 'draw' ? 0.5 : 0, g.hintsUsed + g.takebacks);

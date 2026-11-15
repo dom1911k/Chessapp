@@ -1,10 +1,12 @@
 // Game Review, chess.com style. First a summary (Coach Sam's take, both players' accuracy, the
 // move classes, phases, key moments), then a steady step-through: eval bar + board, a move strip,
 // a fixed-size coach panel, Best / Retry / Next, and the arrows at the bottom.
+import { appTc, canRematch, rematchInfo } from '../lib/rematch';
+import { usePlay } from '../lib/store/play';
 import { isEligible } from '../lib/turning';
 import { CAUSE_LESSON } from '../lib/course';
 import { lessonById } from '../lib/lessons/data';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, Swords } from 'lucide-react';
 import { UserAvatar } from '../components/UserAvatar';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, Sparkles, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope } from 'lucide-react';
@@ -55,6 +57,18 @@ export function GameReviewScreen({ gameId, ply }: { gameId: number | string; ply
   if (!g || !review) return <div className="flex h-full items-center justify-center">{g === null ? <p className="text-stone-500">Game not found.</p> : <Spinner />}</div>;
   if (step !== null) return <StepView g={g} r={review} start={step} onSummary={() => setStep(null)} />;
   return <SummaryView g={g} r={review} trap={trap?.id} onStart={(i) => setStep(i)} />;
+}
+
+/** Start a rematch against a chess.com opponent's stand-in (same colours and clock). */
+async function startRematch(g: AnyGame) {
+  const imports = await db.imported.toArray();
+  const oppColor = g.userColor === 'w' ? 'b' : 'w';
+  const info = rematchInfo(imports, g.opponentName!, oppColor);
+  const play = usePlay.getState();
+  if (play.game && play.phase !== 'over' && play.phase !== 'setup') await play.abandon();
+  play.newGame(g.userColor, g.elo, undefined, undefined, { match: true, timeControl: appTc(g.timeControl), rematch: info });
+  const nav = useNav.getState();
+  nav.setTab('play');
 }
 
 const pending = (g: AnyGame) => g.source === 'chess.com' && !(g as ImportedGame).analyzed;
@@ -127,6 +141,13 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
           </div>
         </div>
 
+        {canRematch(g) && (
+          <button className="card flex w-full items-center gap-3 !p-3.5 text-left" data-testid="rematch" onClick={() => void startRematch(g)}>
+            <Swords size={20} className="shrink-0 text-brand-600" />
+            <span className="flex-1 text-sm"><b>Rematch {oppName(g)}</b> <span className="block text-stone-500">A stand-in at {g.elo}: opens like they did against you, same clock, Match conditions.</span></span>
+            <span className="btn-primary !px-3 !py-1.5 text-sm">Rematch</span>
+          </button>
+        )}
         {isEligible(g) && (
           <button className="card flex w-full items-center gap-3 !p-3.5 text-left" onClick={() => push({ name: 'turning', gameId: g.id! })} data-testid="turning-entry">
             <span className="flex-1 text-sm"><b>Where did it turn?</b> <span className="text-stone-500">Find the move that lost it yourself first (10 s).</span></span>

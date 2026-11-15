@@ -1,4 +1,5 @@
 // Play-vs-bot state machine with live coaching.
+import { rematchMove, type RematchInfo } from '../rematch';
 import { create } from 'zustand';
 import { chooseBotMove, botParams } from '../bot';
 import { chooseHumanMove, humanParams, maiaLogits } from '../maia';
@@ -64,7 +65,7 @@ interface PlayStore {
   /** "Are you sure?" before a risky move. */
   precheck: { move: MoveInput; uci: string; check: PreCheck; revealed: boolean } | null;
   load(): Promise<void>;
-  newGame(color: Color, elo: number, startFen?: string, opponentId?: string, opts?: { match?: boolean; timeControl?: string; sparring?: boolean }): void;
+  newGame(color: Color, elo: number, startFen?: string, opponentId?: string, opts?: { match?: boolean; timeControl?: string; sparring?: boolean; rematch?: RematchInfo }): void;
   userMove(m: MoveInput, force?: boolean): boolean;
   /** Play the move the "are you sure?" check stopped. */
   confirmPrecheck(): void;
@@ -395,7 +396,8 @@ export const usePlay = create<PlayStore>((set, get) => {
       const params = botParams(g.elo);
       const started = Date.now();
       // Opponents play their favourite openings from a small book first.
-      const book = g.startFen === START_FEN ? bookMove(g.opponentId, g.plies.map((p) => p.san)) : null;
+      // A rematch stand-in opens the way that opponent opened against you; characters use their book.
+      const book = g.startFen !== START_FEN ? null : g.rematch ? rematchMove(g.rematch, g.plies.map((p) => p.san), fen) : bookMove(g.opponentId, g.plies.map((p) => p.san));
       let uci = book;
       // What the position looks like to a human (for the opponent's thinking time).
       let seen: { logits?: Map<string, number>; candidates?: Map<string, number> } = {};
@@ -597,6 +599,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         clock: opts.timeControl ? newClock(opts.timeControl, Date.now()) : undefined,
         clocks: opts.timeControl ? [] : undefined,
         sparring: opts.sparring || undefined,
+        rematch: opts.rematch,
       };
       lastBestTag = -99;
       set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: Date.now(), lowTime: false });
@@ -614,7 +617,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       post({
         kind: 'info',
         ply: -1,
-        text: opts.match ? [`Match conditions vs ${o ? o.name : 'the bot'} (~${elo}): no hints, no take-backs, no warnings. Play it like a real game — I'll go through it with you afterwards.`] : [
+        text: opts.match ? [`Match conditions vs ${o ? o.name : opts.rematch ? `a stand-in for ${opts.rematch.name}` : 'the bot'} (${elo}): no hints, no take-backs, no warnings. Play it like a real game — I'll go through it with you afterwards.`] : [
           o ? `You're playing ${o.name} (~${o.elo}). ${REPERTOIRES[o.id] ? `Watch out — ${o.name.split(' ').pop()} likes the ${REPERTOIRES[o.id].favourite}.` : 'Expect surprises!'}` : 'New game — good luck!',
           color === 'w' ? 'You have the white pieces, so you move first. Tap a piece, then a square.' : 'You have black, so your opponent moves first.',
         ],

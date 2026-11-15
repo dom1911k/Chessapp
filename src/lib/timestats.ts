@@ -95,3 +95,47 @@ export function plyTimes(plies: Pick<PlyRecord, 'color'>[], clocks: number[], tc
     return Math.round(used * 10) / 10;
   });
 }
+
+/** A benchmark band's think time (seconds per move by phase, measured at 10+0). */
+export interface BandThink {
+  band: string;
+  think?: { opening: number; middlegame: number; endgame: number };
+}
+
+const PHASE_WORD = { opening: 'opening', middlegame: 'middlegame', endgame: 'endgame' } as const;
+
+/**
+ * One line comparing your average think time per phase with players at your rating (the human
+ * benchmark), only for phases where you differ by more than 50%. The benchmark is 10+0; other
+ * time controls are scaled by their base time. Null when nothing stands out.
+ */
+export function timeVsBand(
+  plies: PlyRecord[],
+  clocks: number[],
+  tc: string,
+  me: Color,
+  rating: number,
+  bands: BandThink[],
+  phaseOf: (fen: string, moveNo: number) => 'opening' | 'middlegame' | 'endgame',
+): string | null {
+  if (!tc || tc === 'daily' || clocks.length < plies.length * 0.8) return null;
+  const band = bands.find((b) => { const [lo, hi] = b.band.split('–').map(Number); return rating >= lo && rating < hi; }) ?? (rating < 100 ? bands[0] : undefined);
+  if (!band?.think) return null;
+  const scale = Math.max(0.2, parseTc(tc).base / 600_000);
+  const sums = { opening: [0, 0], middlegame: [0, 0], endgame: [0, 0] } as Record<'opening' | 'middlegame' | 'endgame', [number, number]>;
+  for (const m of moveTimes(plies, clocks, tc, me)) {
+    const ph = phaseOf(plies[m.ply].fenBefore, m.moveNo);
+    sums[ph][0] += m.secs;
+    sums[ph][1]++;
+  }
+  const parts: string[] = [];
+  for (const ph of ['opening', 'middlegame', 'endgame'] as const) {
+    const [s, n] = sums[ph];
+    if (n < 3) continue;
+    const mine = s / n;
+    const theirs = band.think[ph] * scale;
+    if (theirs <= 0 || (mine <= theirs * 1.5 && mine >= theirs / 1.5)) continue;
+    parts.push(`${Math.round(mine)} s per ${PHASE_WORD[ph]} move; players at ${rating < 100 ? 100 : Math.round(rating / 50) * 50} spend about ${Math.max(1, Math.round(theirs))}`);
+  }
+  return parts.length ? parts.map((x, i) => (i ? `You spent ${x}` : `You spent ${x}`)).join('. ') + '.' : null;
+}

@@ -7,6 +7,8 @@ import { getTurning, markPrompted, promptFor, turningStats, waiting, type Turnin
 import { today } from '../lib/db';
 import { opponentById } from '../lib/people';
 import type { AnyGame } from '../lib/store/types';
+import { getRematchRecords, type RematchRecord } from '../lib/rematch';
+import { onChange } from '../lib/changes';
 
 const who = (g: AnyGame) => g.opponentName ?? opponentById(g.opponentId)?.name ?? 'Bot';
 const when = (t: number) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
@@ -66,6 +68,28 @@ export function TurningStat() {
       <div className="section-title">Where did it turn?</div>
       <p>Found the turning point in <b>{st.found} of your last {st.of}</b>{st.of < 10 ? ' games' : ''}.</p>
       {st.chipOf > 0 && <p className="text-xs text-stone-500">Your reason matched the engine's {st.chipMatched} of {st.chipOf} times.</p>}
+    </div>
+  );
+}
+
+/** Progress: your rematches against chess.com opponents' stand-ins, per opponent. */
+export function RematchRecords() {
+  const [recs, setRecs] = useState<Record<string, RematchRecord> | null>(null);
+  useEffect(() => {
+    void getRematchRecords().then(setRecs);
+    return onChange('records', () => void getRematchRecords().then(setRecs));
+  }, []);
+  const rows = Object.entries(recs ?? {}).sort((a, b) => b[1].w + b[1].d + b[1].l - (a[1].w + a[1].d + a[1].l));
+  if (!rows.length) return null;
+  return (
+    <div className="card !p-3 text-sm" data-testid="rematch-records">
+      <div className="section-title">Rematches (chess.com stand-ins)</div>
+      {rows.map(([name, r]) => (
+        <div key={name} className="flex justify-between py-0.5">
+          <span className="truncate">{name}</span>
+          <span className="font-semibold tabular-nums">{r.w}W · {r.d}D · {r.l}L</span>
+        </div>
+      ))}
     </div>
   );
 }
