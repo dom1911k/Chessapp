@@ -136,7 +136,7 @@ export const QUIRKS: Quirk[] = [
   {
     id: 'gambiteer', name: 'Gambiteer', glyph: 'dice', act: 'Gambiteer: offers a pawn',
     text: 'Opens with a gambit and gives up a pawn for quick play.',
-    type: 'Knows its gambits well and is at its sharpest in the opening; after that, an ordinary player.',
+    type: 'Opens with gambits and gives up a pawn for quick play; after that, an ordinary player.',
     opening: (c, r) => (c.fromStart ? lineMove(GAMBITS[c.bot], c.sans, c.fen, r) : null),
     elo: (c) => (opening(c, Q.gambiteer.openingMoves) ? Q.gambiteer.openingElo : 0),
     acted: (c, m, fromOpening) => fromOpening && m.piece === 'p' && c.moveNo <= Q.gambiteer.offerMaxMove && GAMBITS[c.bot].some((l) => l.length === c.sans.length + 1 && l[c.sans.length] === m.san),
@@ -189,7 +189,7 @@ export const QUIRKS: Quirk[] = [
     id: 'slowStarter', name: 'Slow Starter', glyph: 'moon', act: 'Slow Starter: warming up',
     text: `Shaky in the first ${Q.slowStarter.moves} moves, then plays normally.`,
     type: 'Shaky in the opening, then settles in and plays its normal game.',
-    elo: (c) => (opening(c, Q.slowStarter.moves) ? Q.slowStarter.openingElo : 0),
+    elo: (c) => (opening(c, Q.slowStarter.moves) ? Q.slowStarter.openingElo : Q.slowStarter.laterElo),
     acted: (c) => c.moveNo === 1 || c.moveNo === Q.slowStarter.moves + 1,
   },
   {

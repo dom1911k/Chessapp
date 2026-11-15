@@ -255,7 +255,7 @@ describe('cups: opponent quirks', () => {
     expect(quirkEffects(['fastStarter'], ctx({ moveNo: 3 })).elo).toBe(Q.fastStarter.openingElo);
     expect(quirkEffects(['fastStarter'], ctx({ moveNo: 30 })).elo).toBe(Q.fastStarter.laterElo);
     expect(quirkEffects(['slowStarter'], ctx({ moveNo: 3 })).elo).toBe(Q.slowStarter.openingElo);
-    expect(quirkEffects(['slowStarter'], ctx({ moveNo: 13 })).elo).toBe(0);
+    expect(quirkEffects(['slowStarter'], ctx({ moveNo: 13 })).elo).toBe(Q.slowStarter.laterElo);
     expect(quirkEffects(['comebackKid'], ctx({ botEval: -200 })).elo).toBe(Q.comebackKid.elo);
     expect(quirkEffects(['comebackKid'], ctx({ botEval: 50 })).elo).toBe(0);
     expect(quirkEffects(['tilter'], ctx({ state: { tilt: 3 } }))).toMatchObject({ elo: Q.tilter.elo, think: Q.tilter.think });
@@ -283,7 +283,7 @@ describe('cups: opponent quirks', () => {
     expect(quirkEffects(['pawnGrabber'], ctx({ fen: f1, moveNo: 2 })).weight(move(f1, 'exd5'))).toBe(4);
     expect(quirkEffects(['earlyQueen'], ctx({ fen: after('e4 e5'), moveNo: 2 })).weight(move(after('e4 e5'), 'Qh5'))).toBe(5);
     const fc = after('e4 e5 Nf3 Nc6 Bc4 Bc5');
-    expect(quirkEffects(['uncastled'], ctx({ fen: fc, moveNo: 4 })).weight(move(fc, 'O-O'))).toBeCloseTo(0.03);
+    expect(quirkEffects(['uncastled'], ctx({ fen: fc, moveNo: 4 })).weight(move(fc, 'O-O'))).toBeCloseTo(TUNING.quirks.uncastled.castleWeight);
     const fm = after('e4');
     expect(quirkEffects(['copycat'], ctx({ fen: fm, bot: 'b', me: 'w', lastUserUci: 'e2e4' })).weight(move(fm, 'e5'))).toBe(TUNING.quirks.copycat.weight);
     const ft = after('e4 e5 Nf3 Nc6 Bb5 a6');

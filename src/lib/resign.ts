@@ -24,7 +24,7 @@ export const RESIGN = {
   mateFrom: 1200,
   mateChance: [[1200, 0.4], [1400, 0.8], [2000, 0.95]] as Curve,
   /** Proud types (any rating): resign once at or below `lostCp` for `moves` moves, or facing mate. */
-  proud: { lostCp: -500, moves: 2, chance: 0.85 },
+  proud: { lostCp: -700, moves: 3, chance: 0.85 },
   /** Never before this move number (and never before `cupFinalMinMove` in a Cups final). */
   minMove: 10,
   cupFinalMinMove: 20,
