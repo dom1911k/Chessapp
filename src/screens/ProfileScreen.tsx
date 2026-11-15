@@ -1,5 +1,6 @@
 // Profile & stats, chess.com style: your ratings per mode, your record, accuracy over time and
 // best wins up top; then games, puzzles and activity.
+import { TurningStat } from '../components/TurningCards';
 import { AvatarPicker, UserAvatar, useMyTitle } from '../components/UserAvatar';
 import { Pencil } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -254,6 +255,7 @@ export function ProfileScreen() {
             <WeeklyGoalCard editable />
             <WeekCard week={d.week} />
             <RewardsCards />
+            <TurningStat />
             <AchievementsPreview />
             <CareerCard />
           </>

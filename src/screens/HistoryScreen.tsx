@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { TurningList } from '../components/TurningCards';
 import { History } from 'lucide-react';
 import { EmptyState, Header, Segmented, Skeleton } from '../components/ui';
 import { Portrait } from '../components/Coach';
@@ -25,6 +26,7 @@ export function HistoryScreen() {
     <div className="flex h-full flex-col">
       <Header title="Past games" back />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-2 overflow-y-auto p-4">
+        <TurningList />
         {hasImports && (
           <>
             <Segmented

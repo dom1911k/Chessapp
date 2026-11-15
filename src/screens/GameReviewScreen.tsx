@@ -1,6 +1,7 @@
 // Game Review, chess.com style. First a summary (Coach Sam's take, both players' accuracy, the
 // move classes, phases, key moments), then a steady step-through: eval bar + board, a move strip,
 // a fixed-size coach panel, Best / Retry / Next, and the arrows at the bottom.
+import { isEligible } from '../lib/turning';
 import { CAUSE_LESSON } from '../lib/course';
 import { lessonById } from '../lib/lessons/data';
 import { GraduationCap } from 'lucide-react';
@@ -126,6 +127,12 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
           </div>
         </div>
 
+        {isEligible(g) && (
+          <button className="card flex w-full items-center gap-3 !p-3.5 text-left" onClick={() => push({ name: 'turning', gameId: g.id! })} data-testid="turning-entry">
+            <span className="flex-1 text-sm"><b>Where did it turn?</b> <span className="text-stone-500">Find the move that lost it yourself first (10 s).</span></span>
+            <span className="btn-primary !px-3 !py-1.5 text-sm">Try</span>
+          </button>
+        )}
         {trap && (
           <div className="card flex items-center gap-3 !p-3.5 ring-2 !ring-red-400/60">
             <span className="flex-1 text-sm">

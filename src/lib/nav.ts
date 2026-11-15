@@ -9,6 +9,7 @@ export type Tab = 'play' | 'puzzles' | 'learn' | 'more' | 'run';
 export type Screen =
   | { name: 'report'; gameId: number | string }
   | { name: 'review'; gameId: number | string; ply?: number }
+  | { name: 'turning'; gameId: number | string }
   | { name: 'explore'; fen: string; orientation: 'white' | 'black'; title?: string }
   | { name: 'puzzle'; mode: PuzzleMode }
   | { name: 'endgame'; drillId: string }

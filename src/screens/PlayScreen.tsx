@@ -1,4 +1,5 @@
 import { RivalryCard, RivalryChip } from '../components/Rivalry';
+import { TurningPrompt } from '../components/TurningCards';
 import { Dock, DockButton } from '../components/Dock';
 import { courseLevel, courseState } from '../lib/course';
 import { kvGet } from '../lib/db';
@@ -112,6 +113,7 @@ function SetupView() {
       <HomeHero right={<SettingsButton />} />
       <div className="mx-auto w-full max-w-md flex-1 space-y-3 p-4">
         <ScaleNews />
+        <TurningPrompt />
         {running && <ResumeCard />}
         <HomeScreenHint />
         {!match && <StepDownCard />}

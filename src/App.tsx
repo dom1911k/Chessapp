@@ -23,6 +23,7 @@ import { MoreScreen } from './screens/MoreScreen';
 import { VisionScreen } from './screens/VisionScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
 import { GameReviewScreen } from './screens/GameReviewScreen';
+import { TurningScreen } from './screens/TurningScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { EndgameScreen } from './screens/EndgameScreen';
 import { OpeningsScreen } from './screens/OpeningsScreen';
@@ -108,6 +109,8 @@ function StackScreen({ screen }: { screen: Screen }) {
       return <GameReviewScreen key={`r${screen.gameId}`} gameId={screen.gameId} />;
     case 'review':
       return <GameReviewScreen key={`v${screen.gameId}:${screen.ply}`} gameId={screen.gameId} ply={screen.ply ?? -1} />;
+    case 'turning':
+      return <TurningScreen key={`t${screen.gameId}`} gameId={screen.gameId} />;
     case 'history':
       return <HistoryScreen />;
     case 'puzzle':
