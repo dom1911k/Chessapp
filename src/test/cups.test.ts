@@ -227,8 +227,8 @@ describe('cups: opponent quirks', () => {
   const after = (sans: string) => { const c = new Chess(); for (const m of sans.split(' ').filter(Boolean)) c.move(m); return c.fen(); };
   const ctx = (o: Partial<QuirkCtx> = {}): QuirkCtx => ({ fen: START, sans: [], moveNo: 1, bot: 'w', me: 'b', botLeftMs: 600_000, state: {}, fromStart: true, ...o });
   const move = (fen: string, san: string) => new Chess(fen).move(san);
-  it('has the fourteen quirks, each with an icon and one plain sentence', () => {
-    expect(QUIRK_IDS.sort()).toEqual(['comebackKid', 'copycat', 'earlyQueen', 'endgameGrinder', 'gambiteer', 'pawnGrabber', 'pawnStormer', 'slowStarter', 'speedster', 'tilter', 'timeTrouble', 'trapper', 'turtle', 'uncastled'].sort());
+  it('has the fifteen player types, each with an icon and one plain sentence', () => {
+    expect(QUIRK_IDS.sort()).toEqual(['comebackKid', 'copycat', 'earlyQueen', 'endgameGrinder', 'fastStarter', 'gambiteer', 'pawnGrabber', 'pawnStormer', 'slowStarter', 'speedster', 'tilter', 'timeTrouble', 'trapper', 'turtle', 'uncastled'].sort());
     for (const q of QUIRKS) {
       expect(q.text.length).toBeGreaterThan(15);
       expect(q.glyph).toBeTruthy();
@@ -245,18 +245,27 @@ describe('cups: opponent quirks', () => {
     expect(Object.values(q)).not.toContain(h);
     expect(recent).not.toContain(h);
   });
-  it('time quirks change think time and temperature only', () => {
-    expect(quirkEffects(['speedster'], ctx()).think).toBe(0.45);
-    expect(quirkEffects(['speedster'], ctx()).temp).toBeCloseTo(0.15);
-    expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 5 })).think).toBe(2.6);
+  it('player types: phase ratings, how they rate you, think habits and resign temperament', () => {
+    const Q = TUNING.quirks;
+    expect(quirkEffects(['speedster'], ctx()).think).toBe(Q.speedster.think);
+    expect(quirkEffects(['speedster'], ctx()).pressure).toBe(Q.speedster.pressure);
+    expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 5 })).think).toBe(Q.timeTrouble.think);
     expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 20 })).think).toBe(1);
-    expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 30, botLeftMs: 40_000 })).temp).toBeCloseTo(TUNING.quirks.timeTrouble.lowTemp);
-    expect(quirkEffects(['slowStarter'], ctx({ moveNo: 3 })).temp).toBeCloseTo(TUNING.quirks.slowStarter.temp);
-    expect(quirkEffects(['slowStarter'], ctx({ moveNo: 13 })).temp).toBe(0);
-    expect(quirkEffects(['comebackKid'], ctx({ botEval: -200 })).temp).toBeCloseTo(TUNING.quirks.comebackKid.temp);
-    expect(quirkEffects(['comebackKid'], ctx({ botEval: 50 })).temp).toBe(0);
-    expect(quirkEffects(['tilter'], ctx({ state: { tilt: 3 } })).temp).toBeCloseTo(TUNING.quirks.tilter.temp);
+    expect(quirkEffects(['timeTrouble'], ctx({ moveNo: 30, botLeftMs: 40_000 })).temp).toBeCloseTo(Q.timeTrouble.lowTemp);
+    expect(quirkEffects(['fastStarter'], ctx({ moveNo: 3 })).elo).toBe(Q.fastStarter.openingElo);
+    expect(quirkEffects(['fastStarter'], ctx({ moveNo: 30 })).elo).toBe(Q.fastStarter.laterElo);
+    expect(quirkEffects(['slowStarter'], ctx({ moveNo: 3 })).elo).toBe(Q.slowStarter.openingElo);
+    expect(quirkEffects(['slowStarter'], ctx({ moveNo: 13 })).elo).toBe(0);
+    expect(quirkEffects(['comebackKid'], ctx({ botEval: -200 })).elo).toBe(Q.comebackKid.elo);
+    expect(quirkEffects(['comebackKid'], ctx({ botEval: 50 })).elo).toBe(0);
+    expect(quirkEffects(['tilter'], ctx({ state: { tilt: 3 } }))).toMatchObject({ elo: Q.tilter.elo, think: Q.tilter.think });
     expect(quirkById('tilter')!.afterUserMove!(ctx(), 3)).toEqual({ tilt: 6 });
+    expect(quirkEffects(['endgameGrinder'], ctx({ fen: '4k3/8/8/8/8/8/4R3/4K2R w - - 0 40' })).elo).toBe(Q.endgameGrinder.queensOffElo);
+    expect(quirkEffects(['earlyQueen'], ctx()).oppo).toBe(Q.earlyQueen.oppo);
+    expect(quirkEffects(['turtle'], ctx()).resign).toBe('stubborn');
+    expect(quirkEffects(['earlyQueen'], ctx()).resign).toBe('proud');
+    expect(quirkEffects(['earlyQueen', 'turtle'], ctx()).resign).toBe('stubborn');
+    for (const q of QUIRKS) expect(q.type.length, q.id).toBeGreaterThan(20);
   });
   it('opening quirks pick real book lines: gambits, traps, an early queen', () => {
     const r = () => 0;
@@ -288,9 +297,11 @@ describe('cups: opponent quirks', () => {
   it('combines quirks with Rattled into the opponent’s settings', () => {
     const g = { ...newCupGame({ cupId: 'c', tier: 'gold', round: 2, opponentId: 'tom', elo: 900, userColor: 'b', timeControl: '600+0', boons: ['rattled'], quirks: ['speedster'], hidden: 'slowStarter' }, 0), rattled: 2 };
     const m = botMods(g, ctx());
-    expect(m.thinkFactor).toBe(0.45);
-    expect(m.tempDelta).toBeCloseTo(0.15 + TUNING.quirks.slowStarter.temp + TUNING.boons.rattledTemp[0]);
-    expect(botMods({ ...g, levels: { rattled: 3 } }, ctx()).tempDelta).toBeCloseTo(0.15 + TUNING.quirks.slowStarter.temp + TUNING.boons.rattledTemp[2]);
+    expect(m.thinkFactor).toBe(TUNING.quirks.speedster.think);
+    expect(m.tempDelta).toBeCloseTo(TUNING.quirks.speedster.temp + TUNING.boons.rattledTemp[0]);
+    expect(m.eloDelta).toBe(TUNING.quirks.slowStarter.openingElo);
+    expect(m.pressureFactor).toBe(TUNING.quirks.speedster.pressure);
+    expect(botMods({ ...g, levels: { rattled: 3 } }, ctx()).tempDelta).toBeCloseTo(TUNING.quirks.speedster.temp + TUNING.boons.rattledTemp[2]);
     expect(quirkOpening({ ...g, quirks: ['gambiteer'], hidden: undefined }, ctx({ fen: after('e4 e5'), sans: ['e4', 'e5'] }), () => 0)).toEqual({ uci: 'f2f4', quirk: 'gambiteer' });
   });
 });

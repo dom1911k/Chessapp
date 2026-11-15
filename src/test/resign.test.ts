@@ -43,3 +43,12 @@ describe('human-like resigning', () => {
     expect(h('b', undefined)).toEqual([50]);
   });
 });
+
+describe('resign temperament (Cups player types)', () => {
+  it('stubborn never resigns; proud resigns early once clearly lost, at any rating', () => {
+    expect(shouldResign({ elo: 2000, moveNo: 40, evals: lost(10, -3000), temperament: 'stubborn' }, always)).toBe(false);
+    expect(shouldResign({ elo: 400, moveNo: 20, evals: [-600, -600], temperament: 'proud' }, always)).toBe(true);
+    expect(shouldResign({ elo: 400, moveNo: 20, evals: [-300, -600], temperament: 'proud' }, always)).toBe(false);
+    expect(shouldResign({ elo: 400, moveNo: 19, evals: [-900, -900], temperament: 'proud', cupFinal: true }, always)).toBe(false);
+  });
+});

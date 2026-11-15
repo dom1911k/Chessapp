@@ -13,6 +13,13 @@ export interface BotMods {
   reweight?: (uci: string) => number;
   /** Think-time multiplier. */
   thinkFactor: number;
+  /** Rating points added to the level it plays at, and to how strong it thinks you are. */
+  eloDelta: number;
+  oppoDelta: number;
+  /** Time pressure starts this many times earlier. */
+  pressureFactor: number;
+  /** Resign temperament from its type. */
+  resign?: 'stubborn' | 'proud';
 }
 
 /** Quirks in force this game: the visible one, plus the finalist's hidden one. */
@@ -46,6 +53,10 @@ export function botMods(g: CupGameState, ctx: QuirkCtx): BotMods {
   return {
     tempDelta,
     thinkFactor: q.think,
+    eloDelta: q.elo,
+    oppoDelta: q.oppo,
+    pressureFactor: q.pressure,
+    resign: q.resign,
     reweight: (uci) => {
       const m = moves.get(uci);
       return m ? q.weight(m) : 1;

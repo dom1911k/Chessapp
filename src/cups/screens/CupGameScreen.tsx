@@ -33,6 +33,7 @@ import { getOpponentRecords } from '../../lib/people/record';
 import { cupMemory, rivalLine } from '../story';
 import { useCupsMeta } from '../meta';
 import { CLASS_LABEL } from '../../lib/chess/evaluation';
+import { quirkById } from '../quirks';
 
 function useNow(ms = 200) {
   const [now, setNow] = useState(Date.now());
@@ -118,10 +119,13 @@ function OpponentCard({ g, onPlay }: { g: CupGameState; onPlay: () => void }) {
           <div className="run-sans text-sm">{o?.name} knocked you out {nemesis.grudge === 1 ? 'once' : `${nemesis.grudge} times`} and plays {TUNING.mastery.grudgeElo * Math.min(TUNING.mastery.maxGrudge, nemesis.grudge)} points stronger for it. Beat them to settle it.</div>
         </div>
       )}
-      {scoutOpenings && (
-        <div className="run-panel mt-2 w-full max-w-xs px-3 py-2 text-left">
+      {scout && (
+        <div className="run-panel mt-2 w-full max-w-xs px-3 py-2 text-left" data-testid="scout-report">
           <div className="run-label">Scout Report</div>
-          <div className="run-sans text-sm">Favourite openings: <b>{REPERTOIRES[g.opponentId]?.favourite ?? 'nothing fixed — expect anything'}</b></div>
+          {[...g.quirks, ...(g.hidden ? [g.hidden] : [])].map((id) => quirkById(id)).filter((q) => !!q).map((q) => (
+            <div key={q!.id} className="run-sans text-sm"><b>{q!.name}:</b> {q!.type}</div>
+          ))}
+          {scoutOpenings && <div className="run-sans text-sm">Favourite openings: <b>{REPERTOIRES[g.opponentId]?.favourite ?? 'nothing fixed — expect anything'}</b></div>}
         </div>
       )}
       {(has('colour') || has('battlefield')) && (

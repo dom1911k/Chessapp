@@ -10,6 +10,7 @@ import { chooseHumanMove, humanParams, maia3SelfElo, maiaParams, setBrain, shift
 import { engine, maia3 } from '../maia3/players.mts';
 import { povScore, scoreToCp } from '../../src/lib/chess/evaluation.ts';
 import { flagResult } from '../../src/lib/clock.ts';
+import { shouldResign } from '../../src/lib/resign.ts';
 import { botThinkMs, positionInfo, pressureParams, swingTracker, timePressure } from '../../src/lib/thinktime.ts';
 import { phaseOf } from '../../src/lib/benchmark/profile.ts';
 import { quirkById, quirkEffects, type QuirkCtx } from '../../src/cups/quirks.ts';
@@ -19,7 +20,7 @@ import { TUNING } from '../../src/cups/tuning.ts';
 const [id, eloS, gamesS, over, out] = process.argv.slice(2);
 const elo = Number(eloS);
 const games = Number(gamesS);
-if (over) Object.assign((TUNING.quirks as Record<string, object>)[id], JSON.parse(over));
+if (over && over !== "{}") Object.assign((TUNING.quirks as unknown as Record<string, object>)[id], JSON.parse(over));
 const quirk = quirkById(id);
 if (!quirk) throw new Error(`no quirk ${id}`);
 
@@ -34,6 +35,7 @@ const ADJ = Number(process.env.ADJ ?? 700);
 let copyChances = 0;
 let copies = 0;
 const swings = { w: swingTracker(), b: swingTracker() };
+const resigns = { q: 0, plain: 0 };
 
 async function play(quirkWhite: boolean): Promise<number> {
   const c = new Chess();
@@ -44,6 +46,7 @@ async function play(quirkWhite: boolean): Promise<number> {
   const state: Record<string, number> = {};
   const qSide = quirkWhite ? 'w' : 'b';
   let lastBalBeforeQ = 0;
+  const evals: Record<'w' | 'b', number[]> = { w: [], b: [] };
   while (!c.isGameOver() && sans.length < 160) {
     const side = c.turn();
     const fen = c.fen();
@@ -54,23 +57,29 @@ async function play(quirkWhite: boolean): Promise<number> {
     let uci: string | null = isQ ? (quirk!.opening?.(ctx, Math.random) ?? null) : null;
     const book = !!uci;
     let seen: { lg?: Map<string, number>; cand?: Map<string, number> } = {};
-    const pressure = timePressure(clock[side], '600+0');
+    // The quirked side's type: level by phase, how it rates its opponent, think habits, pressure.
+    const pre = isQ ? quirkEffects([id], { ...ctx, botEval: evals[side][evals[side].length - 1] }) : null;
+    const pressure = timePressure(clock[side] / (pre?.pressure ?? 1), '600+0');
     let think = 1;
     if (!uci) {
-      const lg = BRAIN === 'maia3'
-        ? (await maia3(fens, maia3SelfElo(elo), maia3SelfElo(elo))).logits
-        : moveLogits(net(maiaParams(elo).rating), fens.slice(-9), moves.map((m) => m.lan), new Set(moves.filter((m) => m.isKingsideCastle() || m.isQueensideCastle()).map((m) => m.lan)));
       const a = await engine.analyze(fen, { depth: DEPTH, multipv: 8 });
       const cand = new Map(a.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], scoreToCp(povScore(l.score, side))]));
       // Adjudicate a clearly decided game (both sides are the same strength) to save time on mop-ups.
       const best = cand.size ? Math.max(...cand.values()) : 0;
       if (sans.length >= 20 && Math.abs(best) >= ADJ) return (best > 0) === isQ ? 1 : 0;
+      evals[side].push(best);
+      // Resigning: the quirked side by its temperament, the plain side by the usual rule.
+      if (shouldResign({ elo, moveNo, evals: evals[side], temperament: isQ ? pre?.resign : undefined })) { resigns[isQ ? 'q' : 'plain']++; return isQ ? 0 : 1; }
+      const e = isQ ? quirkEffects([id], { ...ctx, botEval: best }) : null;
+      const playElo = Math.max(100, elo + (e?.elo ?? 0));
+      const lg = BRAIN === 'maia3'
+        ? (await maia3(fens, maia3SelfElo(playElo), maia3SelfElo(elo + (e?.oppo ?? 0)))).logits
+        : moveLogits(net(maiaParams(elo).rating), fens.slice(-9), moves.map((m) => m.lan), new Set(moves.filter((m) => m.isKingsideCastle() || m.isQueensideCastle()).map((m) => m.lan)));
       seen = { lg, cand };
-      if (isQ) {
-        const e = quirkEffects([id], { ...ctx, botEval: cand.size ? Math.max(...cand.values()) : undefined });
+      if (e) {
         const byUci = new Map(moves.map((m) => [m.lan, m]));
         const w = new Map([...lg].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, e.weight(byUci.get(m)!)))]));
-        uci = chooseHumanMove(w, elo, cand, Math.random, { params: pressureParams({ ...humanParams(elo), temperature: shiftedTemperature(elo, e.temp) }, pressure) });
+        uci = chooseHumanMove(w, playElo, cand, Math.random, { params: pressureParams({ ...humanParams(playElo), temperature: shiftedTemperature(playElo, e.temp) }, pressure) });
         think = e.think;
       } else uci = chooseHumanMove(lg, elo, cand, Math.random, { params: pressureParams(humanParams(elo), pressure) });
     } else think = quirkEffects([id], ctx).think;
@@ -112,7 +121,7 @@ async function play(quirkWhite: boolean): Promise<number> {
 
 let score = 0;
 for (let i = 0; i < games; i++) score += await play(i % 2 === 0);
-const line = JSON.stringify({ id, brain: BRAIN, elo, games, score, pct: Math.round((score / games) * 1000) / 10, over: over ? JSON.parse(over) : null, copy: id === 'copycat' ? Math.round((copies / Math.max(1, copyChances)) * 100) : undefined });
+const line = JSON.stringify({ id, brain: BRAIN, resigns, elo, games, score, pct: Math.round((score / games) * 1000) / 10, over: over ? JSON.parse(over) : null, copy: id === 'copycat' ? Math.round((copies / Math.max(1, copyChances)) * 100) : undefined });
 console.log(line);
 if (out) appendFileSync(out, line + '\n');
 process.exit(0);

@@ -6,7 +6,7 @@ import { Chess } from 'chess.js';
 import { create } from 'zustand';
 import { kvGet, kvSet } from '../lib/db';
 import { chooseBotMove, botParams } from '../lib/bot';
-import { chooseHumanMove, humanParams, maiaLogits, shiftedTemperature } from '../lib/maia';
+import { chooseHumanMove, getPlayerRating, humanParams, maiaLogits, shiftedTemperature } from '../lib/maia';
 import { moveAccuracy, povScore, scoreToCp, winPct, type Score } from '../lib/chess/evaluation';
 import { gameOverInfo, START_FEN, tryMove, type GameResult, type MoveInput } from '../lib/chess/game';
 import type { Color } from '../lib/chess/pos';
@@ -451,28 +451,33 @@ export const useCupGame = create<Store>((set, get) => {
     const turn = turnOf(fen);
     set({ phase: 'botThinking' });
     try {
-      const baseCtx = quirkCtx(g, fen, { botLeftMs: clockLeft(g, turn) });
+      // What it knew after its last move (Comeback Kid needs to know it is worse before it thinks).
+      const prevEvals = evalsOf(g.startedAt, undefined);
+      const baseCtx = quirkCtx(g, fen, { botLeftMs: clockLeft(g, turn), botEval: prevEvals[prevEvals.length - 1] });
       // Openings: the quirks' plans first (gambits, traps, early queen), then the character's own book.
       const planned = baseCtx.fromStart ? quirkOpening(g, baseCtx, Math.random) : null;
       const sans = baseCtx.sans;
       const book = planned?.uci ?? (g.startFen === START_FEN ? bookMove(g.opponentId, sans) : null);
       let uci = book;
       let seen: { logits?: Map<string, number>; candidates?: Map<string, number> } = {};
-      const pressure = timePressure(clockLeft(g, turn), g.timeControl);
       let mods = botMods(g, baseCtx);
+      // Its type can make time pressure start earlier (Speedster, Time Trouble).
+      const pressure = timePressure(clockLeft(g, turn) / mods.pressureFactor, g.timeControl);
+      // Its type sets the level it plays at right now, and how strong it thinks you are.
+      const playElo = Math.max(100, g.elo + mods.eloDelta);
       let ctx = baseCtx;
       if (!uci) {
         try {
           const fens = [g.startFen, ...g.plies.map((p) => p.fenAfter)];
-          const [logits, a] = await Promise.all([maiaLogits(fens, g.elo), analyze(fen, 8, Math.max(analysisLimits().depth, botParams(g.elo).depth)).catch(() => null)]);
+          const [logits, a] = await Promise.all([maiaLogits(fens, playElo, getPlayerRating() + mods.oppoDelta), analyze(fen, 8, Math.max(analysisLimits().depth, botParams(g.elo).depth)).catch(() => null)]);
           const candidates = a ? new Map(a.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], scoreToCp(povScore(l.score, turn))])) : undefined;
           // Now the opponent knows how it stands (Comeback Kid, Endgame Grinder need that).
           ctx = { ...baseCtx, botEval: candidates?.size ? Math.max(...candidates.values()) : undefined };
           mods = botMods(g, ctx);
           const weighted = new Map([...logits].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, mods.reweight?.(m) ?? 1))]));
           // Quirks shift the temperature; short of time, the opponent also plays looser.
-          const params = pressureParams({ ...humanParams(g.elo), temperature: shiftedTemperature(g.elo, mods.tempDelta) }, pressure);
-          uci = chooseHumanMove(weighted, g.elo, candidates, Math.random, { params });
+          const params = pressureParams({ ...humanParams(playElo), temperature: shiftedTemperature(playElo, mods.tempDelta) }, pressure);
+          uci = chooseHumanMove(weighted, playElo, candidates, Math.random, { params });
           seen = { logits, candidates };
         } catch (e) {
           console.warn('Maia failed, using Stockfish', e);
@@ -487,7 +492,7 @@ export const useCupGame = create<Store>((set, get) => {
       const gc = get().game!;
       // A clearly lost opponent may resign (never in a final before move 20).
       const bestNow = seen.candidates?.size ? Math.max(...seen.candidates.values()) : undefined;
-      if (!book && shouldResign({ elo: g.elo, moveNo: Math.floor(gc.plies.length / 2) + 1, evals: evalsOf(gc.startedAt, bestNow), cupFinal: g.round === 2 })) {
+      if (!book && shouldResign({ elo: g.elo, moveNo: Math.floor(gc.plies.length / 2) + 1, evals: evalsOf(gc.startedAt, bestNow), cupFinal: g.round === 2, temperament: mods.resign })) {
         await sleep(Math.min(1200 + 1500 * Math.random(), Math.max(0, clockLeft(gc, turn) - 50)));
         if (my !== token) return;
         await endGame(g.userColor === 'w' ? '1-0' : '0-1', 'resignation');

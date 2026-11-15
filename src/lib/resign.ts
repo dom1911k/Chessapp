@@ -23,6 +23,8 @@ export const RESIGN = {
   mateWithin: 6,
   mateFrom: 1200,
   mateChance: [[1200, 0.4], [1400, 0.8], [2000, 0.95]] as Curve,
+  /** Proud types (any rating): resign once at or below `lostCp` for `moves` moves, or facing mate. */
+  proud: { lostCp: -500, moves: 2, chance: 0.85 },
   /** Never before this move number (and never before `cupFinalMinMove` in a Cups final). */
   minMove: 10,
   cupFinalMinMove: 20,
@@ -37,13 +39,21 @@ export interface ResignInput {
   /** The bot's best evaluation (cp, its own point of view) at each of its moves, latest last. */
   evals: number[];
   cupFinal?: boolean;
+  /** Player type: stubborn never resigns; proud resigns early once clearly lost. */
+  temperament?: 'stubborn' | 'proud';
 }
 
 /** Should the opponent resign instead of moving? `rng` gives 0..1 samples. */
 export function shouldResign(o: ResignInput, rng: () => number = Math.random): boolean {
-  if (!o.evals.length) return false;
+  if (!o.evals.length || o.temperament === 'stubborn') return false;
   if (o.moveNo < (o.cupFinal ? RESIGN.cupFinalMinMove : RESIGN.minMove)) return false;
   const now = o.evals[o.evals.length - 1];
+  if (o.temperament === 'proud') {
+    const m = mateIn(now);
+    const recent = o.evals.slice(-RESIGN.proud.moves);
+    const lost = (m !== null && m < 0) || (recent.length >= RESIGN.proud.moves && recent.every((e) => e <= RESIGN.proud.lostCp));
+    return lost && rng() < RESIGN.proud.chance;
+  }
   const m = mateIn(now);
   if (m !== null && m < 0 && -m <= RESIGN.mateWithin && o.elo >= RESIGN.mateFrom) return rng() < lerp(RESIGN.mateChance, o.elo);
   const need = Math.round(lerp(RESIGN.lostMoves, o.elo));

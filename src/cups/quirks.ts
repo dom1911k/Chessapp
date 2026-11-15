@@ -1,6 +1,8 @@
-// Opponent quirks. Every cup opponent has one you can see; the finalist also has a hidden one.
-// Quirks only change Maia/engine behaviour — opening choice, temperature, think time and the
-// weight of Maia's move probabilities. Never the rules. Add a quirk by adding an entry to QUIRKS.
+// Opponent quirks: player types. Every cup opponent has one you can see; the finalist also has a
+// hidden one. A type changes how the opponent plays — the rating it plays at in each phase (Maia-3
+// SelfElo), how strong it thinks you are (OppoElo), its think-time habits, when it resigns,
+// opening plans and move preferences — never the rules, and (calibrated) not its overall strength.
+// Add a type by adding an entry to QUIRKS.
 import { Chess, type Move } from 'chess.js';
 import type { Color } from '../lib/chess/pos';
 import { TRAPS } from '../lib/traps';
@@ -36,6 +38,16 @@ export interface Quirk {
   glyph: string;
   /** One plain sentence for the opponent card. */
   text: string;
+  /** The type in one plain sentence (Scout Report). */
+  type: string;
+  /** Rating points added to the level it plays at right now (by phase or situation). */
+  elo?(c: QuirkCtx): number;
+  /** Rating points added to how strong it thinks you are. */
+  oppo?(c: QuirkCtx): number;
+  /** Time pressure starts this many times earlier (1 = normal). */
+  pressure?: number;
+  /** Resigning: never (plays on, hoping for stalemate), or early once clearly lost. */
+  resign?: 'stubborn' | 'proud';
   /** What the icon says when it acts. */
   act: string;
   temp?(c: QuirkCtx): number;
@@ -100,79 +112,111 @@ const EARLY_QUEEN: Record<Color, string[][]> = {
   b: ['e4 e5 Nf3 Qf6', 'd4 d5 c4 Qd6', 'e4 e5 Bc4 Qg5'].map((l) => l.split(' ')),
 };
 
+const opening = (c: QuirkCtx, moves: number) => c.moveNo <= moves;
+
 export const QUIRKS: Quirk[] = [
   {
     id: 'speedster', name: 'Speedster', glyph: 'bolt', act: 'Speedster: moves almost at once',
     text: 'Moves fast and a little loose.',
+    type: 'Plays everything twice as fast as most people and gets sloppy early when the clock runs down.',
     think: () => Q.speedster.think,
     temp: () => Q.speedster.temp,
+    pressure: Q.speedster.pressure,
     acted: (c) => c.moveNo === 1 || c.moveNo % 10 === 0,
   },
   {
     id: 'timeTrouble', name: 'Time Trouble', glyph: 'hourglass', act: 'Time Trouble: thinking… and thinking',
     text: 'Thinks for ages in the opening, so the clock often runs low — and nerves crack under a minute.',
-    think: (c) => (c.moveNo <= Q.timeTrouble.openingMoves ? Q.timeTrouble.think : 1),
+    type: 'Spends ages on the opening, then panics and plays fast and loose when the clock runs low.',
+    think: (c) => (opening(c, Q.timeTrouble.openingMoves) ? Q.timeTrouble.think : 1),
     temp: (c) => (c.botLeftMs < Q.timeTrouble.lowMs ? Q.timeTrouble.lowTemp : 0),
+    pressure: Q.timeTrouble.pressure,
     acted: (c) => c.moveNo === 2 || (c.botLeftMs < Q.timeTrouble.lowMs && !c.state.ttLow),
   },
   {
     id: 'gambiteer', name: 'Gambiteer', glyph: 'dice', act: 'Gambiteer: offers a pawn',
     text: 'Opens with a gambit and gives up a pawn for quick play.',
+    type: 'Knows its gambits well and is at its sharpest in the opening; after that, an ordinary player.',
     opening: (c, r) => (c.fromStart ? lineMove(GAMBITS[c.bot], c.sans, c.fen, r) : null),
+    elo: (c) => (opening(c, Q.gambiteer.openingMoves) ? Q.gambiteer.openingElo : 0),
     acted: (c, m, fromOpening) => fromOpening && m.piece === 'p' && c.moveNo <= Q.gambiteer.offerMaxMove && GAMBITS[c.bot].some((l) => l.length === c.sans.length + 1 && l[c.sans.length] === m.san),
   },
   {
     id: 'trapper', name: 'Trapper', glyph: 'skull', act: 'Trapper: steering into a trap line',
     text: 'Knows the classic opening traps and steers into them whenever it can.',
+    type: 'Steers into the classic opening traps and hopes you fall in.',
     opening: (c, r) => (c.fromStart ? lineMove(TRAP_LINES[c.bot], c.sans, c.fen, r) : null),
     acted: (_c, _m, fromOpening) => fromOpening,
   },
   {
-    id: 'earlyQueen', name: 'Early Queen', glyph: 'crown', act: 'Early Queen: out comes the queen',
-    text: 'Brings the queen out early, looking for quick attacks.',
+    id: 'earlyQueen', name: 'Overconfident', glyph: 'crown', act: 'Overconfident: out comes the queen',
+    text: 'Underrates you: brings the queen out early and goes for quick wins.',
+    type: 'Thinks you are weaker than you are, brings the queen out early, takes risks — and resigns in a huff once clearly lost.',
     opening: (c, r) => (c.fromStart ? lineMove(EARLY_QUEEN[c.bot], c.sans, c.fen, r) : null),
     weight: (c, m) => (m.piece === 'q' && c.moveNo <= Q.earlyQueen.untilMove ? Q.earlyQueen.weight : 1),
+    oppo: () => Q.earlyQueen.oppo,
+    resign: 'proud',
     acted: (c, m) => m.piece === 'q' && c.moveNo <= Q.earlyQueen.untilMove,
   },
   {
     id: 'turtle', name: 'Turtle', glyph: 'shield', act: 'Turtle: offers a trade',
     text: 'Plays solid, likes even trades and is happy with a draw.',
+    type: 'Solid and careful, trades whenever it can and never resigns — it will play on hoping for stalemate.',
     temp: () => Q.turtle.temp,
+    think: () => Q.turtle.think,
     weight: (_c, m) => (isTrade(m) ? Q.turtle.tradeWeight : m.san.includes('+') ? Q.turtle.checkWeight : 1),
+    resign: 'stubborn',
     acted: (_c, m) => isTrade(m),
   },
   {
     id: 'tilter', name: 'Tilter', glyph: 'flame', act: 'Tilter: on tilt after losing material',
-    text: 'After losing material, plays recklessly for a while.',
-    temp: (c) => ((c.state.tilt ?? 0) > 0 ? Q.tilter.temp : 0),
+    text: 'After losing material, plays fast and reckless for a while.',
+    type: 'Fine until it loses material — then it plays fast and badly for a few moves, and resigns early when it is lost.',
+    elo: (c) => ((c.state.tilt ?? 0) > 0 ? Q.tilter.elo : 0),
+    think: (c) => ((c.state.tilt ?? 0) > 0 ? Q.tilter.think : 1),
     afterUserMove: (_c, lost) => (lost > 0 ? { tilt: Q.tilter.moves } : null),
+    resign: 'proud',
   },
   {
     id: 'comebackKid', name: 'Comeback Kid', glyph: 'feather', act: 'Comeback Kid: digs in when worse',
-    text: 'Plays its most accurate chess when it is losing.',
-    temp: (c) => (c.botEval !== undefined && c.botEval < Q.comebackKid.belowCp ? Q.comebackKid.temp : 0),
+    text: 'Plays its best chess when it is losing.',
+    type: 'Plays its best chess when worse and never gives up.',
+    elo: (c) => (c.botEval !== undefined && c.botEval < Q.comebackKid.belowCp ? Q.comebackKid.elo : 0),
+    resign: 'stubborn',
     acted: (c) => c.botEval !== undefined && c.botEval < Q.comebackKid.belowCp && !c.state.ckOn,
   },
   {
     id: 'slowStarter', name: 'Slow Starter', glyph: 'moon', act: 'Slow Starter: warming up',
     text: `Shaky in the first ${Q.slowStarter.moves} moves, then plays normally.`,
-    temp: (c) => (c.moveNo <= Q.slowStarter.moves ? Q.slowStarter.temp : 0),
+    type: 'Shaky in the opening, then settles in and plays its normal game.',
+    elo: (c) => (opening(c, Q.slowStarter.moves) ? Q.slowStarter.openingElo : 0),
     acted: (c) => c.moveNo === 1 || c.moveNo === Q.slowStarter.moves + 1,
+  },
+  {
+    id: 'fastStarter', name: 'Fast Starter', glyph: 'candle', act: 'Fast Starter: sharp out of the gate',
+    text: `Plays the first ${Q.fastStarter.moves} moves fast and sharp, then fades.`,
+    type: 'Plays the opening fast and sharp, then fades in long games.',
+    elo: (c) => (opening(c, Q.fastStarter.moves) ? Q.fastStarter.openingElo : Q.fastStarter.laterElo),
+    think: (c) => (opening(c, Q.fastStarter.moves) ? Q.fastStarter.think : 1),
+    acted: (c) => c.moveNo === 1 || c.moveNo === Q.fastStarter.moves + 1,
   },
   {
     id: 'endgameGrinder', name: 'Endgame Grinder', glyph: 'gear', act: 'Endgame Grinder: heading for the endgame',
     text: 'Trades down when the game is even, and is at its best once the queens are off.',
-    temp: (c) => (queensOff(c.fen) ? Q.endgameGrinder.queensOffTemp : 0),
+    type: 'Trades down when even, is clearly stronger once the queens are off, and grinds on to the end.',
+    elo: (c) => (queensOff(c.fen) ? Q.endgameGrinder.queensOffElo : 0),
     weight: (c, m) => {
       if (c.botEval === undefined || Math.abs(c.botEval) > Q.endgameGrinder.evenCp || !m.captured) return 1;
       if (m.piece === 'q' && m.captured === 'q') return Q.endgameGrinder.queenTradeWeight;
       return isTrade(m) ? Q.endgameGrinder.tradeWeight : 1;
     },
+    resign: 'stubborn',
     acted: (_c, m) => isTrade(m),
   },
   {
     id: 'pawnStormer', name: 'Pawn Stormer', glyph: 'axe', act: 'Pawn Stormer: pawns march at your king',
     text: 'Throws the pawns on your king’s side of the board forward.',
+    type: 'Attacks by throwing its pawns at your king.',
     weight: (c, m) => {
       if (m.piece !== 'p' || c.moveNo < Q.pawnStormer.fromMove || m.captured) return 1;
       const kf = kingFile(c.fen, c.me);
@@ -184,18 +228,21 @@ export const QUIRKS: Quirk[] = [
   {
     id: 'pawnGrabber', name: 'Pawn Grabber', glyph: 'bag', act: 'Pawn Grabber: grabs a pawn',
     text: 'Takes any pawn on offer, poisoned or not.',
+    type: 'Greedy: takes any pawn on offer, poisoned or not.',
     weight: (_c, m) => (m.captured === 'p' ? Q.pawnGrabber.weight : 1),
     acted: (_c, m) => m.captured === 'p',
   },
   {
     id: 'copycat', name: 'Copycat', glyph: 'cards', act: 'Copycat: mirrors your move',
     text: 'Copies your moves in the opening while it can.',
+    type: 'Copies your moves in the opening while it can, then plays on its own.',
     weight: (c, m) => (c.lastUserUci && c.moveNo <= Q.copycat.untilMove && m.lan === mirror(c.lastUserUci) ? Q.copycat.weight : 1),
     acted: (c, m) => !!c.lastUserUci && c.moveNo <= Q.copycat.untilMove && m.lan === mirror(c.lastUserUci),
   },
   {
     id: 'uncastled', name: 'Uncastled', glyph: 'tower', act: 'Uncastled: the king stays in the centre',
     text: 'Delays castling and keeps the king in the centre.',
+    type: 'Keeps its king in the centre for a long time.',
     weight: (c, m) => (c.moveNo <= Q.uncastled.untilMove && (m.flags.includes('k') || m.flags.includes('q')) ? Q.uncastled.castleWeight : 1),
     acted: (c) => c.moveNo === Q.uncastled.noticeAtMove && 'de'.includes(kingFile(c.fen, c.bot)),
   },
@@ -234,12 +281,29 @@ function shuffled<T>(xs: T[], r: () => number): T[] {
   return a;
 }
 
+export interface QuirkEffects {
+  temp: number;
+  think: number;
+  weight: (m: Move) => number;
+  /** Rating points added to the level it plays at, and to how strong it thinks you are. */
+  elo: number;
+  oppo: number;
+  /** Time pressure starts this many times earlier. */
+  pressure: number;
+  /** Resign temperament (stubborn wins over proud). */
+  resign?: 'stubborn' | 'proud';
+}
+
 /** Combine the active quirks into the opponent's settings for one move. */
-export function quirkEffects(ids: string[], c: QuirkCtx): { temp: number; think: number; weight: (m: Move) => number } {
+export function quirkEffects(ids: string[], c: QuirkCtx): QuirkEffects {
   const qs = ids.map(quirkById).filter((q): q is Quirk => !!q);
   return {
     temp: qs.reduce((t, q) => t + (q.temp?.(c) ?? 0), 0),
     think: qs.reduce((t, q) => t * (q.think?.(c) ?? 1), 1),
     weight: (m) => qs.reduce((w, q) => w * (q.weight?.(c, m) ?? 1), 1),
+    elo: qs.reduce((t, q) => t + (q.elo?.(c) ?? 0), 0),
+    oppo: qs.reduce((t, q) => t + (q.oppo?.(c) ?? 0), 0),
+    pressure: qs.reduce((t, q) => Math.max(t, q.pressure ?? 1), 1),
+    resign: qs.some((q) => q.resign === 'stubborn') ? 'stubborn' : qs.some((q) => q.resign === 'proud') ? 'proud' : undefined,
   };
 }

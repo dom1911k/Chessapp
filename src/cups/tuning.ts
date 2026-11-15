@@ -152,15 +152,22 @@ export const TUNING = {
     recentMemory: 6,
     /** A quirk's icon pulses at most once per this many plies. */
     pulseEvery: 6,
-    speedster: { think: 0.45, temp: 0.15 },
-    timeTrouble: { openingMoves: 12, think: 2.6, lowMs: 60_000, lowTemp: 0.6 },
-    gambiteer: { offerMaxMove: 6 },
-    earlyQueen: { untilMove: 10, weight: 5 },
-    turtle: { tradeWeight: 2.2, checkWeight: 0.6, temp: -0.15 },
-    tilter: { moves: 6, temp: 0.5 },
-    comebackKid: { belowCp: -150, temp: -0.35 },
-    slowStarter: { moves: 12, temp: 0.5 },
-    endgameGrinder: { evenCp: 80, tradeWeight: 2.5, queenTradeWeight: 4, queensOffTemp: -0.4 },
+    /*
+     * Player types. Each changes how the opponent plays, not how strong it is (calibrated to
+     * 40–60% against a plain bot of the same rating). Controls: `elo` / `openingElo` / `laterElo`
+     * shift the rating it plays at (by phase or situation), `oppo` shifts how strong it thinks you
+     * are, `think` scales its think time, `pressure` makes time pressure start earlier (>1).
+     */
+    speedster: { think: 0.5, temp: 0.1, pressure: 1.8 },
+    timeTrouble: { openingMoves: 12, think: 2.6, lowMs: 60_000, lowTemp: 0.6, pressure: 1.4 },
+    gambiteer: { offerMaxMove: 6, openingMoves: 12, openingElo: 100 },
+    earlyQueen: { untilMove: 10, weight: 5, oppo: -200 },
+    turtle: { tradeWeight: 2.2, checkWeight: 0.6, temp: -0.15, think: 1.2 },
+    tilter: { moves: 6, elo: -200, think: 0.6 },
+    comebackKid: { belowCp: -150, elo: 150 },
+    slowStarter: { moves: 12, openingElo: -150 },
+    fastStarter: { moves: 12, openingElo: 200, laterElo: -100, think: 0.7 },
+    endgameGrinder: { evenCp: 80, tradeWeight: 2.5, queenTradeWeight: 4, queensOffElo: 150 },
     pawnStormer: { fromMove: 6, weight: 3 },
     pawnGrabber: { weight: 4 },
     copycat: { untilMove: 6, weight: 100 },
