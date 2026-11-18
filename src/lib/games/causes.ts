@@ -35,6 +35,8 @@ export interface MistakeCause {
   timeTrouble: boolean;
   /** One sentence for this mistake. */
   text: string;
+  /** The square it was about (the loose piece), when there is one. */
+  sq?: string;
 }
 
 const BAD = new Set(['mistake', 'blunder', 'miss']);
@@ -89,6 +91,7 @@ export function mistakeCauses(g: Pick<AnyGame, 'plies' | 'userColor' | 'timeCont
 
     let cause: Cause | null = null;
     let text = '';
+    let sq: string | undefined;
     // 1. Their threat, ignored: something of yours was already attacked (or mate was threatened)…
     const threatened = hangingPieces(before, me).filter((h) => h.loss >= 2 && sqName(h.sq) !== from);
     const stillLoose = threatened.find((h) => hangingPieces(after, me).some((x) => x.sq === h.sq));
@@ -99,6 +102,7 @@ export function mistakeCauses(g: Pick<AnyGame, 'plies' | 'userColor' | 'timeCont
     } else if (stillLoose) {
       cause = 'missedThreat';
       text = `Their last move attacked your ${pname(before[stillLoose.sq]?.type)} on ${sqName(stillLoose.sq)} — your move didn’t deal with it.`;
+      sq = sqName(stillLoose.sq);
     }
     // 2. A piece of yours left loose by this move.
     if (!cause) {
@@ -107,6 +111,7 @@ export function mistakeCauses(g: Pick<AnyGame, 'plies' | 'userColor' | 'timeCont
       if (loose) {
         cause = 'hungPiece';
         text = `${p.san} left your ${pname(after[loose.sq]?.type)} on ${sqName(loose.sq)} unprotected.`;
+        sq = sqName(loose.sq);
       }
     }
     // 3. A winning shot missed.
@@ -135,7 +140,7 @@ export function mistakeCauses(g: Pick<AnyGame, 'plies' | 'userColor' | 'timeCont
     const left = clockLeft.get(i);
     const timeTrouble = left !== undefined && baseSecs > 0 && left < Math.min(30, baseSecs * 0.1);
     const fast = secs !== undefined && !timeTrouble && secs < Math.max(3, baseSecs * 0.005) && cls[i] !== 'miss';
-    out.push({ ply: i, cause, secs, fast, timeTrouble, text });
+    out.push({ ply: i, cause, secs, fast, timeTrouble, text, sq });
   });
   return out;
 }

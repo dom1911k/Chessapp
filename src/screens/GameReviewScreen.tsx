@@ -33,6 +33,8 @@ import { formatLine, lineToSan, tryMove, type MoveInput } from '../lib/chess/gam
 import { classify, formatScore, povScore, winPct } from '../lib/chess/evaluation';
 import { shortWords } from '../lib/chess/words';
 import { getEngine } from '../lib/engine';
+import { goodWhy, looseWhy, missedThreat, verdictLine } from '../lib/reviewText';
+import { ArrowOverlay, type OverlayArrow } from '../components/ArrowOverlay';
 import { isBad, moveNo, punishment, RC, REVIEW_ORDER, reviewGame, type Review, type ReviewClass } from '../lib/review';
 import { PHASES } from '../lib/games/mistakes';
 import { THEMES } from '../lib/themes';
@@ -103,6 +105,9 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
   const times = useMemo(() => timesOf(g), [g]);
   const topCause = causes.length ? (Object.keys(CAUSE_INFO) as (keyof typeof CAUSE_INFO)[]).filter((k) => k !== 'fast' && k !== 'timeTrouble').reduce((a, b) => (totals[b] > totals[a] ? b : a)) : null;
   const [allRows, setAllRows] = useState(false);
+  const [samOpen, setSamOpen] = useState(false);
+  const verdict = useMemo(() => verdictLine(g, r), [g, r]);
+  const badCounts = (['blunder', 'miss', 'mistake', 'inaccuracy'] as const).filter((c) => r.me.counts[c]).map((c) => `${r.me.counts[c]} ${RC[c].label.toLowerCase()}${r.me.counts[c] > 1 ? (c === 'miss' ? 'es' : 's') : ''}`);
   const rows = REVIEW_ORDER.filter((c) => allRows || r.me.counts[c] + r.them.counts[c] > 0);
   const resultTone = g.userResult === 'win' ? 'bg-emerald-600 text-white' : g.userResult === 'loss' ? 'bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-900' : 'bg-stone-400 text-white';
   const accNum = (acc: number, white: boolean) => (
@@ -136,10 +141,43 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
           <div className="flex gap-3 border-t border-stone-100 bg-stone-50/70 px-4 py-3.5 dark:border-white/[0.06] dark:bg-white/[0.02]">
             <CoachAvatar mood={g.userResult === 'loss' ? 'concerned' : 'happy'} size={36} />
             <div className="min-w-0 flex-1 text-[14.5px] leading-snug">
-              {pending(g) ? <p>I haven't analysed this chess.com game yet — it's in the queue. You can already step through the moves.</p> : r.summary.map((t, i) => <p key={i} className={i ? 'mt-1.5' : ''}>{t}</p>)}
+              {pending(g) ? <p>I haven't analysed this chess.com game yet — it's in the queue. You can already step through the moves.</p> : (
+                <>
+                  <p className="font-display text-[17px] leading-snug font-semibold" data-testid="verdict">{verdict}</p>
+                  {samOpen ? r.summary.map((t, i) => <p key={i} className="mt-1.5 text-stone-600 dark:text-stone-300">{t}</p>) : null}
+                  {r.summary.length > 0 && (
+                    <button className="mt-1.5 text-[13px] font-semibold text-brand-700 dark:text-brand-500" onClick={() => setSamOpen(!samOpen)}>{samOpen ? 'Less' : 'More from Sam'}</button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
+
+        {r.moments.length > 0 && (
+          <section>
+            <h2 className="section-title mb-1.5">Key moments</h2>
+            <div className="no-scrollbar -mx-4 flex snap-x gap-2.5 overflow-x-auto px-4 pb-1" data-testid="moments-strip">
+              {r.moments.map((m) => {
+                const q = g.plies[m.ply];
+                const line = q.isUser ? (q.comment?.bestSan ? `${q.comment.bestSan} was the move` : RC[r.plies[m.ply].cls].label) : punishment(g.plies, m.ply) ?? RC[r.plies[m.ply].cls].label;
+                return (
+                  <button key={m.ply} className="card w-[148px] shrink-0 snap-start !p-2 text-left transition active:scale-[0.98]" onClick={() => onStart(m.ply)}>
+                    <div className="relative">
+                      <Board fen={q.fenAfter} orientation={meWhite ? 'white' : 'black'} movable={null} lastMove={{ from: q.uci.slice(0, 2), to: q.uci.slice(2, 4) }} showCoordinates={false} />
+                      <SquareIcon sq={q.uci.slice(2, 4)} cls={r.plies[m.ply].cls} orientation={meWhite ? 'white' : 'black'} small />
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-1 text-[13px] font-semibold">
+                      <ReviewIcon cls={r.plies[m.ply].cls} size={15} /> {moveNo(g.plies, m.ply)} {q.san}
+                      <span className="ml-auto text-[10px] font-normal text-stone-400">{q.isUser ? 'you' : 'them'}</span>
+                    </div>
+                    <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-stone-600 dark:text-stone-300">{line}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {canRematch(g) && (
           <button className="card flex w-full items-center gap-3 !p-3.5 text-left" data-testid="rematch" onClick={() => void startRematch(g)}>
@@ -164,7 +202,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
         )}
 
         {!pending(g) && (
-          <Sec title="Moves">
+          <Sec title="Moves" fold preview={badCounts.length ? badCounts.join(' · ') : 'No mistakes from you'}>
             <div className="card !px-3 !py-2">
               <div className="divide-y divide-stone-100 dark:divide-white/[0.05]">
                 {rows.map((c) => (
@@ -200,7 +238,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
         )}
 
         {!pending(g) && (
-          <Sec title="Evaluation">
+          <Sec title="Evaluation" fold preview="Graph of the game, with your time">
             <div className="card !p-3">
               <EvalGraph plies={g.plies} onSelect={onStart} times={times} />
               {times && (
@@ -215,20 +253,8 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
           </Sec>
         )}
 
-        {r.moments.length > 0 && (
-          <Sec title="Key moments">
-            <div className="card divide-y divide-stone-100 !p-0 dark:divide-white/[0.05]">
-              {r.moments.map((m) => (
-                <Row key={m.ply} onClick={() => onStart(m.ply)} icon={<ReviewIcon cls={r.plies[m.ply].cls} size={20} />}>
-                  {m.text}
-                </Row>
-              ))}
-            </div>
-          </Sec>
-        )}
-
         {causes.length > 0 && (
-          <Sec title="Your mistakes">
+          <Sec title="Your mistakes" fold preview={topCause ? `Mostly: ${CAUSE_INFO[topCause].label.toLowerCase()}` : `${causes.length}`}>
             <div className="card !p-0">
               <div className="p-3.5 pb-1">
                 <CauseBreakdown bare r={{ mistakes: causes.length, totals, top: topCause ? { cause: topCause as MistakeCause['cause'], share: totals[topCause] / causes.length } : null }} />
@@ -262,7 +288,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
         )}
 
         {missed.length > 0 && (
-          <Sec title="Missed chances">
+          <Sec title="Missed chances" fold preview={`${missed.length} chance${missed.length === 1 ? '' : 's'} to punish them`}>
             <div className="card divide-y divide-stone-100 !p-0 dark:divide-white/[0.05]">
               {missed.map((m) => (
                 <Row key={m.ply} onClick={() => onStart(m.ply)} icon={<span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-black text-white">!</span>}>
@@ -274,7 +300,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
           </Sec>
         )}
 
-        <TimeStatsCard g={g} onPly={onStart} />
+        {g.clocks?.length ? <Sec title="Your time" fold preview="Where your clock went"><TimeStatsCard g={g} onPly={onStart} /></Sec> : null}
 
         {lesson && !pending(g) && (
           <div className="card flex items-center gap-3 !p-3.5">
@@ -303,12 +329,23 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
   );
 }
 
-/** A titled section of the summary. */
-function Sec({ title, children }: { title: string; children: ReactNode }) {
-  return (
+/** A titled section of the summary; `fold` sections start closed with a one-line preview. */
+function Sec({ title, children, fold, preview }: { title: string; children: ReactNode; fold?: boolean; preview?: string }) {
+  const [open, setOpen] = useState(!fold);
+  if (!fold) return (
     <section>
       <h2 className="section-title mb-1.5">{title}</h2>
       {children}
+    </section>
+  );
+  return (
+    <section>
+      <button className="flex w-full items-center gap-2 rounded-xl py-1 text-left" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span className="section-title">{title}</span>
+        {!open && preview && <span className="min-w-0 flex-1 truncate text-[12.5px] text-stone-500">{preview}</span>}
+        <ChevronRight size={16} className={`ml-auto shrink-0 text-stone-400 transition-transform ${open ? 'rotate-90' : ''}`} />
+      </button>
+      {open && <div className="mt-1.5">{children}</div>}
     </section>
   );
 }
@@ -324,13 +361,15 @@ function Row({ icon, children, onClick }: { icon: ReactNode; children: ReactNode
   );
 }
 
-type Retry = { state: 'try' | 'checking' | 'right' | 'ok' | 'wrong'; fen: string; last?: { from: string; to: string } };
+type Retry = { state: 'try' | 'checking' | 'right' | 'ok' | 'wrong'; fen: string; last?: { from: string; to: string }; reply?: string };
 
 function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: number; onSummary: () => void }) {
   const [i, setI] = useState(start);
   const [best, setBest] = useState(false);
   const [retry, setRetry] = useState<Retry | null>(null);
   const [explain, setExplain] = useState(false);
+  // On a move where you missed their threat: show the threat first, then your move.
+  const [threatSeen, setThreatSeen] = useState<number | null>(null);
   const push = useNav((s) => s.push);
   const stepTimes = useMemo(() => timesOf(g), [g]);
   const causeAt = useMemo(() => new Map(mistakeCauses(g, r.plies.map((x) => x.cls)).map((c) => [c.ply, c])), [g, r]);
@@ -349,20 +388,48 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
   useEffect(() => {
     setBest(false);
     setRetry(null);
+    setThreatSeen(null);
     strip.current?.querySelector(`[data-ply="${i}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
   }, [i]);
   useEffect(() => () => getEngine().cancelAll('review'), []);
   const go = (k: number) => setI(Math.max(-1, Math.min(n - 1, k)));
+  // Swipe on the board to step: left = forward, right = back (not while retrying a move).
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const onSwipeStart = (e: React.TouchEvent) => { swipe.current = retry ? null : { x: e.touches[0].clientX, y: e.touches[0].clientY }; };
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const s0 = swipe.current;
+    swipe.current = null;
+    if (!s0) return;
+    const dx = e.changedTouches[0].clientX - s0.x;
+    const dy = e.changedTouches[0].clientY - s0.y;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? i + 1 : i - 1);
+  };
   const nextBad = () => {
     for (let k = i + 1; k < n; k++) if (g.plies[k].isUser && isBad(r.plies[k].cls)) return go(k);
   };
   const canRetry = !!p && p.isUser && !!rp && isBad(rp.cls) && !!p.comment?.bestUci;
   const canBest = !!p?.comment?.bestUci && p.comment.bestUci !== p.uci;
 
-  // What the board shows: the position after the move; before it for Best / Retry.
-  const fen = retry ? retry.fen : p ? (best ? p.fenBefore : p.fenAfter) : g.startFen;
-  const lastMove = retry ? retry.last ?? null : p && !best ? { from: p.uci.slice(0, 2), to: p.uci.slice(2, 4) } : null;
-  const arrows = best && p?.comment?.bestUci ? [{ from: p.comment.bestUci.slice(0, 2), to: p.comment.bestUci.slice(2, 4), tone: 'good' as const }] : [];
+  const cause = causeAt.get(i);
+  const threat = useMemo(() => (p && cause?.cause === 'missedThreat' ? missedThreat(p) : null), [p, cause]);
+  const threatStage = !!threat && threatSeen !== i && !best && !retry;
+  // What the board shows: the position after the move; before it for Best / Retry / their threat.
+  const fen = retry ? retry.fen : p ? (best || threatStage ? p.fenBefore : p.fenAfter) : g.startFen;
+  const lastMove = retry ? retry.last ?? null : p && !best && !threatStage ? { from: p.uci.slice(0, 2), to: p.uci.slice(2, 4) } : null;
+  // The same arrows everywhere: green = best move, red = what a move allowed, dotted = a punishing
+  // reply to their mistake (or their threat).
+  const arr = (uci: string, tone: 'good' | 'bad' | 'info') => ({ from: uci.slice(0, 2), to: uci.slice(2, 4), tone });
+  const arrows: { from: string; to: string; tone: 'good' | 'bad' | 'info' }[] = [];
+  const dotted: OverlayArrow[] = [];
+  if (retry) {
+    if (retry.state === 'wrong' && retry.reply) arrows.push(arr(retry.reply, 'bad'));
+  } else if (threatStage && threat) dotted.push(arr(threat.uci, 'bad'));
+  else if (best && p?.comment?.bestUci) arrows.push(arr(p.comment.bestUci, 'good'));
+  else if (p && rp && isBad(rp.cls)) {
+    if (p.isUser && rp.cls !== 'inaccuracy' && p.comment?.replyLine?.[0]) arrows.push(arr(p.comment.replyLine[0], 'bad'));
+    const next = g.plies[i + 1];
+    if (!p.isUser && next?.isUser && next.comment?.bestUci) dotted.push(arr(next.comment.bestUci, 'good'));
+  }
   const evalNow = r.curve[i + 1] ?? 50;
   const evalText = p?.evalAfter ? formatScore(p.evalAfter) : '0.0';
 
@@ -384,7 +451,7 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
         const cls = classify(winPct(povScore(b.lines[0].score, p.color)), winPct(povScore(a.lines[0].score, p.color)), uci === b.bestMove);
         const good = cls === 'best' || cls === 'good';
         playSound(good ? 'success' : 'error');
-        setRetry({ state: good ? 'ok' : 'wrong', fen: res.fen, last: { from: res.move.from, to: res.move.to } });
+        setRetry({ state: good ? 'ok' : 'wrong', fen: res.fen, last: { from: res.move.from, to: res.move.to }, reply: good ? undefined : a.bestMove ?? undefined });
       } catch {
         setRetry({ state: 'wrong', fen: res.fen, last: { from: res.move.from, to: res.move.to } });
       }
@@ -404,9 +471,10 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-4 land:px-3">
         <div className="flex gap-1.5 px-1.5 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0">
           <ReviewEvalBar wpWhite={evalNow} orientation={orientation} text={evalText} />
-          <div className="relative min-w-0 flex-1">
+          <div className="relative min-w-0 flex-1" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} data-testid="review-board">
             <Board fen={fen} orientation={orientation} movable={retry?.state === 'try' ? g.userColor : null} onMove={onRetryMove} arrows={arrows} lastMove={lastMove} />
-            {p && rp && !best && !retry && <SquareIcon sq={p.uci.slice(2, 4)} cls={rp.cls} orientation={orientation} />}
+            <ArrowOverlay arrows={dotted} orientation={orientation} />
+            {p && rp && !best && !retry && !threatStage && NOTABLE.has(rp.cls) && <SquareIcon sq={p.uci.slice(2, 4)} cls={rp.cls} orientation={orientation} />}
           </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col">
@@ -433,7 +501,7 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
           <div className="mx-3 flex max-h-[42%] min-h-[132px] shrink-0 gap-2.5 overflow-hidden land:max-h-none land:flex-1">
             <CoachAvatar mood={rp && isBad(rp.cls) && p?.isUser ? 'concerned' : 'happy'} size={38} />
             <div className="card min-w-0 flex-1 overflow-y-auto !rounded-[18px] !rounded-tl-md !px-3.5 !py-3 text-[14.5px] leading-snug">
-              <CoachText g={g} r={r} i={i} best={best} retry={retry} cause={causeAt.get(i)} />
+              <CoachText g={g} r={r} i={i} best={best} retry={retry} cause={cause} threat={threatStage ? threat : null} onSeenThreat={() => setThreatSeen(i)} />
             </div>
           </div>
           <div className="mt-auto" />
@@ -502,7 +570,7 @@ function ReviewEvalBar({ wpWhite, orientation, text }: { wpWhite: number; orient
   const whiteAhead = wpWhite >= 50;
   return (
     <div className={`relative flex w-5 shrink-0 overflow-hidden rounded bg-stone-800 ${orientation === 'white' ? 'flex-col-reverse' : 'flex-col'}`}>
-      <div className="bg-stone-100 transition-all duration-500" style={{ height: `${pct}%` }} />
+      <div className="bg-stone-100 transition-[height] duration-300 ease-out" style={{ height: `${pct}%` }} />
       <span
         className={`absolute inset-x-0 text-center text-[8px] font-black ${whiteAhead ? 'text-stone-800' : 'text-white'}`}
         style={{ [whiteAhead === (orientation === 'white') ? 'bottom' : 'top']: 2 }}
@@ -514,20 +582,24 @@ function ReviewEvalBar({ wpWhite, orientation, text }: { wpWhite: number; orient
 }
 
 /** The class icon on the destination square, like chess.com. */
-function SquareIcon({ sq, cls, orientation }: { sq: string; cls: ReviewClass; orientation: 'white' | 'black' }) {
+function SquareIcon({ sq, cls, orientation, small }: { sq: string; cls: ReviewClass; orientation: 'white' | 'black'; small?: boolean }) {
   const f = sq.charCodeAt(0) - 97;
   const rk = Number(sq[1]) - 1;
   const col = orientation === 'white' ? f : 7 - f;
   const row = orientation === 'white' ? 7 - rk : rk;
+  const size = small ? 14 : 22;
   return (
-    <span className="pointer-events-none absolute z-10" style={{ left: `calc(${((col + 1) / 8) * 100}% - 13px)`, top: `calc(${(row / 8) * 100}% - 7px)` }}>
-      <ReviewIcon cls={cls} size={22} className="ring-2 ring-white" />
+    <span className="pointer-events-none absolute z-10" style={{ left: `calc(${((col + 1) / 8) * 100}% - ${size * 0.6}px)`, top: `calc(${(row / 8) * 100}% - ${size * 0.3}px)` }}>
+      <ReviewIcon cls={cls} size={size} className="ring-2 ring-white" />
     </span>
   );
 }
 
+/** Classes worth a badge on the board and the move strip; quiet good moves don't get one every turn. */
+const NOTABLE = new Set<ReviewClass>(['brilliant', 'great', 'inaccuracy', 'mistake', 'miss', 'blunder']);
+
 /** Coach Sam on the move being viewed: a one-line verdict, why, and the concrete lines. */
-function CoachText({ g, r, i, best, retry, cause }: { g: AnyGame; r: Review; i: number; best: boolean; retry: Retry | null; cause?: MistakeCause }) {
+function CoachText({ g, r, i, best, retry, cause, threat, onSeenThreat }: { g: AnyGame; r: Review; i: number; best: boolean; retry: Retry | null; cause?: MistakeCause; threat?: { san: string; text: string } | null; onSeenThreat?: () => void }) {
   if (i < 0) {
     return (
       <>
@@ -545,14 +617,35 @@ function CoachText({ g, r, i, best, retry, cause }: { g: AnyGame; r: Review; i: 
     const msg = { try: 'Your move — find something better than ' + p.san + '.', checking: 'Checking…', right: `Yes! ${c?.bestSan} is the best move.`, ok: 'That works too — a good alternative.', wrong: 'Not quite. Tap Retry to try again, or Best to see it.' }[retry.state];
     return <p className={`font-semibold ${retry.state === 'right' || retry.state === 'ok' ? 'text-emerald-700 dark:text-emerald-400' : retry.state === 'wrong' ? 'text-red-600' : ''}`}>{msg}</p>;
   }
-  const headline = (
+  // Their threat first (you missed it), then your move.
+  if (threat) {
+    return (
+      <>
+        <p className="flex items-center gap-1.5 font-semibold text-red-600 dark:text-red-400"><TriangleAlert size={16} /> First, their threat</p>
+        <p className="mt-1">{threat.text} Can you see it on the board?</p>
+        <button className="btn-primary mt-2 !px-3 !py-1.5 text-sm" onClick={onSeenThreat} data-testid="show-my-move">Then you played {p.san} →</button>
+      </>
+    );
+  }
+  // Quiet good moves get a plain line; badges and colour are kept for the moves that matter.
+  const notable = NOTABLE.has(rp.cls);
+  const headline = notable ? (
     <p className="flex items-center gap-1.5 font-semibold">
       <ReviewIcon cls={rp.cls} size={18} />
       <span style={{ color: isBad(rp.cls) ? RC[rp.cls].color : undefined }}>
         {moveNo(g.plies, i)} {p.san} {RC[rp.cls].verdict}
       </span>
     </p>
+  ) : (
+    <p className="font-semibold">
+      {moveNo(g.plies, i)} {p.san} <span className="font-normal text-stone-500">· {RC[rp.cls].label}</span>
+    </p>
   );
+  // Why a bad move went wrong, in one plain sentence (a loose piece gets its counts spelled out).
+  const why = cause ? (cause.cause === 'hungPiece' && cause.sq ? looseWhy(p, cause.sq) ?? cause.text : cause.text) : null;
+  // Why a good move worked: always for brilliant / great, and when there is a real tactic behind a best move.
+  const nice = p.isUser && !isBad(rp.cls) && rp.cls !== 'book' ? goodWhy(p) : null;
+  const showNice = !!nice && (rp.cls === 'brilliant' || rp.cls === 'great' || !/saves your/.test(nice));
   const sanLine = (fen: string, line?: string[], k = 4) => (line?.length ? formatLine(fen, lineToSan(fen, line, k)) : null);
   if (p.isUser) {
     const reply = sanLine(p.fenAfter, c?.replyLine, 3);
@@ -566,10 +659,12 @@ function CoachText({ g, r, i, best, retry, cause }: { g: AnyGame; r: Review; i: 
             {cause.secs !== undefined && <span className={cause.fast || cause.timeTrouble ? 'font-semibold text-amber-700 dark:text-amber-400' : ''}>{cause.secs < 10 ? cause.secs.toFixed(1) : Math.round(cause.secs)} s{cause.timeTrouble ? ' · time trouble' : cause.fast ? ' · played fast' : ''}</span>}
           </p>
         )}
+        {why && <p className="mt-1" data-testid="why"><span className="font-semibold">Why: </span>{why}</p>}
+        {showNice && <p className="mt-1 text-emerald-700 dark:text-emerald-400" data-testid="nice"><span className="font-semibold">Why it works: </span>{nice}</p>}
         {rp.cls === 'book' ? (
           <p className="mt-1">{g.opening ? `A known move in the ${g.opening}.` : 'A known opening move.'}</p>
         ) : (
-          c?.text.slice(0, 2).map((t, k) => <p key={k} className="mt-1">{t}</p>)
+          c?.text.filter((t) => t !== why).slice(0, why ? 1 : 2).map((t, k) => <p key={k} className="mt-1">{t}</p>)
         )}
         {isBad(rp.cls) && (
           <div className="mt-1.5 space-y-0.5 text-[13px]">

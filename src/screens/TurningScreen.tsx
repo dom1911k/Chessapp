@@ -27,6 +27,7 @@ export function TurningScreen({ gameId }: { gameId: number | string }) {
   const [pick, setPick] = useState<number | null>(null);
   const [chip, setChip] = useState<ReasonChip | null>(null);
   const [stage, setStage] = useState<'scrub' | 'why' | 'reveal'>('scrub');
+  const [showBest, setShowBest] = useState(false);
   const [result, setResult] = useState<{ found: boolean; engineChip: ReasonChip | null; added: boolean } | null>(null);
 
   if (g === undefined) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
@@ -72,9 +73,13 @@ export function TurningScreen({ gameId }: { gameId: number | string }) {
   const skip = async () => { await skipGame(g.id!); pop(); };
 
   const tpPly = g.plies[tp.ply];
-  const showFen = stage === 'reveal' ? tpPly.fenBefore : at === 0 ? g.startFen : g.plies[at - 1].fenAfter;
-  const last = stage === 'reveal' ? sq(tpPly.uci) : plyShown >= 0 ? sq(g.plies[plyShown].uci) : null;
-  const arrows = stage === 'reveal' ? [{ from: tpPly.uci.slice(0, 2), to: tpPly.uci.slice(2, 4), tone: 'bad' as const }, ...(tpPly.comment?.bestUci ? [{ from: tpPly.comment.bestUci.slice(0, 2), to: tpPly.comment.bestUci.slice(2, 4), tone: 'good' as const }] : [])] : undefined;
+  // Same arrows as Game Review: after the move, red = what it allowed; "Show best" = the position
+  // before it with the best move in green.
+  const showFen = stage === 'reveal' ? (showBest ? tpPly.fenBefore : tpPly.fenAfter) : at === 0 ? g.startFen : g.plies[at - 1].fenAfter;
+  const last = stage === 'reveal' ? (showBest ? null : sq(tpPly.uci)) : plyShown >= 0 ? sq(g.plies[plyShown].uci) : null;
+  const reply = tpPly.comment?.replyLine?.[0];
+  const bestUci = tpPly.comment?.bestUci;
+  const arrows = stage !== 'reveal' ? undefined : showBest ? (bestUci ? [{ from: bestUci.slice(0, 2), to: bestUci.slice(2, 4), tone: 'good' as const }] : []) : reply ? [{ from: reply.slice(0, 2), to: reply.slice(2, 4), tone: 'bad' as const }] : [];
 
   return (
     <div className="flex h-full flex-col" data-testid="turning">
@@ -126,6 +131,7 @@ export function TurningScreen({ gameId }: { gameId: number | string }) {
               <p className="text-xs text-stone-500">Your reason: {REASON_CHIPS.find((c) => c.id === chip)!.label}. The engine's: {REASON_CHIPS.find((c) => c.id === result.engineChip)!.label}.</p>
             )}
             {result.added && <p className="text-xs text-stone-500">This position is in your reviews now.</p>}
+            {bestUci && <button className="text-sm font-semibold text-brand-700 dark:text-brand-500" onClick={() => setShowBest(!showBest)}>{showBest ? 'Show what it allowed' : 'Show the best move'}</button>}
             <div className="flex gap-2 pt-1">
               <button className="btn-secondary flex-1" onClick={() => useNav.getState().push({ name: 'review', gameId: g.id!, ply: tp.ply })}>Full review</button>
               <button className="btn-primary flex-1" onClick={pop}>Done</button>
