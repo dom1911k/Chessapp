@@ -1,6 +1,6 @@
 // Turning engine results for an imported game into the same classified plies, summary and
 // review cards an app game gets (pure: the engine results come in as arguments).
-import { moveAccuracy, povScore, winPct, type Score } from '../chess/evaluation';
+import { accuracyOf, povScore, winPct, type Score } from '../chess/evaluation';
 import { gameOverInfo } from '../chess/game';
 import { explainMove } from '../coach';
 import type { AnalysisResult } from '../engine';
@@ -44,7 +44,7 @@ export function classifyPlies(g: Pick<ImportedGame, 'startFen' | 'plies'>, res: 
       ...ply,
       evalAfter: aScore,
       classification: comment.classification,
-      accuracy: moveAccuracy(wpB, wpA),
+      accuracy: accuracyOf(bScore ? povScore(bScore, ply.color) : undefined, aScore ? povScore(aScore, ply.color) : undefined),
       wpLoss: Math.max(0, wpB - wpA),
       comment,
       special,

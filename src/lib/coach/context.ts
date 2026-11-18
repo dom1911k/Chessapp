@@ -1,5 +1,5 @@
 import { Chess, type Move } from 'chess.js';
-import { classify, povScore, winPct, type Classification, type Score } from '../chess/evaluation';
+import { classify, floorClass, povScore, winPct, type Classification, type Score } from '../chess/evaluation';
 import { lineToSan, parseUci, START_FEN } from '../chess/game';
 import { lineWords, moveWords } from '../chess/words';
 import { applyUci, other, parseFen, PIECE_NAME, sqIndex, sqName, type Color, type Piece, type PieceType } from '../chess/pos';
@@ -115,6 +115,11 @@ export class CoachContext {
     const sa = this.scoreAfter();
     if (sb?.type === 'mate' && sb.value === 1 && !(sa?.type === 'mate' && sa.value > 0) && (cls === 'best' || cls === 'good'))
       cls = 'inaccuracy';
+    // Win% saturates when a side is already lost or winning: a big material loss or walking into
+    // mate still counts (see floorClass).
+    const floor = floorClass(sb ?? undefined, sa ?? undefined);
+    const rank: Record<Classification, number> = { best: 0, good: 1, inaccuracy: 2, mistake: 3, blunder: 4 };
+    if (floor && rank[floor] > rank[cls]) cls = floor;
     return cls;
   });
 

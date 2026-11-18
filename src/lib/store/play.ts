@@ -3,7 +3,7 @@ import { rematchMove, type RematchInfo } from '../rematch';
 import { create } from 'zustand';
 import { chooseBotMove, botParams } from '../bot';
 import { chooseHumanMove, humanParams, maiaLogits } from '../maia';
-import { moveAccuracy, winPct, povScore, scoreToCp, type Score } from '../chess/evaluation';
+import { accuracyOf, winPct, povScore, scoreToCp, type Score } from '../chess/evaluation';
 import { gameOverInfo, START_FEN, tryMove, type GameResult, type MoveInput } from '../chess/game';
 import { hangingPieces, other, parseFen, PIECE_NAME, VALUE, type Color, type PieceType } from '../chess/pos';
 import { getOpponentRecords } from '../people/record';
@@ -307,7 +307,7 @@ export const usePlay = create<PlayStore>((set, get) => {
           ...ply,
           evalAfter: aScore,
           classification: comment.classification,
-          accuracy: moveAccuracy(wpB, wpA),
+          accuracy: accuracyOf(bScore ? povScore(bScore, ply.color) : undefined, aScore ? povScore(aScore, ply.color) : undefined),
           wpLoss: Math.max(0, wpB - wpA),
           comment,
           special,

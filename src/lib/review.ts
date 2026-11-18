@@ -2,7 +2,7 @@
 // plus book and miss), accuracy per player and per game phase, the key moments, and Coach Sam's
 // summary of the game.
 import { Chess } from 'chess.js';
-import { moveAccuracy, povScore, winPct, type Score } from './chess/evaluation';
+import { floorClass, floorLoss, moveAccuracy, povScore, winPct, type Score } from './chess/evaluation';
 import { lineToSan, START_FEN } from './chess/game';
 import type { Color } from './chess/pos';
 import { ECO } from './openings';
@@ -26,6 +26,8 @@ export const RC: Record<ReviewClass, { label: string; symbol: string; color: str
   miss: { label: 'Miss', symbol: '✕', color: '#ff7769', verdict: 'is a miss' },
   blunder: { label: 'Blunder', symbol: '??', color: '#fa412d', verdict: 'is a blunder' },
 };
+/** How bad a class is (higher = worse), for "at least a mistake" comparisons. */
+const SEVERITY: Record<ReviewClass, number> = { brilliant: 0, great: 0, best: 0, excellent: 0, book: 0, good: 1, inaccuracy: 2, mistake: 3, miss: 3, blunder: 4 };
 export const isBad = (c: ReviewClass) => c === 'inaccuracy' || c === 'mistake' || c === 'miss' || c === 'blunder';
 
 export interface ReviewPly {
@@ -35,6 +37,8 @@ export interface ReviewPly {
   wpAfter: number;
   accuracy: number;
   phase: Phase;
+  /** Win% the move effectively cost, with the material floor applied (≥ wpBefore − wpAfter). */
+  effLoss?: number;
 }
 export interface SideStats {
   accuracy: number;
@@ -112,10 +116,14 @@ export function reviewGame(g: Pick<AnyGame, 'plies' | 'userColor' | 'startFen' |
   // White-POV win% after each ply; a missing eval keeps the last one.
   const curve = [50];
   let last = 50;
+  // The raw evaluation after each ply too (White's view): win% saturates, the floor needs these.
+  const raw: (Score | undefined)[] = [{ type: 'cp', value: 0 }];
+  let lastRaw: Score | undefined = raw[0];
   g.plies.forEach((p) => {
     const s = p.evalAfter ?? terminal(p.fenAfter);
-    if (s) last = winPct(povScore(s, 'w'));
+    if (s) { last = winPct(povScore(s, 'w')); lastRaw = s; }
     curve.push(last);
+    raw.push(lastRaw);
   });
   const pov = (wpWhite: number, c: Color) => (c === 'w' ? wpWhite : 100 - wpWhite);
   const plies: ReviewPly[] = g.plies.map((p, i) => {
@@ -131,7 +139,14 @@ export function reviewGame(g: Pick<AnyGame, 'plies' | 'userColor' | 'startFen' |
       const prev = i > 0 ? Math.max(0, pov(curve[i - 1], g.plies[i - 1].color) - pov(curve[i], g.plies[i - 1].color)) : 0;
       if ((cls === 'inaccuracy' || cls === 'mistake' || cls === 'blunder') && prev >= 10 && wpBefore >= 65 && wpAfter >= 40) cls = 'miss';
     } else cls = classByLoss(loss);
-    return { cls, wpBefore, wpAfter, accuracy: moveAccuracy(wpBefore, wpAfter), phase: phaseOf(p.fenBefore, i) };
+    // Material floor: a big material loss, or walking into mate, counts even when win% has
+    // saturated (one side already lost or winning).
+    const sB = raw[i] && povScore(raw[i]!, p.color);
+    const sA = raw[i + 1] && povScore(raw[i + 1]!, p.color);
+    const floor = cls === 'book' ? null : floorClass(sB, sA);
+    if (floor && SEVERITY[floor] > SEVERITY[cls]) cls = floor;
+    const effLoss = Math.max(loss, floorLoss(floor));
+    return { cls, wpBefore, wpAfter, accuracy: moveAccuracy(wpBefore, wpBefore - effLoss), phase: phaseOf(p.fenBefore, i), effLoss };
   });
   const side = (mine: boolean): SideStats => {
     const idx = plies.map((r, i) => ({ r, i })).filter(({ i }) => g.plies[i].isUser === mine);
@@ -155,7 +170,7 @@ export function reviewGame(g: Pick<AnyGame, 'plies' | 'userColor' | 'startFen' |
 /** The biggest swings of the game (at most 4, 15+ win% each), in move order. */
 export function keyMoments(ps: PlyRecord[], rs: ReviewPly[]): KeyMoment[] {
   const swings = rs
-    .map((r, i) => ({ i, swing: r.wpAfter - r.wpBefore, r }))
+    .map((r, i) => ({ i, swing: Math.min(r.wpAfter - r.wpBefore, -(r.effLoss ?? 0)), r }))
     .filter((x) => x.swing <= -15 && isBad(x.r.cls))
     .sort((a, b) => a.swing - b.swing)
     .slice(0, 4)
@@ -169,7 +184,7 @@ export function keyMoments(ps: PlyRecord[], rs: ReviewPly[]): KeyMoment[] {
     const text =
       by === 'you'
         ? `${no} ${p.san} was a ${verdict}${p.comment?.bestSan ? ` — ${p.comment.bestSan} was the move` : ''}${reply ? `; they could answer ${reply}` : ''}.`
-        : `${no} ${p.san} — your opponent's ${verdict}${rs[i + 1] && !isBad(rs[i + 1].cls) ? ', and you punished it' : rs[i + 1] ? ', but you let it go' : ''}.`;
+        : `${no} ${p.san} — your opponent's ${verdict}${rs[i + 1] && !isBad(rs[i + 1].cls) ? ', and you punished it' : rs[i + 1] ? ', but you let it go' : ''}.${punishment(ps, i) ? ` ${punishment(ps, i)}` : ''}`;
     return { ply: i, by, swing: Math.round(swing), text };
   });
 }
@@ -209,3 +224,26 @@ export function gameSummary(g: Pick<AnyGame, 'plies' | 'userColor' | 'summary' |
 }
 
 const lower = (s: string) => (s ? s[0].toLowerCase() + s.slice(1) : s).replace(/\.$/, '') + '.';
+
+const NAME: Record<string, string> = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
+
+/**
+ * What punishes an opponent's move, from the engine's best reply (stored as the best move on your
+ * next ply): "Allows Qd8#.", "Allows a forced mate in 3, starting with Qd8+.", "This hangs the
+ * queen — Rxb4 wins it.", or "Nf5 punishes it." Null when no reply is known.
+ */
+export function punishment(ps: Pick<PlyRecord, 'fenAfter' | 'evalAfter' | 'color' | 'isUser' | 'comment'>[], i: number): string | null {
+  const p = ps[i];
+  const next = ps[i + 1];
+  const uci = next?.isUser ? next.comment?.bestUci : undefined;
+  if (!uci || p.isUser) return null;
+  const c = new Chess(p.fenAfter);
+  let m;
+  try { m = c.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] }); } catch { return null; }
+  if (m.san.includes('#')) return `Allows ${m.san}.`;
+  const me = p.color === 'w' ? 'b' : 'w';
+  const s = p.evalAfter ? povScore(p.evalAfter, me) : undefined;
+  if (s?.type === 'mate' && s.value > 0) return `Allows a forced mate in ${s.value}, starting with ${m.san}.`;
+  if (m.captured) return `This hangs the ${NAME[m.captured]} — ${m.san} wins it.`;
+  return `${m.san} punishes it.`;
+}

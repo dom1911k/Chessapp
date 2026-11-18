@@ -7,7 +7,7 @@ import { create } from 'zustand';
 import { kvGet, kvSet } from '../lib/db';
 import { chooseBotMove, botParams } from '../lib/bot';
 import { chooseHumanMove, getPlayerRating, humanParams, maiaLogits, shiftedTemperature } from '../lib/maia';
-import { moveAccuracy, povScore, scoreToCp, winPct, type Score } from '../lib/chess/evaluation';
+import { accuracyOf, povScore, scoreToCp, winPct, type Score } from '../lib/chess/evaluation';
 import { gameOverInfo, START_FEN, tryMove, type GameResult, type MoveInput } from '../lib/chess/game';
 import type { Color } from '../lib/chess/pos';
 import { explainMove } from '../lib/coach';
@@ -435,7 +435,7 @@ export const useCupGame = create<Store>((set, get) => {
         if (gg.plies[i]?.uci !== ply.uci) return;
         // The position before your move is the one after their reply: keep its eval for the chronicle.
         if (i > 0 && !gg.plies[i - 1].isUser && bScore) gg.plies[i - 1] = { ...gg.plies[i - 1], evalAfter: bScore };
-        gg.plies[i] = { ...ply, evalAfter: aScore, classification: comment.classification, accuracy: moveAccuracy(wpB, wpA), wpLoss: Math.max(0, wpB - wpA), comment, special, tactics: Object.keys(tactics).length ? tactics : undefined };
+        gg.plies[i] = { ...ply, evalAfter: aScore, classification: comment.classification, accuracy: accuracyOf(bScore ? povScore(bScore, ply.color) : undefined, aScore ? povScore(aScore, ply.color) : undefined), wpLoss: Math.max(0, wpB - wpA), comment, special, tactics: Object.keys(tactics).length ? tactics : undefined };
       });
       if (await checkOver()) return;
       await botMove();

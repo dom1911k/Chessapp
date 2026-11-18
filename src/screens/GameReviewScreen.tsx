@@ -33,7 +33,7 @@ import { formatLine, lineToSan, tryMove, type MoveInput } from '../lib/chess/gam
 import { classify, formatScore, povScore, winPct } from '../lib/chess/evaluation';
 import { shortWords } from '../lib/chess/words';
 import { getEngine } from '../lib/engine';
-import { isBad, moveNo, RC, REVIEW_ORDER, reviewGame, type Review, type ReviewClass } from '../lib/review';
+import { isBad, moveNo, punishment, RC, REVIEW_ORDER, reviewGame, type Review, type ReviewClass } from '../lib/review';
 import { PHASES } from '../lib/games/mistakes';
 import { THEMES } from '../lib/themes';
 import { trapById, trapCard, trapForLoss } from '../lib/traps';
@@ -580,15 +580,16 @@ function CoachText({ g, r, i, best, retry, cause }: { g: AnyGame; r: Review; i: 
       </>
     );
   }
-  // The opponent's move: what it did, and whether you answered it well.
+  // The opponent's move: what punishes it (the engine's best reply), and whether you answered it well.
+  const punish = punishment(g.plies, i);
   return (
     <>
       {headline}
-      <p className="mt-1">Your opponent played {shortWords(p.fenBefore, p.uci).toLowerCase()}.</p>
+      {isBad(rp.cls) && punish ? <p className="mt-1">{punish}</p> : <p className="mt-1">Your opponent played {shortWords(p.fenBefore, p.uci).toLowerCase()}.</p>}
       {isBad(rp.cls) && next && nextR && (
         <p className="mt-1">
           {isBad(nextR.cls) || nextR.cls === 'good'
-            ? <>That gave you a chance{next.comment?.bestSan ? <> — <b className="text-emerald-700 dark:text-emerald-400">{next.comment.bestSan}</b> would have punished it</> : ''}. You played {next.san}.</>
+            ? <>That gave you a chance{next.comment?.bestSan && !punish ? <> — <b className="text-emerald-700 dark:text-emerald-400">{next.comment.bestSan}</b> would have punished it</> : ''}. You played {next.san}.</>
             : <>You found the right answer: <b>{next.san}</b>.</>}
         </p>
       )}

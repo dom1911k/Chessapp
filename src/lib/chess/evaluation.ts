@@ -50,6 +50,43 @@ export function classify(wpBefore: number, wpAfter: number, isBestMove: boolean)
   return 'blunder';
 }
 
+/**
+ * Win% saturates once a side is lost or winning (it clamps at ±1000 cp, and a mate is 0 or 100),
+ * so throwing away a queen in a lost position, or walking into mate, barely moves it. This floor
+ * looks at the unclamped evaluation instead (both scores from the mover's point of view):
+ * - a move that lets the opponent force mate when they couldn't before is a blunder (getting
+ *   mated sooner when mate was already forced is not);
+ * - losing 300+ cp is at least a mistake, 500+ a blunder — unless the mover is still clearly
+ *   winning afterwards (+10 or more), e.g. trading down into an easily won position.
+ */
+export const FLOOR = { mistakeCp: 300, blunderCp: 500, stillWinningCp: 1000 };
+const MATE_CP = 10000;
+/** Unclamped centipawns for comparing evaluations (mates far beyond any material score). */
+const rawCp = (s: Score) => (s.type === 'cp' ? s.value : s.value === 0 ? 0 : Math.sign(s.value) * (MATE_CP - Math.abs(s.value)));
+export function floorClass(before: Score | undefined, after: Score | undefined): 'mistake' | 'blunder' | null {
+  if (!before || !after) return null;
+  const matedBefore = before.type === 'mate' && before.value < 0;
+  const matedAfter = after.type === 'mate' && after.value < 0;
+  if (matedBefore) return null;
+  if (matedAfter) return 'blunder';
+  const cpAfter = rawCp(after);
+  if (cpAfter >= FLOOR.stillWinningCp) return null;
+  const loss = rawCp(before) - cpAfter;
+  if (loss >= FLOOR.blunderCp) return 'blunder';
+  if (loss >= FLOOR.mistakeCp) return 'mistake';
+  return null;
+}
+
+/** The win% loss a floored move counts as (for accuracy): a mistake 10, a blunder 20. */
+export const floorLoss = (f: 'mistake' | 'blunder' | null) => (f === 'blunder' ? 20 : f === 'mistake' ? 10 : 0);
+
+/** Per-move accuracy from the mover's scores before and after, with the floor applied. */
+export function accuracyOf(before: Score | undefined, after: Score | undefined): number {
+  const wpB = before ? winPct(before) : 50;
+  const wpA = after ? winPct(after) : wpB;
+  return moveAccuracy(wpB, wpB - Math.max(wpB - wpA, floorLoss(floorClass(before, after))));
+}
+
 /** Lichess-style per-move accuracy (0..100) from the win% drop. */
 export function moveAccuracy(wpBefore: number, wpAfter: number): number {
   const loss = Math.max(0, wpBefore - wpAfter);
