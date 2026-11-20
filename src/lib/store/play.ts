@@ -339,7 +339,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         : !comment.ruleIds.every((r) => r === 'praise-generic');
       const notable = special || (slip || cls === 'inaccuracy' ? (gentle ? hurts : true) : praiseWorthy && praiseDue);
       if (notable && !quiet) {
-        let text = special ? [SPECIAL_TEXT[special], ...comment.text.filter((t) => !/best move|exactly right|Spot on/.test(t))] : comment.text;
+        let text = special ? [SPECIAL_TEXT[special], ...comment.text.filter((t) => !/best move|exactly right|engine's choice/i.test(t))] : comment.text;
         if (gentle && hurts) text = [pick(GENTLE_OPENERS), ...text.slice(0, 2).map((t, k) => (k ? t : cap(t.replace(/^(Oops|Ouch|Careful)\s*[!,—–-]*\s*/, ''))))];
         post({
           kind: 'comment',

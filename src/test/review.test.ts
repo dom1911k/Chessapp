@@ -62,7 +62,7 @@ describe('game review', () => {
     const r = reviewGame(g);
     expect(r.plies[3].cls).toBe('great');
     expect(r.plies[5].cls).toBe('blunder');
-    expect(r.summary.join(' ')).toMatch(/turned on 3… Nf6, a blunder \(Nf3 was the move\)/);
+    expect(r.summary.join(' ')).toMatch(/turned on 3… Nf6, a blunder — Nf3 was the move\./);
     const g2 = game(['d4', 'Nf6', 'Bg5', 'Ne4'], 'w', [20, 20, 20, 20], {}, { 2: { special: 'brilliant' } });
     expect(reviewGame(g2).plies[2].cls).toBe('brilliant');
   });

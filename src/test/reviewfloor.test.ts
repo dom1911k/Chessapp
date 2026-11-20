@@ -68,7 +68,7 @@ describe('material floor: win% saturates, the floor does not', () => {
     const r = reviewGame(g);
     const m = keyMoments((g as { plies: never[] }).plies, r.plies);
     expect(m.map((x) => x.ply)).toContain(1);
-    expect(m.find((x) => x.ply === 1)!.text).toContain('Rxb4 wins it');
+    expect(m.find((x) => x.ply === 1)!.text).toBe('14… Qb4 hung the queen — you won it with Rxb4.');
   });
 
   it('the coach grades your own moves the same way (in-game feedback and stored classification)', () => {

@@ -5,21 +5,21 @@
 export const TEMPLATES = {
   // ---- What goes wrong ----
   allowsMate: [
-    'Uh-oh — this lets them checkmate you: {line}.',
-    'Careful! Now they have a checkmate: {line}.',
+    'This allows checkmate: {line}.',
+    'Now they have a forced mate: {line}.',
     'This walks right into a checkmate: {line}.',
   ],
   allowsBackRankMate: [
-    'Watch out! Now they can {oppMove}. Your king is stuck behind its own pawns.',
+    'Now they can {oppMove}. Your king is stuck behind its own pawns.',
     'Your king has no way out — they can {oppMove}.',
   ],
   allowsBackRankMateLine: [
     'This lets them checkmate you on your back row: {line}. Your king is stuck behind its own pawns.',
-    'Watch your back row! After this, {line}. Your king has nowhere to run.',
+    'Your back rank is weak: after this, {line}. Your king has nowhere to run.',
   ],
   hangsMovedFree: [
-    'Oops — nobody protects your {piece} on {sq}, so they can just take it.',
-    'Your {piece} on {sq} is all alone. They can grab it for free.',
+    'Nothing defends your {piece} on {sq}, so they can simply take it.',
+    'Your {piece} on {sq} is undefended — they win it for free.',
     'Your {piece} on {sq} can be taken for free.',
   ],
   hangsMovedDefended: [
@@ -27,19 +27,19 @@ export const TEMPLATES = {
     'A {attacker} can grab your {piece} on {sq}, and taking back doesn\'t make up for it.',
   ],
   ignoredThreat: [
-    'Your {piece} on {sq} was already in danger, and it still is. Always check what your opponent is up to first!',
+    'Your {piece} on {sq} was already attacked, and this does nothing about it. Check their threats first.',
     'Before you move, ask "what do they want?" Your {piece} on {sq} was attacked and still is.',
   ],
   removedDefender: [
     'Your {moved} was guarding your {piece} on {sq}. Now that it moved away, they can {oppMove}.',
-    'Moving your {moved} left your {piece} on {sq} without a bodyguard.',
+    'Moving your {moved} took away the only defender of your {piece} on {sq}.',
   ],
   leavesHanging: [
     'This leaves your {piece} on {sq} unprotected, so they can {oppMove}.',
     'After this, your {piece} on {sq} is an easy target.',
   ],
   allowsFork: [
-    'Now they can {oppMove}. Their {attacker} would attack your {t1} and your {t2} at the same time — a fork! You can only save one.',
+    'Now they can {oppMove}, forking your {t1} and {t2} — you can only save one.',
     'Careful: they can {oppMove}, and their {attacker} hits your {t1} and {t2} at once.',
   ],
   allowsPin: [
@@ -50,15 +50,15 @@ export const TEMPLATES = {
     'Now they can {oppMove}. Your {front} has to run away, and then they get your {behind} behind it.',
   ],
   allowsDiscovered: [
-    'Now they can {oppMove}. That opens up a sneaky attack from their {slider} on your {target}.',
+    'Now they can {oppMove}, uncovering an attack from their {slider} on your {target}.',
   ],
   badTrade: [
     'You took a {captured} with your {piece}, but they can take back. Your {piece} is worth more, so that swap costs you.',
-    'Grabbing the {captured} looks nice, but your {piece} gets taken back — and it\'s worth more.',
+    'Taking the {captured} costs your {piece} — they take back, and it\'s worth more.',
   ],
   weakensKing: [
     'This opens up the pawns around your king. Now they can {oppMove} and start an attack.',
-    'Your king gets a bit chilly after this — they can {oppMove}.',
+    'This loosens the cover around your king — they can {oppMove}.',
   ],
   losesMaterialLong: [
     "Here's the problem: {line} — and a few moves later that costs you {victim}.",
@@ -70,7 +70,7 @@ export const TEMPLATES = {
   ],
   strongReply: [
     'This gives them a strong answer: they can {oppMove}.',
-    'Now they can {oppMove}, and that\'s good for them.',
+    'Now they can {oppMove}, and they are better.',
   ],
   strongReplyPawn: [
     'This lets them {oppMove} — after {line} you are a pawn down.',
@@ -92,21 +92,21 @@ export const TEMPLATES = {
 
   // ---- The better idea ----
   missedMate: [
-    'You had a checkmate here: {line}!',
-    'There was a checkmate! {line}.',
+    'You had checkmate here: {line}.',
+    'There was a forced mate: {line}.',
   ],
-  missedMate1: ['You could have won right away by {move}!', 'Checkmate was right there — you could {doMove}!'],
-  missedBackRank: ['You could {doMove}! Their king was stuck behind its own pawns.'],
+  missedMate1: ['{move} was checkmate.', 'Checkmate was on the board — you could {doMove}.'],
+  missedBackRank: ['You could {doMove} — their king was stuck behind its own pawns.'],
   missedFree: [
     'Their {piece} on {sq} was free — you could just take it.',
-    'Nobody was protecting their {piece} on {sq}. Free snack!',
+    'Their {piece} on {sq} had no defender — it was yours to take.',
   ],
   missedWinningCapture: [
     'You could have won their {piece} on {sq} by {move}. It wasn\'t protected well enough.',
     'Their {piece} on {sq} was up for grabs — try {move}.',
   ],
   missedFork: [
-    'You could {doMove}. That attacks their {t1} and {t2} at the same time — a fork!',
+    'You could {doMove}, forking their {t1} and {t2}.',
     'Look for double attacks: {move} would hit their {t1} and {t2} together.',
   ],
   missedPin: ['You could {doMove} to pin their {pinned} — it can\'t move without exposing the {behind}.'],
@@ -116,13 +116,13 @@ export const TEMPLATES = {
     'You could {doMove} and trap their {piece} on {sq} — it would have nowhere to go.',
   ],
   missedDefender: [
-    'You could {doMove}. That {captured} was the only guard of their {guarded}!',
+    'You could {doMove} — that {captured} was the only guard of their {guarded}.',
   ],
   missedOverload: [
     'Their {piece} on {sq} has two jobs: guarding the {a} and the {b}. You could {doMove} and it can\'t do both.',
   ],
   missedPromotion: [
-    'Push that pawn! If you {doMove}, nothing can stop it from becoming a queen.',
+    'If you {doMove}, nothing can stop that pawn from queening.',
   ],
   savePiece: [
     'Your {piece} on {sq} needed help. You could {doMove} to keep it safe.',
@@ -134,7 +134,7 @@ export const TEMPLATES = {
   ],
   fallbackMate: [
     '{move} was much stronger — it leads to checkmate: {line}.',
-    'You had a checkmate here! {move} starts it: {line}.',
+    '{move} started a forced mate: {line}.',
   ],
   fallbackIdea: [
     '{move} was better: {idea} ({line}).',
@@ -153,7 +153,7 @@ export const TEMPLATES = {
   ],
   earlyQueen: [
     'Bringing your queen out this early lets them chase her around while they bring out their pieces.',
-    'Your queen is strong, but out this early she becomes a target. Knights and bishops first!',
+    'Out this early, your queen becomes a target. Develop knights and bishops first.',
   ],
   noCastle: [
     'Your king is still in the middle. Castling soon tucks it away safely.',
@@ -173,21 +173,21 @@ export const TEMPLATES = {
   ],
 
   // ---- Praise ----
-  praiseMate: ['Checkmate! Beautifully done.', 'That\'s checkmate — well played!'],
-  praiseFree: ['Nice — a free {piece}!', 'Good eye! That {piece} wasn\'t protected.'],
-  praiseWin: ['Good capture — you won something there.', 'Well spotted, that wins you some points.'],
-  praiseFork: ['Great fork! Your {attacker} attacks two pieces at once.', 'A fork — nicely done!'],
+  praiseMate: ['Checkmate — well played.', 'And that\'s mate.'],
+  praiseFree: ['A free {piece} — well spotted.', 'That {piece} had no defender, and you took it.'],
+  praiseWin: ['Good capture — you won something there.', 'Well spotted — that wins material.'],
+  praiseFork: ['A fork: your {attacker} hits two pieces at once.', 'A clean fork.'],
   praisePin: ['Nice pin on their {pinned}.'],
-  praiseSkewer: ['A skewer — excellent!'],
-  praiseDiscovered: ['A sneaky hidden attack — well played!'],
-  praiseCastle: ['Castled! Your king is safe and your rook joins in.', 'Good, you castled. King safety first!'],
-  praiseEscape: ['Good — you got your {piece} out of danger.', 'You spotted the threat to your {piece}. Well done!'],
+  praiseSkewer: ['A skewer — the piece behind falls.'],
+  praiseDiscovered: ['A discovered attack — well played.'],
+  praiseCastle: ['Castled: your king is safe and your rook joins the game.', 'Good — king safety first.'],
+  praiseEscape: ['Good — you got your {piece} out of danger.', 'You saw the threat to your {piece} and dealt with it.'],
   praiseDefend: ['Good — you protected your {piece} on {sq}.'],
   praiseTradeAhead: [
     'Good trade — when you\'re ahead, swapping pieces makes your lead count even more.',
   ],
-  praiseBest: ['That\'s the best move!', 'Perfect — exactly right.', 'Spot on!'],
-  praiseGood: ['Good move.', 'Nice, that works.', 'Solid choice.'],
+  praiseBest: ['The best move.', 'Exactly right.', 'The engine\'s choice too.'],
+  praiseGood: ['Good move.', 'That works.', 'Solid choice.'],
 
   // ---- Take-backs ----
   takebackGood: [

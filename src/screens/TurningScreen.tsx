@@ -10,6 +10,7 @@ import { db } from '../lib/db';
 import { loadAnyGame } from '../lib/games';
 import { reviewGame } from '../lib/review';
 import { mistakeCauses } from '../lib/games/causes';
+import { tidy } from '../lib/reviewText';
 import { newCardDue, type Card } from '../lib/srs';
 import { chipForCause, myPlies, REASON_CHIPS, saveResult, skipGame, spotOn, turningPoint, type ReasonChip } from '../lib/turning';
 import type { AnyGame } from '../lib/store/types';
@@ -125,7 +126,7 @@ export function TurningScreen({ gameId }: { gameId: number | string }) {
             </div>
             <div className="flex gap-2">
               <CoachAvatar mood={result.found ? 'happy' : 'thinking'} size={32} />
-              <p className="flex-1 text-sm">{tpPly.comment?.text?.[0] ?? `That move cost about ${(tp.drop / 100).toFixed(1)} pawns.`}</p>
+              <p className="flex-1 text-sm">{tpPly.comment?.text?.[0] ? tidy(tpPly.comment.text[0]) : `That move cost about ${(tp.drop / 100).toFixed(1)} pawns.`}</p>
             </div>
             {chip && result.engineChip && (
               <p className="text-xs text-stone-500">Your reason: {REASON_CHIPS.find((c) => c.id === chip)!.label}. The engine's: {REASON_CHIPS.find((c) => c.id === result.engineChip)!.label}.</p>

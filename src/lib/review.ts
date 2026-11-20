@@ -4,7 +4,7 @@
 import { Chess } from 'chess.js';
 import { floorClass, floorLoss, moveAccuracy, povScore, winPct, type Score } from './chess/evaluation';
 import { lineToSan, START_FEN } from './chess/game';
-import type { Color } from './chess/pos';
+import { hangingPieces, parseFen, sqName, type Color } from './chess/pos';
 import { ECO } from './openings';
 import { phaseOf, PHASES, type Phase } from './games/mistakes';
 import { THEMES } from './themes';
@@ -131,7 +131,7 @@ export function reviewGame(g: Pick<AnyGame, 'plies' | 'userColor' | 'startFen' |
     const wpAfter = pov(curve[i + 1], p.color);
     const loss = Math.max(0, wpBefore - wpAfter);
     let cls: ReviewClass;
-    if (fromStart && isBook(sans, i) && loss < 5) cls = 'book';
+    if (fromStart && isBook(sans, i) && loss < 10) cls = 'book';
     else if (p.isUser && p.special) cls = p.special;
     else if (p.isUser && p.classification) {
       cls = p.classification === 'good' ? (loss <= 2.5 ? 'excellent' : 'good') : p.classification;
@@ -183,8 +183,8 @@ export function keyMoments(ps: PlyRecord[], rs: ReviewPly[]): KeyMoment[] {
     const reply = p.comment?.replyLine?.[0] ? lineToSan(p.fenAfter, p.comment.replyLine.slice(0, 1))[0] : undefined;
     const text =
       by === 'you'
-        ? `${no} ${p.san} was a ${verdict}${p.comment?.bestSan ? ` — ${p.comment.bestSan} was the move` : ''}${reply ? `; they could answer ${reply}` : ''}.`
-        : `${no} ${p.san} — your opponent's ${verdict}${rs[i + 1] && !isBad(rs[i + 1].cls) ? ', and you punished it' : rs[i + 1] ? ', but you let it go' : ''}.${punishment(ps, i) ? ` ${punishment(ps, i)}` : ''}`;
+        ? `${no} ${p.san} was ${article(verdict)} ${verdict}${reply ? ` — it allowed ${reply}` : ''}${p.comment?.bestSan ? `. ${p.comment.bestSan} was the move.` : '.'}`
+        : theirSlipLine(ps, i, verdict, rs[i + 1] ? !isBad(rs[i + 1].cls) : undefined);
     return { ply: i, by, swing: Math.round(swing), text };
   });
 }
@@ -210,20 +210,24 @@ export function gameSummary(g: Pick<AnyGame, 'plies' | 'userColor' | 'summary' |
   if (mineBad.length) {
     const m = mineBad.sort((a, b) => a.swing - b.swing)[0];
     const p = g.plies[m.ply];
-    const why = p.comment?.text.find((t) => t.length <= 110);
+    // The concrete problem (not a general tip or a long worded line) as its own sentence.
+    const ids = p.comment?.ruleIds ?? [];
+    const why = p.comment?.text.find((t, k) => t.length <= 120 && !t.includes('(') && (!ids[k] || PROBLEM_RULE.test(ids[k])));
     const verdict = RC[rs[m.ply].cls].label.toLowerCase();
-    out.push(`The game turned on ${moveNo(g.plies, m.ply)} ${p.san}, a ${verdict}${p.comment?.bestSan ? ` (${p.comment.bestSan} was the move)` : ''}${why ? `: ${lower(why)}` : '.'}`);
+    out.push(`The game turned on ${moveNo(g.plies, m.ply)} ${p.san}, ${article(verdict)} ${verdict}${p.comment?.bestSan ? ` — ${p.comment.bestSan} was the move` : ''}.${why ? ` ${sentence(why)}` : ''}`);
   } else if (theirs.length && g.userResult === 'win') out.push('Your opponent slipped and you made the most of it — clean work.');
   else if (g.userResult === 'win') out.push('No big mistakes — you won it steadily.');
   // 3. Missed chances and the lesson.
   const misses = rs.filter((r, i) => g.plies[i].isUser && r.cls === 'miss').length;
   if (misses) out.push(`You missed ${misses === 1 ? 'a chance' : `${misses} chances`} to punish your opponent's mistakes — after every opponent move, ask "what did that just leave unprotected?"`);
   else if (g.summary.lessonTheme) out.push(THEMES[g.summary.lessonTheme].lesson);
-  if (!out.length) out.push(g.userResult === 'loss' ? "A tough one. Let's step through it to see where it went wrong." : 'Let’s step through the game.');
+  if (!out.length) out.push(g.userResult === 'loss' ? 'A tough one — step through it to see where it slipped.' : g.userResult === 'draw' ? 'A balanced game with no big swings from you — well held.' : 'A steady game — step through it for the details.');
   return out.slice(0, 3);
 }
 
-const lower = (s: string) => (s ? s[0].toLowerCase() + s.slice(1) : s).replace(/\.$/, '') + '.';
+/** Rules that say what concretely goes wrong (vs ideas, principles, praise). */
+const PROBLEM_RULE = /^(allows-|bad-trade|hangs-|weakens-king|loses-material|strong-reply)/;
+const sentence = (t: string) => (/[.!?]$/.test(t) ? t : `${t}.`);
 
 const NAME: Record<string, string> = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
 
@@ -232,7 +236,16 @@ const NAME: Record<string, string> = { p: 'pawn', n: 'knight', b: 'bishop', r: '
  * next ply): "Allows Qd8#.", "Allows a forced mate in 3, starting with Qd8+.", "This hangs the
  * queen — Rxb4 wins it.", or "Nf5 punishes it." Null when no reply is known.
  */
-export function punishment(ps: Pick<PlyRecord, 'fenAfter' | 'evalAfter' | 'color' | 'isUser' | 'comment'>[], i: number): string | null {
+export interface Punish {
+  san: string;
+  uci: string;
+  kind: 'mate' | 'mateIn' | 'hang' | 'other';
+  piece?: string;
+  n?: number;
+}
+
+/** The engine's best answer to an opponent's move (stored as the best move on your next ply). */
+export function punishInfo(ps: Pick<PlyRecord, 'fenAfter' | 'evalAfter' | 'color' | 'isUser' | 'comment'>[], i: number): Punish | null {
   const p = ps[i];
   const next = ps[i + 1];
   const uci = next?.isUser ? next.comment?.bestUci : undefined;
@@ -240,10 +253,62 @@ export function punishment(ps: Pick<PlyRecord, 'fenAfter' | 'evalAfter' | 'color
   const c = new Chess(p.fenAfter);
   let m;
   try { m = c.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] }); } catch { return null; }
-  if (m.san.includes('#')) return `Allows ${m.san}.`;
+  if (m.san.includes('#')) return { san: m.san, uci, kind: 'mate' };
   const me = p.color === 'w' ? 'b' : 'w';
   const s = p.evalAfter ? povScore(p.evalAfter, me) : undefined;
-  if (s?.type === 'mate' && s.value > 0) return `Allows a forced mate in ${s.value}, starting with ${m.san}.`;
-  if (m.captured) return `This hangs the ${NAME[m.captured]} — ${m.san} wins it.`;
-  return `${m.san} punishes it.`;
+  if (s?.type === 'mate' && s.value > 0) return { san: m.san, uci, kind: 'mateIn', n: s.value };
+  // A pawn grab is rarely the whole story behind a blunder; "hangs" is for pieces.
+  if (m.captured && m.captured !== 'p') {
+    // Only when the capture really wins it (not an even trade the mover can take back).
+    const loose = hangingPieces(parseFen(p.fenAfter).board, p.color as Color).some((h) => sqName(h.sq) === m.to && h.loss >= 2);
+    if (loose) return { san: m.san, uci, kind: 'hang', piece: NAME[m.captured] };
+  }
+  return { san: m.san, uci, kind: 'other' };
 }
+
+/**
+ * What punishes an opponent's move: "Allows Qd8#.", "Allows a forced mate in 3, starting with
+ * Qd8+.", "This hangs the queen — Rxb4 wins it.", or "Nf5 punishes it." Null when no reply is known.
+ */
+export function punishment(ps: Pick<PlyRecord, 'fenAfter' | 'evalAfter' | 'color' | 'isUser' | 'comment'>[], i: number): string | null {
+  const x = punishInfo(ps, i);
+  if (!x) return null;
+  if (x.kind === 'mate') return `Allows ${x.san}.`;
+  if (x.kind === 'mateIn') return `Allows a forced mate in ${x.n}, starting with ${x.san}.`;
+  if (x.kind === 'hang') return `This hangs the ${x.piece} — ${x.san} wins it.`;
+  return `${x.san} punishes it.`;
+}
+
+/**
+ * One line for an opponent's slip and what you did with it: "32. Qg4 hung the queen — you won it
+ * with Qxg4+." / "32. Qg4 hung the queen — Qxg4+ wins it, but you played Kh1."
+ */
+export function theirSlipLine(ps: Pick<PlyRecord, 'fenBefore' | 'fenAfter' | 'evalAfter' | 'color' | 'isUser' | 'comment' | 'san' | 'uci'>[], i: number, verdict: string, answered?: boolean): string {
+  const p = ps[i];
+  const next = ps[i + 1];
+  const x = punishInfo(ps, i);
+  const head = `${moveNo(ps, i)} ${p.san}`;
+  if (!x || !next) return `${head} was ${article(verdict)} ${verdict} by your opponent${answered === undefined || !next ? '' : answered ? ' — and you punished it' : ', but you let it go'}.`;
+  const found = next.uci === x.uci;
+  const what =
+    x.kind === 'mate' ? `allowed ${x.san}` : x.kind === 'mateIn' ? `allowed a forced mate in ${x.n}` : x.kind === 'hang' ? `hung the ${x.piece}` : `was ${article(verdict)} ${verdict}`;
+  if (found) {
+    if (x.kind === 'mate') return `${head} allowed ${x.san} — and you found it.`;
+    if (x.kind === 'hang') return `${head} hung the ${x.piece} — you won it with ${x.san}.`;
+    return `${head} ${what} — you punished it with ${x.san}.`;
+  }
+  if (x.kind === 'mate') return `${head} allowed ${x.san}, but you played ${next.san}.`;
+  if (x.kind === 'hang') return `${head} hung the ${x.piece} — ${x.san} wins it, but you played ${next.san}.`;
+  return `${head} ${what} — ${x.san} was the answer; you played ${next.san}.`;
+}
+
+/** The short line on a key-moment card for their slip: "You won the queen with Qxg4+" / "Bd2 punishes it — missed". */
+export function slipCardLine(ps: Pick<PlyRecord, 'fenAfter' | 'evalAfter' | 'color' | 'isUser' | 'comment' | 'uci'>[], i: number): string | null {
+  const x = punishInfo(ps, i);
+  const next = ps[i + 1];
+  if (!x || !next) return null;
+  if (next.uci === x.uci) return x.kind === 'hang' ? `You won the ${x.piece} with ${x.san}` : x.kind === 'mate' ? `You found ${x.san}` : `You punished it with ${x.san}`;
+  return x.kind === 'hang' ? `${x.san} wins the ${x.piece} — missed` : x.kind === 'mate' ? `${x.san} was mate — missed` : `${x.san} punishes it — missed`;
+}
+
+const article = (w: string) => (/^[aeiou]/i.test(w) ? 'an' : 'a');

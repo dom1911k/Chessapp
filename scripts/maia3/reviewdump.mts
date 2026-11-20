@@ -6,7 +6,7 @@ import { engine } from './players.mts';
 import { explainMove } from '../../src/lib/coach/index.ts';
 import { povScore } from '../../src/lib/chess/evaluation.ts';
 import { reviewGame, punishment, moveNo, RC, isBad } from '../../src/lib/review.ts';
-import { verdictLine, goodWhy, looseWhy, missedThreat } from '../../src/lib/reviewText.ts';
+import { verdictLine, goodWhy, looseWhy, missedThreat, planWhy, repeatedTips, reviewNotes, gameRating, cpLosses } from '../../src/lib/reviewText.ts';
 import { mistakeCauses, missedChances } from '../../src/lib/games/causes.ts';
 
 const [file, idxS, me, depthS] = process.argv.slice(2);
@@ -35,10 +35,12 @@ const result = g0.pgn.match(/\[Result "([^"]+)"\]/)?.[1];
 const userResult = result === '1/2-1/2' ? 'draw' : (result === '1-0') === (me === 'w') ? 'win' : 'loss';
 const g = { plies, userColor: me, startFen: fens[0], summary: { accuracy: 0, counts: {}, biggestMistakePly: null }, userResult, reason: 'resignation', elo: 0 } as never;
 const r = reviewGame(g);
+// OUT=<file>: also write the analysed game (for loading into the app in a browser check).
+if (process.env.OUT) (await import('node:fs')).writeFileSync(process.env.OUT, JSON.stringify(g));
 console.log(`=== game ${idxS} as ${me} (${userResult}) ratings ${g0.whiteRating}/${g0.blackRating}`);
 console.log('VERDICT:', verdictLine(g, r));
 console.log('SAM:', r.summary.join(' | '));
-console.log('ACC me/them:', r.me.accuracy, r.them.accuracy);
+console.log('ACC me/them:', r.me.accuracy, r.them.accuracy, '| game rating', gameRating(cpLosses(g, r, true)), gameRating(cpLosses(g, r, false)));
 for (const m of r.moments) console.log('MOMENT:', m.text);
 const causes = mistakeCauses(g, r.plies.map((x) => x.cls));
 for (const m of missedChances(g, r.plies.map((x) => x.cls))) console.log('MISSED:', moveNo(plies as never, m.ply), m.bestSan, m.what, '| played', m.played);
@@ -47,17 +49,18 @@ plies.forEach((p: any, i: number) => {
   const cause = causes.find((x) => x.ply === i);
   const head = `${moveNo(plies as never, i)} ${p.san} [${rp.cls}${rp.effLoss ? ' L' + rp.effLoss.toFixed(0) : ''}]`;
   if (p.isUser) {
-    const why = cause ? (cause.cause === 'hungPiece' && cause.sq ? looseWhy(p, cause.sq) ?? cause.text : cause.text) : '';
+    const why = !cause ? '' : cause.cause === 'hungPiece' && cause.sq ? looseWhy(p, cause.sq) ?? cause.text : cause.cause === 'plan' ? planWhy(rp.wpBefore, rp.wpAfter) : cause.text;
     const th = cause?.cause === 'missedThreat' ? missedThreat(p) : null;
-    const nice = !isBad(rp.cls) && rp.cls !== 'book' ? goodWhy(p) : null;
+    const nice0 = !isBad(rp.cls) && rp.cls !== 'book' ? goodWhy(p) : null;
+    const nice = nice0 && (rp.cls === 'brilliant' || rp.cls === 'great' || !/saves your/.test(nice0)) ? nice0 : null;
     console.log(`YOU  ${head} ${RC[rp.cls].verdict}`);
     if (th) console.log('     THREAT:', th.text);
     if (why) console.log('     WHY:', why);
     if (nice) console.log('     NICE:', nice);
-    for (const t of p.comment?.text ?? []) console.log('     TEXT:', t);
+    for (const t of reviewNotes(p, rp.cls, cause, why, { nice: !!nice, repeatTip: repeatedTips(plies as never).has(i) })) console.log('     TEXT:', t);
     if (isBad(rp.cls) && p.comment?.bestSan) console.log('     BEST:', p.comment.bestSan);
   } else if (isBad(rp.cls)) {
-    console.log(`THEM ${head} ${RC[rp.cls].verdict} — ${punishment(plies as never, i) ?? '(no reply)'}`);
+    console.log(`THEM ${head} ${RC[rp.cls].verdict} — ${rp.cls === 'inaccuracy' ? '' : punishment(plies as never, i) ?? '(no reply)'}`);
   }
 });
 process.exit(0);

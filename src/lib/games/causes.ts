@@ -96,18 +96,21 @@ export function mistakeCauses(g: Pick<AnyGame, 'plies' | 'userColor' | 'timeCont
     const threatened = hangingPieces(before, me).filter((h) => h.loss >= 2 && sqName(h.sq) !== from);
     const stillLoose = threatened.find((h) => hangingPieces(after, me).some((x) => x.sq === h.sq));
     const mateThreat = mateThreats(p.fenBefore, them).length > 0 && (c?.replyLine?.length ? describeLine(p.fenAfter, c.replyLine, 8).matesIn !== null : false);
+    // A piece this move newly leaves loose; when it is worth more than the one they already
+    // attacked (e.g. the queen walks into a capture), that is the real story.
+    const wasLoose = new Set(hangingPieces(before, me).map((h) => h.sq));
+    const newLoose = hangingPieces(after, me).find((h) => h.loss >= 2 && !wasLoose.has(h.sq));
     if (mateThreat) {
       cause = 'missedThreat';
       text = 'They were threatening checkmate — your move didn’t stop it.';
-    } else if (stillLoose) {
+    } else if (stillLoose && !(newLoose && newLoose.loss > stillLoose.loss)) {
       cause = 'missedThreat';
       text = `Their last move attacked your ${pname(before[stillLoose.sq]?.type)} on ${sqName(stillLoose.sq)} — your move didn’t deal with it.`;
       sq = sqName(stillLoose.sq);
     }
     // 2. A piece of yours left loose by this move.
     if (!cause) {
-      const was = new Set(hangingPieces(before, me).map((h) => h.sq));
-      const loose = hangingPieces(after, me).find((h) => h.loss >= 2 && !was.has(h.sq));
+      const loose = newLoose;
       if (loose) {
         cause = 'hungPiece';
         text = `${p.san} left your ${pname(after[loose.sq]?.type)} on ${sqName(loose.sq)} unprotected.`;

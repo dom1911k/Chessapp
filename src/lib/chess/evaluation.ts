@@ -72,8 +72,11 @@ export function floorClass(before: Score | undefined, after: Score | undefined):
   const cpAfter = rawCp(after);
   if (cpAfter >= FLOOR.stillWinningCp) return null;
   const loss = rawCp(before) - cpAfter;
-  if (loss >= FLOOR.blunderCp) return 'blunder';
-  if (loss >= FLOOR.mistakeCp) return 'mistake';
+  // In a position that is already decided, engine numbers swing by hundreds between equally
+  // hopeless moves; the bar rises with how lopsided it already was.
+  const lopsided = Math.min(2500, Math.abs(rawCp(before)));
+  if (loss >= Math.max(FLOOR.blunderCp, 0.65 * lopsided)) return 'blunder';
+  if (loss >= Math.max(FLOOR.mistakeCp, 0.4 * lopsided)) return 'mistake';
   return null;
 }
 

@@ -1,6 +1,10 @@
 import { useId, useState } from 'react';
 import { povScore, winPct } from '../lib/chess/evaluation';
 import type { PlyRecord } from '../lib/store/types';
+import { RC, type ReviewClass } from '../lib/review';
+
+/** Review classes marked on the graph when `classes` is given (both players, chess.com colours). */
+const GRAPH_MARK = new Set<ReviewClass>(['brilliant', 'great', 'miss', 'mistake', 'blunder']);
 
 const MARK: Record<string, string> = { blunder: '#dc2626', mistake: '#ea580c', inaccuracy: '#d97706' };
 
@@ -9,7 +13,7 @@ const MARK: Record<string, string> = { blunder: '#dc2626', mistake: '#ea580c', i
  * underneath shows how long each move took (yours in green, theirs in grey; a mistake played in
  * under 5 s in red, your longest thinks in amber).
  */
-export function EvalGraph({ plies, current, onSelect, height = 110, times }: { plies: PlyRecord[]; current?: number; onSelect?: (i: number) => void; height?: number; times?: (number | null)[] }) {
+export function EvalGraph({ plies, current, onSelect, height = 110, times, classes }: { plies: PlyRecord[]; current?: number; onSelect?: (i: number) => void; height?: number; times?: (number | null)[]; classes?: ReviewClass[] }) {
   const W = 320;
   const H = height;
   const STRIP = times ? Math.max(18, Math.round(height * 0.32)) : 0;
@@ -63,7 +67,13 @@ export function EvalGraph({ plies, current, onSelect, height = 110, times }: { p
       )}
       <line x1="0" x2={W} y1={H / 2} y2={H / 2} stroke="#a8a29e" strokeDasharray="3 3" strokeWidth="0.8" />
       {current !== undefined && <line x1={x(current + 1)} x2={x(current + 1)} y1="0" y2={H + STRIP} stroke="#2f9e63" strokeWidth="2" />}
-      {plies.map((p, i) =>
+      {classes
+        ? plies.map((p, i) =>
+            GRAPH_MARK.has(classes[i]) ? (
+              <circle key={i} cx={x(i + 1)} cy={y(pts[i + 1][1])} r={p.isUser ? 4 : 3} fill={RC[classes[i]].color} stroke={p.isUser ? '#fff' : '#44403c'} strokeWidth="1.2" data-mark={classes[i]} />
+            ) : null,
+          )
+        : plies.map((p, i) =>
         p.isUser && p.classification && MARK[p.classification] ? (
           <circle key={i} cx={x(i + 1)} cy={y(pts[i + 1][1])} r="4" fill={MARK[p.classification]} stroke="#fff" strokeWidth="1.2" />
         ) : null,
