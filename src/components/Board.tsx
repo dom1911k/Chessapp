@@ -1,7 +1,7 @@
 import { useDragWatchdog } from './dragWatchdog';
 import { Chess, type Square } from 'chess.js';
 import { Component, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Chessboard, defaultPieces, type PieceRenderObject } from 'react-chessboard';
+import { Chessboard, defaultArrowOptions } from 'react-chessboard';
 import { isPromotion, tryMove, type MoveInput } from '../lib/chess/game';
 import { BOARD_THEMES, useSettings } from '../lib/settings';
 import { playSound } from '../lib/sound';
@@ -9,18 +9,27 @@ import { HAPTIC_PATTERN, moveHaptic, moveSound, premoveTargets as premoveTargets
 import type { CoachArrow, CoachHighlight, Tone } from '../lib/coach/types';
 import { Check, X } from 'lucide-react';
 import { shortWords } from '../lib/chess/words';
-import { HIGHLIGHTS, PIECE_SETS } from '../lib/rewards/looks';
+import { HIGHLIGHTS } from '../lib/rewards/looks';
+import { PieceIcon, renderSet, type PieceCode } from './PieceIcon';
 
+/** Arrow colours (solid: the board applies one opacity to every arrow), chess.com's palette. */
 export const TONE_COLOR: Record<Tone, string> = {
-  good: 'rgba(34, 160, 90, 0.85)',
-  bad: 'rgba(225, 60, 60, 0.85)',
-  info: 'rgba(60, 120, 230, 0.85)',
+  good: '#81b64c',
+  bad: '#f8553f',
+  info: '#48a7e0',
 };
+/** Square tints for coach marks: flat fills in the same colour system as the arrows. */
 const TONE_BG: Record<Tone, string> = {
-  good: 'rgba(34, 197, 94, 0.45)',
-  bad: 'rgba(239, 68, 68, 0.5)',
-  info: 'rgba(59, 130, 246, 0.35)',
+  good: 'rgba(129, 182, 76, 0.55)',
+  bad: 'rgba(235, 97, 80, 0.6)',
+  info: 'rgba(82, 176, 220, 0.5)',
 };
+/** Arrows: start near the piece's base, a little bolder, one shared opacity. */
+const ARROW_OPTIONS = { ...defaultArrowOptions, arrowStartOffset: 0.35, arrowWidthDenominator: 4.5, opacity: 0.8 };
+/** Legal-move marks: a dot about a third of the square, a ring on captures (corners clear). */
+const DOT = 'radial-gradient(circle closest-side, rgba(0,0,0,.14) 32%, transparent 34%)';
+const RING = 'radial-gradient(circle closest-side, transparent 80%, rgba(0,0,0,.14) 81%, rgba(0,0,0,.14) 99%, transparent 100%)';
+const COORD = { position: 'absolute', fontSize: 'clamp(9px, 2.9cqw, 15px)', fontWeight: 700, lineHeight: 1, userSelect: 'none' } as const;
 
 interface Props {
   fen: string;
@@ -41,38 +50,9 @@ interface Props {
 /** Animation length per speed setting (ms). */
 export const MOVE_MS = { slow: 420, normal: 220, fast: 110, instant: 0 } as const;
 /** Arrows and circles you draw yourself (long-press or right-click and drag), chess.com orange. */
-const DRAW_COLOR = 'rgba(255, 170, 0, 0.85)';
+const DRAW_COLOR = '#ffaa00';
+const PREMOVE_COLOR = '#e05050';
 const LONG_PRESS_MS = 420;
-
-/** Piece set (see PIECE_SETS), optionally larger. Cached per combination. */
-const pieceCache = new Map<string, PieceRenderObject>();
-function pieceSet(style: string, large: boolean): PieceRenderObject | undefined {
-  const set0 = PIECE_SETS[style] ?? PIECE_SETS.wood;
-  if (!set0.fill && !large) return undefined;
-  const key = style + large;
-  let set = pieceCache.get(key);
-  if (!set) {
-    set = Object.fromEntries(
-      Object.entries(defaultPieces).map(([k, render]) => [
-        k,
-        (props?: { fill?: string; square?: string; svgStyle?: CSSProperties }) => {
-          const c = k[0] as 'w' | 'b';
-          return render({
-            ...props,
-            fill: set0.fill?.[c] ?? props?.fill,
-            svgStyle: {
-              ...props?.svgStyle,
-              ...(large ? { transform: 'scale(1.16)', transformOrigin: '50% 60%' } : {}),
-              ...(set0.filter?.[c] ? { filter: set0.filter[c] } : {}),
-            },
-          });
-        },
-      ]),
-    );
-    pieceCache.set(key, set);
-  }
-  return set;
-}
 
 /** Plays a sound whenever the position changes by one move (yours and the opponent's differ). */
 function useMoveSounds(fen: string, lastMove: { from: string; to: string } | null | undefined, orientation: 'white' | 'black') {
@@ -96,10 +76,24 @@ function useMoveSounds(fen: string, lastMove: { from: string; to: string } | nul
 /** The square under a screen point on a board element. */
 const squareAt = (el: HTMLElement, x: number, y: number, orientation: 'white' | 'black') => squareAtPoint(el.getBoundingClientRect(), x, y, orientation);
 
-const PROMO = ['q', 'r', 'b', 'n'] as const;
-const PROMO_GLYPH: Record<string, [string, string]> = { q: ['♕', '♛'], r: ['♖', '♜'], b: ['♗', '♝'], n: ['♘', '♞'] };
+/** Promotion choices in chess.com's order, from the promotion square towards the centre. */
+const PROMO = ['q', 'n', 'r', 'b'] as const;
 
 let boardCount = 0;
+
+/** Tablet held sideways (the same rule as the `land:` variant). */
+const LAND_QUERY = '(orientation: landscape) and (min-width: 700px)';
+function useLandscape() {
+  const [land, setLand] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(LAND_QUERY).matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(LAND_QUERY);
+    if (!mq) return;
+    const on = () => setLand(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return land;
+}
 
 export function Board(props: Props) {
   // react-chessboard throws if it can't measure a square (e.g. a board hidden
@@ -136,9 +130,10 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   const theme = useSettings((s) => BOARD_THEMES[s.boardTheme] ?? BOARD_THEMES.green);
   const large = useSettings((s) => s.largePieces);
   const pieceStyle = useSettings((s) => s.pieceStyle);
-  const pieces = pieceSet(pieceStyle, large);
+  const pieces = renderSet(pieceStyle, large);
   const hl = useSettings((s) => (HIGHLIGHTS[s.highlight] ?? HIGHLIGHTS.classic).color);
   const showDots = useSettings((s) => s.showLegalMoves);
+  const land = useLandscape();
   const speed = useSettings((s) => s.moveSpeed);
   const premovesOn = useSettings((s) => s.premoves);
   const [premove, setPremove] = useState<MoveInput | null>(null);
@@ -151,7 +146,16 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   useEffect(() => {
     setPending(null);
     setDrawn({ arrows: [], circles: [] });
+    // The position changed under us (their move, a step in a review): drop the selection and its dots.
+    setSelected(null);
   }, [realFen]);
+  // No moves allowed (game over, coach paused, a replay): nothing stays selected.
+  useEffect(() => {
+    if (!movable) {
+      setSelected(null);
+      setPromo(null);
+    }
+  }, [movable]);
   // With confirmation on, show the move on the board but only submit it after a tap on ✓.
   const fen = pending ? pending.fen : realFen;
   const lastMove = pending ? { from: pending.move.from, to: pending.move.to } : realLast;
@@ -169,6 +173,10 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   const canMove = !pending && (movable === 'both' || movable === turn);
   // Premoves: while the opponent thinks, your own pieces can be picked up and a move queued.
   const premoving = !canMove && !pending && premovesOn && !!premoveColor && premoveColor !== turn;
+  // A selection only means something while you can move or queue a premove.
+  useEffect(() => {
+    if (!canMove && !premoving) setSelected(null);
+  }, [canMove, premoving]);
   // Play a queued premove as soon as it's your turn (if it's still legal), else drop it.
   useEffect(() => {
     if (!premove || !canMove) return;
@@ -250,14 +258,12 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   const add = (sq: string, layer: string) => (layers[sq] ??= []).push(layer);
   const shadows: Record<string, string> = {};
   if (lastMove) {
-    // Soft and even, like chess.com: both squares tinted, the arrival square a touch stronger.
-    add(lastMove.from, tint(`rgba(${hl}, 0.28)`));
-    add(lastMove.to, tint(`rgba(${hl}, 0.36)`));
+    // Both squares the same strength, like chess.com.
+    add(lastMove.from, tint(`rgba(${hl}, 0.5)`));
+    add(lastMove.to, tint(`rgba(${hl}, 0.5)`));
   }
-  for (const h of highlights) {
-    add(h.sq, tint(TONE_BG[h.tone]));
-    shadows[h.sq] = `inset 0 0 0 4px ${TONE_COLOR[h.tone]}`;
-  }
+  // Coach marks: flat tints, no borders.
+  for (const h of highlights) add(h.sq, tint(TONE_BG[h.tone]));
   if (chess.inCheck()) {
     const k = chess.board().flat().find((p) => p?.type === 'k' && p.color === turn);
     // A red glow under the king in check (fuller and with a rim on checkmate).
@@ -273,16 +279,11 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
     add(premove.from, tint('rgba(220, 60, 60, 0.45)'));
     add(premove.to, tint('rgba(220, 60, 60, 0.55)'));
   }
-  for (const sq of drawn.circles) shadows[sq] = `inset 0 0 0 4px ${DRAW_COLOR}`;
+  // Your own circles keep a thin ring: a deliberate annotation.
+  for (const sq of drawn.circles) shadows[sq] = `inset 0 0 0 3px ${DRAW_COLOR}`;
   if (selected) {
-    add(selected, tint(premoving ? 'rgba(220, 60, 60, 0.4)' : 'rgba(250, 204, 21, 0.55)'));
-    if (showDots) for (const m of targets)
-      add(
-        m.to,
-        m.captured
-          ? 'radial-gradient(circle, transparent 58%, rgba(0,0,0,0.28) 60%)'
-          : 'radial-gradient(circle, rgba(0,0,0,0.25) 22%, transparent 24%)',
-      );
+    add(selected, tint(premoving ? 'rgba(220, 60, 60, 0.4)' : `rgba(${hl}, 0.5)`));
+    if (showDots) for (const m of targets) add(m.to, m.captured ? RING : DOT);
   }
   const squareStyles: Record<string, CSSProperties> = {};
   for (const sq of new Set([...Object.keys(layers), ...Object.keys(shadows)])) {
@@ -361,11 +362,21 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
     ...arrows.map((a) => ({ startSquare: a.from, endSquare: a.to, color: TONE_COLOR[a.tone] })),
     ...drawn.arrows.map((a) => ({ startSquare: a.from, endSquare: a.to, color: DRAW_COLOR })),
     ...(drawPreview ? [{ startSquare: drawPreview.from, endSquare: drawPreview.to, color: DRAW_COLOR }] : []),
-    ...(premove ? [{ startSquare: premove.from, endSquare: premove.to, color: 'rgba(220, 60, 60, 0.7)' }] : []),
+    ...(premove ? [{ startSquare: premove.from, endSquare: premove.to, color: PREMOVE_COLOR }] : []),
   ];
+  // The promotion strip: four squares on the promotion file, from the edge towards the centre.
+  const promoStrip = promo
+    ? (() => {
+        const f = promo.to.charCodeAt(0) - 97;
+        const r = Number(promo.to[1]) - 1;
+        const col = orientation === 'white' ? f : 7 - f;
+        const row = orientation === 'white' ? 7 - r : r;
+        return { col, top: row === 0, color: turn };
+      })()
+    : null;
 
   return (
-    <div ref={boardEl} className="relative w-full touch-none select-none" {...drawHandlers}>
+    <div ref={boardEl} className="relative w-full touch-none select-none [container-type:inline-size]" {...drawHandlers}>
       <Chessboard
         key={watchdog.epoch}
         options={{
@@ -379,8 +390,19 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
           animationDurationInMs: animate ? MOVE_MS[speed] ?? 220 : 0,
           darkSquareStyle: theme.darkBg ? { background: theme.darkBg } : { backgroundColor: theme.dark },
           lightSquareStyle: theme.lightBg ? { background: theme.lightBg } : { backgroundColor: theme.light },
+          // Coordinates in the opposite square colour (the library would draw brown on every theme).
+          darkSquareNotationStyle: { color: theme.coordOnDark ?? theme.light },
+          lightSquareNotationStyle: { color: theme.coordOnLight ?? theme.dark },
+          alphaNotationStyle: { ...COORD, bottom: '1%', right: '4%' },
+          numericNotationStyle: { ...COORD, top: '3%', left: '4%' },
           ...(pieces ? { pieces } : {}),
-          boardStyle: { borderRadius: '6px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(40,20,5,0.25)' },
+          // Flat and square, like chess.com (a hint of rounding on tablets).
+          boardStyle: { borderRadius: land ? 3 : 0, overflow: 'hidden' },
+          arrowOptions: ARROW_OPTIONS,
+          // Dragging on a phone: the piece lifts above your finger, the square under it is outlined.
+          dropSquareStyle: { boxShadow: 'inset 0 0 0 3px rgba(255,255,255,0.75)' },
+          draggingPieceStyle: { transform: 'translateY(-30%) scale(1.5)' },
+          draggingPieceGhostStyle: { opacity: 0.35 },
           dragActivationDistance: 6,
           canDragPiece: ({ square }) => !!square && ownPiece(square) && !draw.current?.active,
           onPieceDrag: ({ square }) => {
@@ -402,13 +424,17 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
           onSquareClick,
         }}
       />
-      {promo && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40" onClick={() => setPromo(null)}>
-          <div className="flex gap-2 rounded-2xl bg-white p-3 shadow-xl dark:bg-stone-800">
+      {promo && promoStrip && (
+        <div className="absolute inset-0 z-10 bg-black/40" onClick={() => setPromo(null)}>
+          <div
+            className={`absolute flex w-[12.5%] ${promoStrip.top ? 'top-0 flex-col' : 'bottom-0 flex-col-reverse'}`}
+            style={{ left: `${promoStrip.col * 12.5}%` }}
+          >
             {PROMO.map((p) => (
               <button
                 key={p}
-                className="h-14 w-14 rounded-xl bg-stone-100 text-4xl leading-none dark:bg-stone-700"
+                aria-label={`Promote to ${{ q: 'queen', n: 'knight', r: 'rook', b: 'bishop' }[p]}`}
+                className="aspect-square w-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.35)] active:bg-stone-200 dark:bg-[#f2f1ef]"
                 onClick={(e) => {
                   e.stopPropagation();
                   const m = { ...promo, promotion: p };
@@ -417,9 +443,19 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
                   onMove?.(m);
                 }}
               >
-                {PROMO_GLYPH[p][turn === 'w' ? 0 : 1]}
+                <PieceIcon code={`${promoStrip.color}${p.toUpperCase()}` as PieceCode} />
               </button>
             ))}
+            <button
+              aria-label="Cancel promotion"
+              className="flex h-[calc(100cqw/16)] w-full items-center justify-center bg-stone-100 text-stone-600 shadow-[0_2px_6px_rgba(0,0,0,0.35)] dark:bg-[#d0cecb]"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPromo(null);
+              }}
+            >
+              <X size={14} strokeWidth={2.5} />
+            </button>
           </div>
         </div>
       )}

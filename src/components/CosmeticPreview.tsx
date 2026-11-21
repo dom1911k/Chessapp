@@ -1,17 +1,17 @@
-import { defaultPieces } from 'react-chessboard';
 import { Sparkles, Volume2 } from 'lucide-react';
+import { PieceIcon } from './PieceIcon';
 import type { Cosmetic } from '../lib/rewards/cosmetics';
-import { CELEBRATIONS, HIGHLIGHTS, PIECE_SETS } from '../lib/rewards/looks';
+import { CELEBRATIONS, HIGHLIGHTS } from '../lib/rewards/looks';
 import { BOARD_THEMES } from '../lib/settings';
 
 /** A small visual sample of an unlockable item. */
 export function CosmeticPreview({ c, size = 64 }: { c: Cosmetic; size?: number }) {
   const box = { width: size, height: size };
   if (c.kind === 'board' || c.kind === 'hl') {
-    const t = BOARD_THEMES[c.kind === 'board' ? c.key : 'walnut'];
+    const t = BOARD_THEMES[c.kind === 'board' ? c.key : 'green'];
     const hl = c.kind === 'hl' ? HIGHLIGHTS[c.key].color : null;
     return (
-      <div className="grid shrink-0 grid-cols-4 overflow-hidden rounded-xl shadow-sm ring-1 ring-black/10" style={box}>
+      <div className="grid shrink-0 grid-cols-4 overflow-hidden rounded-[6px] ring-1 ring-black/10" style={box}>
         {Array.from({ length: 16 }, (_, i) => {
           const light = (Math.floor(i / 4) + i) % 2 === 0;
           const bg = light ? (t.lightBg ?? t.light) : (t.darkBg ?? t.dark);
@@ -22,12 +22,12 @@ export function CosmeticPreview({ c, size = 64 }: { c: Cosmetic; size?: number }
     );
   }
   if (c.kind === 'pieces') {
-    const set = PIECE_SETS[c.key];
+    // Two pieces on a light and a dark square of the default green board.
     return (
-      <div className="flex shrink-0 items-end justify-center rounded-xl bg-[#e6c495] ring-1 ring-black/10" style={box}>
-        {(['wN', 'bQ'] as const).map((k) => (
-          <div key={k} style={{ width: size * 0.5, height: size * 0.62, filter: set.filter?.[k[0] as 'w' | 'b'] }}>
-            {defaultPieces[k]({ fill: set.fill?.[k[0] as 'w' | 'b'] })}
+      <div className="grid shrink-0 grid-cols-2 overflow-hidden rounded-[6px] ring-1 ring-black/10" style={box}>
+        {(['wN', 'bQ'] as const).map((k, i) => (
+          <div key={k} className="flex items-center justify-center" style={{ background: i ? BOARD_THEMES.green.dark : BOARD_THEMES.green.light }}>
+            <PieceIcon code={k} setId={c.key} size={size * 0.5} />
           </div>
         ))}
       </div>

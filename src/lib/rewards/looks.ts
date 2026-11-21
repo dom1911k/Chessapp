@@ -6,11 +6,18 @@ export interface PieceSet {
   /** Fill for white and black pieces: a colour or url(#gradient). */
   fill?: { w: string; b: string };
   filter?: { w?: string; b?: string };
+  /** A set drawn from its own images, keyed by piece code ("wK", "bN"…). */
+  images?: Record<string, string>;
 }
+
+// Kaneo by Kadagaden (github.com/Kadagaden/chess-pieces), CC BY 4.0: inspired by chess.com's Neo.
+const kaneoFiles = import.meta.glob('../../assets/pieces/kaneo/*.svg', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const imagesFrom = (files: Record<string, string>) => Object.fromEntries(Object.entries(files).map(([p, url]) => [p.split('/').pop()!.replace('.svg', ''), url]));
 
 const shadow = 'drop-shadow(0 1.5px 1px rgba(40,20,5,0.35))';
 
 export const PIECE_SETS: Record<string, PieceSet> = {
+  kaneo: { label: 'Neo-style', images: imagesFrom(kaneoFiles) },
   classic: { label: 'Classic' },
   wood: { label: 'Wood', fill: { w: '#f3dcb2', b: '#2e1c0e' }, filter: { w: shadow, b: shadow } },
   marble: { label: 'Marble', fill: { w: 'url(#pg-marble-w)', b: 'url(#pg-marble-b)' }, filter: { w: shadow, b: shadow } },
@@ -36,9 +43,9 @@ export const PIECE_SETS: Record<string, PieceSet> = {
   bronze: { label: 'Bronze', fill: { w: 'url(#pg-bronze)', b: '#3b2412' }, filter: { w: shadow, b: shadow } },
 };
 
-/** Last-move highlight colours: [from, to] square tints. */
+/** Last-move highlight colours (an rgb triplet; both squares get it at 50%). */
 export const HIGHLIGHTS: Record<string, { label: string; color: string }> = {
-  classic: { label: 'Sunny', color: '250, 204, 21' },
+  classic: { label: 'Classic yellow', color: '255, 255, 51' },
   sky: { label: 'Sky', color: '56, 189, 248' },
   mint: { label: 'Mint', color: '52, 211, 153' },
   rose: { label: 'Rose', color: '251, 113, 133' },

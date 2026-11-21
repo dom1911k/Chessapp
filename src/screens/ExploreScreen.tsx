@@ -115,7 +115,7 @@ export function ExploreScreen({ fen, orientation: startOrientation, title }: { f
         }
       />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-5 land:px-3">
-        <div className="flex gap-1.5 px-1.5 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0">
+        <div className="flex gap-1 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0">
           {engineOn && <EvalBar whitePct={whitePct} orientation={orientation} />}
           <div className="min-w-0 flex-1">
             <Board

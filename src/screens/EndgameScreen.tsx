@@ -210,7 +210,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
             Move {Math.min(myMoves + (movable ? 1 : 0), drill.maxMoves)}/{drill.maxMoves}
           </span>
         </div>
-        <div className="board-cell px-1.5">
+        <div className="board-cell">
           <Board fen={fen} confirm={confirmMoves} orientation={me === 'w' ? 'white' : 'black'} movable={movable} onMove={onMove} lastMove={last} arrows={hint?.arrows} highlights={hint?.highlights} />
         </div>
         <div className="space-y-3 px-3">

@@ -124,7 +124,7 @@ function ConvertDrill() {
           <span className="text-sm text-stone-500">Checkmate before the flag falls. Maia defends.</span>
           <span className={`rounded-lg px-2 py-0.5 font-mono text-lg font-bold tabular-nums ${low ? 'animate-pulse bg-red-600 text-white' : 'bg-stone-900 text-white dark:bg-white dark:text-stone-900'}`}>{fmtClock(ms)}</span>
         </div>
-        <div className="board-cell px-1.5">
+        <div className="board-cell">
           <Board fen={fen} orientation={me === 'w' ? 'white' : 'black'} movable={phase === 'play' || phase === 'ready' ? me : null} onMove={onMove} lastMove={last} />
         </div>
         <div className="px-3">
@@ -252,7 +252,7 @@ function QuickDrill() {
                 <div className={`h-full ${ms < 1500 ? 'bg-red-500' : 'bg-brand-500'}`} style={{ width: `${(ms / (QUICK_SECONDS * 1000)) * 100}%` }} />
               </div>
             </div>
-            <div className="board-cell px-1.5">
+            <div className="board-cell">
               <Board
                 key={it!.id}
                 fen={it!.fen}

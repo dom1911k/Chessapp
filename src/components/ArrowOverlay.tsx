@@ -22,7 +22,7 @@ export function ArrowOverlay({ arrows, orientation }: { arrows: OverlayArrow[]; 
       <defs>
         {(['good', 'bad', 'info'] as const).map((t) => (
           <marker key={t} id={`dot-head-${t}`} viewBox="0 0 10 10" refX="5" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
-            <path d="M0,0 L10,5 L0,10 z" fill={TONE_COLOR[t]} />
+            <path d="M0,0 L10,5 L0,10 z" fill={TONE_COLOR[t]} opacity={0.8} />
           </marker>
         ))}
       </defs>
@@ -35,7 +35,7 @@ export function ArrowOverlay({ arrows, orientation }: { arrows: OverlayArrow[]; 
         const len = Math.hypot(dx, dy) || 1;
         const ex = e.x - (dx / len) * 0.3;
         const ey = e.y - (dy / len) * 0.3;
-        return <line key={k} x1={s.x} y1={s.y} x2={ex} y2={ey} stroke={TONE_COLOR[a.tone]} strokeWidth={0.15} strokeDasharray="0.22 0.16" strokeLinecap="round" markerEnd={`url(#dot-head-${a.tone})`} />;
+        return <line key={k} x1={s.x} y1={s.y} x2={ex} y2={ey} stroke={TONE_COLOR[a.tone]} strokeOpacity={0.8} strokeWidth={0.15} strokeDasharray="0.22 0.16" strokeLinecap="round" markerEnd={`url(#dot-head-${a.tone})`} />;
       })}
     </svg>
   );

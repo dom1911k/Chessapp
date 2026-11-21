@@ -1,7 +1,7 @@
 // The short "versus" splash at the start of a game: you on one side, your opponent on the other.
 import { UserAvatar, useMyName } from './UserAvatar';
 import { useEffect, useState } from 'react';
-import { defaultPieces } from 'react-chessboard';
+import { PieceIcon } from './PieceIcon';
 import { Star } from 'lucide-react';
 import { opponentById } from '../lib/people';
 import { getXp, levelFor } from '../lib/progress/xp';
@@ -29,7 +29,6 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
     setTimeout(onDone, 250);
   };
   const name = useMyName();
-  const king = defaultPieces[userColor === 'w' ? 'wK' : 'bK'];
 
   return (
     <button
@@ -48,7 +47,7 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
         <div className="animate-vs-in-left flex items-center gap-4 self-start">
           <span className="relative rounded-[30%] shadow-[0_12px_30px_rgba(0,0,0,0.45)] ring-4 ring-white/80">
             <UserAvatar size={96} className="block" />
-            <span className="absolute -right-2 -bottom-2 h-9 w-9 rounded-full bg-white/95 p-1 shadow">{king({})}</span>
+            <span className="absolute -right-2 -bottom-2 h-9 w-9 rounded-full bg-white/95 p-1 shadow"><PieceIcon code={userColor === 'w' ? 'wK' : 'bK'} /></span>
           </span>
           <span className="text-left">
             <span className="block max-w-[46vw] truncate font-display text-3xl font-semibold">{name}</span>

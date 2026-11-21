@@ -522,7 +522,8 @@ function GameView() {
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-5 land:px-3">
         <div className="land:w-[min(calc(100dvh-6rem),58vw)] land:shrink-0">
           <PlayerBar me={flipped} />
-          <div className="flex gap-1.5 px-2">
+          {/* Full-bleed on phones, like every board screen; the eval bar (when on) sits on the left. */}
+          <div className="flex gap-1">
             {aids.evalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
             <div className="relative flex-1">
               <ChatBubble />
@@ -537,7 +538,7 @@ function GameView() {
                 lastMove={viewing ? (viewPly ? { from: viewPly.uci.slice(0, 2), to: viewPly.uci.slice(2, 4) } : null) : last ? { from: last.uci.slice(0, 2), to: last.uci.slice(2, 4) } : null}
                 showCoordinates={settings.showCoordinates}
                 confirm={settings.confirmMoves}
-                premoveColor={!viewing && !s.over && !myTurn && !s.precheck ? g.userColor : null}
+                premoveColor={!viewing && (s.phase === 'analyzing' || s.phase === 'botThinking') ? g.userColor : null}
               />
               {viewing && (
                 <button

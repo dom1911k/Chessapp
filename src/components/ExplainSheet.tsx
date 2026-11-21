@@ -149,7 +149,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
               <div className="card mb-3 !p-4 text-sm text-stone-500">The engine couldn’t look at this move right now. Try again in a moment.</div>
             )}
 
-            <div className="mx-auto max-w-[440px] overflow-hidden rounded-[10px] shadow-[0_10px_30px_-12px_rgba(40,20,5,0.45)]">
+            <div className="mx-auto max-w-[440px]">
               <Board fen={shown.fen} orientation={orientation} movable={null} onMove={() => false} lastMove={shown.last} />
             </div>
 

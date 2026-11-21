@@ -88,7 +88,7 @@ export function OpeningPracticeScreen({ index, custom }: { index: number; custom
         <div className="px-3">
           <Segmented value={side} onChange={setSide} options={[{ value: 'w', label: 'Play White' }, { value: 'b', label: 'Play Black' }]} />
         </div>
-        <div className="board-cell px-1.5">
+        <div className="board-cell">
           <Board fen={fen} orientation={side === 'w' ? 'white' : 'black'} movable={done ? null : side} onMove={onMove} lastMove={last} arrows={arrows} />
         </div>
         <div className="space-y-3 px-3">

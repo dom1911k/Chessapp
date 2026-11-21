@@ -45,7 +45,7 @@ export const KIND_LABEL: Record<CosmeticKind, { one: string; many: string; setti
 
 const FREE: Record<CosmeticKind, string[]> = {
   board: ['walnut', 'green', 'brown', 'blue', 'gray'],
-  pieces: ['wood', 'classic'],
+  pieces: ['kaneo', 'wood', 'classic'],
   fx: ['confetti'],
   hl: ['classic'],
   snd: ['standard', 'wood', 'felt', 'deep', 'clack', 'marble', 'minimal'],

@@ -185,7 +185,7 @@ export function RepertoireTrainScreen({ lineId }: { lineId: string }) {
         <div className="h-full rounded-full bg-brand-500 transition-[width] duration-300" style={{ width: `${(n / plies.length) * 100}%` }} />
       </div>
       <div className="board-split mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4 land:max-w-6xl">
-        <div className="board-cell px-1.5">
+        <div className="board-cell">
           <Board
             fen={fen}
             orientation={line.color === 'w' ? 'white' : 'black'}
@@ -259,7 +259,7 @@ export function RepertoireBuildScreen() {
     <div className="flex h-full flex-col">
       <Header title="Record a line" back />
       <div className="board-split mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4 land:max-w-6xl">
-        <div className="board-cell px-1.5">
+        <div className="board-cell">
           <Board fen={fen} orientation={color === 'w' ? 'white' : 'black'} movable={fen.split(' ')[1] as 'w' | 'b'} onMove={onMove} lastMove={plies.length ? { from: plies[plies.length - 1].from, to: plies[plies.length - 1].to } : null} />
         </div>
         <div className="space-y-3 px-3">

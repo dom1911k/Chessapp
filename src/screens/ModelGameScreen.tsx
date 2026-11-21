@@ -114,7 +114,7 @@ export function ModelGameScreen({ gameId }: { gameId: string }) {
         <div className="h-full rounded-full bg-brand-500 transition-[width] duration-300" style={{ width: `${(n / plies.length) * 100}%` }} />
       </div>
       <div className="board-split mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4 land:max-w-6xl">
-        <div className="board-cell px-1.5">
+        <div className="board-cell">
           <Board
             fen={fen}
             orientation={g.hero === 'w' ? 'white' : 'black'}

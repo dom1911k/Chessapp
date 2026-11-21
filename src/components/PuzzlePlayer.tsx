@@ -276,8 +276,8 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
 
   return (
     <div className="board-split flex min-h-full flex-col">
-      <div className="board-cell px-1.5">
-        <div ref={boardBox} className="relative rounded-[6px]">
+      <div className="board-cell">
+        <div ref={boardBox} className="relative">
           {mark && <MoveMark key={mark.id} mark={mark} orientation={orientation} delayMs={mark.stay ? tagMs : 0} />}
           {burst && <SolveBurst key={burst.id} id={burst.id} sq={burst.sq} power={combo + 1} orientation={orientation} />}
           {solvedSq && tags.length > 0 && <SolveTags key={`t${burst?.id ?? 0}`} id={burst?.id ?? 0} sq={solvedSq} orientation={orientation} tags={tags} />}

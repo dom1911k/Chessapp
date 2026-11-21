@@ -179,7 +179,7 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
         ))}
       </div>
       <div className="board-split mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4 land:max-w-6xl">
-        <div className="board-cell px-1.5">
+        <div className="board-cell">
           <Board
             fen={placementFail ? step.fen : fen}
             orientation={orientation}

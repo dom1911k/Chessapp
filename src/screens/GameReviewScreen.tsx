@@ -516,7 +516,7 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
         </span>
       } />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-4 land:px-3">
-        <div className="flex gap-1.5 px-1.5 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0">
+        <div className="flex gap-1 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0">
           <ReviewEvalBar wpWhite={evalNow} orientation={orientation} text={evalText} />
           <div className="relative min-w-0 flex-1" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} data-testid="review-board">
             <Board fen={fen} orientation={orientation} movable={retry?.state === 'try' ? g.userColor : null} onMove={onRetryMove} arrows={arrows} lastMove={lastMove} />

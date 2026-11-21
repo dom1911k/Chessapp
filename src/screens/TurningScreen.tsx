@@ -87,7 +87,7 @@ export function TurningScreen({ gameId }: { gameId: number | string }) {
       <Header title="Where did it turn?" back />
       <div className="mx-auto w-full max-w-md flex-1 space-y-3 overflow-y-auto p-4">
         {stage === 'scrub' && <p className="text-sm text-stone-600 dark:text-stone-300">Step through the game and tap <b>This move lost it</b> on the move of yours you think turned it. No engine help.</p>}
-        <Board fen={showFen} orientation={orientation} movable={null} lastMove={last} arrows={arrows} />
+        <div className="-mx-4"><Board fen={showFen} orientation={orientation} movable={null} lastMove={last} arrows={arrows} /></div>
         {stage === 'scrub' && (
           <>
             <div className="flex items-center justify-between gap-1">

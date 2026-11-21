@@ -12,4 +12,8 @@ describe('uiV2: one-time move to the chess.com-style look', () => {
   it('a theme picked on purpose is left alone', () => {
     expect(migrateUiV2({ theme: 'light' }).theme).toBe('light');
   });
+  it('the old default board and pieces become green and Neo-style; a custom look stays', () => {
+    expect(migrateUiV2({ theme: 'system', boardTheme: 'walnut', pieceStyle: 'wood' })).toMatchObject({ theme: 'dark', boardTheme: 'green', pieceStyle: 'kaneo', uiV2: true });
+    expect(migrateUiV2({ boardTheme: 'marble', pieceStyle: 'glass' })).toMatchObject({ boardTheme: 'marble', pieceStyle: 'glass' });
+  });
 });

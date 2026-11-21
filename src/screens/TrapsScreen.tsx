@@ -112,7 +112,7 @@ function TrapWalkthrough({ t, onDrill }: { t: Trap; onDrill: () => void }) {
   const arrows = atCritical ? [{ from: good.slice(0, 2), to: good.slice(2, 4), tone: 'good' as const }, { from: fens.moves[t.critical].from, to: fens.moves[t.critical].to, tone: 'bad' as const }] : [];
   return (
     <>
-      <div className="board-cell px-1.5">
+      <div className="board-cell">
         <Board fen={fen} orientation={t.victim === 'w' ? 'white' : 'black'} movable={null} lastMove={last} arrows={arrows} />
       </div>
       <div className="space-y-3 px-3">
@@ -241,7 +241,7 @@ function TrapDrill({ t }: { t: Trap }) {
   const arrows = phase === 'failed' && better ? [{ from: better.slice(0, 2), to: better.slice(2, 4), tone: 'good' as const }] : [];
   return (
     <>
-      <div className="board-cell px-1.5">
+      <div className="board-cell">
         <Board fen={phase === 'failed' ? fens[fens.length - 2] ?? fen : fen} orientation={me === 'w' ? 'white' : 'black'} movable={phase === 'move' ? me : null} onMove={onMove} lastMove={last} arrows={arrows} />
       </div>
       <div className="space-y-3 px-3">
