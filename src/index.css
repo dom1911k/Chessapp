@@ -7,32 +7,55 @@
 @custom-variant land (@media (orientation: landscape) and (min-width: 700px));
 
 @theme {
-  /* Warm neutrals: ivory → espresso. Overriding "stone" restyles every screen at once. */
-  --color-stone-50: #fcf9f4;
-  --color-stone-100: #f6f1e8;
-  --color-stone-200: #ebe3d6;
-  --color-stone-300: #d8ccba;
-  --color-stone-400: #ad9f8c;
-  --color-stone-500: #827464;
-  --color-stone-600: #62574a;
-  --color-stone-700: #4a4036;
-  --color-stone-800: #2f2822;
-  --color-stone-900: #221d18;
-  --color-stone-950: #15110e;
+  /* chess.com's neutral warm greys. Overriding "stone" restyles every screen at once; dark mode
+     remaps the scale below (page #312e2b, deep panels #262421, raised controls #3c3a37). */
+  --color-stone-50: #faf9f8;
+  --color-stone-100: #f1f0ee;
+  --color-stone-200: #e3e1de;
+  --color-stone-300: #cbc8c4;
+  --color-stone-400: #a7a4a0;
+  /* A touch darker than the plain scale so small muted text keeps 4.5:1 on the page. */
+  --color-stone-500: #6f6b68;
+  --color-stone-600: #5c5955;
+  --color-stone-700: #45423f;
+  --color-stone-800: #312e2b;
+  --color-stone-900: #262421;
+  --color-stone-950: #1c1a18;
 
-  /* Deep emerald accent, gold for rewards. */
-  --color-brand-50: #eef7f1;
-  --color-brand-100: #d5ecdd;
-  --color-brand-500: #2f8a5d;
-  --color-brand-600: #23704b;
-  --color-brand-700: #1b5a3c;
-  --color-brand-800: #134430;
+  /* chess.com green, gold for rewards. */
+  --color-brand-50: #f1f7e9;
+  --color-brand-100: #dcecc5;
+  --color-brand-500: #81b64c;
+  --color-brand-600: #6e9f3f;
+  --color-brand-700: #4f8236;
+  --color-brand-800: #45753c;
   --color-gold-300: #ecd08a;
   --color-gold-400: #dcb55a;
   --color-gold-500: #c39436;
 
   --font-sans: 'Plus Jakarta Sans Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Fraunces Variable', Georgia, serif;
+  /* Bold sans for titles and big numbers (Fraunces stays only in Cups, see cups.css). */
+  --font-display: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Dark mode: the same scale remapped to chess.com's layered charcoal. The "deep" panels (900)
+   are darker than the page (950): nav, dock, sheets and cards sit below the page, raised
+   controls (800) above it. */
+.dark {
+  --color-stone-950: #312e2b;
+  --color-stone-900: #262421;
+  --color-stone-800: #3c3a37;
+  --color-stone-700: #4b4847;
+  --color-stone-600: #6f6c69;
+  --color-stone-500: #989795;
+  --color-stone-400: #b4b2b0;
+  --color-stone-300: #d0cecb;
+  --color-stone-200: #e4e2df;
+  --color-stone-100: #f2f1ef;
+  --color-stone-50: #ffffff;
 }
 
 html,
@@ -49,20 +72,13 @@ body {
   -webkit-user-select: none;
   @apply bg-stone-100 text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100;
   font-feature-settings: 'ss01', 'cv11';
-  font-weight: 460;
+  font-weight: 450;
 }
 
 /* Keyboard focus: a clear brand ring, never on touch. */
 :where(button, a, input, select, [role='switch']):focus-visible {
   outline: 2px solid var(--color-brand-500);
   outline-offset: 2px;
-}
-/* Dark mode: secondary text a step lighter, so small grey text keeps a comfortable contrast. */
-.dark .text-stone-500 {
-  color: #9b8d7b;
-}
-.dark .text-stone-400 {
-  color: #8a7d6d;
 }
 
 /* Streak flame: a little hop and glow when the streak grows; a slow breath while today's is open. */
@@ -97,12 +113,13 @@ time {
 }
 
 @utility btn {
-  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold tracking-[-0.01em] transition duration-100 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[15px] font-bold tracking-[-0.01em] transition duration-100 disabled:opacity-40;
 }
 @utility btn-primary {
-  @apply btn bg-gradient-to-b from-brand-500 to-brand-600 text-white;
-  /* A solid lip under the button that it presses into (snappy, tactile). */
-  box-shadow: 0 4px 0 var(--color-brand-800), 0 12px 18px -10px rgba(27, 90, 60, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  @apply btn bg-brand-500 font-bold text-white;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+  /* chess.com's "dimensional" button: a darker lip under it that it presses into. */
+  box-shadow: 0 4px 0 var(--color-brand-800), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   margin-bottom: 4px;
   transition-duration: 80ms;
   &:active:not(:disabled) {
@@ -115,23 +132,34 @@ time {
   @apply transition-transform duration-100 ease-out active:scale-[0.965];
 }
 @utility btn-secondary {
-  @apply btn bg-white text-stone-800 shadow-[0_1px_2px_rgba(40,25,10,0.06)] ring-1 ring-stone-200 dark:bg-[#2a241e] dark:text-stone-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] dark:ring-white/[0.08];
+  @apply btn bg-white text-stone-800 ring-1 ring-black/10 active:bg-stone-100 dark:bg-stone-800 dark:text-white dark:ring-0;
+  .dark & {
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+    margin-bottom: 3px;
+    transition-duration: 80ms;
+  }
+  .dark &:active:not(:disabled) {
+    translate: 0 2px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  }
 }
 @utility btn-ghost {
-  @apply btn text-stone-600 dark:text-stone-300;
+  @apply btn text-stone-600 active:bg-black/5 dark:text-stone-300 dark:active:bg-white/5;
 }
+/* Light: white with a hairline and the faintest shadow. Dark: a flat deep panel. */
 @utility card {
-  @apply rounded-[20px] bg-[#fffdf9] p-4 shadow-[0_1px_1px_rgba(40,25,10,0.04),0_8px_24px_-14px_rgba(40,25,10,0.22)] ring-1 ring-stone-200/70 dark:bg-[#1d1915] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_10px_28px_-16px_rgba(0,0,0,0.8)] dark:ring-white/[0.06];
+  @apply rounded-[10px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-stone-900 dark:shadow-none dark:ring-0;
 }
 @utility chip {
-  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold;
 }
 @utility font-display {
   font-family: var(--font-display);
-  font-optical-sizing: auto;
+  font-weight: 800;
+  letter-spacing: -0.015em;
 }
 @utility section-title {
-  @apply px-1 text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase;
+  @apply px-1 text-[11px] font-bold tracking-[0.06em] text-stone-500 uppercase;
 }
 
 @keyframes slide-in {

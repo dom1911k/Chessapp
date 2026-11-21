@@ -119,18 +119,18 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
 
   return (
     <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/55 backdrop-blur-[2px] sm:items-center" onClick={skip}>
-      <div className="safe-bottom animate-pop relative max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[30px] bg-[#fffdf9] px-5 pt-3 pb-5 shadow-2xl sm:rounded-[30px] dark:bg-stone-900" onClick={(e) => (e.stopPropagation(), skip())}>
+      <div className="safe-bottom animate-pop relative max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[14px] bg-white px-5 pt-3 pb-5 shadow-2xl sm:rounded-[14px] dark:bg-stone-900" onClick={(e) => (e.stopPropagation(), skip())}>
         <button className="absolute top-3 right-3 z-10 rounded-full p-1.5 text-stone-400" onClick={(e) => (e.stopPropagation(), onClose())} aria-label="Close">
           <X size={20} />
         </button>
         {/* Banner: you vs them (the winner ringed in gold), the result and how it ended. */}
         <div className="flex flex-col items-center pt-2">
           <div className="flex items-center gap-3">
-            <span className={`rounded-[30%] ${r.userResult === 'win' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''}`}>
+            <span className={`rounded-[30%] ${r.userResult === 'win' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-white dark:ring-offset-stone-900' : ''}`}>
               <UserAvatar size={60} className="block" />
             </span>
             <span className="text-xs font-bold tracking-widest text-stone-400 uppercase">vs</span>
-            <span className={`relative rounded-[30%] ${r.userResult === 'loss' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''}`}>
+            <span className={`relative rounded-[30%] ${r.userResult === 'loss' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-white dark:ring-offset-stone-900' : ''}`}>
               {r.firstWin && o && (
                 <span className="animate-vs-stamp absolute -right-3 -bottom-2 z-10 -rotate-12 rounded-md border-2 border-red-600 bg-white/90 px-1.5 text-[11px] font-black tracking-wider text-red-600 uppercase shadow dark:bg-stone-900/90" style={{ animationDelay: '350ms' }}>
                   Beaten

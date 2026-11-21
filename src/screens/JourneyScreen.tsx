@@ -149,7 +149,7 @@ export function JourneyScreen() {
               </clipPath>
             </defs>
             <path d={d} fill="none" stroke="rgba(120,100,80,0.35)" strokeWidth="10" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-            <path d={d} fill="none" stroke="#fffdf9" strokeWidth="3" strokeDasharray="2 10" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+            <path d={d} fill="none" stroke="#ffffff" strokeWidth="3" strokeDasharray="2 10" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
             <path d={d} fill="none" stroke="url(#goldline)" strokeWidth="10" strokeLinecap="round" vectorEffect="non-scaling-stroke" clipPath="url(#walked)" />
             <linearGradient id="goldline" x1="0" y1="1" x2="0" y2="0">
               <stop offset="0" stopColor="#1f7a4c" />

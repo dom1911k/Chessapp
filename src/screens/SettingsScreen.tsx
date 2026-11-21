@@ -38,7 +38,7 @@ export function SettingsScreen() {
               { value: 'dark', label: 'Dark' },
             ]}
           />
-          <button className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-gold-300/40 to-transparent p-3 text-left ring-1 ring-gold-400/50" onClick={() => push({ name: 'collection' })}>
+          <button className="mt-3 flex w-full items-center gap-3 rounded-[10px] bg-stone-100 p-3 text-left active:brightness-95 dark:bg-stone-800" onClick={() => push({ name: 'collection' })}>
             <Palette size={22} className="text-gold-500" />
             <span className="flex-1">
               <span className="block font-semibold">Boards, pieces & effects</span>

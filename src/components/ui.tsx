@@ -14,10 +14,10 @@ export function Dialog({ open, onClose, title, children }: { open: boolean; onCl
   useBackHandler(onClose, open);
   if (!open) return null;
   return (
-    <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-stone-950/45 p-3 backdrop-blur-[2px] sm:items-center" onClick={onClose}>
-      <div className="card safe-bottom animate-pop w-full max-w-md !rounded-[28px] !p-5" onClick={(e) => e.stopPropagation()}>
+    <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center sm:p-3" onClick={onClose}>
+      <div className="card safe-bottom animate-pop w-full max-w-md !rounded-t-[14px] !rounded-b-none !p-5 sm:!rounded-[14px]" onClick={(e) => e.stopPropagation()}>
         <div className="mx-auto -mt-2 mb-3 h-1 w-10 rounded-full bg-stone-300 dark:bg-stone-700" />
-        {title && <h2 className="font-display mb-3 text-xl font-semibold">{title}</h2>}
+        {title && <h2 className="mb-3 text-xl font-extrabold tracking-[-0.01em]">{title}</h2>}
         {children}
       </div>
     </div>
@@ -27,7 +27,7 @@ export function Dialog({ open, onClose, title, children }: { open: boolean; onCl
 export function Header({ title, back = false, right, subtitle, leading }: { title: string; back?: boolean; right?: ReactNode; subtitle?: string; leading?: ReactNode }) {
   const pop = useNav((s) => s.pop);
   return (
-    <header className="safe-top sticky top-0 z-20 bg-stone-100/85 backdrop-blur-md dark:bg-stone-950/85">
+    <header className="safe-top sticky top-0 z-20 bg-stone-100 dark:bg-stone-950">
       <div className="flex min-h-14 items-center gap-1 px-2">
         {back && (
           <button className="flex h-10 w-10 items-center justify-center rounded-full text-stone-700 active:bg-stone-200 dark:text-stone-200 dark:active:bg-stone-800" onClick={pop} aria-label="Back">
@@ -36,7 +36,7 @@ export function Header({ title, back = false, right, subtitle, leading }: { titl
         )}
         {leading && <div className="mr-1 flex shrink-0 items-center">{leading}</div>}
         <div className={`min-w-0 flex-1 ${back || leading ? '' : 'pl-3'}`}>
-          <h1 className="font-display truncate text-[22px] leading-tight font-semibold tracking-[-0.01em]">{title}</h1>
+          <h1 className="truncate text-[20px] leading-tight font-extrabold tracking-[-0.015em]">{title}</h1>
           {subtitle && <div className="truncate text-xs text-stone-500">{subtitle}</div>}
         </div>
         <div className="flex items-center gap-1 pr-1">{right}</div>
@@ -62,7 +62,7 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${checked ? 'bg-brand-600' : 'bg-stone-300 dark:bg-stone-700'}`}
+        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${checked ? 'bg-brand-500' : 'bg-stone-300 dark:bg-stone-700'}`}
       >
         <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.2)] transition-all duration-200 ${checked ? 'left-[22px]' : 'left-0.5'}`} />
       </button>
@@ -72,12 +72,12 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 
 export function Segmented<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: ReactNode }[]; onChange: (v: T) => void }) {
   return (
-    <div className="flex rounded-2xl bg-stone-200/70 p-1 ring-1 ring-black/[0.03] dark:bg-black/30 dark:ring-white/[0.05]">
+    <div className="flex rounded-[8px] bg-stone-200 p-1 dark:bg-stone-900">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition ${value === o.value ? 'bg-white text-stone-900 shadow-[0_1px_3px_rgba(40,25,10,0.15)] dark:bg-stone-700 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_1px_3px_rgba(0,0,0,0.4)]' : 'text-stone-500 active:text-stone-700 dark:text-stone-400'}`}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-[6px] px-3 py-2 text-sm font-bold transition ${value === o.value ? 'bg-white text-stone-900 shadow-[0_1px_2px_rgba(0,0,0,0.12)] dark:bg-stone-800 dark:text-white dark:shadow-none' : 'text-stone-500 active:text-stone-700 dark:text-stone-400'}`}
         >
           {o.label}
         </button>

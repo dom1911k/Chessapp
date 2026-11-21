@@ -82,6 +82,8 @@ export interface Settings {
   avatarTitle: string;
   /** A short buzz on captures and key moves (checks, forks, promotions, mate). */
   haptics: boolean;
+  /** Set once the chess.com-style look (dark charcoal, green board, Neo-style pieces) became the default. */
+  uiV2: boolean;
 }
 
 export type BoardTheme = string;
@@ -140,7 +142,7 @@ export const BOARD_THEMES: Record<BoardTheme, { label: string; light: string; da
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  theme: 'system',
+  theme: 'dark',
   botElo: DEFAULT_ELO,
   opponentEngine: 'maia',
   maiaVersion: 'maia3',
@@ -184,6 +186,7 @@ export const DEFAULT_SETTINGS: Settings = {
   avatarFrame: 'none',
   avatarTitle: '',
   haptics: true,
+  uiV2: true,
 };
 
 const KEY = 'settings';
@@ -222,6 +225,7 @@ export const useSettings = create<SettingsStore>((set, get) => ({
           if (typeof saved.botElo === 'number') saved.botElo = fromLegacy(saved.botElo);
           saved.ccScaleV1 = true;
         }
+        migrateUiV2(saved);
         set({ ...DEFAULT_SETTINGS, ...saved });
       }
     } catch {
@@ -234,6 +238,17 @@ export const useSettings = create<SettingsStore>((set, get) => ({
     void Preferences.set({ key: KEY, value: JSON.stringify(pickSettings(get())) });
   },
 }));
+
+/**
+ * One-time move to the chess.com-style look: players still on the old defaults (theme following
+ * the system) switch to dark. A look someone picked on purpose is left alone.
+ */
+export function migrateUiV2(saved: Partial<Settings>): Partial<Settings> {
+  if (saved.uiV2) return saved;
+  if (saved.theme === 'system' || !saved.theme) saved.theme = 'dark';
+  saved.uiV2 = true;
+  return saved;
+}
 
 export function pickSettings(s: Settings): Settings {
   const out = {} as Record<string, unknown>;

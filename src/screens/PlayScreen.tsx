@@ -517,7 +517,7 @@ function GameView() {
   const onOff = (on: boolean) => <span className={`chip ${on ? 'bg-brand-100 text-brand-700 dark:bg-brand-700/30 dark:text-brand-100' : 'bg-stone-100 text-stone-500 dark:bg-stone-800'}`}>{on ? 'On' : 'Off'}</span>;
 
   return (
-    <div className="flex h-full flex-col bg-gradient-to-b from-stone-100 to-[#efe7da] dark:from-stone-950 dark:to-[#1d1712]">
+    <div className="flex h-full flex-col bg-stone-100 dark:bg-stone-950">
       <GameTopBar onMenu={() => setMenu(true)} />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-5 land:px-3">
         <div className="land:w-[min(calc(100dvh-6rem),58vw)] land:shrink-0">

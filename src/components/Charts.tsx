@@ -54,7 +54,7 @@ export function EvalGraph({ plies, current, onSelect, height = 110, times, class
       <path d={area} fill="#f5f5f4" />
       {times && (
         <g>
-          <rect x="0" y={H} width={W} height={STRIP} className="fill-[#fbf8f2] dark:fill-[#221d18]" />
+          <rect x="0" y={H} width={W} height={STRIP} className="fill-stone-100 dark:fill-stone-900" />
           {times.map((t, i) => {
             if (t === null || !plies[i]) return null;
             const h = Math.max(1.5, (Math.sqrt(t) / scale) * (STRIP - 3));
@@ -147,7 +147,7 @@ export function LineChart({ values, labels, height = 120, color = '#2f9e63', dat
       <path d={area} fill={`url(#fill${id})`} />
       <path d={line} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {hover !== null && <line x1={x(hover)} x2={x(hover)} y1="4" y2={H - 14} stroke="currentColor" strokeOpacity="0.25" strokeDasharray="3 3" />}
-      <circle cx={x(hi_)} cy={y(values[hi_])} r={hover !== null ? 5 : 4} fill={color} stroke="var(--chart-dot, #fff)" strokeWidth="2" className="[--chart-dot:#fffdf9] dark:[--chart-dot:#1d1915]" />
+      <circle cx={x(hi_)} cy={y(values[hi_])} r={hover !== null ? 5 : 4} fill={color} stroke="var(--chart-dot, #fff)" strokeWidth="2" className="[--chart-dot:#ffffff] dark:[--chart-dot:var(--color-stone-900)]" />
       {hover !== null ? (
         <g>
           <rect x={tipX - 28} y="0" width="56" height={dates ? 26 : 16} rx="6" fill="currentColor" opacity="0.9" />

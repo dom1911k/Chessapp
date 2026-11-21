@@ -58,7 +58,7 @@ export function HistoryScreen() {
                 ) : (
                   <Medallion name="brain" size={40} tint="stone" />
                 )}
-                <span className={`absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-[#fffdf9] dark:ring-[#1d1915] ${g.userResult === 'win' ? 'bg-emerald-600' : g.userResult === 'loss' ? 'bg-red-500' : 'bg-stone-400'}`}>
+                <span className={`absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-white dark:ring-stone-900 ${g.userResult === 'win' ? 'bg-emerald-600' : g.userResult === 'loss' ? 'bg-red-500' : 'bg-stone-400'}`}>
                   {g.userResult === 'win' ? 'W' : g.userResult === 'loss' ? 'L' : 'D'}
                 </span>
               </span>

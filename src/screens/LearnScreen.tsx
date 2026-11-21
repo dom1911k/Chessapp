@@ -134,7 +134,7 @@ export function LearnScreen() {
                 const on = k === shown;
                 const complete = p.done >= p.total;
                 return (
-                  <button key={sg.id} data-stage={k} onClick={() => setStage(k)} className={`tile relative w-[132px] shrink-0 snap-center rounded-[18px] p-3 text-left ring-1 transition-colors ${on ? 'bg-brand-600 text-white ring-brand-700 shadow-[0_10px_20px_-12px_rgba(27,90,60,0.9)]' : 'bg-[#fffdf9] ring-stone-200/80 dark:bg-[#1d1915] dark:ring-white/[0.07]'}`}>
+                  <button key={sg.id} data-stage={k} onClick={() => setStage(k)} className={`tile relative w-[132px] shrink-0 snap-center rounded-[18px] p-3 text-left ring-1 transition-colors ${on ? 'bg-brand-500 text-white ring-brand-700' : 'bg-white ring-black/[0.06] dark:bg-stone-900 dark:ring-0'}`}>
                     <span className="flex items-center justify-between">
                       <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${complete ? 'bg-amber-400 text-amber-950' : on ? 'bg-white/20' : 'bg-stone-100 text-stone-600 dark:bg-white/10 dark:text-stone-300'}`}>{complete ? <Check size={14} strokeWidth={3.5} /> : k + 1}</span>
                       {k === cur && !complete && <span className={`rounded-full px-1.5 py-px text-[9px] font-bold tracking-wider uppercase ${on ? 'bg-white/20' : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'}`}>You</span>}

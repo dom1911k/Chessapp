@@ -169,7 +169,7 @@ function useTheme() {
     const apply = () => {
       const dark = theme === 'dark' || (theme === 'system' && mq.matches);
       document.documentElement.classList.toggle('dark', dark);
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0c0a09' : '#f5f5f4');
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#312e2b' : '#f1f0ee');
       if (Capacitor.isNativePlatform()) void SystemBars.setStyle({ style: dark ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch(() => undefined);
     };
     apply();
@@ -289,21 +289,21 @@ export function App() {
         })}
       </main>
       {!top && !(inGame && tab === 'play') && (
-        <nav className="safe-bottom border-t border-stone-200/70 bg-[#fffdf9]/90 shadow-[0_-8px_24px_-18px_rgba(40,25,10,0.25)] backdrop-blur-xl backdrop-saturate-150 dark:border-white/[0.06] dark:bg-[#1a1612]/90 dark:shadow-none">
+        <nav className="safe-bottom border-t border-black/[0.08] bg-white dark:border-white/[0.06] dark:bg-stone-900">
           <div className="mx-auto flex max-w-xl px-2 pt-1.5 pb-1">
             {tabs.map((t) => {
               const active = shownTab === t.tab;
               const Icon = t.icon;
-              // Run is its own game mode: set apart by a divider and its own violet accent.
+              // Cups is its own game mode: set apart by a divider and its own violet accent.
               const run = t.tab === 'run';
               return (
                 <button key={t.tab} onClick={() => setTab(t.tab)} className={`flex flex-1 flex-col items-center gap-0.5 py-1 ${run ? 'relative before:absolute before:top-2 before:bottom-2 before:left-0 before:w-px before:bg-stone-200 dark:before:bg-white/10' : ''}`}>
                   <span
-                    className={`flex h-8 w-14 items-center justify-center rounded-full transition-colors duration-200 ${
+                    className={`flex h-8 w-14 items-center justify-center rounded-lg transition-colors duration-150 ${
                       active
                         ? run
                           ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-200'
-                          : 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-100'
+                          : 'bg-stone-200/70 text-stone-900 dark:bg-white/[0.08] dark:text-white'
                         : run
                           ? 'text-violet-500/80 active:bg-violet-100/60 dark:text-violet-300/70'
                           : 'text-stone-500 active:bg-stone-200/60 dark:active:bg-white/[0.05]'
@@ -311,7 +311,7 @@ export function App() {
                   >
                     <Icon size={22} strokeWidth={active ? 2.3 : 1.8} />
                   </span>
-                  <span className={`text-[11px] font-semibold ${active ? 'text-stone-900 dark:text-stone-100' : 'text-stone-500'}`}>{t.label}</span>
+                  <span className={`text-[11px] font-semibold ${active ? 'text-stone-900 dark:text-white' : 'text-stone-500'}`}>{t.label}</span>
                 </button>
               );
             })}
@@ -334,9 +334,9 @@ export function App() {
 /** The launch screen, matching the one in index.html, while settings load. */
 function Splash() {
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center gap-[18px] bg-[radial-gradient(circle_at_30%_20%,#3aa872,#1f7a4c_55%,#0f4a2f)]">
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-[18px] bg-[#312e2b]">
       <img src="./icon.svg" alt="" width={112} height={112} className="rounded-[26px] shadow-[0_12px_32px_rgba(0,0,0,0.28)]" />
-      <div className="font-display text-[26px] font-semibold tracking-wide text-[#fff8ea]">Chess Coach</div>
+      <div className="font-display text-[26px] text-white">Chess Coach</div>
     </div>
   );
 }

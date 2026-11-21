@@ -44,7 +44,7 @@ export function AvatarPicker({ onClose }: { onClose: () => void }) {
   const open = (u: Parameters<typeof meets>[0]) => !ctx || meets(u, ctx);
   return (
     <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center" onClick={onClose}>
-      <div className="safe-bottom animate-pop max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-[28px] bg-[#fffdf9] px-5 pt-4 pb-5 shadow-2xl sm:rounded-[28px] dark:bg-stone-900" onClick={(e) => e.stopPropagation()}>
+      <div className="safe-bottom animate-pop max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-[14px] bg-white px-5 pt-4 pb-5 shadow-2xl sm:rounded-[14px] dark:bg-stone-900" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl font-semibold">Your look</h2>
           <button className="rounded-full p-1.5 text-stone-400" onClick={onClose} aria-label="Close">
@@ -57,7 +57,7 @@ export function AvatarPicker({ onClose }: { onClose: () => void }) {
         <h3 className="section-title mt-4">Avatar</h3>
         <div className="mt-2 grid grid-cols-4 gap-3">
           {AVATARS.map((a) => (
-            <button key={a.id} aria-label={`Avatar ${a.id}`} aria-pressed={avatarId(s.avatar) === a.id} className={`relative justify-self-center rounded-[30%] transition-transform active:scale-95 ${avatarId(s.avatar) === a.id ? 'ring-[3px] ring-brand-600 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''}`} onClick={() => s.set({ avatar: a.id })}>
+            <button key={a.id} aria-label={`Avatar ${a.id}`} aria-pressed={avatarId(s.avatar) === a.id} className={`relative justify-self-center rounded-[30%] transition-transform active:scale-95 ${avatarId(s.avatar) === a.id ? 'ring-[3px] ring-brand-600 ring-offset-2 ring-offset-white dark:ring-offset-stone-900' : ''}`} onClick={() => s.set({ avatar: a.id })}>
               <AvatarImg id={a.id} size={68} />
             </button>
           ))}
@@ -68,7 +68,7 @@ export function AvatarPicker({ onClose }: { onClose: () => void }) {
             const ok = open(f.unlock);
             return (
               <button key={f.id} disabled={!ok} aria-pressed={s.avatarFrame === f.id} className="flex flex-col items-center gap-1 text-center active:scale-95 disabled:active:scale-100" onClick={() => s.set({ avatarFrame: f.id })}>
-                <span className={`relative rounded-[30%] ${s.avatarFrame === f.id ? 'ring-[3px] ring-brand-600 ring-offset-2 ring-offset-[#fffdf9] dark:ring-offset-stone-900' : ''} ${ok ? '' : 'opacity-60'}`}>
+                <span className={`relative rounded-[30%] ${s.avatarFrame === f.id ? 'ring-[3px] ring-brand-600 ring-offset-2 ring-offset-white dark:ring-offset-stone-900' : ''} ${ok ? '' : 'opacity-60'}`}>
                   <AvatarImg id={s.avatar} frame={f} size={56} />
                   {!ok && <Lock size={16} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow" />}
                 </span>

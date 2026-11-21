@@ -13,18 +13,22 @@ import type { AnyGame, PlyRecord } from './store/types';
 export type ReviewClass = 'brilliant' | 'great' | 'best' | 'excellent' | 'good' | 'book' | 'inaccuracy' | 'mistake' | 'miss' | 'blunder';
 export const REVIEW_ORDER: ReviewClass[] = ['brilliant', 'great', 'best', 'excellent', 'good', 'book', 'inaccuracy', 'mistake', 'miss', 'blunder'];
 
-/** Label, symbol and colour per class (the colours chess.com players know). */
-export const RC: Record<ReviewClass, { label: string; symbol: string; color: string; verdict: string }> = {
-  brilliant: { label: 'Brilliant', symbol: '!!', color: '#1baca6', verdict: 'is brilliant' },
-  great: { label: 'Great', symbol: '!', color: '#5c8bb0', verdict: 'is a great move' },
-  best: { label: 'Best', symbol: '★', color: '#81b64c', verdict: 'is best' },
-  excellent: { label: 'Excellent', symbol: '👍', color: '#96bc4b', verdict: 'is excellent' },
-  good: { label: 'Good', symbol: '✓', color: '#95b776', verdict: 'is good' },
-  book: { label: 'Book', symbol: '📖', color: '#a88865', verdict: 'is a book move' },
-  inaccuracy: { label: 'Inaccuracy', symbol: '?!', color: '#f7c045', verdict: 'is an inaccuracy' },
-  mistake: { label: 'Mistake', symbol: '?', color: '#ffa459', verdict: 'is a mistake' },
-  miss: { label: 'Miss', symbol: '✕', color: '#ff7769', verdict: 'is a miss' },
-  blunder: { label: 'Blunder', symbol: '??', color: '#fa412d', verdict: 'is a blunder' },
+/**
+ * Label, symbol and colours per class (the colours chess.com players know). `color` fills icons
+ * and is the text colour on dark surfaces; `ink` is the text colour on light surfaces (each passes
+ * 4.5:1 on white); `inkDark` lightens the two that are borderline as text on charcoal.
+ */
+export const RC: Record<ReviewClass, { label: string; symbol: string; color: string; ink: string; inkDark: string; verdict: string }> = {
+  brilliant: { label: 'Brilliant', symbol: '!!', color: '#1baca6', ink: '#14827e', inkDark: '#1baca6', verdict: 'is brilliant' },
+  great: { label: 'Great', symbol: '!', color: '#5c8bb0', ink: '#4c799c', inkDark: '#6d9cc2', verdict: 'is a great move' },
+  best: { label: 'Best', symbol: '★', color: '#81b64c', ink: '#597f34', inkDark: '#81b64c', verdict: 'is best' },
+  excellent: { label: 'Excellent', symbol: '👍', color: '#96bc4b', ink: '#627d2e', inkDark: '#96bc4b', verdict: 'is excellent' },
+  good: { label: 'Good', symbol: '✓', color: '#95b776', ink: '#5e7d42', inkDark: '#95b776', verdict: 'is good' },
+  book: { label: 'Book', symbol: '📖', color: '#a88865', ink: '#8b6e4f', inkDark: '#a88865', verdict: 'is a book move' },
+  inaccuracy: { label: 'Inaccuracy', symbol: '?!', color: '#f7c045', ink: '#9a6c07', inkDark: '#f7c045', verdict: 'is an inaccuracy' },
+  mistake: { label: 'Mistake', symbol: '?', color: '#ffa459', ink: '#bf5600', inkDark: '#ffa459', verdict: 'is a mistake' },
+  miss: { label: 'Miss', symbol: '✕', color: '#ff7769', ink: '#c8374a', inkDark: '#ff7769', verdict: 'is a miss' },
+  blunder: { label: 'Blunder', symbol: '??', color: '#fa412d', ink: '#d1321f', inkDark: '#ff5a45', verdict: 'is a blunder' },
 };
 /** How bad a class is (higher = worse), for "at least a mistake" comparisons. */
 const SEVERITY: Record<ReviewClass, number> = { brilliant: 0, great: 0, best: 0, excellent: 0, book: 0, good: 1, inaccuracy: 2, mistake: 3, miss: 3, blunder: 4 };

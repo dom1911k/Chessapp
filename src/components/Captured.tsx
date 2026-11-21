@@ -24,7 +24,7 @@ export function Captured({ fen, startFen, side, className = '' }: { fen: string;
   // Outline: dark pieces get a light halo in dark mode; light pieces a soft dark rim in light mode.
   const outline =
     victim === 'b'
-      ? 'dark:[filter:drop-shadow(1px_0_0_#e7ded0)_drop-shadow(-1px_0_0_#e7ded0)_drop-shadow(0_1px_0_#e7ded0)_drop-shadow(0_-1px_0_#e7ded0)]'
+      ? 'dark:[filter:drop-shadow(1px_0_0_#e4e2df)_drop-shadow(-1px_0_0_#e4e2df)_drop-shadow(0_1px_0_#e4e2df)_drop-shadow(0_-1px_0_#e4e2df)]'
       : '[filter:drop-shadow(0_0_0.6px_rgba(0,0,0,0.55))] dark:[filter:drop-shadow(0_1px_1px_rgba(0,0,0,0.6))]';
   return (
     <div className={`flex h-5 items-center gap-1 ${className}`} aria-label={`Captured ${taken.length} piece${taken.length === 1 ? '' : 's'}`}>

@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 export function Dock({ children, sticky = false }: { children: ReactNode; /** Stick to the bottom of a scrolling parent instead of sitting below it. */ sticky?: boolean }) {
   return (
     <div className={`safe-bottom z-10 shrink-0 px-3 pt-1.5 pb-2 ${sticky ? 'sticky bottom-0 mt-auto' : ''}`}>
-      <div className="mx-auto flex max-w-md items-stretch gap-1 rounded-[22px] bg-white/90 p-1.5 shadow-[0_6px_24px_rgba(60,35,15,0.12)] ring-1 ring-black/5 backdrop-blur-xl dark:bg-[#1d1915]/90 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_24px_rgba(0,0,0,0.5)] dark:ring-white/[0.07]">
+      <div className="mx-auto flex max-w-md items-stretch gap-1 rounded-[22px] bg-white/90 p-1.5 shadow-[0_6px_24px_rgba(60,35,15,0.12)] ring-1 ring-black/5 backdrop-blur-xl dark:bg-stone-900/95 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_24px_rgba(0,0,0,0.5)] dark:ring-white/[0.07]">
         {children}
       </div>
     </div>
