@@ -37,7 +37,7 @@ export function MoveHistory({ plies, startFen, view, onView }: { plies: PlyRecor
         data-active={shown === i}
         onClick={() => go(i)}
         className={`rounded-lg px-2 py-1 text-left font-semibold tabular-nums transition ${
-          shown === i ? 'bg-brand-600 text-white shadow-sm' : 'text-stone-700 active:bg-stone-100 dark:text-stone-200 dark:active:bg-stone-800'
+          shown === i ? 'bg-brand-700 text-white shadow-sm' : 'text-stone-700 active:bg-stone-100 dark:text-stone-200 dark:active:bg-stone-800'
         }`}
       >
         {figurine(plies[i].san)}
@@ -62,11 +62,11 @@ export function MoveHistory({ plies, startFen, view, onView }: { plies: PlyRecor
         </div>
       </div>
       <div ref={ref} className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
-        {rows.length === 0 && <p className="px-1 py-2 text-sm text-stone-400">No moves yet — your turn to start.</p>}
+        {rows.length === 0 && <p className="px-1 py-2 text-sm text-stone-500">No moves yet — your turn to start.</p>}
         <div className="grid grid-cols-[2.25rem_1fr_1fr] items-center gap-x-1 gap-y-0.5 text-[15px]">
           {rows.map(([w, b], r) => (
             <div key={r} className="contents">
-              <span className="text-sm text-stone-400 tabular-nums">{startNo + r}.</span>
+              <span className="text-sm text-stone-500 tabular-nums">{startNo + r}.</span>
               {cell(w)}
               {cell(b)}
             </div>

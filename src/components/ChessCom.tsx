@@ -248,7 +248,7 @@ export function GapCard() {
   if (!games) return null;
   const r = gapReport(games);
   if (r.coached.n + r.match.n === 0) return null;
-  const cell = (t: { n: number; pct: number }) => (t.n ? <><b>{t.pct}%</b> <span className="text-stone-400">({t.n})</span></> : <span className="text-stone-400">–</span>);
+  const cell = (t: { n: number; pct: number }) => (t.n ? <><b>{t.pct}%</b> <span className="text-stone-500">({t.n})</span></> : <span className="text-stone-500">–</span>);
   return (
     <div className="card space-y-2 !p-3">
       <div className="section-title">Coached vs Match conditions (last {PERIOD_DAYS} days)</div>
@@ -308,7 +308,7 @@ export function TimeStatsCard({ g, onPly }: { g: AnyGame; onPly: (ply: number) =
           />
         ))}
       </div>
-      <div className="flex justify-between text-[10px] text-stone-400">
+      <div className="flex justify-between text-[10px] text-stone-500">
         <span>move 1</span>
         <span>move {st.moves[st.moves.length - 1].moveNo}</span>
       </div>

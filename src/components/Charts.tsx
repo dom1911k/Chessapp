@@ -107,7 +107,7 @@ export function LineChart({ values, labels, height = 120, color = '#2f9e63', dat
   const [hover, setHover] = useState<number | null>(null);
   const W = 320;
   const H = height;
-  if (values.length < 2) return <div className="flex h-24 items-center justify-center text-sm text-stone-400">Not enough data yet</div>;
+  if (values.length < 2) return <div className="flex h-24 items-center justify-center text-sm text-stone-500">Not enough data yet</div>;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const pad = Math.max(4, (max - min) * 0.12);
@@ -169,7 +169,7 @@ export function LineChart({ values, labels, height = 120, color = '#2f9e63', dat
 export function BarChart({ values, height = 90, color = '#ea580c' }: { values: number[]; height?: number; color?: string }) {
   const W = 320;
   const H = height;
-  if (!values.length) return <div className="flex h-20 items-center justify-center text-sm text-stone-400">Not enough data yet</div>;
+  if (!values.length) return <div className="flex h-20 items-center justify-center text-sm text-stone-500">Not enough data yet</div>;
   const max = Math.max(1, ...values);
   const bw = W / values.length;
   return (

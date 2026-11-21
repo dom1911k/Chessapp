@@ -29,7 +29,8 @@
   --color-brand-100: #dcecc5;
   --color-brand-500: #81b64c;
   --color-brand-600: #6e9f3f;
-  --color-brand-700: #4f8236;
+  /* Text and small white labels: 4.5:1 on the page, 5:1 for white on it. */
+  --color-brand-700: #477a30;
   --color-brand-800: #45753c;
   --color-gold-300: #ecd08a;
   --color-gold-400: #dcb55a;
@@ -58,7 +59,8 @@
   --color-stone-800: #3c3a37;
   --color-stone-700: #4b4847;
   --color-stone-600: #6f6c69;
-  --color-stone-500: #989795;
+  /* Muted text: 4.5:1 even on raised controls (#3c3a37). */
+  --color-stone-500: #a8a6a3;
   --color-stone-400: #b4b2b0;
   --color-stone-300: #d0cecb;
   --color-stone-200: #e4e2df;

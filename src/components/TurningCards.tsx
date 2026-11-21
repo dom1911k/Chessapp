@@ -26,7 +26,7 @@ export function TurningPrompt() {
   if (!g) return null;
   return (
     <div className="card flex items-center gap-3 !p-3" data-testid="turning-prompt">
-      <Crosshair size={20} className="shrink-0 text-brand-600" />
+      <Crosshair size={20} className="shrink-0 text-brand-700" />
       <button className="min-w-0 flex-1 text-left text-sm" onClick={() => push({ name: 'turning', gameId: g.id! })}>
         <b>Where did it turn?</b> <span className="text-stone-500">(10 s)</span>
         <span className="block truncate text-xs text-stone-500">Your loss vs {who(g)} · {when(g.endedAt)}</span>
@@ -48,7 +48,7 @@ export function TurningList() {
       <div className="px-3.5 pt-3 section-title">Where did it turn? <span className="font-normal text-stone-500">(10 s each)</span></div>
       {list.map((g) => (
         <button key={String(g.id)} className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm active:bg-stone-100 dark:active:bg-white/5" onClick={() => push({ name: 'turning', gameId: g.id! })}>
-          <Crosshair size={15} className="shrink-0 text-brand-600" />
+          <Crosshair size={15} className="shrink-0 text-brand-700" />
           <span className="flex-1 truncate">Lost vs {who(g)} · {when(g.endedAt)}</span>
           <span className="text-xs font-semibold text-brand-700 dark:text-brand-500">Try</span>
         </button>

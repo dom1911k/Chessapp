@@ -18,7 +18,7 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, { error
         <button className="btn-primary" onClick={() => location.reload()}>
           Reload the app
         </button>
-        <p className="max-w-sm text-xs break-words text-stone-400">{this.state.error.message}</p>
+        <p className="max-w-sm text-xs break-words text-stone-500">{this.state.error.message}</p>
       </div>
     );
   }

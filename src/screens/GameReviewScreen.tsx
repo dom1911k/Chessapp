@@ -116,7 +116,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
   }, [g, r]);
   const badCounts = (['blunder', 'miss', 'mistake', 'inaccuracy'] as const).filter((c) => r.me.counts[c]).map((c) => `${r.me.counts[c]} ${RC[c].label.toLowerCase()}${r.me.counts[c] > 1 ? (c === 'miss' ? 'es' : 's') : ''}`);
   const rows = REVIEW_ORDER.filter((c) => allRows || r.me.counts[c] + r.them.counts[c] > 0);
-  const resultTone = g.userResult === 'win' ? 'bg-brand-500 text-white' : g.userResult === 'loss' ? 'bg-stone-700 text-white dark:bg-stone-800' : 'bg-stone-500 text-white';
+  const resultTone = g.userResult === 'win' ? 'bg-brand-700 text-white' : g.userResult === 'loss' ? 'bg-stone-700 text-white dark:bg-stone-800' : 'bg-stone-500 text-white';
   // chess.com's accuracy boxes: the white player's white, the black player's charcoal.
   const accNum = (acc: number, white: boolean) => (
     <span className={`inline-flex w-[84px] justify-center rounded-[6px] py-1.5 text-[24px] leading-none font-extrabold tabular-nums ${white ? 'bg-white text-[#312e2b] ring-1 ring-black/10' : 'bg-[#403d39] text-white'}`}>
@@ -140,7 +140,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
               <PlayerChip g={g} me />
               {!pending(g) && accNum(r.me.accuracy, meWhite)}
             </div>
-            <span className="text-[11px] font-semibold tracking-wider text-stone-400 uppercase">{pending(g) ? 'vs' : 'Accuracy'}</span>
+            <span className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase">{pending(g) ? 'vs' : 'Accuracy'}</span>
             <div className="flex flex-col items-center gap-2">
               <PlayerChip g={g} me={false} />
               {!pending(g) && accNum(r.them.accuracy, !meWhite)}
@@ -148,7 +148,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
             {perf && (
               <>
                 <span className="text-center text-lg font-extrabold tabular-nums" data-testid="game-rating">{perf.me ? `${perf.me}${perf.me >= 2000 ? '+' : ''}` : '—'}</span>
-                <span className="text-center text-[11px] font-semibold tracking-wider text-stone-400 uppercase">Game rating</span>
+                <span className="text-center text-[11px] font-semibold tracking-wider text-stone-500 uppercase">Game rating</span>
                 <span className="text-center text-lg font-extrabold tabular-nums">{perf.them ? `${perf.them}${perf.them >= 2000 ? '+' : ''}` : '—'}</span>
               </>
             )}
@@ -184,7 +184,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
                     </div>
                     <div className="mt-1.5 flex items-center gap-1 text-[13px] font-semibold">
                       <ReviewIcon cls={r.plies[m.ply].cls} size={15} /> {moveNo(g.plies, m.ply)} {q.san}
-                      <span className="ml-auto text-[10px] font-normal text-stone-400">{q.isUser ? 'you' : 'them'}</span>
+                      <span className="ml-auto text-[10px] font-normal text-stone-500">{q.isUser ? 'you' : 'them'}</span>
                     </div>
                     <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-stone-600 dark:text-stone-300">{line}</div>
                   </button>
@@ -196,7 +196,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
 
         {canRematch(g) && (
           <button className="card flex w-full items-center gap-3 !p-3.5 text-left" data-testid="rematch" onClick={() => void startRematch(g)}>
-            <Swords size={20} className="shrink-0 text-brand-600" />
+            <Swords size={20} className="shrink-0 text-brand-700" />
             <span className="flex-1 text-sm"><b>Rematch {oppName(g)}</b> <span className="block text-stone-500">A stand-in at {g.elo}: opens like they did against you, same clock, Match conditions.</span></span>
             <span className="btn-primary !px-3 !py-1.5 text-sm">Rematch</span>
           </button>
@@ -243,7 +243,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
                   <span className="text-[11px] font-semibold tracking-wide text-stone-500 capitalize">{ph}</span>
                   <span className="flex items-center gap-2">
                     {r.me.phases[ph] ? <ReviewIcon cls={r.me.phases[ph]!.cls} size={22} /> : <span className="w-[22px] text-center text-stone-300">–</span>}
-                    <span className="text-[10px] text-stone-400">vs</span>
+                    <span className="text-[10px] text-stone-500">vs</span>
                     {r.them.phases[ph] ? <ReviewIcon cls={r.them.phases[ph]!.cls} size={18} className="opacity-70" /> : <span className="w-[18px] text-center text-stone-300">–</span>}
                   </span>
                 </div>
@@ -293,7 +293,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
                     </span>
                     <span className="mt-0.5 block text-[13px] text-stone-600 dark:text-stone-300">
                       {m.text}
-                      {m.secs !== undefined && <span className={`whitespace-nowrap ${m.fast || m.timeTrouble ? 'font-semibold text-amber-700 dark:text-amber-400' : 'text-stone-400'}`}> · {m.secs < 10 ? m.secs.toFixed(1) : Math.round(m.secs)} s{m.timeTrouble ? ', time trouble' : m.fast ? ', fast' : ''}</span>}
+                      {m.secs !== undefined && <span className={`whitespace-nowrap ${m.fast || m.timeTrouble ? 'font-semibold text-amber-700 dark:text-amber-400' : 'text-stone-500'}`}> · {m.secs < 10 ? m.secs.toFixed(1) : Math.round(m.secs)} s{m.timeTrouble ? ', time trouble' : m.fast ? ', fast' : ''}</span>}
                     </span>
                   </Row>
                 ))}
@@ -518,7 +518,7 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
         </span>
       } />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-4 land:px-3">
-        <div className="flex gap-1 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0">
+        <div className="flex gap-1 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0 land:self-start">
           <EvalBar whitePct={evalNow} orientation={orientation} score={p?.evalAfter ?? { type: 'cp', value: 0 }} width={20} />
           <div className="relative min-w-0 flex-1" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} data-testid="review-board">
             <Board fen={fen} orientation={orientation} movable={retry?.state === 'try' ? g.userColor : null} onMove={onRetryMove} arrows={arrows} lastMove={lastMove} lastMoveColor={moveTint} />
@@ -526,7 +526,7 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
             {moveTint && p && rp && <SquareIcon sq={p.uci.slice(2, 4)} cls={rp.cls} orientation={orientation} />}
           </div>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {/* Move strip: the same look as the game's. */}
           <div ref={strip} className="no-scrollbar flex h-9 shrink-0 items-center gap-0.5 overflow-x-auto px-2 text-[14px]">
             {g.plies.map((q, k) => {

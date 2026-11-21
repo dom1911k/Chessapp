@@ -79,7 +79,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-xs text-stone-400">Everything works offline, and your data stays on your phone.</p>
+            <p className="mt-4 text-xs text-stone-500">Everything works offline, and your data stays on your phone.</p>
           </div>
         )}
         {step === 1 && (
@@ -104,7 +104,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 const on = exp === e.id;
                 return (
                   <button key={e.id} aria-pressed={on} className={`card tile flex w-full items-center gap-3 !p-4 text-left ${on ? '!ring-2 !ring-brand-500' : ''}`} onClick={() => setExp(e.id)}>
-                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${on ? 'bg-brand-600 text-white' : 'ring-2 ring-stone-300 dark:ring-stone-600'}`}>{on && <Check size={14} strokeWidth={3.5} />}</span>
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${on ? 'bg-brand-700 text-white' : 'ring-2 ring-stone-300 dark:ring-stone-600'}`}>{on && <Check size={14} strokeWidth={3.5} />}</span>
                     <span>
                       <span className="block text-[17px] font-semibold leading-tight">{e.title}</span>
                       <span className="mt-0.5 block text-sm text-stone-500">{e.sub}</span>
@@ -121,7 +121,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             <p className="mt-1 text-stone-600 dark:text-stone-300">A day counts when you play a game, solve a puzzle or finish a lesson. Rest days never reset anything.</p>
             <div className="mt-6 flex justify-between gap-2">
               {GOAL_CHOICES.map((n) => (
-                <button key={n} aria-pressed={goal === n} className={`flex h-16 flex-1 flex-col items-center justify-center rounded-[10px] transition active:scale-95 ${goal === n ? 'bg-brand-600 text-white shadow-[0_8px_18px_-8px_rgba(27,90,60,0.8)]' : 'bg-white ring-1 ring-stone-200 dark:bg-white/5 dark:ring-white/10'}`} onClick={() => setGoal(n)}>
+                <button key={n} aria-pressed={goal === n} className={`flex h-16 flex-1 flex-col items-center justify-center rounded-[10px] transition active:scale-95 ${goal === n ? 'bg-brand-700 text-white shadow-[0_8px_18px_-8px_rgba(27,90,60,0.8)]' : 'bg-white ring-1 ring-stone-200 dark:bg-white/5 dark:ring-white/10'}`} onClick={() => setGoal(n)}>
                   <span className="font-display text-2xl leading-none font-semibold">{n}</span>
                   <span className={`mt-1 text-[10px] font-semibold ${goal === n ? 'text-white/80' : 'text-stone-500'}`}>{n === 7 ? 'every day' : 'days'}</span>
                 </button>
@@ -136,7 +136,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <AvatarImg id={settings.avatar} size={84} />
               {plan.first === 'game' && opp && (
                 <>
-                  <span className="text-xs font-bold tracking-widest text-stone-400 uppercase">vs</span>
+                  <span className="text-xs font-bold tracking-widest text-stone-500 uppercase">vs</span>
                   <Portrait id={opp.id} size={84} mood="happy" />
                 </>
               )}

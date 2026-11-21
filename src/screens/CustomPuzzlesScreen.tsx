@@ -75,7 +75,7 @@ export function CustomPuzzlesScreen() {
                     </span>
                     {pct !== null && <span className={`text-xs font-bold ${pct >= 70 ? 'text-emerald-600' : pct < 45 ? 'text-red-500' : 'text-stone-500'}`}>{pct}%</span>}
                     {s && mastery(s.solved).tier > 0 && <TierMedal tier={mastery(s.solved).tier} size={22} />}
-                    {counts[t.id] ? <span className="text-xs text-stone-400">{counts[t.id] >= 1000 ? `${(counts[t.id] / 1000).toFixed(1)}k` : counts[t.id]}</span> : null}
+                    {counts[t.id] ? <span className="text-xs text-stone-500">{counts[t.id] >= 1000 ? `${(counts[t.id] / 1000).toFixed(1)}k` : counts[t.id]}</span> : null}
                     <ChevronRight size={16} className="text-stone-400" />
                   </button>
                 );

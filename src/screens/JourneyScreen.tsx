@@ -169,7 +169,7 @@ export function JourneyScreen() {
                       ? 'bg-gradient-to-b from-gold-300 to-gold-500 text-white shadow-[0_4px_14px_rgba(180,130,10,0.45)] ring-white dark:ring-stone-900'
                       : isNext
                         ? 'bg-white text-brand-700 ring-brand-500 dark:bg-stone-800'
-                        : 'bg-stone-200 text-stone-400 ring-white dark:bg-stone-800 dark:ring-stone-900'
+                        : 'bg-stone-200 text-stone-500 ring-white dark:bg-stone-800 dark:ring-stone-900'
                   }`}
                 >
                   {isNext && <span className="absolute inset-0 animate-ping rounded-full ring-4 ring-brand-400/50" />}
@@ -182,7 +182,7 @@ export function JourneyScreen() {
                     <div className={`mt-1 inline-flex items-center gap-1.5 rounded-full bg-white/80 py-0.5 pr-2 pl-0.5 text-[11px] font-semibold shadow-sm dark:bg-stone-800/80 ${right ? '' : 'flex-row-reverse pr-0.5 pl-2'}`}>
                       <CosmeticPreview c={reward} size={22} />
                       <span className="truncate">{reward.name}</span>
-                      {reached && <Check size={12} className="text-brand-600" strokeWidth={3} />}
+                      {reached && <Check size={12} className="text-brand-700" strokeWidth={3} />}
                     </div>
                   )}
                 </div>
@@ -194,7 +194,7 @@ export function JourneyScreen() {
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-lg ring-2 ring-brand-500 dark:bg-stone-800">
                 <Glyph name="pawn" size={20} className="text-brand-700 dark:text-brand-100" />
               </span>
-              <span className={`absolute rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-bold whitespace-nowrap text-white shadow-md ${pos.x < 50 ? 'left-11' : 'right-11'}`}>You · {r.rating}</span>
+              <span className={`absolute rounded-full bg-brand-700 px-2 py-0.5 text-[11px] font-bold whitespace-nowrap text-white shadow-md ${pos.x < 50 ? 'left-11' : 'right-11'}`}>You · {r.rating}</span>
             </div>
           </div>
         </div>

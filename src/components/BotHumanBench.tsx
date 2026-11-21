@@ -46,7 +46,7 @@ const n1 = (x: number | undefined) => (x === undefined ? '–' : x.toFixed(1));
 const n0 = (x: number | undefined) => (x === undefined ? '–' : String(Math.round(x)));
 
 function Line({ who, p, highlight }: { who: string; p?: ProfileSummary; highlight?: boolean }) {
-  if (!p) return <tr className="text-stone-400"><td className="pr-1">{who}</td><td colSpan={7}>no data</td></tr>;
+  if (!p) return <tr className="text-stone-500"><td className="pr-1">{who}</td><td colSpan={7}>no data</td></tr>;
   const t = p.think;
   return (
     <tr className={highlight ? 'font-semibold' : ''}>

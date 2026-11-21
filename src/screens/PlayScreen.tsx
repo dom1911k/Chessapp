@@ -298,7 +298,7 @@ function HomeLinks() {
   return (
     <div className="card divide-y divide-black/5 overflow-hidden !p-0 dark:divide-white/[0.06]">
       {row(<Puzzle size={20} />, 'text-orange-500', 'Puzzles', pz === null ? 'Solve and climb' : <>Rating <b className="text-stone-700 tabular-nums dark:text-stone-200">{pz}</b></>, () => push({ name: 'puzzle', mode: { kind: 'rated' } }))}
-      {row(<CalendarCheck size={20} />, 'text-sky-500', 'Daily training', due ? `${due} to review today` : 'Picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-red-500 text-white">{due}</span> : null)}
+      {row(<CalendarCheck size={20} />, 'text-sky-500', 'Daily training', due ? `${due} to review today` : 'Picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-red-600 text-white">{due}</span> : null)}
       {row(<BookOpen size={20} />, 'text-emerald-500', 'Course', lvl ? <>Level <b className="text-stone-700 tabular-nums dark:text-stone-200">{lvl.level}</b> · {lvl.stepsDone}/{lvl.steps} done</> : 'Learn step by step', () => setTab('learn'))}
       {row(<History size={20} />, 'text-violet-500', 'Past games', 'Reviews of your games', () => push({ name: 'history' }))}
       {cupsOn && row(<Trophy size={20} />, 'text-amber-500', 'Cups', cupLine ?? 'Knockout tournaments in the Cups tab', () => setTab('run'))}
@@ -555,7 +555,7 @@ function GameView() {
             <MoveList plies={g.plies} startFen={g.startFen} current={viewing ? view! : undefined} onSelect={(i) => setView(i >= g.plies.length - 1 ? null : i)} />
           )}
         </div>
-        <div className="flex min-h-0 flex-1 flex-col land:pt-1">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col land:pt-1">
           {/* The coach's message sits right under the move strip and scrolls (with a fade) if long. */}
           {coachOff ? (
             <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-1 pb-2">
@@ -585,7 +585,7 @@ function GameView() {
                 ) : (
                   <>
                     <div className="flex flex-[2] flex-col items-center justify-center text-[11px] leading-tight font-semibold text-stone-500">
-                      <Swords size={18} className="mb-0.5 text-brand-600" />
+                      <Swords size={18} className="mb-0.5 text-brand-700" />
                       Match conditions
                     </div>
                     <DockButton label="Resign" icon={<Flag size={22} />} onClick={() => setConfirmResign(true)} />
@@ -766,7 +766,7 @@ function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; on
       {card}
       {!s.precheck && safetyMessages.length > 0 && settings.safetyOverlay && (
         <p className="flex items-start gap-1.5 px-1 text-[13px] text-stone-600 dark:text-stone-300">
-          <ShieldCheck size={15} className="mt-0.5 shrink-0 text-brand-600" />
+          <ShieldCheck size={15} className="mt-0.5 shrink-0 text-brand-700" />
           {safetyMessages.join(' ')}
         </p>
       )}
@@ -945,7 +945,7 @@ export function TimeControlPicker({ value, options, onChange, mine }: { value: s
         <button
           key={tc}
           onClick={() => onChange(tc)}
-          className={`rounded-xl px-3 py-1.5 text-sm font-semibold ring-1 ${value === tc ? 'bg-brand-600 text-white ring-brand-600' : 'ring-stone-200 dark:ring-stone-700'}`}
+          className={`rounded-xl px-3 py-1.5 text-sm font-semibold ring-1 ${value === tc ? 'bg-brand-700 text-white ring-brand-700' : 'ring-stone-200 dark:ring-stone-700'}`}
         >
           {tc === 'off' ? 'Off' : timeControlLabel(tc)}
           {mine === tc && <span className={`ml-1 text-[10px] font-normal ${value === tc ? 'text-white/80' : 'text-stone-500'}`}>your usual</span>}

@@ -275,7 +275,7 @@ function RatingRow({ label, sub, value, best, onClick }: { label: string; sub: s
       </span>
       <span className="text-right">
         <span className="font-display block text-[22px] leading-tight font-semibold tabular-nums">{value}</span>
-        {best !== undefined && best > value && <span className="block text-[11px] text-stone-400">best {best}</span>}
+        {best !== undefined && best > value && <span className="block text-[11px] text-stone-500">best {best}</span>}
       </span>
       {onClick && <ChevronRight size={16} className="text-stone-400" />}
     </>
@@ -292,7 +292,7 @@ function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: st
     <div className="card !p-3 text-center">
       <div className="font-display text-[22px] font-semibold tabular-nums">{value}</div>
       <div className="text-[11px] text-stone-500">{label}</div>
-      {sub && <div className="text-[11px] text-stone-400">{sub}</div>}
+      {sub && <div className="text-[11px] text-stone-500">{sub}</div>}
     </div>
   );
 }
@@ -345,7 +345,7 @@ function WeekCard({ week }: { week: { thisWeek: WeekStats; lastWeek: WeekStats }
           <span>{r.label}</span>
           <span>
             <b>{r.now}</b>{' '}
-            <span className={r.better === null ? 'text-stone-400' : r.better ? 'text-emerald-600' : 'text-red-500'}>
+            <span className={r.better === null ? 'text-stone-500' : r.better ? 'text-emerald-600' : 'text-red-500'}>
               {r.better === null ? '' : r.better ? '▲' : '▼'} {r.before}
             </span>
           </span>

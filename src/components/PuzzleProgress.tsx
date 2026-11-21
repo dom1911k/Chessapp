@@ -120,7 +120,7 @@ export function RatingRow({ before, after, delay = 400, xp, unrated, onLevelUp }
         ) : (
           <>
             <span className="font-display text-[26px] leading-none font-semibold tabular-nums">{shown}</span>
-            {delta === 0 && <span className="text-[11px] font-bold tracking-wider text-stone-400 uppercase">Level {lvl.level}</span>}
+            {delta === 0 && <span className="text-[11px] font-bold tracking-wider text-stone-500 uppercase">Level {lvl.level}</span>}
             {delta !== 0 && (
               <span key={target} className={`animate-count-pop text-[15px] font-bold tabular-nums ${delta > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`} style={{ animationDelay: `${delay}ms` }}>
                 {delta > 0 ? '+' : ''}
@@ -301,7 +301,7 @@ export function MasteryStrip({ label, before, after, delay = 900 }: { label: str
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between text-[12px]">
           <span className="font-semibold">{label} <span className="font-normal text-stone-500">· {popped ? `${ma.name}!` : mb.name}</span></span>
-          <span className="text-stone-400 tabular-nums">{ma.next ? `${after}/${ma.next}` : `${after} solved`}</span>
+          <span className="text-stone-500 tabular-nums">{ma.next ? `${after}/${ma.next}` : `${after} solved`}</span>
         </div>
         <FillBarLite
           from={mb.pos}

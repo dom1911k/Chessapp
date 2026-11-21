@@ -81,7 +81,7 @@ export function RepertoireScreen() {
                 {SYSTEMS.filter((s) => s.slot === slot.id).map((s) => {
                   const on = chosen?.id === s.id;
                   return (
-                    <button key={s.id} aria-pressed={on} className={`chip !px-3.5 !py-2 !text-sm transition active:scale-95 ${on ? 'bg-brand-600 text-white shadow' : 'bg-white ring-1 ring-stone-200 dark:bg-white/5 dark:ring-white/10'}`} onClick={() => pick(slot.id, s.id)}>
+                    <button key={s.id} aria-pressed={on} className={`chip !px-3.5 !py-2 !text-sm transition active:scale-95 ${on ? 'bg-brand-700 text-white shadow' : 'bg-white ring-1 ring-stone-200 dark:bg-white/5 dark:ring-white/10'}`} onClick={() => pick(slot.id, s.id)}>
                       {on && <Check size={14} strokeWidth={3} />} {s.name}
                     </button>
                   );
@@ -266,7 +266,7 @@ export function RepertoireBuildScreen() {
           <div className="card !p-3">
             <div className="flex items-start gap-2">
               <p className="min-h-10 flex-1 text-sm leading-relaxed">
-                {sans.length ? sans.map((s, i) => <span key={i}>{i % 2 === 0 && <span className="text-stone-400">{i / 2 + 1}. </span>}<b className="font-semibold">{s}</b> </span>) : <span className="text-stone-500">Play the moves for both sides on the board.</span>}
+                {sans.length ? sans.map((s, i) => <span key={i}>{i % 2 === 0 && <span className="text-stone-500">{i / 2 + 1}. </span>}<b className="font-semibold">{s}</b> </span>) : <span className="text-stone-500">Play the moves for both sides on the board.</span>}
               </p>
               <button className="btn-secondary !min-h-9 !px-3" aria-label="Take back the last move" disabled={!sans.length} onClick={() => setSans((s) => s.slice(0, -1))}><Undo2 size={16} /></button>
             </div>

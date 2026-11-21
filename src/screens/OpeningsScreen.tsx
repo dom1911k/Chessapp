@@ -54,7 +54,7 @@ export function OpeningsScreen() {
                 <div key={o.name + o.moves} className="card !p-3">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="font-semibold">{o.name}</span>
-                    <span className="text-xs text-stone-400">{o.eco}</span>
+                    <span className="text-xs text-stone-500">{o.eco}</span>
                   </div>
                   <div className="text-sm text-brand-700 dark:text-brand-500">{formatLine(START_FEN, o.moves.split(' '))}</div>
                   <div className="mt-1 text-sm text-stone-600 dark:text-stone-300">{o.idea}</div>

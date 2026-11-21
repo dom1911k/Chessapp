@@ -82,7 +82,7 @@ function Step({ n, icon, title, sub, done, onClick }: { n: number; icon: string;
         <span className="block font-semibold">{title}</span>
         <span className="block text-xs text-stone-500">{sub}</span>
       </span>
-      {done ? <CircleCheck size={20} className="text-brand-600" /> : <ChevronRight size={20} className="text-stone-400" />}
+      {done ? <CircleCheck size={20} className="text-brand-700" /> : <ChevronRight size={20} className="text-stone-400" />}
     </button>
   );
 }

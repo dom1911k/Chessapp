@@ -182,7 +182,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
                   <button
                     aria-label={playing ? 'Pause' : 'Play the line'}
                     onClick={() => (k >= n ? (setK(0), setPlaying(true)) : setPlaying(!playing))}
-                    className="flex h-10 flex-[1.6] items-center justify-center gap-1.5 rounded-xl bg-brand-600 text-sm font-semibold text-white shadow-[0_6px_14px_-8px_rgba(27,90,60,0.8)] active:scale-[0.98]"
+                    className="flex h-10 flex-[1.6] items-center justify-center gap-1.5 rounded-xl bg-brand-700 text-sm font-semibold text-white shadow-[0_6px_14px_-8px_rgba(27,90,60,0.8)] active:scale-[0.98]"
                   >
                     {playing ? <><Pause size={17} /> Pause</> : <><Play size={17} /> {k >= n ? 'Replay' : 'Play line'}</>}
                   </button>
@@ -198,7 +198,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
                         <span className="flex items-center gap-2 text-sm font-bold">
                           <span className={`h-2 w-2 rounded-full ${note.who === 'you' ? 'bg-brand-500' : 'bg-stone-400'}`} />
                           {note.label}
-                          <span className="text-xs font-semibold text-stone-400">{note.who === 'you' ? 'You' : 'Them'} · {k}/{n}</span>
+                          <span className="text-xs font-semibold text-stone-500">{note.who === 'you' ? 'You' : 'Them'} · {k}/{n}</span>
                         </span>
                         {note.material !== 0 && (
                           <span className={`chip tabular-nums ${note.material > 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'}`}>
@@ -265,7 +265,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
                           </div>
                         </div>
                         <Points list={difficultySentence({ bestSan: hard.bestSan, bestShare: hard.best, playedSan: p.san, playedShare: hard.played, rating: hard.rating, isUser, same: hard.same })} />
-                        <p className="mt-1.5 text-[11px] text-stone-400">Estimated with Maia, trained on millions of human games.</p>
+                        <p className="mt-1.5 text-[11px] text-stone-500">Estimated with Maia, trained on millions of human games.</p>
                       </Block>
                     )}
                     {remember && (
@@ -276,7 +276,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
                   </>
                 )}
                 {tab === 'moves' && line && (
-                  <Block title={line.label} right={<span className="text-xs text-stone-400">tap a move to jump there</span>}>
+                  <Block title={line.label} right={<span className="text-xs text-stone-500">tap a move to jump there</span>}>
                     <ol className="-mx-1.5 space-y-0.5">
                       {notes.map((x, i) => (
                         <li key={i}>
@@ -359,8 +359,8 @@ function Swing({ wpBefore, wpAfter, before, after, you }: { wpBefore: number; wp
       <div className="flex items-baseline justify-between text-xs">
         <span className="text-stone-500">{you ? 'Your' : 'Their'} winning chances</span>
         <span className="font-semibold tabular-nums">
-          <span className="text-stone-400">{wpBefore}%</span> → <span style={{ color: Math.abs(delta) < 3 ? undefined : delta < 0 ? '#dc2626' : '#059669' }}>{wpAfter}%</span>
-          <span className="ml-1.5 font-medium text-stone-400">({before} → {after})</span>
+          <span className="text-stone-500">{wpBefore}%</span> → <span style={{ color: Math.abs(delta) < 3 ? undefined : delta < 0 ? '#dc2626' : '#059669' }}>{wpAfter}%</span>
+          <span className="ml-1.5 font-medium text-stone-500">({before} → {after})</span>
         </span>
       </div>
       <div className="relative mt-1.5 h-2 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
@@ -373,7 +373,7 @@ function Swing({ wpBefore, wpAfter, before, after, you }: { wpBefore: number; wp
 
 function StepBtn({ children, onClick, disabled, label, primary }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; label: string; primary?: boolean }) {
   return (
-    <button aria-label={label} disabled={disabled} onClick={onClick} className={`flex h-10 flex-1 items-center justify-center rounded-xl transition active:scale-95 disabled:opacity-30 ${primary ? 'bg-brand-600 text-white' : 'bg-white text-stone-700 ring-1 ring-stone-200 dark:bg-white/[0.04] dark:text-stone-200 dark:ring-white/10'}`}>
+    <button aria-label={label} disabled={disabled} onClick={onClick} className={`flex h-10 flex-1 items-center justify-center rounded-xl transition active:scale-95 disabled:opacity-30 ${primary ? 'bg-brand-700 text-white' : 'bg-white text-stone-700 ring-1 ring-stone-200 dark:bg-white/[0.04] dark:text-stone-200 dark:ring-white/10'}`}>
       {children}
     </button>
   );

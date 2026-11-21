@@ -63,7 +63,7 @@ export function CoursePath({ stage, state }: { stage: number; state?: CourseStat
             <div key={ch.id} className="relative">
               <span
                 className={`absolute top-3 -left-[17px] flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ring-4 ring-stone-100 dark:ring-stone-950 ${
-                  isDone ? 'bg-brand-500 text-white' : isOpen ? 'bg-amber-400 text-white' : 'bg-stone-300 text-stone-500 dark:bg-stone-700'
+                  isDone ? 'bg-brand-700 text-white' : isOpen ? 'bg-amber-400 text-white' : 'bg-stone-300 text-stone-500 dark:bg-stone-700'
                 }`}
               >
                 {isDone ? <Check size={12} strokeWidth={3} /> : i + 1}
@@ -75,13 +75,13 @@ export function CoursePath({ stage, state }: { stage: number; state?: CourseStat
               >
                 <Medallion name={isOpen ? ch.icon : 'trap'} tint={isDone ? 'green' : 'gold'} muted={!isOpen} />
                 <span className="flex-1">
-                  <span className={`block text-[10px] font-bold tracking-[0.1em] uppercase ${isDone ? 'text-brand-700 dark:text-brand-500' : i === current ? 'text-amber-600 dark:text-amber-400' : 'text-stone-400'}`}>Level {i + 1}{isDone ? ' · complete' : i === current ? ' · you are here' : ''}</span>
+                  <span className={`block text-[10px] font-bold tracking-[0.1em] uppercase ${isDone ? 'text-brand-700 dark:text-brand-500' : i === current ? 'text-amber-600 dark:text-amber-400' : 'text-stone-500'}`}>Level {i + 1}{isDone ? ' · complete' : i === current ? ' · you are here' : ''}</span>
                   <span className="block font-semibold leading-tight">{ch.title}</span>
                   <span className="block text-xs text-stone-500">{isOpen ? ch.intro : `Opens when you finish level ${i}.`}</span>
                   {/* One tick per step: lessons, puzzles, drills and games to tick off. */}
                   <span className="mt-1.5 flex flex-wrap gap-1">
                     {ch.steps.map((s) => (
-                      <span key={s.id} className={`flex h-3.5 w-3.5 items-center justify-center rounded-full ${st.done[s.id] ? 'bg-brand-500 text-white' : 'bg-stone-200 dark:bg-white/10'}`}>{st.done[s.id] && <Check size={9} strokeWidth={4} />}</span>
+                      <span key={s.id} className={`flex h-3.5 w-3.5 items-center justify-center rounded-full ${st.done[s.id] ? 'bg-brand-700 text-white' : 'bg-stone-200 dark:bg-white/10'}`}>{st.done[s.id] && <Check size={9} strokeWidth={4} />}</span>
                     ))}
                   </span>
                 </span>
@@ -101,7 +101,7 @@ export function CoursePath({ stage, state }: { stage: number; state?: CourseStat
                           <span className="block text-sm font-semibold">{s.label}</span>
                           <span className="block text-xs text-stone-500">{sub}</span>
                         </span>
-                        <span className={done ? 'text-brand-600' : 'text-stone-300'}>{done ? <CircleCheck size={18} /> : <ChevronRight size={18} />}</span>
+                        <span className={done ? 'text-brand-700' : 'text-stone-300'}>{done ? <CircleCheck size={18} /> : <ChevronRight size={18} />}</span>
                       </button>
                     );
                   })}

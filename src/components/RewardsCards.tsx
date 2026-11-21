@@ -46,7 +46,7 @@ export function RewardsCards() {
         <button className="card tile flex flex-col gap-2 !p-3 text-left transition-[filter] active:brightness-95" onClick={() => push({ name: 'skills' })}>
           <span className="flex items-center justify-between">
             <span className="font-semibold">Skill tree</span>
-            <Glyph name="tree" size={18} className="text-brand-600" />
+            <Glyph name="tree" size={18} className="text-brand-700" />
           </span>
           <span className="flex gap-1.5">
             {[1, 2, 3].map((t, i) => (
@@ -60,7 +60,7 @@ export function RewardsCards() {
         <button className="card tile flex flex-col gap-2 !p-3 text-left transition-[filter] active:brightness-95" onClick={() => push({ name: 'collection' })}>
           <span className="flex items-center justify-between">
             <span className="font-semibold">Collection</span>
-            <Glyph name="palette" size={18} className="text-brand-600" />
+            <Glyph name="palette" size={18} className="text-brand-700" />
           </span>
           <span className="text-sm">
             <b>{owned}</b> <span className="text-stone-500">of {COSMETICS.length} unlocked</span>
@@ -82,7 +82,7 @@ export function CareerCard() {
       <div className="grid grid-cols-3 gap-2">
         {TACTIC_KEYS.map((k) => (
           <div key={k} className={`flex flex-col items-center rounded-xl bg-stone-100 px-1 py-2 text-center dark:bg-stone-800/60 ${c[k] ? '' : 'opacity-50'}`}>
-            <Glyph name={TACTIC_LABEL[k].icon} size={16} className="text-brand-600" />
+            <Glyph name={TACTIC_LABEL[k].icon} size={16} className="text-brand-700" />
             <span className="text-lg leading-tight font-bold">{c[k] ?? 0}</span>
             <span className="text-[10px] leading-tight text-stone-500">{TACTIC_LABEL[k].many}</span>
           </div>

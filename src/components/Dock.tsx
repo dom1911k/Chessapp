@@ -18,7 +18,7 @@ export function DockButton({ label, icon, onClick, disabled, primary, ariaLabel 
       onClick={onClick}
       aria-label={ariaLabel}
       className={`flex min-w-[58px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-semibold transition-colors active:bg-black/5 disabled:opacity-30 dark:active:bg-white/5 ${
-        primary ? 'text-[#a87800] dark:text-[#f7c045]' : 'text-stone-900 dark:text-stone-100'
+        primary ? 'text-[#946a00] dark:text-[#f7c045]' : 'text-stone-900 dark:text-stone-100'
       }`}
     >
       <span className="flex h-[22px] items-center">{icon}</span>

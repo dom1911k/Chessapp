@@ -98,7 +98,7 @@ export function WeeklyGoalCard({ editable = false }: { editable?: boolean }) {
             <div key={i} className="flex flex-col items-center gap-0.5">
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
-                  done ? 'bg-brand-500 text-white' : i === todayIdx ? 'ring-2 ring-brand-500 text-brand-700 dark:text-brand-500' : 'bg-stone-100 text-stone-400 dark:bg-stone-800'
+                  done ? 'bg-brand-700 text-white' : i === todayIdx ? 'ring-2 ring-brand-500 text-brand-700 dark:text-brand-500' : 'bg-stone-100 text-stone-500 dark:bg-stone-800'
                 }`}
               >
                 {done ? <Check size={12} strokeWidth={3} /> : d}
@@ -201,7 +201,7 @@ export function WeekRing() {
           <circle ref={ring} cx="28" cy="28" r={R} fill="none" strokeWidth="6" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - from)} className={w.met ? 'stroke-amber-400' : 'stroke-brand-500'} />
         </svg>
         <span className={`absolute inset-0 flex items-center justify-center font-display text-lg font-semibold tabular-nums ${grew ? 'animate-count-pop' : ''}`} style={grew ? { animationDelay: '1300ms' } : undefined}>
-          {w.days}<span className="text-xs text-stone-400">/{w.goal}</span>
+          {w.days}<span className="text-xs text-stone-500">/{w.goal}</span>
         </span>
       </div>
       <div className="min-w-0 flex-1">
@@ -216,7 +216,7 @@ export function WeekRing() {
             return (
               <span
                 key={i}
-                className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${done ? (w.met ? 'bg-amber-400 text-amber-950' : 'bg-brand-500 text-white') : i === todayIdx ? 'text-brand-700 ring-2 ring-brand-500 dark:text-brand-500' : 'bg-stone-100 text-stone-400 dark:bg-white/[0.06]'} ${fresh ? 'animate-badge-pop' : ''}`}
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${done ? (w.met ? 'bg-amber-400 text-amber-950' : 'bg-brand-700 text-white') : i === todayIdx ? 'text-brand-700 ring-2 ring-brand-500 dark:text-brand-500' : 'bg-stone-100 text-stone-500 dark:bg-white/[0.06]'} ${fresh ? 'animate-badge-pop' : ''}`}
                 style={fresh ? { animationDelay: '1200ms' } : undefined}
               >
                 {done ? <Check size={11} strokeWidth={3.5} /> : d}

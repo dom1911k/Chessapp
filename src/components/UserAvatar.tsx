@@ -72,27 +72,27 @@ export function AvatarPicker({ onClose }: { onClose: () => void }) {
                   {!ok && <Lock size={16} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow" />}
                 </span>
                 <span className="text-[11px] leading-tight font-semibold">{f.name}</span>
-                {!ok && <span className="text-[10px] leading-tight text-stone-400">{unlockText(f.unlock)}</span>}
+                {!ok && <span className="text-[10px] leading-tight text-stone-500">{unlockText(f.unlock)}</span>}
               </button>
             );
           })}
         </div>
         <h3 className="section-title mt-5">Title</h3>
         <div className="mt-2 flex flex-wrap gap-2">
-          <button className={`chip !px-3 !py-1.5 ${s.avatarTitle === '' ? 'bg-brand-600 text-white' : 'bg-stone-100 dark:bg-stone-800'}`} onClick={() => s.set({ avatarTitle: '' })}>
+          <button className={`chip !px-3 !py-1.5 ${s.avatarTitle === '' ? 'bg-brand-700 text-white' : 'bg-stone-100 dark:bg-stone-800'}`} onClick={() => s.set({ avatarTitle: '' })}>
             {s.avatarTitle === '' && <Check size={13} />} My level
           </button>
           {TITLES.map((t) => {
             const ok = open(t.unlock);
             const on = s.avatarTitle === t.id;
             return (
-              <button key={t.id} disabled={!ok} title={ok ? '' : unlockText(t.unlock)} className={`chip !px-3 !py-1.5 ${on ? 'bg-brand-600 text-white' : 'bg-stone-100 dark:bg-stone-800'} ${ok ? '' : 'opacity-50'}`} onClick={() => s.set({ avatarTitle: t.id })}>
+              <button key={t.id} disabled={!ok} title={ok ? '' : unlockText(t.unlock)} className={`chip !px-3 !py-1.5 ${on ? 'bg-brand-700 text-white' : 'bg-stone-100 dark:bg-stone-800'} ${ok ? '' : 'opacity-50'}`} onClick={() => s.set({ avatarTitle: t.id })}>
                 {!ok && <Lock size={11} />} {t.label}
               </button>
             );
           })}
         </div>
-        <p className="mt-3 text-xs text-stone-400">Frames and titles unlock as you level up and climb your rating journey.</p>
+        <p className="mt-3 text-xs text-stone-500">Frames and titles unlock as you level up and climb your rating journey.</p>
         <button className="btn-primary mt-4 w-full" onClick={onClose}>Done</button>
       </div>
     </div>

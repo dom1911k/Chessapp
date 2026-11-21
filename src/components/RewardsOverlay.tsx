@@ -44,7 +44,7 @@ function RewardRow({ icon, title, sub, bar, right }: { icon: ReactNode; title: R
   );
 }
 
-const NEW = <span className="chip shrink-0 bg-brand-500 text-white">New!</span>;
+const NEW = <span className="chip shrink-0 bg-brand-700 text-white">New!</span>;
 
 /** A tile of the stat strip: the value 18/800 over an 11/600 label. */
 function Stat({ value, label, show }: { value: ReactNode; label: ReactNode; show: boolean }) {
@@ -313,7 +313,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               );
             })}
           </div>
-          {step < S.actions && nRows > 0 && <p className="mt-2 text-center text-xs text-stone-400">Tap to skip</p>}
+          {step < S.actions && nRows > 0 && <p className="mt-2 text-center text-xs text-stone-500">Tap to skip</p>}
         </div>
 
         {/* Actions: always visible; the sheet scrolls above them. */}

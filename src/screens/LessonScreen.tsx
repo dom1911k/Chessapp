@@ -215,7 +215,7 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
                               : 'bg-stone-50 ring-stone-200 dark:bg-white/[0.04] dark:ring-white/10'
                         } ${state !== 'todo' && !right && !wrong ? 'opacity-55' : ''}`}
                       >
-                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${right ? 'bg-emerald-500 text-white' : wrong ? 'bg-red-500 text-white' : 'bg-white text-stone-500 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600'}`}>
+                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${right ? 'bg-emerald-500 text-white' : wrong ? 'bg-red-600 text-white' : 'bg-white text-stone-500 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600'}`}>
                           {right ? <Check size={14} strokeWidth={3.5} /> : wrong ? <X size={14} strokeWidth={3.5} /> : String.fromCharCode(65 + k)}
                         </span>
                         <span className="flex-1">{o}</span>
@@ -229,7 +229,7 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
             ) : placementFail ? (
               <p>Not this time — the green arrow shows the move. No worries, that is what the check is for.</p>
             ) : state === 'done' && step.task ? (
-              <p><CircleCheck size={16} className="mr-1 inline -translate-y-px text-brand-600" /><Rich text={step.success ?? 'Correct!'} /></p>
+              <p><CircleCheck size={16} className="mr-1 inline -translate-y-px text-brand-700" /><Rich text={step.success ?? 'Correct!'} /></p>
             ) : state === 'wrong' ? (
               <p>Not quite. {tries >= 2 ? 'The green arrow shows the answer.' : step.hint ?? 'Have another look.'}</p>
             ) : (

@@ -307,7 +307,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
                 {bubble.tone === 'good' ? (
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={13} strokeWidth={3.5} /></span>
                 ) : bubble.tone === 'bad' ? (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white"><X size={13} strokeWidth={3.5} /></span>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white"><X size={13} strokeWidth={3.5} /></span>
                 ) : state === 'checking' ? (
                   <Spinner className="!h-4 !w-4" />
                 ) : (
@@ -319,7 +319,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
               <p className="mt-0.5 text-[14.5px] leading-snug text-stone-700 dark:text-stone-200">{bubble.text}</p>
               {done && explanation && (
                 <button className="mt-1.5 block text-left text-[13px] leading-snug text-stone-600 dark:text-stone-300" onClick={() => setWhy(!why)}>
-                  {why ? explanation.text.join(' ') : <><span className="font-semibold text-brand-700 dark:text-brand-500">Why it works ›</span> <span className="text-stone-400">{explanation.text[0]?.slice(0, 48)}…</span></>}
+                  {why ? explanation.text.join(' ') : <><span className="font-semibold text-brand-700 dark:text-brand-500">Why it works ›</span> <span className="text-stone-500">{explanation.text[0]?.slice(0, 48)}…</span></>}
                 </button>
               )}
               {why && spec.kind === 'mistake' && spec.explanation?.length ? <p className="mt-1 text-[13px] text-stone-500">In the game: {spec.explanation[0]}</p> : null}

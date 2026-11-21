@@ -44,7 +44,7 @@ export function MoveList({ plies, startFen, current, onSelect }: { plies: PlyRec
               onClick={() => onSelect?.(i)}
               className={`flex items-center gap-1 rounded-[4px] px-1.5 py-0.5 font-semibold transition-colors ${
                 viewed
-                  ? 'bg-brand-500 font-bold text-white'
+                  ? 'bg-brand-700 font-bold text-white'
                   : latest
                     ? 'bg-black/[0.08] font-bold text-stone-900 dark:bg-white/[0.12] dark:text-white'
                     : 'text-stone-700 active:bg-black/5 dark:text-stone-300 dark:active:bg-white/5'

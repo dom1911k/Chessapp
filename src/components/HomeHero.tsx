@@ -109,7 +109,7 @@ export function HomeHero({ right }: { right?: ReactNode }) {
           <span className="flex-1">
             Keep your <b>{streak}-day streak</b> going
           </span>
-          <span className="rounded-md bg-brand-500 px-2.5 py-0.5 text-xs font-bold text-white">Go</span>
+          <span className="rounded-md bg-brand-700 px-2.5 py-0.5 text-xs font-bold text-white">Go</span>
         </button>
       )}
     </div>

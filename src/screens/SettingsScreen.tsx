@@ -71,7 +71,7 @@ export function SettingsScreen() {
               {Object.entries(SOUND_PACKS).filter(([id]) => unlockedSounds.includes(id)).map(([id, pack]) => (
                 <div key={id} className={`flex items-center gap-2 rounded-xl p-2 ring-1 ${s.soundPack === id ? 'bg-brand-50 ring-brand-500 dark:bg-brand-700/20' : 'ring-stone-200 dark:ring-stone-700'}`}>
                   <button className="flex-1 text-left" onClick={() => { s.set({ soundPack: id }); previewPack(id); }}>
-                    <span className="block text-sm font-semibold">{pack.label}{s.soundPack === id ? <Check size={14} strokeWidth={3} className="ml-1 inline -translate-y-px text-brand-600" /> : null}</span>
+                    <span className="block text-sm font-semibold">{pack.label}{s.soundPack === id ? <Check size={14} strokeWidth={3} className="ml-1 inline -translate-y-px text-brand-700" /> : null}</span>
                     <span className="block text-xs text-stone-500">{pack.description}</span>
                   </button>
                   <button className="btn-secondary !px-3 !py-1.5" aria-label={`Preview ${pack.label}`} onClick={() => previewPack(id)}>▶</button>

@@ -115,7 +115,7 @@ export function ExploreScreen({ fen, orientation: startOrientation, title }: { f
         }
       />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-5 land:px-3">
-        <div className="flex gap-1 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0">
+        <div className="flex gap-1 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0 land:self-start">
           {engineOn && <EvalBar whitePct={whitePct} orientation={orientation} />}
           <div className="min-w-0 flex-1">
             <Board
@@ -155,7 +155,7 @@ export function ExploreScreen({ fen, orientation: startOrientation, title }: { f
                   <Spinner className="!h-3.5 !w-3.5" /> Thinking…
                 </div>
               )}
-              <div className="flex items-center justify-between px-2.5 py-1 text-[11px] text-stone-400">
+              <div className="flex items-center justify-between px-2.5 py-1 text-[11px] text-stone-500">
                 <span>{lines ? `Depth ${lines.depth}` : ''}</span>
                 {thinking && lines && <span className="flex items-center gap-1"><Spinner className="!h-2.5 !w-2.5" /> going deeper</span>}
               </div>
@@ -189,9 +189,9 @@ export function ExploreScreen({ fen, orientation: startOrientation, title }: { f
               <p>
                 {tokens.map((tk, i) =>
                   tk.kind === 'open' ? (
-                    <span key={i} className="text-stone-400"> (</span>
+                    <span key={i} className="text-stone-500"> (</span>
                   ) : tk.kind === 'close' ? (
-                    <span key={i} className="text-stone-400">) </span>
+                    <span key={i} className="text-stone-500">) </span>
                   ) : (
                     <button
                       key={i}
@@ -245,7 +245,7 @@ export function ExploreScreen({ fen, orientation: startOrientation, title }: { f
 
 function Nav({ children, onClick, disabled, label, primary }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; label: string; primary?: boolean }) {
   return (
-    <button aria-label={label} disabled={disabled} onClick={onClick} className={`flex h-12 items-center justify-center rounded-xl transition active:scale-95 disabled:opacity-30 ${primary ? 'bg-brand-600 text-white' : 'bg-white ring-1 ring-stone-200 dark:bg-white/[0.04] dark:ring-white/10'}`}>
+    <button aria-label={label} disabled={disabled} onClick={onClick} className={`flex h-12 items-center justify-center rounded-xl transition active:scale-95 disabled:opacity-30 ${primary ? 'bg-brand-700 text-white' : 'bg-white ring-1 ring-stone-200 dark:bg-white/[0.04] dark:ring-white/10'}`}>
       {children}
     </button>
   );

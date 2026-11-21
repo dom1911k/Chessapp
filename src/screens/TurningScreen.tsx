@@ -109,7 +109,7 @@ export function TurningScreen({ gameId }: { gameId: number | string }) {
             <p className="text-sm">You picked <b>{moveLabel(pick)}</b>. Why did it go wrong? <span className="text-stone-500">(optional)</span></p>
             <div className="flex flex-wrap gap-1.5">
               {REASON_CHIPS.map((c) => (
-                <button key={c.id} className={`chip ${chip === c.id ? 'bg-brand-600 text-white' : 'bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200'}`} onClick={() => setChip(chip === c.id ? null : c.id)}>{c.label}</button>
+                <button key={c.id} className={`chip ${chip === c.id ? 'bg-brand-700 text-white' : 'bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200'}`} onClick={() => setChip(chip === c.id ? null : c.id)}>{c.label}</button>
               ))}
             </div>
             <div className="flex gap-2">
@@ -139,7 +139,7 @@ export function TurningScreen({ gameId }: { gameId: number | string }) {
             </div>
           </div>
         )}
-        <p className="text-center text-xs text-stone-400">{mine.length} of your moves · vs {g.opponentName ?? 'opponent'}</p>
+        <p className="text-center text-xs text-stone-500">{mine.length} of your moves · vs {g.opponentName ?? 'opponent'}</p>
       </div>
     </div>
   );

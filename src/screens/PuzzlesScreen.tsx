@@ -100,7 +100,7 @@ export function PuzzlesScreen() {
           <button className="btn-primary mt-3 w-full !rounded-[10px] !py-4 font-display text-xl" onClick={() => push({ name: 'puzzle', mode: { kind: 'rated' } })}>
             <Puzzle size={20} /> Solve Puzzles
           </button>
-          {d && d.total > 0 && <p className="mt-1.5 text-center text-[11px] text-stone-400">{d.total.toLocaleString()} puzzles from the Lichess database, all offline</p>}
+          {d && d.total > 0 && <p className="mt-1.5 text-center text-[11px] text-stone-500">{d.total.toLocaleString()} puzzles from the Lichess database, all offline</p>}
         </div>
 
         {/* Daily Puzzle */}
@@ -129,7 +129,7 @@ export function PuzzlesScreen() {
             <span className="block font-semibold">Daily training</span>
             <span className="block text-xs text-stone-500">{d?.due ? `${d.due} position${d.due === 1 ? '' : 's'} to review, then weak-spot puzzles` : 'Puzzles picked for your weak spots'}</span>
           </span>
-          {d?.due ? <span className="chip bg-red-500 text-white">{d.due}</span> : null}
+          {d?.due ? <span className="chip bg-red-600 text-white">{d.due}</span> : null}
           <ChevronRight size={18} className="text-stone-400" />
         </button>
 

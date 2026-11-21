@@ -13,7 +13,7 @@ export function ScaleNews() {
   const close = () => { setShow(false); void kvSet(SCALE_NEWS_KEY, false); };
   return (
     <div className="card flex items-start gap-2 !p-3 text-sm" data-testid="scale-news">
-      <Sparkles size={16} className="mt-0.5 shrink-0 text-brand-600" />
+      <Sparkles size={16} className="mt-0.5 shrink-0 text-brand-700" />
       <p className="flex-1">{SCALE_NEWS}</p>
       <button aria-label="Dismiss" className="shrink-0 text-stone-400" onClick={close}><X size={16} /></button>
     </div>

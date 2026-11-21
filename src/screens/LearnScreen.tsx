@@ -134,7 +134,7 @@ export function LearnScreen() {
                 const on = k === shown;
                 const complete = p.done >= p.total;
                 return (
-                  <button key={sg.id} data-stage={k} onClick={() => setStage(k)} className={`tile relative w-[132px] shrink-0 snap-center rounded-[10px] p-3 text-left ring-1 transition-colors ${on ? 'bg-brand-500 text-white ring-brand-700' : 'bg-white ring-black/[0.06] dark:bg-stone-900 dark:ring-0'}`}>
+                  <button key={sg.id} data-stage={k} onClick={() => setStage(k)} className={`tile relative w-[132px] shrink-0 snap-center rounded-[10px] p-3 text-left ring-1 transition-colors ${on ? 'bg-brand-700 text-white ring-brand-700' : 'bg-white ring-black/[0.06] dark:bg-stone-900 dark:ring-0'}`}>
                     <span className="flex items-center justify-between">
                       <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${complete ? 'bg-amber-400 text-amber-950' : on ? 'bg-white/20' : 'bg-stone-100 text-stone-600 dark:bg-white/10 dark:text-stone-300'}`}>{complete ? <Check size={14} strokeWidth={3.5} /> : k + 1}</span>
                       {k === cur && !complete && <span className={`rounded-full px-1.5 py-px text-[9px] font-bold tracking-wider uppercase ${on ? 'bg-white/20' : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'}`}>You</span>}
@@ -196,7 +196,7 @@ export function LearnScreen() {
                           const p = progress[d.id];
                           return (
                             <button key={d.id} className="flex w-full items-center gap-3 py-2.5 pr-3.5 pl-5 text-left active:bg-stone-100 dark:active:bg-white/5" onClick={() => push({ name: 'endgame', drillId: d.id })}>
-                              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${p?.completed ? 'bg-brand-500 text-white' : 'ring-2 ring-stone-300 dark:ring-stone-600'}`}>{p?.completed ? <Check size={12} strokeWidth={4} /> : null}</span>
+                              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${p?.completed ? 'bg-brand-700 text-white' : 'ring-2 ring-stone-300 dark:ring-stone-600'}`}>{p?.completed ? <Check size={12} strokeWidth={4} /> : null}</span>
                               <span className="min-w-0 flex-1">
                                 <span className="block text-[15px] font-semibold leading-tight">{d.title}</span>
                                 <span className="block truncate text-xs text-stone-500">{d.goalText}{p?.bestMoves ? ` · best ${p.bestMoves}` : ''}</span>

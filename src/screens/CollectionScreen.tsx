@@ -58,7 +58,7 @@ export function CollectionScreen() {
                   </span>
                 )}
                 {on && (
-                  <span className="absolute -right-1.5 -bottom-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-white ring-2 ring-white dark:ring-stone-900">
+                  <span className="absolute -right-1.5 -bottom-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-brand-700 text-white ring-2 ring-white dark:ring-stone-900">
                     <Check size={15} strokeWidth={3} />
                   </span>
                 )}
