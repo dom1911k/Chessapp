@@ -135,7 +135,7 @@ export function WebUpdateBanner() {
   if (!needRefresh) return null;
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-4">
-      <div className="animate-pop pointer-events-auto flex items-center gap-3 rounded-2xl bg-white px-4 py-2.5 shadow-lg ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
+      <div className="animate-pop pointer-events-auto flex items-center gap-3 rounded-[10px] bg-white px-4 py-2.5 shadow-lg ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
         <span className="text-sm font-semibold">A new version is ready</span>
         <button className="btn-primary !min-h-9 !px-3 !py-1.5 text-sm" onClick={apply}>Update</button>
         <button className="btn-ghost !min-h-9 !px-2 !py-1.5 text-sm" onClick={() => usePwa.setState({ needRefresh: false })}>Later</button>

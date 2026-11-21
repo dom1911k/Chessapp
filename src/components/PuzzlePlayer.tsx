@@ -302,7 +302,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
           {/* Coach Sam: whose move, then the verdict. Steady height so nothing jumps. */}
           <div className="flex items-start gap-2.5">
             <CoachAvatar mood={bubble.tone === 'bad' ? 'concerned' : bubble.tone === 'neutral' && state !== 'solving' ? 'thinking' : 'happy'} size={38} />
-            <div key={bubble.head} className={`card animate-pop min-h-[72px] min-w-0 flex-1 !rounded-[18px] !rounded-tl-md !px-3.5 !py-2.5 transition-shadow ${bubble.tone === 'good' ? 'ring-emerald-500/50' : bubble.tone === 'bad' ? 'ring-red-400/50' : ''}`}>
+            <div key={bubble.head} className={`card animate-pop min-h-[72px] min-w-0 flex-1 !rounded-[10px] !rounded-tl-md !px-3.5 !py-2.5 transition-shadow ${bubble.tone === 'good' ? 'ring-emerald-500/50' : bubble.tone === 'bad' ? 'ring-red-400/50' : ''}`}>
               <p className="flex items-center gap-2 font-semibold">
                 {bubble.tone === 'good' ? (
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={13} strokeWidth={3.5} /></span>

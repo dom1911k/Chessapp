@@ -122,21 +122,21 @@ function SetupView() {
         <div className="card space-y-3 overflow-hidden !p-0 !pb-3">
           <button
             className="relative flex w-full items-center gap-3.5 px-3.5 pt-3.5 pb-3 text-left transition-[filter] duration-100 active:brightness-95"
-            style={{ background: opp ? `linear-gradient(115deg, color-mix(in srgb, ${portraitColors(opp.id)[1]} 34%, transparent), color-mix(in srgb, ${portraitColors(opp.id)[0]} 10%, transparent))` : undefined }}
+            style={{ background: opp ? `linear-gradient(115deg, color-mix(in srgb, ${portraitColors(opp.id)[1]} 12%, transparent), transparent 70%)` : undefined }}
             onClick={() => setSheet('opponent')}
           >
-            {opp ? <Portrait id={opp.id} size={84} className="ring-2 ring-white/80 dark:ring-white/20" /> : <span className="flex h-[84px] w-[84px] items-center justify-center rounded-[8px] bg-stone-200 dark:bg-stone-800">{sparring ? <Dumbbell size={36} /> : <Bot size={36} />}</span>}
+            {opp ? <Portrait id={opp.id} size={84} /> : <span className="flex h-[84px] w-[84px] items-center justify-center rounded-[8px] bg-stone-200 dark:bg-stone-800">{sparring ? <Dumbbell size={36} /> : <Bot size={36} />}</span>}
             <span className="min-w-0 flex-1">
               <span className="block text-[10px] font-bold tracking-[0.1em] text-stone-500 uppercase dark:text-stone-400">Your opponent</span>
-              <span className="block truncate font-display text-[22px] leading-tight font-semibold">{opp ? opp.name : sparring ? 'Sparring partner' : 'Custom bot'}</span>
+              <span className="block truncate text-[22px] leading-tight font-extrabold tracking-[-0.015em]">{opp ? opp.name : sparring ? 'Sparring partner' : 'Custom bot'}</span>
               <span className="mt-0.5 flex items-center gap-1.5">
-                <span className="rounded-md bg-stone-900/85 px-1.5 py-px text-xs font-bold text-white tabular-nums dark:bg-white/90 dark:text-stone-900">{botElo}</span>
+                <span className="rounded-[4px] bg-stone-800 px-1.5 py-px text-xs font-bold text-white tabular-nums">{botElo}</span>
                 {opp && <Stars n={stars} of={MAX_STARS} size={12} />}
                 {opp && <RivalryChip rec={rec} />}
               </span>
               <span className="mt-0.5 block truncate text-xs text-stone-600 dark:text-stone-400">{opp ? opp.tagline : sparring ? sparringTagline(spar) : eloLabel(settings.botElo)}</span>
             </span>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/80 text-stone-700 shadow-sm dark:bg-white/10 dark:text-stone-200" aria-label="Change opponent"><ChevronRight size={18} /></span>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200" aria-label="Change opponent"><ChevronRight size={18} /></span>
           </button>
           <div className="space-y-3 px-3">
           <Segmented
@@ -147,7 +147,7 @@ function SetupView() {
               { value: 'match', label: <><Swords size={15} /> Match conditions</> },
             ]}
           />
-          <button className="flex w-full flex-wrap items-center gap-1.5 rounded-2xl p-1 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={() => setSheet('options')}>
+          <button className="flex w-full flex-wrap items-center gap-1.5 rounded-[8px] p-1 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={() => setSheet('options')}>
             <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">
               {settings.colorPref === 'random' ? <Shuffle size={12} /> : <span className={`h-3 w-3 rounded-full ring-1 ${settings.colorPref === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-600'}`} />} {colorLabel}
             </span>
@@ -158,12 +158,12 @@ function SetupView() {
           </button>
           {match && <p className="px-1 text-xs text-stone-500">Like a real chess.com game: clock on, no help until it ends — then the full Game Review.</p>}
           {winRun >= 2 && (
-            <div className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-orange-50 to-rose-50 px-3 py-2 text-sm ring-1 ring-orange-200/70 dark:from-orange-500/10 dark:to-rose-500/10 dark:ring-orange-500/20">
+            <div className="flex items-center gap-2 rounded-[8px] bg-orange-500/10 px-3 py-2 text-sm">
               <Flame size={18} className={`animate-flame ${winRun >= 5 ? 'fill-rose-400 text-rose-500' : 'fill-orange-400 text-orange-500'}`} />
               <span className="flex-1"><b>{winRun} wins in a row</b> <span className="text-stone-500">— keep it going!</span></span>
             </div>
           )}
-          <button className="btn-primary w-full !rounded-[18px] !py-4 font-display text-xl" disabled={locked} onClick={() => void start()}>
+          <button className="btn-primary !min-h-14 w-full text-[18px] !font-extrabold" disabled={locked} onClick={() => void start()}>
             {locked ? <><Lock size={16} /> Beat {prevName} first</> : running ? 'Start a new game' : 'Play'}
           </button>
           {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
@@ -283,30 +283,25 @@ function HomeLinks() {
   const cupsOn = useRunFlag((f) => f.enabled);
   // A cup in progress: say which round is waiting (read straight from storage, no Cups code loaded).
   useEffect(() => void kvGet<{ v?: number; tier: string; rounds: string[][]; place?: string } | null>('cupState', null).then((c) => setCupLine(c && c.v === 2 && !c.place ? `${CUPS_T.ladder.tiers.find((t) => t.id === c.tier)?.name}: your ${['quarter-final', 'semi-final', 'final'][c.rounds.length - 1] ?? 'next match'} is waiting` : null)), [phase]);
-  const tile = (icon: ReactNode, tone: string, title: string, sub: ReactNode, onClick: () => void, badge?: ReactNode) => (
-    <button className="card tile relative flex flex-col items-start gap-2 !p-3.5 text-left" onClick={onClick}>
-      <span className={`flex h-10 w-10 items-center justify-center rounded-[14px] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_6px_12px_-6px_rgba(0,0,0,0.4)] ${tone}`}>{icon}</span>
-      <span className="block leading-tight">
-        <span className="block font-semibold">{title}</span>
-        <span className="mt-0.5 block text-xs text-stone-500">{sub}</span>
+  // One card of rows, chess.com style: a flat tinted icon in each row's own hue.
+  const row = (icon: ReactNode, hue: string, title: string, sub: ReactNode, onClick: () => void, badge?: ReactNode) => (
+    <button className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-[filter] active:brightness-95 dark:active:brightness-125" onClick={onClick}>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-stone-100 dark:bg-white/[0.06] ${hue}`}>{icon}</span>
+      <span className="min-w-0 flex-1 leading-tight">
+        <span className="block font-bold">{title}</span>
+        <span className="mt-0.5 block truncate text-xs text-stone-500">{sub}</span>
       </span>
-      {badge && <span className="absolute top-3 right-3">{badge}</span>}
+      {badge}
+      <ChevronRight size={18} className="shrink-0 text-stone-400" />
     </button>
   );
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {tile(<Puzzle size={20} />, 'bg-gradient-to-br from-orange-400 to-rose-500', 'Puzzles', pz === null ? 'Solve and climb' : <>Rating <b className="text-stone-700 tabular-nums dark:text-stone-200">{pz}</b></>, () => push({ name: 'puzzle', mode: { kind: 'rated' } }))}
-      {tile(<CalendarCheck size={20} />, 'bg-gradient-to-br from-sky-400 to-indigo-500', 'Daily training', due ? `${due} to review today` : 'Picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-red-500 text-white">{due}</span> : null)}
-      {tile(<BookOpen size={20} />, 'bg-gradient-to-br from-emerald-400 to-teal-600', 'Course', lvl ? <>Level <b className="text-stone-700 tabular-nums dark:text-stone-200">{lvl.level}</b> · {lvl.stepsDone}/{lvl.steps} done</> : 'Learn step by step', () => setTab('learn'))}
-      {tile(<History size={20} />, 'bg-gradient-to-br from-violet-400 to-purple-600', 'Past games', 'Reviews of your games', () => push({ name: 'history' }))}
-      {cupsOn && <button className="card tile col-span-2 flex items-center gap-3 !p-3.5 text-left" onClick={() => setTab('run')}>
-        <span className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-gradient-to-br from-amber-300 to-amber-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_6px_12px_-6px_rgba(0,0,0,0.4)]"><Trophy size={20} /></span>
-        <span className="flex-1 leading-tight">
-          <span className="block font-semibold">Cups</span>
-          <span className="mt-0.5 block text-xs text-stone-500">{cupLine ?? 'Knockout tournaments in the Cups tab'}</span>
-        </span>
-        <ChevronRight size={18} className="text-stone-400" />
-      </button>}
+    <div className="card divide-y divide-black/5 overflow-hidden !p-0 dark:divide-white/[0.06]">
+      {row(<Puzzle size={20} />, 'text-orange-500', 'Puzzles', pz === null ? 'Solve and climb' : <>Rating <b className="text-stone-700 tabular-nums dark:text-stone-200">{pz}</b></>, () => push({ name: 'puzzle', mode: { kind: 'rated' } }))}
+      {row(<CalendarCheck size={20} />, 'text-sky-500', 'Daily training', due ? `${due} to review today` : 'Picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-red-500 text-white">{due}</span> : null)}
+      {row(<BookOpen size={20} />, 'text-emerald-500', 'Course', lvl ? <>Level <b className="text-stone-700 tabular-nums dark:text-stone-200">{lvl.level}</b> · {lvl.stepsDone}/{lvl.steps} done</> : 'Learn step by step', () => setTab('learn'))}
+      {row(<History size={20} />, 'text-violet-500', 'Past games', 'Reviews of your games', () => push({ name: 'history' }))}
+      {cupsOn && row(<Trophy size={20} />, 'text-amber-500', 'Cups', cupLine ?? 'Knockout tournaments in the Cups tab', () => setTab('run'))}
     </div>
   );
 }
@@ -507,7 +502,7 @@ function GameView() {
   };
   const menuItem = (icon: ReactNode, label: string, onClick: () => void, extra?: ReactNode) => (
     <button
-      className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left font-semibold active:bg-stone-100 dark:active:bg-stone-800"
+      className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left font-semibold active:bg-stone-100 dark:active:bg-stone-800"
       onClick={() => {
         setMenu(false);
         onClick();
@@ -867,7 +862,7 @@ export function Stars({ n, size = 12, of = 3 }: { n: number; size?: number; of?:
   return (
     <span className="mt-0.5 flex gap-0.5">
       {Array.from({ length: of }, (_, i) => i).map((i) => (
-        <Star key={i} size={size} className={i < n ? 'fill-gold-400 text-gold-500' : 'text-stone-300 dark:text-stone-600'} />
+        <Star key={i} size={size} className={i < n ? 'fill-[#f7c631] text-[#e0a800]' : 'text-stone-300 dark:text-stone-600'} />
       ))}
     </span>
   );
@@ -971,7 +966,7 @@ function StepDownCard() {
   const to = nextLevel(level);
   const label = to === 'match' ? 'Match conditions' : COACH_LEVELS.find((l) => l.id === to)!.label;
   return (
-    <div className="rounded-2xl bg-brand-50 p-3 text-sm ring-1 ring-brand-500/30 dark:bg-brand-700/15">
+    <div className="rounded-[10px] bg-brand-50 p-3 text-sm ring-1 ring-brand-500/30 dark:bg-brand-700/15">
       <p>
         <b>{sug.wins} wins</b> with the coach on “{COACH_LEVELS.find((l) => l.id === level)!.label}”. Ready for a little less help? Try <b>{label}</b>.
       </p>

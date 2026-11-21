@@ -129,7 +129,7 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
       <div className="flex h-full flex-col">
         <Header title={lesson.title} back />
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-          <span className="animate-badge-pop flex h-24 w-24 items-center justify-center rounded-[30%] bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_14px_30px_-12px_rgba(27,90,60,0.8)]">
+          <span className="animate-badge-pop flex h-24 w-24 items-center justify-center rounded-[14px] bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_14px_30px_-12px_rgba(27,90,60,0.8)]">
             {stage !== undefined ? <Medallion name={STAGES[stage].icon} size={64} tint="green" /> : <GraduationCap size={48} />}
           </span>
           {stage !== undefined ? (
@@ -207,7 +207,7 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
                         key={k}
                         disabled={state !== 'todo'}
                         onClick={() => pick(k)}
-                        className={`flex w-full items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left text-[14.5px] ring-1 transition active:scale-[0.98] ${
+                        className={`flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left text-[14.5px] ring-1 transition active:scale-[0.98] ${
                           right
                             ? 'bg-emerald-50 font-semibold text-emerald-900 ring-emerald-400 dark:bg-emerald-500/15 dark:text-emerald-200'
                             : wrong

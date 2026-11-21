@@ -121,7 +121,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             <p className="mt-1 text-stone-600 dark:text-stone-300">A day counts when you play a game, solve a puzzle or finish a lesson. Rest days never reset anything.</p>
             <div className="mt-6 flex justify-between gap-2">
               {GOAL_CHOICES.map((n) => (
-                <button key={n} aria-pressed={goal === n} className={`flex h-16 flex-1 flex-col items-center justify-center rounded-2xl transition active:scale-95 ${goal === n ? 'bg-brand-600 text-white shadow-[0_8px_18px_-8px_rgba(27,90,60,0.8)]' : 'bg-white ring-1 ring-stone-200 dark:bg-white/5 dark:ring-white/10'}`} onClick={() => setGoal(n)}>
+                <button key={n} aria-pressed={goal === n} className={`flex h-16 flex-1 flex-col items-center justify-center rounded-[10px] transition active:scale-95 ${goal === n ? 'bg-brand-600 text-white shadow-[0_8px_18px_-8px_rgba(27,90,60,0.8)]' : 'bg-white ring-1 ring-stone-200 dark:bg-white/5 dark:ring-white/10'}`} onClick={() => setGoal(n)}>
                   <span className="font-display text-2xl leading-none font-semibold">{n}</span>
                   <span className={`mt-1 text-[10px] font-semibold ${goal === n ? 'text-white/80' : 'text-stone-500'}`}>{n === 7 ? 'every day' : 'days'}</span>
                 </button>
@@ -149,10 +149,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
       <div className="safe-bottom mx-auto w-full max-w-md px-6 pt-1 pb-4">
         {step < STEPS - 1 ? (
-          <button className="btn-primary w-full !rounded-[18px] !py-4 font-display text-lg" onClick={next}>{step === 0 ? 'Let’s go' : 'Continue'}</button>
+          <button className="btn-primary w-full !rounded-[10px] !py-4 font-display text-lg" onClick={next}>{step === 0 ? 'Let’s go' : 'Continue'}</button>
         ) : (
           <>
-            <button className="btn-primary w-full !rounded-[18px] !py-4 font-display text-lg" onClick={() => void close(true)}>{plan.cta}</button>
+            <button className="btn-primary w-full !rounded-[10px] !py-4 font-display text-lg" onClick={() => void close(true)}>{plan.cta}</button>
             <button className="mt-2 w-full py-2 text-sm font-semibold text-stone-500" onClick={() => void close(false)}>Look around first</button>
           </>
         )}

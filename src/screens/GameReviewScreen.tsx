@@ -275,7 +275,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
                 <CauseBreakdown bare r={{ mistakes: causes.length, totals, top: topCause ? { cause: topCause as MistakeCause['cause'], share: totals[topCause] / causes.length } : null }} />
               </div>
               {topCause && lessonById(CAUSE_LESSON[topCause]) && (
-                <button className="mx-3.5 mb-3 flex w-[calc(100%-1.75rem)] items-center gap-3 rounded-2xl bg-brand-50 px-3 py-2.5 text-left ring-1 ring-brand-100 transition active:scale-[0.98] dark:bg-brand-700/15 dark:ring-brand-700/30" onClick={() => push({ name: 'lesson', lessonId: CAUSE_LESSON[topCause] })}>
+                <button className="mx-3.5 mb-3 flex w-[calc(100%-1.75rem)] items-center gap-3 rounded-[10px] bg-brand-50 px-3 py-2.5 text-left ring-1 ring-brand-100 transition active:scale-[0.98] dark:bg-brand-700/15 dark:ring-brand-700/30" onClick={() => push({ name: 'lesson', lessonId: CAUSE_LESSON[topCause] })}>
                   <GraduationCap size={20} className="shrink-0 text-brand-700 dark:text-brand-500" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-[11px] font-bold tracking-wider text-brand-700 uppercase dark:text-brand-500">Lesson for this</span>

@@ -166,7 +166,7 @@ export function ExploreScreen({ fen, orientation: startOrientation, title }: { f
           {comment && comment.id === node.id && parent && (
             <div className="flex shrink-0 items-start gap-2.5">
               <CoachAvatar mood={comment.c.classification === 'blunder' || comment.c.classification === 'mistake' ? 'concerned' : 'happy'} size={34} />
-              <div className="card min-w-0 flex-1 !rounded-[16px] !rounded-tl-md !px-3 !py-2 text-[13.5px] leading-snug">
+              <div className="card min-w-0 flex-1 !rounded-[10px] !rounded-tl-md !px-3 !py-2 text-[13.5px] leading-snug">
                 <p className="flex items-center gap-1.5 font-semibold">
                   {comment.c.classification && <ReviewIcon cls={comment.c.classification as ReviewClass} size={16} />}
                   {node.san}
@@ -253,7 +253,7 @@ function Nav({ children, onClick, disabled, label, primary }: { children: React.
 
 function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
   return (
-    <button className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left font-semibold active:bg-stone-100 dark:active:bg-stone-800" onClick={onClick}>
+    <button className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left font-semibold active:bg-stone-100 dark:active:bg-stone-800" onClick={onClick}>
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">{icon}</span>
       {label}
     </button>

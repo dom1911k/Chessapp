@@ -335,7 +335,7 @@ export function App() {
 function Splash() {
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center gap-[18px] bg-[#312e2b]">
-      <img src="./icon.svg" alt="" width={112} height={112} className="rounded-[26px] shadow-[0_12px_32px_rgba(0,0,0,0.28)]" />
+      <img src="./icon.svg" alt="" width={112} height={112} className="rounded-[14px] shadow-[0_12px_32px_rgba(0,0,0,0.28)]" />
       <div className="font-display text-[26px] text-white">Chess Coach</div>
     </div>
   );

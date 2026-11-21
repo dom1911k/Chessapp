@@ -97,7 +97,7 @@ export function PuzzlesScreen() {
               <LineChart values={d.ratings} dates={d.ratingDates} height={78} />
             </div>
           )}
-          <button className="btn-primary mt-3 w-full !rounded-[18px] !py-4 font-display text-xl" onClick={() => push({ name: 'puzzle', mode: { kind: 'rated' } })}>
+          <button className="btn-primary mt-3 w-full !rounded-[10px] !py-4 font-display text-xl" onClick={() => push({ name: 'puzzle', mode: { kind: 'rated' } })}>
             <Puzzle size={20} /> Solve Puzzles
           </button>
           {d && d.total > 0 && <p className="mt-1.5 text-center text-[11px] text-stone-400">{d.total.toLocaleString()} puzzles from the Lichess database, all offline</p>}
@@ -105,7 +105,7 @@ export function PuzzlesScreen() {
 
         {/* Daily Puzzle */}
         <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'puzzle', mode: { kind: 'dailyPuzzle' } })}>
-          <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${d?.dailySolved ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
+          <span className={`flex h-12 w-12 items-center justify-center rounded-[10px] ${d?.dailySolved ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
             <CalendarDays size={24} />
           </span>
           <span className="flex-1">
@@ -122,7 +122,7 @@ export function PuzzlesScreen() {
 
         {/* Daily training (spaced reviews of positions you missed + weak-spot puzzles) */}
         <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'daily' })}>
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+          <span className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
             <CalendarCheck size={24} />
           </span>
           <span className="flex-1">
@@ -142,7 +142,7 @@ export function PuzzlesScreen() {
           </div>
           <div className="grid grid-cols-3 gap-2">
             {(['3', '5', 'survival'] as RushMode[]).map((m) => (
-              <button key={m} className="flex flex-col items-center rounded-2xl bg-stone-100 py-2.5 active:scale-[0.97] dark:bg-stone-800" onClick={() => push({ name: 'rush', mode: m })}>
+              <button key={m} className="flex flex-col items-center rounded-[10px] bg-stone-100 py-2.5 active:scale-[0.97] dark:bg-stone-800" onClick={() => push({ name: 'rush', mode: m })}>
                 {m === 'survival' ? <Shield size={20} className="text-sky-600" /> : <Timer size={20} className="text-amber-600" />}
                 <span className="mt-0.5 text-sm font-semibold">{RUSH_LABEL[m]}</span>
                 <span className="text-xs text-stone-500">Best {d?.rush[m] ?? 0}</span>

@@ -275,7 +275,7 @@ export function RepertoireBuildScreen() {
             <div className="mb-1.5 section-title">I play</div>
             <Segmented value={color} onChange={setColor} options={[{ value: 'w', label: 'White' }, { value: 'b', label: 'Black' }]} />
           </div>
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Name of the line (e.g. Italian, …Na5 line)" className="w-full rounded-2xl bg-white px-3.5 py-3 text-[15px] ring-1 ring-stone-200 outline-none focus:ring-2 focus:ring-brand-500 dark:bg-white/5 dark:ring-white/10" />
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Name of the line (e.g. Italian, …Na5 line)" className="w-full rounded-[10px] bg-white px-3.5 py-3 text-[15px] ring-1 ring-stone-200 outline-none focus:ring-2 focus:ring-brand-500 dark:bg-white/5 dark:ring-white/10" />
           <button className="btn-primary w-full" disabled={!ok} onClick={() => void save()}>Save line</button>
           {!ok && sans.length > 0 && <p className="text-center text-xs text-stone-500">{sans.length < 4 ? 'Play at least four moves (two for each side).' : 'Give the line a name.'}</p>}
         </div>

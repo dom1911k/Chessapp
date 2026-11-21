@@ -132,7 +132,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
             {e ? (
               <div className="mb-3 flex items-start gap-3">
                 <CoachAvatar mood={bad && isUser ? 'concerned' : 'happy'} size={40} />
-                <div className="card min-w-0 flex-1 !rounded-[18px] !rounded-tl-md !px-3.5 !py-3">
+                <div className="card min-w-0 flex-1 !rounded-[10px] !rounded-tl-md !px-3.5 !py-3">
                   <p className={`text-[15px] leading-snug font-semibold ${ink.className}`} style={ink.style}>{e.headline}</p>
                   <Swing wpBefore={e.swing.wpBefore} wpAfter={e.swing.wpAfter} before={e.swing.before} after={e.swing.after} you={isUser} />
                 </div>
@@ -140,7 +140,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
             ) : !failed ? (
               <div className="mb-3 flex items-center gap-3">
                 <CoachAvatar mood="thinking" size={40} />
-                <div className="card flex-1 !rounded-[18px] !rounded-tl-md !px-3.5 !py-3">
+                <div className="card flex-1 !rounded-[10px] !rounded-tl-md !px-3.5 !py-3">
                   <div className="font-semibold">Coach Sam is looking deeper…</div>
                   <div className="flex items-center gap-1.5 text-sm text-stone-500"><Spinner className="!h-3 !w-3" /> checking the best lines</div>
                 </div>

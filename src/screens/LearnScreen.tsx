@@ -88,7 +88,7 @@ export function LearnScreen() {
         <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4 pt-3">
           {/* Where you are: your level, the steps of it you have ticked off, and what is next. */}
           <div className="card overflow-hidden !p-0">
-            <div className="flex items-center gap-3.5 bg-gradient-to-br from-brand-600 to-brand-800 px-4 py-4 text-white">
+            <div className="flex items-center gap-3.5 bg-brand-700 px-4 py-4 text-white">
               <LevelBadge level={lv?.level ?? 1} tier={cur} pips={0} size={62} className="drop-shadow-[0_6px_10px_rgba(0,0,0,0.35)]" />
               <div className="min-w-0 flex-1">
                 <div className="text-[11px] font-bold tracking-[0.1em] text-white/70 uppercase">{RANKS[cur]} · level {lv?.level ?? '…'} of {lv?.total ?? '…'}</div>
@@ -134,7 +134,7 @@ export function LearnScreen() {
                 const on = k === shown;
                 const complete = p.done >= p.total;
                 return (
-                  <button key={sg.id} data-stage={k} onClick={() => setStage(k)} className={`tile relative w-[132px] shrink-0 snap-center rounded-[18px] p-3 text-left ring-1 transition-colors ${on ? 'bg-brand-500 text-white ring-brand-700' : 'bg-white ring-black/[0.06] dark:bg-stone-900 dark:ring-0'}`}>
+                  <button key={sg.id} data-stage={k} onClick={() => setStage(k)} className={`tile relative w-[132px] shrink-0 snap-center rounded-[10px] p-3 text-left ring-1 transition-colors ${on ? 'bg-brand-500 text-white ring-brand-700' : 'bg-white ring-black/[0.06] dark:bg-stone-900 dark:ring-0'}`}>
                     <span className="flex items-center justify-between">
                       <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${complete ? 'bg-amber-400 text-amber-950' : on ? 'bg-white/20' : 'bg-stone-100 text-stone-600 dark:bg-white/10 dark:text-stone-300'}`}>{complete ? <Check size={14} strokeWidth={3.5} /> : k + 1}</span>
                       {k === cur && !complete && <span className={`rounded-full px-1.5 py-px text-[9px] font-bold tracking-wider uppercase ${on ? 'bg-white/20' : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'}`}>You</span>}

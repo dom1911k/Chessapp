@@ -136,7 +136,7 @@ export function JourneyScreen() {
         <div className="relative mx-auto mt-4 w-full max-w-md" style={{ height: H }}>
           {bands.map(({ g, top, bottom }) => (
             <div key={g.name} className="absolute inset-x-2" style={{ top, height: bottom - top }}>
-              <div className="absolute inset-0 rounded-[28px] opacity-90 dark:opacity-20" style={{ background: `linear-gradient(180deg, ${g.colors[0]}, ${g.colors[1]})` }} />
+              <div className="absolute inset-0 rounded-[14px] opacity-90 dark:opacity-20" style={{ background: `linear-gradient(180deg, ${g.colors[0]}, ${g.colors[1]})` }} />
               <div className="relative flex items-center gap-1.5 px-4 pt-2.5 text-xs font-bold tracking-wider text-stone-600 uppercase dark:text-stone-300">
                 <Glyph name={g.icon} size={14} /> {g.name}
               </div>

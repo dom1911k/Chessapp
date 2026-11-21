@@ -129,7 +129,7 @@ export function EvalBar({ whitePct, orientation, score, width = 14 }: { whitePct
 export function EmptyState({ icon, title, text, action }: { icon: ReactNode; title: string; text?: string; action?: ReactNode }) {
   return (
     <div className="animate-fade-in flex flex-col items-center gap-2 px-6 py-12 text-center">
-      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-200/70 text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">{icon}</span>
+      <span className="flex h-14 w-14 items-center justify-center rounded-[10px] bg-stone-200/70 text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">{icon}</span>
       <p className="mt-1 font-semibold">{title}</p>
       {text && <p className="max-w-xs text-sm leading-snug text-stone-500">{text}</p>}
       {action && <div className="mt-2">{action}</div>}

@@ -119,7 +119,7 @@ export function VisionScreen() {
             </>
           ) : (
             <>
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"><Eye size={22} /></span>
+              <span className="flex h-11 w-11 items-center justify-center rounded-[10px] bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"><Eye size={22} /></span>
               <div className="min-w-0 flex-1 text-sm leading-snug">
                 {mode === 'find' ? 'A square’s name appears — tap it on the board as fast as you can.' : 'A square lights up — pick its name.'} {ROUND_SECS} seconds.
               </div>

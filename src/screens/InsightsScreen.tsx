@@ -38,7 +38,7 @@ export function InsightsScreen() {
             <Section title="Accuracy by phase" note={r.weakestPhase ? `Your ${r.weakestPhase} is the weak spot — that's where training pays off most.` : undefined}>
               <div className="grid grid-cols-3 gap-2">
                 {r.phases.map((p) => (
-                  <div key={p.phase} className={`rounded-2xl p-2.5 text-center ${p.phase === r.weakestPhase ? 'bg-red-50 ring-1 ring-red-300 dark:bg-red-950/40 dark:ring-red-800' : 'bg-stone-100 dark:bg-stone-800'}`}>
+                  <div key={p.phase} className={`rounded-[10px] p-2.5 text-center ${p.phase === r.weakestPhase ? 'bg-red-50 ring-1 ring-red-300 dark:bg-red-950/40 dark:ring-red-800' : 'bg-stone-100 dark:bg-stone-800'}`}>
                     <div className="text-2xl font-black tabular-nums">{p.accuracy ?? '–'}{p.accuracy !== null && <span className="text-sm">%</span>}</div>
                     <div className="text-xs font-semibold">{PHASE_LABEL[p.phase]}</div>
                     <div className="text-[11px] text-stone-500">{p.moves} moves</div>

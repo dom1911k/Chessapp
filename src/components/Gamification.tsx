@@ -38,7 +38,7 @@ export function LevelCard() {
   const l = levelFor(xp);
   return (
     <div className="card flex items-center gap-4 !p-3">
-      <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 text-white shadow-sm">
+      <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-[10px] bg-gradient-to-br from-amber-300 to-amber-500 text-white shadow-sm">
         <span className="text-[10px] font-semibold uppercase leading-none">Level</span>
         <span className="text-2xl font-black leading-none">{l.level}</span>
       </div>

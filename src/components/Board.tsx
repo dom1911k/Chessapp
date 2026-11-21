@@ -463,7 +463,7 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
       )}
       {pending && (
         <div className="absolute inset-x-0 bottom-2 z-10 flex justify-center">
-          <div className="flex items-center gap-2 rounded-2xl bg-white/95 p-1.5 pl-4 shadow-xl ring-1 ring-stone-200 dark:bg-stone-800/95 dark:ring-stone-700">
+          <div className="flex items-center gap-2 rounded-[10px] bg-white/95 p-1.5 pl-4 shadow-xl ring-1 ring-stone-200 dark:bg-stone-800/95 dark:ring-stone-700">
             <span className="font-semibold">{pending.label}?</span>
             <button className="btn-primary !px-4 !py-2" onClick={() => { const m = pending.move; setPending(null); realOnMove?.(m); }} aria-label="Confirm move"><Check size={20} /></button>
             <button className="btn-secondary !px-4 !py-2" onClick={() => setPending(null)} aria-label="Cancel move"><X size={20} /></button>
