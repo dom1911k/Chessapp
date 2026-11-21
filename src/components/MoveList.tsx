@@ -1,15 +1,17 @@
 import { useEffect, useRef } from 'react';
-import { CLASS_SYMBOL } from '../lib/chess/evaluation';
+import type { ReviewClass } from '../lib/review';
 import type { PlyRecord } from '../lib/store/types';
+import { ReviewIcon } from './ReviewIcon';
 
-const SYMBOL_COLOR: Record<string, string> = {
-  inaccuracy: 'text-amber-600',
-  mistake: 'text-orange-600',
-  blunder: 'text-red-600',
-  best: 'text-emerald-600',
-  good: 'text-lime-600',
-};
+/** The class worth a badge in a move strip (same rule as Game Review's): brilliant, great and the slips. */
+export function stripClass(p: PlyRecord): ReviewClass | null {
+  if (!p.isUser) return null;
+  if (p.special) return p.special;
+  const c = p.classification;
+  return c === 'inaccuracy' || c === 'mistake' || c === 'blunder' ? c : null;
+}
 
+/** The moves so far in one scrolling line, chess.com style: tap a move to look back at it. */
 export function MoveList({ plies, startFen, current, onSelect }: { plies: PlyRecord[]; startFen: string; current?: number; onSelect?: (i: number) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -24,30 +26,32 @@ export function MoveList({ plies, startFen, current, onSelect }: { plies: PlyRec
   return (
     <div
       ref={ref}
-      className="no-scrollbar flex min-h-9 items-center gap-0.5 overflow-x-auto px-3 py-1 text-[13px] whitespace-nowrap [mask-image:linear-gradient(to_right,transparent,black_14px,black_calc(100%-14px),transparent)]"
+      className="no-scrollbar flex h-9 shrink-0 items-center gap-0.5 overflow-x-auto px-3 text-[14px] whitespace-nowrap [mask-image:linear-gradient(to_right,transparent,black_14px,black_calc(100%-14px),transparent)]"
     >
-      {plies.length === 0 && <span className="px-1 text-stone-400">No moves yet</span>}
+      {plies.length === 0 && <span className="px-1 text-[13px] text-stone-500">No moves yet</span>}
       {plies.map((p, i) => {
         const idx = i + (blackFirst ? 1 : 0);
         const no = startNo + Math.floor(idx / 2);
         const showNo = idx % 2 === 0 || i === 0;
-        const cls = p.isUser && p.classification && p.classification !== 'good' && p.classification !== 'best' ? p.classification : null;
+        const cls = stripClass(p);
+        const viewed = current === i;
+        const latest = current === undefined && i === plies.length - 1;
         return (
           <span key={i} className="flex items-center gap-1">
-            {showNo && <span className={`text-[11px] font-semibold tabular-nums text-stone-400 ${i ? 'ml-1.5' : ''}`}>{no}{idx % 2 === 0 ? '.' : '…'}</span>}
+            {showNo && <span className={`text-[12px] font-semibold tabular-nums text-stone-500 ${i ? 'ml-1.5' : ''}`}>{no}{idx % 2 === 0 ? '.' : '…'}</span>}
             <button
-              data-active={current === i || (current === undefined && i === plies.length - 1)}
+              data-active={viewed || latest}
               onClick={() => onSelect?.(i)}
-              className={`rounded-md px-1.5 py-0.5 font-semibold transition-colors ${
-                current === i
-                  ? 'bg-brand-600 text-white shadow-sm'
-                  : current === undefined && i === plies.length - 1
-                    ? 'bg-stone-900/[0.07] text-stone-900 dark:bg-white/10 dark:text-white'
-                    : 'text-stone-600 active:bg-stone-900/5 dark:text-stone-300 dark:active:bg-white/5'
+              className={`flex items-center gap-1 rounded-[4px] px-1.5 py-0.5 font-semibold transition-colors ${
+                viewed
+                  ? 'bg-brand-500 font-bold text-white'
+                  : latest
+                    ? 'bg-black/[0.08] font-bold text-stone-900 dark:bg-white/[0.12] dark:text-white'
+                    : 'text-stone-700 active:bg-black/5 dark:text-stone-300 dark:active:bg-white/5'
               }`}
             >
+              {cls && <ReviewIcon cls={cls} size={14} />}
               {p.san}
-              {cls && <span className={`ml-0.5 font-bold ${current === i ? '' : SYMBOL_COLOR[cls]}`}>{CLASS_SYMBOL[cls]}</span>}
             </button>
           </span>
         );

@@ -6,6 +6,7 @@ import { AVATARS, FRAMES, TITLES, avatarId, avatarUrl, frameById, type Frame } f
 import { getXp, levelFor } from '../lib/progress/xp';
 import { meets, unlockContext, unlockText, type UnlockContext } from '../lib/rewards/cosmetics';
 import { useSettings } from '../lib/settings';
+import { avatarRadius } from './Coach';
 
 /** The name shown for the player. */
 export const useMyName = () => useSettings((s) => s.ccUsername) || 'You';
@@ -20,12 +21,10 @@ export function useMyTitle(): string {
 
 export function AvatarImg({ id, frame, size = 44, className = '' }: { id: string; frame?: Frame; size?: number; className?: string }) {
   const pad = frame?.ring ? Math.max(2, Math.round(size * 0.065)) : 0;
+  const r = avatarRadius(size);
   return (
-    <span
-      className={`inline-flex shrink-0 rounded-[30%] shadow-[0_2px_8px_rgba(60,35,15,0.18)] ${className}`}
-      style={{ width: size, height: size, padding: pad, background: frame?.ring || undefined }}
-    >
-      <img src={avatarUrl(id)} alt="" draggable={false} className="h-full w-full rounded-[30%] ring-1 ring-black/5" />
+    <span className={`inline-flex shrink-0 ${className}`} style={{ width: size, height: size, padding: pad, background: frame?.ring || undefined, borderRadius: r }}>
+      <img src={avatarUrl(id)} alt="" draggable={false} className="h-full w-full ring-1 ring-black/5" style={{ borderRadius: pad ? Math.max(2, r - 2) : r }} />
     </span>
   );
 }
@@ -57,7 +56,7 @@ export function AvatarPicker({ onClose }: { onClose: () => void }) {
         <h3 className="section-title mt-4">Avatar</h3>
         <div className="mt-2 grid grid-cols-4 gap-3">
           {AVATARS.map((a) => (
-            <button key={a.id} aria-label={`Avatar ${a.id}`} aria-pressed={avatarId(s.avatar) === a.id} className={`relative justify-self-center rounded-[30%] transition-transform active:scale-95 ${avatarId(s.avatar) === a.id ? 'ring-[3px] ring-brand-600 ring-offset-2 ring-offset-white dark:ring-offset-stone-900' : ''}`} onClick={() => s.set({ avatar: a.id })}>
+            <button key={a.id} aria-label={`Avatar ${a.id}`} aria-pressed={avatarId(s.avatar) === a.id} className={`relative justify-self-center rounded-md transition-transform active:scale-95 ${avatarId(s.avatar) === a.id ? 'ring-[3px] ring-brand-600 ring-offset-2 ring-offset-white dark:ring-offset-stone-900' : ''}`} onClick={() => s.set({ avatar: a.id })}>
               <AvatarImg id={a.id} size={68} />
             </button>
           ))}
@@ -68,7 +67,7 @@ export function AvatarPicker({ onClose }: { onClose: () => void }) {
             const ok = open(f.unlock);
             return (
               <button key={f.id} disabled={!ok} aria-pressed={s.avatarFrame === f.id} className="flex flex-col items-center gap-1 text-center active:scale-95 disabled:active:scale-100" onClick={() => s.set({ avatarFrame: f.id })}>
-                <span className={`relative rounded-[30%] ${s.avatarFrame === f.id ? 'ring-[3px] ring-brand-600 ring-offset-2 ring-offset-white dark:ring-offset-stone-900' : ''} ${ok ? '' : 'opacity-60'}`}>
+                <span className={`relative rounded-md ${s.avatarFrame === f.id ? 'ring-[3px] ring-brand-600 ring-offset-2 ring-offset-white dark:ring-offset-stone-900' : ''} ${ok ? '' : 'opacity-60'}`}>
                   <AvatarImg id={s.avatar} frame={f} size={56} />
                   {!ok && <Lock size={16} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow" />}
                 </span>

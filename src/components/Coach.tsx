@@ -30,7 +30,10 @@ export function ClassBadge({ c }: { c: Classification }) {
   );
 }
 
-/** Round portrait of a person (coach or opponent) in a given mood. */
+/** Corner radius for a portrait or avatar of a given size: square-ish like chess.com (4px small, 8px hero). */
+export const avatarRadius = (size: number) => (size <= 40 ? 4 : size >= 84 ? 8 : 6);
+
+/** Portrait of a person (coach or opponent) in a given mood. */
 export function Portrait({ id, mood = 'neutral', size = 44, className = '' }: { id: string; mood?: Mood; size?: number; className?: string }) {
   return (
     <img
@@ -39,8 +42,8 @@ export function Portrait({ id, mood = 'neutral', size = 44, className = '' }: { 
       height={size}
       alt=""
       draggable={false}
-      className={`shrink-0 rounded-[30%] shadow-[0_2px_8px_rgba(60,35,15,0.18)] ring-1 ring-black/5 ${className}`}
-      style={{ width: size, height: size }}
+      className={`shrink-0 ring-1 ring-black/5 ${className}`}
+      style={{ width: size, height: size, borderRadius: avatarRadius(size) }}
     />
   );
 }
@@ -50,6 +53,11 @@ export function CoachAvatar({ mood = 'happy', size = 44 }: { mood?: 'happy' | 'c
   return <Portrait id={COACH.id} mood={mood === 'concerned' ? 'worried' : mood === 'happy' ? 'neutral' : 'neutral'} size={size} />;
 }
 
+/**
+ * The coach speaking, chess.com style: a white speech bubble (in both themes) with a small tail
+ * pointing at his avatar. Its contents render as on a light surface. A small label ("Hint",
+ * "Before you move") only when it adds something — the avatar already says who's talking.
+ */
 export function CoachBubble({
   children,
   mood = 'happy',
@@ -68,23 +76,27 @@ export function CoachBubble({
   actions?: ReactNode;
   /** Older messages in a conversation: smaller and quieter. */
   compact?: boolean;
-  /** Small header, e.g. "Hint" or "Tip of the day" (defaults to the coach's name). */
+  /** Small header, e.g. "Hint" or "Before you move". */
   label?: string;
   icon?: ReactNode;
 }) {
   return (
     <div className={`flex items-start gap-2.5 ${compact ? 'opacity-75' : 'animate-pop'}`}>
-      <CoachAvatar mood={mood} size={compact ? 32 : 42} />
-      <div className={`card relative flex-1 !rounded-[20px] !rounded-tl-md ${compact ? '!p-2.5 text-sm' : '!p-3.5 text-[15px]'} leading-snug`}>
-        {!compact && (
-          <div className="mb-1 flex items-center gap-1 text-[11px] font-bold tracking-[0.06em] text-brand-700 uppercase dark:text-brand-500">
+      <CoachAvatar mood={mood} size={compact ? 32 : 40} />
+      <div
+        className={`surface-light relative min-w-0 flex-1 rounded-[10px] bg-white text-[#312e2b] shadow-[0_1px_2px_rgba(0,0,0,0.14)] ring-1 ring-black/[0.06] ${compact ? 'px-3 py-2 text-sm' : 'px-3.5 py-3 text-[15px]'} leading-snug`}
+      >
+        {/* The tail, pointing at the avatar. */}
+        <span aria-hidden className={`absolute -left-[7px] h-0 w-0 border-y-[7px] border-r-[8px] border-y-transparent border-r-white ${compact ? 'top-[9px]' : 'top-[13px]'}`} />
+        {label && !compact && (
+          <div className="mb-1 flex items-center gap-1 text-[11px] font-bold tracking-[0.06em] text-stone-500 uppercase">
             {icon}
-            {label ?? 'Coach Sam'}
+            {label}
           </div>
         )}
         {special ? (
           <div className="mb-1">
-            <span className={`chip text-white ${special === 'brilliant' ? 'bg-gradient-to-r from-teal-500 to-cyan-500' : 'bg-gradient-to-r from-blue-600 to-sky-500'}`}>
+            <span className="chip text-white" style={{ background: special === 'brilliant' ? '#1baca6' : '#5c8bb0' }}>
               {special === 'brilliant' ? '!! Brilliant' : '! Great move'}
             </span>
           </div>

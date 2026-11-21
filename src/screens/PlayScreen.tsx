@@ -9,13 +9,13 @@ import { TUNING as CUPS_T } from '../cups/tuning';
 import { UserAvatar, useMyName } from '../components/UserAvatar';
 import { getRating as getPuzzleRating } from '../lib/puzzles/rating';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Flame, FlipVertical2, Puzzle, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy, Undo2 } from 'lucide-react';
+import { Clock as ClockIcon, Flame, FlipVertical2, Puzzle, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy, Undo2, Users } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { getSparring, sparringStep, type SparringState } from '../lib/sparring';
 import { getPlayerRating } from '../lib/playerRating';
 import { ScaleNews } from '../components/ScaleNews';
 import { onChange } from '../lib/changes';
-import { povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
+import { formatScore, povScore, scoreToCp, winPct } from '../lib/chess/evaluation';
 import { safetyInfo } from '../lib/coach';
 import { START_FEN } from '../lib/chess/game';
 import { detectOpening } from '../lib/openings';
@@ -42,7 +42,7 @@ import { currentWinStreak } from '../lib/stats';
 import { LastChessComGames } from '../components/ChessCom';
 import { dueCount } from '../lib/store/daily';
 import { ReviewIcon } from '../components/ReviewIcon';
-import { isBad, RC, type ReviewClass } from '../lib/review';
+import { RC, type ReviewClass } from '../lib/review';
 import { formatLine, lineToSan } from '../lib/chess/game';
 import { db } from '../lib/db';
 import { defaultMatchTc, fmtClock, lowTime, mostCommonTimeControl, offeredTimeControls, timeLeft } from '../lib/clock';
@@ -125,7 +125,7 @@ function SetupView() {
             style={{ background: opp ? `linear-gradient(115deg, color-mix(in srgb, ${portraitColors(opp.id)[1]} 34%, transparent), color-mix(in srgb, ${portraitColors(opp.id)[0]} 10%, transparent))` : undefined }}
             onClick={() => setSheet('opponent')}
           >
-            {opp ? <Portrait id={opp.id} size={84} className="ring-2 ring-white/80 dark:ring-white/20" /> : <span className="flex h-[84px] w-[84px] items-center justify-center rounded-[30%] bg-stone-200 dark:bg-stone-800">{sparring ? <Dumbbell size={36} /> : <Bot size={36} />}</span>}
+            {opp ? <Portrait id={opp.id} size={84} className="ring-2 ring-white/80 dark:ring-white/20" /> : <span className="flex h-[84px] w-[84px] items-center justify-center rounded-[8px] bg-stone-200 dark:bg-stone-800">{sparring ? <Dumbbell size={36} /> : <Bot size={36} />}</span>}
             <span className="min-w-0 flex-1">
               <span className="block text-[10px] font-bold tracking-[0.1em] text-stone-500 uppercase dark:text-stone-400">Your opponent</span>
               <span className="block truncate font-display text-[22px] leading-tight font-semibold">{opp ? opp.name : sparring ? 'Sparring partner' : 'Custom bot'}</span>
@@ -319,7 +319,7 @@ function ResumeCard() {
   const moves = Math.ceil(g.plies.length / 2);
   return (
     <button className="card tile flex w-full items-center gap-3 !p-3 text-left ring-2 ring-brand-500 active:scale-[0.99]" onClick={() => s.setAway(false)}>
-      {o ? <Portrait id={o.id} size={48} /> : <span className="flex h-12 w-12 items-center justify-center rounded-[30%] bg-stone-200 dark:bg-stone-800"><Bot size={24} /></span>}
+      {o ? <Portrait id={o.id} size={48} /> : <span className="flex h-12 w-12 items-center justify-center rounded-md bg-stone-200 dark:bg-stone-800"><Bot size={24} /></span>}
       <span className="flex-1">
         <span className="block text-xs font-bold tracking-wider text-brand-700 uppercase dark:text-brand-500">Game in progress</span>
         <span className="block font-semibold">vs {o ? o.name : 'the bot'}</span>
@@ -357,13 +357,13 @@ function GameTopBar({ onMenu }: { onMenu: () => void }) {
   const sub = [g.match ? 'Match conditions' : 'Coached', g.timeControl ? timeControlLabel(g.timeControl) : null].filter(Boolean).join(' · ');
   return (
     <header className="safe-top relative z-20">
-      <div className="mx-auto flex h-12 max-w-xl items-center gap-2 px-2 land:max-w-6xl">
+      <div className="mx-auto flex h-11 max-w-xl items-center gap-2 px-1 land:max-w-6xl">
         <IconButton label="Back to menu" onClick={() => s.setAway(true)}>
           <ChevronLeft size={24} strokeWidth={2.2} />
         </IconButton>
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="font-display truncate text-[18px] font-semibold tracking-[-0.01em]">{opening ? opening.name : `vs ${opponentById(g.opponentId)?.name ?? (g.rematch ? `${g.rematch.name} (stand-in)` : g.sparring ? 'Sparring partner' : 'Bot')}`}</div>
-          <div className="truncate text-[11px] text-stone-500">{sub}</div>
+          <div className="truncate text-[16px] font-bold tracking-[-0.01em]">{opening ? opening.name : `vs ${opponentById(g.opponentId)?.name ?? (g.rematch ? `${g.rematch.name} (stand-in)` : g.sparring ? 'Sparring partner' : 'Bot')}`}</div>
+          <div className="truncate text-[12px] font-medium text-stone-500">{sub}</div>
         </div>
         <IconButton label="Game menu" onClick={onMenu}>
           <EllipsisVertical size={21} />
@@ -373,7 +373,7 @@ function GameTopBar({ onMenu }: { onMenu: () => void }) {
   );
 }
 
-/** A player bar above or below the board, chess.com style: avatar, name, material, clock. */
+/** A player bar above or below the board, chess.com style: avatar, name (rating), material, clock. */
 function PlayerBar({ me }: { me: boolean }) {
   const s = usePlay();
   const g = s.game!;
@@ -382,6 +382,7 @@ function PlayerBar({ me }: { me: boolean }) {
   const side = me ? g.userColor : g.userColor === 'w' ? 'b' : 'w';
   const thinking = !me && s.phase === 'botThinking';
   const myName = useMyName();
+  const rating = me ? getPlayerRating() : g.elo;
   return (
     <div className="flex h-11 items-center gap-2 px-2">
       <span className="relative">
@@ -390,17 +391,18 @@ function PlayerBar({ me }: { me: boolean }) {
         ) : o ? (
           <Portrait id={o.id} mood={mood} size={36} />
         ) : (
-          <span className="flex h-9 w-9 items-center justify-center rounded-[30%] bg-stone-200 text-stone-600 dark:bg-stone-800"><Bot size={18} /></span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-[4px] bg-stone-200 text-stone-600 dark:bg-stone-800"><Bot size={18} /></span>
         )}
         {thinking && (
-          <span className="absolute -right-1 -bottom-1 flex h-3.5 items-center gap-0.5 rounded-full bg-white px-1 shadow ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
-            {[0, 1, 2].map((i) => <span key={i} className="h-1 w-1 animate-bounce rounded-full bg-stone-500" style={{ animationDelay: `${i * 120}ms` }} />)}
+          <span className="absolute -right-1 -bottom-1 flex h-3.5 items-center gap-0.5 rounded-[4px] bg-white px-1 shadow-[0_1px_2px_rgba(0,0,0,0.25)] dark:bg-stone-800" aria-label="Thinking">
+            {[0, 1, 2].map((i) => <span key={i} className="h-1 w-1 animate-bounce rounded-full bg-stone-500 dark:bg-stone-300" style={{ animationDelay: `${i * 120}ms` }} />)}
           </span>
         )}
       </span>
       <div className="min-w-0 flex-1 leading-tight">
-        <div className="truncate text-sm font-semibold">
-          {me ? myName : o ? o.name : g.rematch ? rematchLabel(g.rematch.name) : g.sparring ? 'Sparring partner' : 'Bot'} {!me && <span className="font-normal text-stone-400">({g.elo})</span>}
+        <div className="truncate text-[14px] font-bold">
+          {me ? myName : o ? o.name : g.rematch ? rematchLabel(g.rematch.name) : g.sparring ? 'Sparring partner' : 'Bot'}{' '}
+          <span className="text-[13px] font-medium text-stone-500 tabular-nums">({rating})</span>
         </div>
         <Captured fen={currentFen(g)} startFen={g.startFen} side={side} />
       </div>
@@ -417,7 +419,7 @@ function ChatBubble() {
   if (!chat) return null;
   return (
     <div key={chat.text + chat.ply} className="animate-chat pointer-events-none absolute top-1.5 left-3 z-20 max-w-[78%]">
-      <div className="relative rounded-2xl rounded-tl-sm bg-white/95 px-3 py-1.5 text-[13px] leading-snug shadow-lg ring-1 ring-black/5 backdrop-blur dark:bg-stone-800/95 dark:ring-white/10">
+      <div className="relative rounded-[10px] rounded-tl-[3px] bg-white px-3 py-1.5 text-[13px] leading-snug font-medium text-[#312e2b] shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
         {chat.text}
       </div>
     </div>
@@ -437,6 +439,7 @@ function GameView() {
   const [menu, setMenu] = useState(false);
   const [history, setHistory] = useState(false);
   const [confirmResign, setConfirmResign] = useState(false);
+  const [overMenu, setOverMenu] = useState(false);
   const g = s.game!;
   const fen = currentFen(g);
   const [flipped, setFlipped] = useState(false);
@@ -453,6 +456,7 @@ function GameView() {
   const coachOff = !aids.comments;
   const feed = g.feed ?? [];
   const latestFeed = feed[feed.length - 1];
+  const actionKind: ActionKind | null = s.precheck ? 'precheck' : s.over ? 'over' : s.phase === 'paused' && latestFeed?.kind === 'comment' ? 'paused' : null;
   // With the coach off, only what you asked for (hints, threats, the result…) shows, and only while it's fresh.
   const coachFresh = !!s.precheck || !!s.over || (!!latestFeed && latestFeed.ply >= g.plies.length - 1);
 
@@ -520,7 +524,7 @@ function GameView() {
     <div className="flex h-full flex-col bg-stone-100 dark:bg-stone-950">
       <GameTopBar onMenu={() => setMenu(true)} />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-5 land:px-3">
-        <div className="land:w-[min(calc(100dvh-6rem),58vw)] land:shrink-0">
+        <div className="land:w-[min(calc(100dvh-11rem),58vw)] land:shrink-0">
           <PlayerBar me={flipped} />
           {/* Full-bleed on phones, like every board screen; the eval bar (when on) sits on the left. */}
           <div className="flex gap-1">
@@ -557,7 +561,7 @@ function GameView() {
           )}
         </div>
         <div className="flex min-h-0 flex-1 flex-col land:pt-1">
-          {/* The coach sits just above the dock (Dr. Wolf style), close to the thumb; it scrolls if long. */}
+          {/* The coach's message sits right under the move strip and scrolls (with a fade) if long. */}
           {coachOff ? (
             <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-1 pb-2">
               <MoveHistory plies={g.plies} startFen={g.startFen} view={viewing ? view : null} onView={setView} />
@@ -568,12 +572,14 @@ function GameView() {
               )}
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pt-3 pb-2">
-              <div className="mt-auto" />
+            <CoachPanel>
               <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => setHistory(true)} />
-            </div>
+            </CoachPanel>
           )}
-          {!s.over && (
+          {/* Choices (a paused mistake, the pre-check, game over) take the Dock's place, so they're never scrolled away. */}
+          {actionKind ? (
+            <GameActions kind={actionKind} onMore={() => setOverMenu(true)} />
+          ) : !s.over && (
             <Dock>
                 {aids.requests ? (
                   <>
@@ -632,6 +638,13 @@ function GameView() {
           {menuItem(<RotateCcw size={19} />, 'New game', () => void (s.over ? s.leaveGame() : s.abandon()))}
         </div>
       </Dialog>
+      <Dialog open={overMenu} onClose={() => setOverMenu(false)}>
+        <div className="-mx-2 space-y-0.5">
+          {s.over?.practice && menuItem(<Dumbbell size={19} />, `Practise: ${THEMES[s.over.practice].label.toLowerCase()}`, () => push({ name: 'practice', theme: s.over!.practice! }))}
+          {menuItem(<Users size={19} />, 'New opponent', () => s.leaveGame())}
+          {menuItem(<MessagesSquare size={19} />, 'Conversation', () => setHistory(true))}
+        </div>
+      </Dialog>
       <Dialog open={confirmResign} onClose={() => setConfirmResign(false)} title="Resign this game?">
         <div className="flex gap-2">
           <button className="btn-secondary flex-1" onClick={() => setConfirmResign(false)}>Keep playing</button>
@@ -688,20 +701,22 @@ function useTypewriter(key: string, total: number, enabled: boolean) {
 }
 
 /** One coach message (used for the current card and in the conversation sheet). */
-function FeedBubble({ it, compact, actions, flag, type }: { it: FeedItem; compact?: boolean; actions?: ReactNode; flag?: boolean; type?: boolean }) {
+function FeedBubble({ it, compact, flag, type }: { it: FeedItem; compact?: boolean; flag?: boolean; type?: boolean }) {
   const g = usePlay((s) => s.game)!;
   const p = it.ply >= 0 ? g.plies[it.ply] : undefined;
   const words = useMemo(() => it.text.map((t) => t.split(' ')), [it.text]);
   const total = words.reduce((n, w) => n + w.length, 0);
   const gentle = useSettings((st) => st.coachStyle === 'gentle');
   const { shown, skip } = useTypewriter(`${g.startedAt}:${it.id}`, total, !!type);
+  const verdict = it.kind === 'comment' && !!p;
   let index = 0;
   return (
-    <CoachBubble compact={compact} {...FEED_LABEL[it.kind]} mood={it.mood ?? 'happy'} badge={it.classification} special={it.special} actions={actions}>
-      {it.kind === 'comment' && p && <MoveVerdict p={p} />}
+    // One verdict only: the "Qh6 is a blunder" row when the move is known, else the class chip.
+    <CoachBubble compact={compact} {...FEED_LABEL[it.kind]} mood={it.mood ?? 'happy'} badge={verdict ? undefined : it.classification} special={verdict ? undefined : it.special}>
+      {verdict && <MoveVerdict p={p!} index={it.ply} />}
       <div className="space-y-1" onClick={shown < total ? skip : undefined}>
         {words.map((line, i) => (
-          <p key={i} className={it.kind === 'opening' && i === 0 ? 'font-display text-[17px] font-semibold' : ''}>
+          <p key={i} className={it.kind === 'opening' && i === 0 ? 'text-[16px] font-bold' : ''}>
             {/* Every word is laid out from the start (hidden ones invisible) so the card never jumps in size. */}
             {line.map((w, j) => (
               <span key={j} className={`transition-opacity duration-200 ${index++ < shown ? '' : 'opacity-0'}`}>
@@ -721,7 +736,6 @@ function FeedBubble({ it, compact, actions, flag, type }: { it: FeedItem; compac
 /** Coach Sam's current message only — the conversation so far is one tap away. */
 function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; onHistory: () => void }) {
   const s = usePlay();
-  const push = useNav((n) => n.push);
   const settings = useSettings();
   const g = s.game!;
   const feed = g.feed ?? [];
@@ -730,51 +744,30 @@ function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; on
   const earlier = feed.length - 1;
   useTypedBaseline(g.startedAt, feed);
 
+  // An older message (2+ moves ago) shrinks, and "Your move" takes the stage.
+  const sinceLatest = latest ? g.plies.length - 1 - latest.ply : 0;
+  const stale = !!latest && !paused && !s.over && !s.precheck && sinceLatest >= 2;
+  const myTurn = s.phase === 'userTurn' && !s.precheck;
+
   let card: ReactNode;
   if (s.precheck) {
     card = (
-      <CoachBubble
-        mood="concerned"
-        label="Before you move"
-        icon={<ShieldCheck size={12} />}
-        actions={
-          <>
-            <button className="btn-primary" onClick={s.dismissPrecheck}>Let me think again</button>
-            {!s.precheck.revealed && <button className="btn-secondary" onClick={s.revealPrecheck}>Show me why</button>}
-            <button className="btn-ghost" onClick={s.confirmPrecheck}>Play it anyway</button>
-          </>
-        }
-      >
+      <CoachBubble mood="concerned" label="Before you move" icon={<ShieldCheck size={12} />}>
         <p>{s.precheck.check.ask}</p>
         {s.precheck.revealed && <p className="font-semibold">{s.precheck.check.reveal}</p>}
       </CoachBubble>
     );
   } else if (latest) {
-    const actions =
-      paused && latest.kind === 'comment' ? (
-        <>
-          <button className="btn-primary" onClick={s.tryAgain}>Try again</button>
-          <button className="btn-secondary" onClick={s.continueGame}>Continue</button>
-        </>
-      ) : s.over && latest.kind === 'result' ? (
-        <>
-          {s.over.practice && (
-            <button className="btn-primary" onClick={() => push({ name: 'practice', theme: s.over!.practice! })}>
-              Practise: {THEMES[s.over.practice].label.toLowerCase()}
-            </button>
-          )}
-          {s.over.gameId > 0 && (
-            <button className={s.over.practice ? 'btn-secondary' : 'btn-primary'} onClick={() => push({ name: 'report', gameId: s.over!.gameId })}>Game Review</button>
-          )}
-          <button className="btn-secondary" onClick={() => rematch(s)}>Rematch</button>
-          <button className="btn-ghost" onClick={s.leaveGame}>New opponent</button>
-        </>
-      ) : undefined;
-    card = <FeedBubble key={latest.id} it={latest} actions={actions} flag type />;
+    card = <FeedBubble key={latest.id} it={latest} flag type compact={stale} />;
   }
 
   return (
     <div className="space-y-2">
+      {stale && myTurn && (
+        <p className="flex items-center gap-2 px-1 text-[15px] font-bold" data-testid="your-move">
+          <span className="h-2 w-2 rounded-full bg-brand-500" /> Your move
+        </p>
+      )}
       {card}
       {!s.precheck && safetyMessages.length > 0 && settings.safetyOverlay && (
         <p className="flex items-start gap-1.5 px-1 text-[13px] text-stone-600 dark:text-stone-300">
@@ -788,7 +781,7 @@ function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; on
             <>
               <Spinner className="!h-3 !w-3" /> Coach Sam is looking at your move…
             </>
-          ) : s.phase === 'userTurn' && !s.precheck ? (
+          ) : myTurn && !stale ? (
             'Your move'
           ) : null}
         </span>
@@ -798,6 +791,82 @@ function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; on
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The coach's area under the move strip: top-aligned, scrolls when long, with a soft fade while more is below. */
+function CoachPanel({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+    check();
+    el.addEventListener('scroll', check, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null;
+    ro?.observe(el);
+    if (el.firstElementChild) ro?.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener('scroll', check);
+      ro?.disconnect();
+    };
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className={`min-h-0 flex-1 overflow-y-auto px-3 pt-2 pb-3 ${more ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]' : ''}`}
+      data-testid="coach-panel"
+    >
+      {children}
+    </div>
+  );
+}
+
+type ActionKind = 'paused' | 'precheck' | 'over';
+
+/** The choices of the moment, in a fixed row where the Dock sits (44px buttons, at most three per row). */
+function GameActions({ kind, onMore }: { kind: ActionKind; onMore: () => void }) {
+  const s = usePlay();
+  const push = useNav((n) => n.push);
+  const row = 'mx-auto flex max-w-md gap-2';
+  let body: ReactNode;
+  if (kind === 'precheck' && s.precheck) {
+    body = (
+      <div className="space-y-1">
+        <div className={row}>
+          <button className="btn-primary !min-h-11 flex-1 !px-3" onClick={s.dismissPrecheck}>Let me think again</button>
+          {!s.precheck.revealed && <button className="btn-secondary !min-h-11 flex-1 !px-3" onClick={s.revealPrecheck}>Show me why</button>}
+          {s.precheck.revealed && <button className="btn-ghost !min-h-11 flex-1 !px-3" onClick={s.confirmPrecheck}>Play it anyway</button>}
+        </div>
+        {!s.precheck.revealed && (
+          <div className="flex justify-center">
+            <button className="btn-ghost !min-h-9 !py-1 text-sm" onClick={s.confirmPrecheck}>Play it anyway</button>
+          </div>
+        )}
+      </div>
+    );
+  } else if (kind === 'paused') {
+    body = (
+      <div className={row}>
+        <button className="btn-primary !min-h-11 flex-1" onClick={s.tryAgain}>Try again</button>
+        <button className="btn-secondary !min-h-11 flex-1" onClick={s.continueGame}>Continue</button>
+      </div>
+    );
+  } else {
+    const id = s.over?.gameId ?? 0;
+    body = (
+      <div className={row}>
+        {id > 0 && <button className="btn-primary !min-h-11 flex-[1.4]" onClick={() => push({ name: 'report', gameId: id })}>Game Review</button>}
+        <button className={`${id > 0 ? 'btn-secondary' : 'btn-primary'} !min-h-11 flex-1`} onClick={() => rematch(s)}>Rematch</button>
+        <button className="btn-secondary !min-h-11 w-11 shrink-0 !px-0" aria-label="More options" onClick={onMore}><EllipsisVertical size={20} /></button>
+      </div>
+    );
+  }
+  return (
+    <div className="safe-bottom z-10 shrink-0 border-t border-black/[0.08] bg-white px-3 pt-2 pb-1.5 dark:border-white/[0.06] dark:bg-stone-900" data-testid="game-actions">
+      {body}
     </div>
   );
 }
@@ -950,7 +1019,11 @@ function StepDownCard() {
   );
 }
 
-/** A chess clock for one side: runs while it's that side's move, red under 10% of the start time. */
+/**
+ * A chess clock for one side, chess.com style: its colour is the piece colour (white or charcoal),
+ * the running one fully opaque with a small clock glyph, the idle one faded; red when time is low,
+ * pulsing in the final 10 seconds.
+ */
 function ClockFace({ side, className = '' }: { side: 'w' | 'b'; className?: string }) {
   const g = usePlay((s) => s.game);
   const over = usePlay((s) => s.phase === 'over');
@@ -966,31 +1039,38 @@ function ClockFace({ side, className = '' }: { side: 'w' | 'b'; className?: stri
   const ms = timeLeft(g.clock, side, over ? (side === 'w' ? 'b' : 'w') : toMove, Date.now());
   const low = lowTime(ms, g.timeControl) || ms < 20_000;
   const critical = running && ms < 10_000;
-  const tone = low
-    ? running
-      ? 'bg-red-600 text-white shadow-[0_4px_14px_-4px_rgba(220,38,38,0.7)] ring-red-700'
-      : 'bg-red-50 text-red-600 ring-red-200 dark:bg-red-950/50 dark:text-red-400 dark:ring-red-900'
-    : running
-      ? 'bg-stone-900 text-white shadow-[0_4px_14px_-6px_rgba(0,0,0,0.6)] ring-stone-900 dark:bg-stone-50 dark:text-stone-900 dark:ring-white'
-      : 'bg-white/60 text-stone-400 ring-stone-200 dark:bg-white/[0.04] dark:text-stone-500 dark:ring-white/[0.06]';
+  const face = side === 'w' ? 'bg-white text-[#262421] ring-1 ring-black/10' : 'bg-stone-800 text-white dark:bg-[#262421]';
+  const tone = low ? (running ? 'bg-[#e02f2f] text-white' : `${face} !text-[#e02f2f]`) : face;
   return (
     <span
-      className={`inline-flex min-w-[84px] items-center justify-end gap-1.5 rounded-xl px-2.5 py-1 text-[17px] font-bold tracking-tight tabular-nums ring-1 transition-[background-color,color,box-shadow] duration-300 ${tone} ${critical ? 'animate-pulse' : ''} ${className}`}
+      className={`inline-flex h-9 w-[92px] shrink-0 items-center justify-end gap-1.5 rounded-[6px] px-2.5 text-[20px] font-extrabold tracking-tight tabular-nums transition-[background-color,color,opacity] duration-150 ${tone} ${running ? '' : 'opacity-55'} ${critical ? 'animate-pulse' : ''} ${className}`}
       aria-label={`${side === g.userColor ? 'Your' : "Opponent's"} clock ${fmtClock(ms)}`}
     >
-      {running && <span className={`h-1.5 w-1.5 rounded-full ${low ? 'bg-white' : 'bg-emerald-400 dark:bg-emerald-600'} animate-pulse`} />}
+      {running && <ClockIcon size={14} strokeWidth={2.6} className="shrink-0" />}
       {fmtClock(ms)}
     </span>
   );
 }
 
-/** "Qh5 is an inaccuracy" with the class icon, like the Game Review. */
-function MoveVerdict({ p }: { p: PlyRecord }) {
+/** Gentle coach: amber and orange instead of the harsher red (readable on the white bubble). */
+const GENTLE_INK: Partial<Record<ReviewClass, string>> = { mistake: '#9a6c07', blunder: '#bf5600', miss: '#bf5600' };
+
+/** "Qh6 is a blunder" with the class icon (like Game Review) and the evaluation before → after. */
+function MoveVerdict({ p, index }: { p: PlyRecord; index: number }) {
+  const g = usePlay((s) => s.game)!;
+  const gentle = useSettings((st) => st.coachStyle === 'gentle');
   const cls: ReviewClass = p.special ?? (p.classification === 'good' ? ((p.wpLoss ?? 0) <= 2.5 ? 'excellent' : 'good') : (p.classification ?? 'good'));
+  const ink = (gentle && GENTLE_INK[cls]) || RC[cls].ink;
+  const before = index > 0 ? g.plies[index - 1]?.evalAfter : { type: 'cp' as const, value: 0 };
+  const after = p.evalAfter;
+  const fmt = (x: NonNullable<PlyRecord['evalAfter']>) => formatScore(x).replace('-', '−');
   return (
-    <p className="mb-1 flex items-center gap-1.5 text-[15px] font-semibold" style={{ color: isBad(cls) ? RC[cls].color : undefined }}>
-      <ReviewIcon cls={cls} size={18} />
-      {p.san} {RC[cls].verdict}
+    <p className="mb-1 flex items-center gap-1.5 text-[15px] font-bold">
+      <ReviewIcon cls={cls} size={20} />
+      <span className="min-w-0 flex-1">
+        {p.san} <span style={{ color: ink }}>{RC[cls].verdict}</span>
+      </span>
+      {before && after && <span className="shrink-0 rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[11px] font-semibold text-stone-600 tabular-nums">{fmt(before)} → {fmt(after)}</span>}
     </p>
   );
 }
@@ -1001,10 +1081,10 @@ function MoveLines({ p }: { p: PlyRecord }) {
   const reply = c?.replyLine?.length ? formatLine(p.fenAfter, lineToSan(p.fenAfter, c.replyLine, 3)) : null;
   if (!c?.bestSan && !reply) return null;
   return (
-    <div className="mt-1.5 space-y-0.5 rounded-xl bg-stone-50 px-2.5 py-1.5 text-[13px] dark:bg-stone-800/60">
+    <div className="mt-1.5 space-y-0.5 rounded-[8px] bg-black/[0.04] px-2.5 py-1.5 text-[13px]">
       {c?.bestSan && (
         <p>
-          <span className="text-stone-500">Better:</span> <b className="text-emerald-700 dark:text-emerald-400">{c.bestSan}</b>
+          <span className="text-stone-500">Better:</span> <b style={{ color: RC.best.ink }}>{c.bestSan}</b>
         </p>
       )}
       {reply && (

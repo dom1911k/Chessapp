@@ -88,7 +88,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             <p className="mt-1 text-stone-600 dark:text-stone-300">This is you in games and on your profile. You can change it any time.</p>
             <div className="mt-5 grid grid-cols-4 gap-3">
               {AVATARS.map((a) => (
-                <button key={a.id} aria-label={`Avatar ${a.id}`} aria-pressed={settings.avatar === a.id} className={`justify-self-center rounded-[30%] transition-transform active:scale-95 ${settings.avatar === a.id ? 'ring-[3px] ring-brand-600 ring-offset-2 ring-offset-stone-100 dark:ring-offset-stone-950' : ''}`} onClick={() => settings.set({ avatar: a.id })}>
+                <button key={a.id} aria-label={`Avatar ${a.id}`} aria-pressed={settings.avatar === a.id} className={`justify-self-center rounded-md transition-transform active:scale-95 ${settings.avatar === a.id ? 'ring-[3px] ring-brand-600 ring-offset-2 ring-offset-stone-100 dark:ring-offset-stone-950' : ''}`} onClick={() => settings.set({ avatar: a.id })}>
                   <AvatarImg id={a.id} size={70} />
                 </button>
               ))}

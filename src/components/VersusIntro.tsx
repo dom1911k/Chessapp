@@ -45,7 +45,7 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
       <div className="relative mx-auto flex h-full max-w-md flex-col justify-between px-6 py-[18vh]">
         {/* You */}
         <div className="animate-vs-in-left flex items-center gap-4 self-start">
-          <span className="relative rounded-[30%] shadow-[0_12px_30px_rgba(0,0,0,0.45)] ring-4 ring-white/80">
+          <span className="relative rounded-[8px] shadow-[0_12px_30px_rgba(0,0,0,0.45)] ring-4 ring-white/80">
             <UserAvatar size={96} className="block" />
             <span className="absolute -right-2 -bottom-2 h-9 w-9 rounded-full bg-white/95 p-1 shadow"><PieceIcon code={userColor === 'w' ? 'wK' : 'bK'} /></span>
           </span>
@@ -69,7 +69,7 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
             {o ? (
               <Portrait id={o.id} size={96} mood="happy" className="ring-4 ring-white/80 shadow-[0_12px_30px_rgba(0,0,0,0.45)]" />
             ) : (
-              <span className="h-24 w-24 rounded-[30%] bg-stone-700 ring-4 ring-white/80" />
+              <span className="h-24 w-24 rounded-[8px] bg-stone-700 ring-4 ring-white/80" />
             )}
           </div>
           {line && (

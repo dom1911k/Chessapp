@@ -13,7 +13,7 @@ import { Play, Square, FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, Ch
 import { Board } from '../components/Board';
 import { EvalGraph } from '../components/Charts';
 import { CoachAvatar, Portrait } from '../components/Coach';
-import { Header, Spinner } from '../components/ui';
+import { EvalBar, Header, Spinner } from '../components/ui';
 import { ReviewIcon } from '../components/ReviewIcon';
 import { ExplainSheet } from '../components/ExplainSheet';
 import { CauseBreakdown, CauseIcon } from '../components/Causes';
@@ -85,7 +85,7 @@ function PlayerChip({ g, me }: { g: AnyGame; me: boolean }) {
       ) : o ? (
         <Portrait id={o.id} size={44} />
       ) : (
-        <span className="flex h-11 w-11 items-center justify-center rounded-[30%] bg-[#769656] text-lg font-black text-white">{oppName(g)[0]?.toUpperCase()}</span>
+        <span className="flex h-11 w-11 items-center justify-center rounded-md bg-[#769656] text-lg font-black text-white">{oppName(g)[0]?.toUpperCase()}</span>
       )}
       <span className="max-w-full truncate text-xs font-semibold">{me ? 'You' : oppName(g)}</span>
     </span>
@@ -478,7 +478,6 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
     if (!p.isUser && next?.isUser && next.comment?.bestUci) dotted.push(arr(next.comment.bestUci, 'good'));
   }
   const evalNow = r.curve[i + 1] ?? 50;
-  const evalText = p?.evalAfter ? formatScore(p.evalAfter) : '0.0';
 
   const onRetryMove = (m: MoveInput) => {
     if (!retry || retry.state !== 'try' || !p) return false;
@@ -517,7 +516,7 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
       } />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-4 land:px-3">
         <div className="flex gap-1 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0">
-          <ReviewEvalBar wpWhite={evalNow} orientation={orientation} text={evalText} />
+          <EvalBar whitePct={evalNow} orientation={orientation} score={p?.evalAfter ?? { type: 'cp', value: 0 }} width={20} />
           <div className="relative min-w-0 flex-1" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} data-testid="review-board">
             <Board fen={fen} orientation={orientation} movable={retry?.state === 'try' ? g.userColor : null} onMove={onRetryMove} arrows={arrows} lastMove={lastMove} />
             <ArrowOverlay arrows={dotted} orientation={orientation} />
@@ -616,23 +615,6 @@ function NavButton({ children, onClick, disabled, label, primary }: { children: 
     <button aria-label={label} disabled={disabled} onClick={onClick} className={`flex h-14 items-center justify-center rounded-2xl transition-transform duration-75 active:scale-[0.97] disabled:opacity-30 ${primary ? 'bg-brand-600 text-white' : 'bg-white ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700'}`}>
       {children}
     </button>
-  );
-}
-
-/** A vertical eval bar with the number at the winning end. */
-function ReviewEvalBar({ wpWhite, orientation, text }: { wpWhite: number; orientation: 'white' | 'black'; text: string }) {
-  const pct = Math.max(3, Math.min(97, wpWhite));
-  const whiteAhead = wpWhite >= 50;
-  return (
-    <div className={`relative flex w-5 shrink-0 overflow-hidden rounded bg-stone-800 ${orientation === 'white' ? 'flex-col-reverse' : 'flex-col'}`}>
-      <div className="bg-stone-100 transition-[height] duration-300 ease-out" style={{ height: `${pct}%` }} />
-      <span
-        className={`absolute inset-x-0 text-center text-[8px] font-black ${whiteAhead ? 'text-stone-800' : 'text-white'}`}
-        style={{ [whiteAhead === (orientation === 'white') ? 'bottom' : 'top']: 2 }}
-      >
-        {text.replace('+', '')}
-      </span>
-    </div>
   );
 }
 

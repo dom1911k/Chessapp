@@ -2,7 +2,9 @@
 @import '@fontsource-variable/plus-jakarta-sans';
 @import '@fontsource-variable/fraunces';
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* Dark mode, except inside a `surface-light` (the white coach bubble): that subtree renders exactly
+   as in light mode, so nothing inside it needs special cases. */
+@custom-variant dark (&:where(.dark, .dark *):not(:where(.surface-light, .surface-light *)));
 /* Tablets and other wide screens held sideways: board on the left, the rest on the right. */
 @custom-variant land (@media (orientation: landscape) and (min-width: 700px));
 
@@ -56,6 +58,20 @@
   --color-stone-200: #e4e2df;
   --color-stone-100: #f2f1ef;
   --color-stone-50: #ffffff;
+}
+/* A light surface inside dark mode (the white coach bubble): the light scale again. */
+.dark .surface-light {
+  --color-stone-50: #faf9f8;
+  --color-stone-100: #f1f0ee;
+  --color-stone-200: #e3e1de;
+  --color-stone-300: #cbc8c4;
+  --color-stone-400: #a7a4a0;
+  --color-stone-500: #6f6b68;
+  --color-stone-600: #5c5955;
+  --color-stone-700: #45423f;
+  --color-stone-800: #312e2b;
+  --color-stone-900: #262421;
+  --color-stone-950: #1c1a18;
 }
 
 html,
@@ -133,14 +149,14 @@ time {
 }
 @utility btn-secondary {
   @apply btn bg-white text-stone-800 ring-1 ring-black/10 active:bg-stone-100 dark:bg-stone-800 dark:text-white dark:ring-0;
-  .dark & {
+  @variant dark {
     box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
     margin-bottom: 3px;
     transition-duration: 80ms;
-  }
-  .dark &:active:not(:disabled) {
-    translate: 0 2px;
-    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+    &:active:not(:disabled) {
+      translate: 0 2px;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+    }
   }
 }
 @utility btn-ghost {

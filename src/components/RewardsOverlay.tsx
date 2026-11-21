@@ -126,11 +126,11 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
         {/* Banner: you vs them (the winner ringed in gold), the result and how it ended. */}
         <div className="flex flex-col items-center pt-2">
           <div className="flex items-center gap-3">
-            <span className={`rounded-[30%] ${r.userResult === 'win' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-white dark:ring-offset-stone-900' : ''}`}>
+            <span className={`rounded-md ${r.userResult === 'win' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-white dark:ring-offset-stone-900' : ''}`}>
               <UserAvatar size={60} className="block" />
             </span>
             <span className="text-xs font-bold tracking-widest text-stone-400 uppercase">vs</span>
-            <span className={`relative rounded-[30%] ${r.userResult === 'loss' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-white dark:ring-offset-stone-900' : ''}`}>
+            <span className={`relative rounded-md ${r.userResult === 'loss' ? 'ring-[3px] ring-gold-400 ring-offset-2 ring-offset-white dark:ring-offset-stone-900' : ''}`}>
               {r.firstWin && o && (
                 <span className="animate-vs-stamp absolute -right-3 -bottom-2 z-10 -rotate-12 rounded-md border-2 border-red-600 bg-white/90 px-1.5 text-[11px] font-black tracking-wider text-red-600 uppercase shadow dark:bg-stone-900/90" style={{ animationDelay: '350ms' }}>
                   Beaten
@@ -139,7 +139,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               {o ? (
                 <Portrait id={o.id} mood={r.userResult === 'win' ? 'worried' : r.userResult === 'loss' ? 'happy' : 'neutral'} size={60} />
               ) : (
-                <span className="flex h-[60px] w-[60px] items-center justify-center rounded-[30%] bg-stone-200 text-stone-500 dark:bg-stone-800">
+                <span className="flex h-[60px] w-[60px] items-center justify-center rounded-md bg-stone-200 text-stone-500 dark:bg-stone-800">
                   <Users size={26} />
                 </span>
               )}

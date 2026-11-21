@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { addBackHandler, useNav } from '../lib/nav';
+import type { Score } from '../lib/chess/evaluation';
 
 /** Register an Android back-button handler while `active`. */
 export function useBackHandler(fn: () => boolean | void, active = true) {
@@ -90,11 +91,36 @@ export function Spinner({ className = '' }: { className?: string }) {
   return <span className={`inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent ${className}`} />;
 }
 
-export function EvalBar({ whitePct, orientation }: { whitePct: number; orientation: 'white' | 'black' }) {
+/** The number on an eval bar, chess.com style: no sign (the end it sits at says who), M3 for mates, 10+ when huge. */
+export function evalBarText(s: Score): string {
+  if (s.type === 'mate') return s.value === 0 ? '#' : `M${Math.abs(s.value)}`;
+  const v = Math.abs(s.value) / 100;
+  return v > 9.9 ? '10+' : v.toFixed(1);
+}
+
+/**
+ * The evaluation bar beside a board (games, analysis, review): fixed white and charcoal halves in
+ * both themes, as tall as the board, with an optional number at the end of the side ahead.
+ */
+export function EvalBar({ whitePct, orientation, score, width = 14 }: { whitePct: number; orientation: 'white' | 'black'; score?: Score; width?: number }) {
   const pct = Math.max(3, Math.min(97, whitePct));
+  const whiteAhead = whitePct >= 50;
+  const atBottom = whiteAhead === (orientation === 'white');
   return (
-    <div className={`flex w-2.5 shrink-0 overflow-hidden rounded bg-stone-800 ${orientation === 'white' ? 'flex-col-reverse' : 'flex-col'}`}>
-      <div className="bg-stone-100 transition-all duration-500" style={{ height: `${pct}%` }} />
+    <div
+      className={`relative flex shrink-0 overflow-hidden rounded-[3px] bg-[#403d39] ring-1 ring-black/15 ${orientation === 'white' ? 'flex-col-reverse' : 'flex-col'}`}
+      style={{ width }}
+      data-testid="eval-bar"
+    >
+      <div className="bg-white transition-[height] duration-300 ease-[cubic-bezier(0.2,0,0,1)]" style={{ height: `${pct}%` }} />
+      {score && (
+        <span
+          className={`absolute inset-x-0 text-center text-[10px] leading-none font-extrabold tracking-tight tabular-nums ${whiteAhead ? 'text-[#403d39]' : 'text-white'}`}
+          style={{ [atBottom ? 'bottom' : 'top']: 3 }}
+        >
+          {evalBarText(score)}
+        </span>
+      )}
     </div>
   );
 }
