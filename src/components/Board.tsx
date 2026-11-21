@@ -50,7 +50,7 @@ interface Props {
 }
 
 /** Animation length per speed setting (ms). */
-export const MOVE_MS = { slow: 420, normal: 220, fast: 110, instant: 0 } as const;
+export const MOVE_MS = { slow: 420, normal: 180, fast: 110, instant: 0 } as const;
 /** Arrows and circles you draw yourself (long-press or right-click and drag), chess.com orange. */
 const DRAW_COLOR = '#ffaa00';
 const PREMOVE_COLOR = '#e05050';
@@ -82,6 +82,11 @@ const squareAt = (el: HTMLElement, x: number, y: number, orientation: 'white' | 
 const PROMO = ['q', 'n', 'r', 'b'] as const;
 
 let boardCount = 0;
+
+function useReducedMotion() {
+  const [r] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  return r;
+}
 
 /** Tablet held sideways (the same rule as the `land:` variant). */
 const LAND_QUERY = '(orientation: landscape) and (min-width: 700px)';
@@ -136,6 +141,7 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   const hl = useSettings((s) => (HIGHLIGHTS[s.highlight] ?? HIGHLIGHTS.classic).color);
   const showDots = useSettings((s) => s.showLegalMoves);
   const land = useLandscape();
+  const reduced = useReducedMotion();
   const speed = useSettings((s) => s.moveSpeed);
   const premovesOn = useSettings((s) => s.premoves);
   const [premove, setPremove] = useState<MoveInput | null>(null);
@@ -389,7 +395,8 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
           arrows: allArrows,
           squareStyles,
           id: boardId,
-          animationDurationInMs: animate ? MOVE_MS[speed] ?? 220 : 0,
+          // Reduced motion: pieces move instantly (highlights and the last move still show).
+          animationDurationInMs: animate && !reduced ? MOVE_MS[speed] ?? 180 : 0,
           darkSquareStyle: theme.darkBg ? { background: theme.darkBg } : { backgroundColor: theme.dark },
           lightSquareStyle: theme.lightBg ? { background: theme.lightBg } : { backgroundColor: theme.light },
           // Coordinates in the opposite square colour (the library would draw brown on every theme).

@@ -39,8 +39,14 @@
   /* Bold sans for titles and big numbers (Fraunces stays only in Cups, see cups.css). */
   --font-display: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
 
-  /* Motion */
+  /* Motion: three durations and one easing for every UI transition (sheets, slides, pops, chips).
+     Bouncy overshoot is kept for real celebrations only (brilliant, level-up, stars, versus). */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+:root {
+  --dur-fast: 80ms;
+  --dur-standard: 160ms;
+  --dur-slow: 260ms;
 }
 
 /* Dark mode: the same scale remapped to chess.com's layered charcoal. The "deep" panels (900)
@@ -143,9 +149,9 @@ time {
     box-shadow: 0 1px 0 var(--color-brand-800), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   }
 }
-/* A card or tile you can press. */
+/* A card or tile you can press: dims a touch instead of shrinking. */
 @utility tile {
-  @apply transition-transform duration-100 ease-out active:scale-[0.965];
+  @apply transition-[filter] duration-[80ms] active:brightness-95 dark:active:brightness-125;
 }
 @utility btn-secondary {
   @apply btn bg-white text-stone-800 ring-1 ring-black/10 active:bg-stone-100 dark:bg-stone-800 dark:text-white dark:ring-0;
@@ -189,7 +195,7 @@ time {
   }
 }
 .animate-slide-in {
-  animation: slide-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: slide-in var(--dur-slow) var(--ease-standard);
 }
 @keyframes slide-out {
   from {
@@ -202,7 +208,7 @@ time {
   }
 }
 .animate-slide-out {
-  animation: slide-out 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: slide-out var(--dur-standard) cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 @keyframes fade-in {
   from {
@@ -213,7 +219,7 @@ time {
   }
 }
 .animate-fade-in {
-  animation: fade-in 0.18s ease-out;
+  animation: fade-in var(--dur-standard) var(--ease-standard);
 }
 
 @keyframes pop {
@@ -227,7 +233,7 @@ time {
   }
 }
 .animate-pop {
-  animation: pop 0.18s ease-out;
+  animation: pop var(--dur-standard) var(--ease-standard);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -315,13 +321,12 @@ time {
   from { opacity: 0; transform: translateY(10px) scale(0.97); }
   to { opacity: 1; transform: none; }
 }
-@utility animate-reveal { animation: reveal 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.2) both; }
+@utility animate-reveal { animation: reveal var(--dur-slow) var(--ease-standard) both; }
 @keyframes banner {
-  0% { opacity: 0; transform: scale(0.4) rotate(-6deg); }
-  60% { opacity: 1; transform: scale(1.12) rotate(2deg); }
-  100% { transform: scale(1) rotate(0); }
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to { opacity: 1; transform: none; }
 }
-@utility animate-banner { animation: banner 0.6s cubic-bezier(0.2, 0.8, 0.3, 1.2) both; }
+@utility animate-banner { animation: banner var(--dur-slow) var(--ease-standard) both; }
 @keyframes star-pop {
   0% { transform: scale(0.2) rotate(-90deg); }
   60% { transform: scale(1.5) rotate(15deg); }
@@ -448,3 +453,19 @@ time {
   75% { transform: translateX(1.5px); }
 }
 @utility animate-urgent { animation: urgent 0.5s ease-in-out infinite; }
+
+/* Reduced motion: no movement for UI transitions and celebrations (indicators stay as they are). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+  /* A loading spinner still turns: it says something is happening. */
+  .animate-spin {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

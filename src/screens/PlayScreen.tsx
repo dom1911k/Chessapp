@@ -313,7 +313,7 @@ function ResumeCard() {
   const o = opponentById(g.opponentId);
   const moves = Math.ceil(g.plies.length / 2);
   return (
-    <button className="card tile flex w-full items-center gap-3 !p-3 text-left ring-2 ring-brand-500 active:scale-[0.99]" onClick={() => s.setAway(false)}>
+    <button className="card tile flex w-full items-center gap-3 !p-3 text-left ring-2 ring-brand-500 transition-[filter] active:brightness-95" onClick={() => s.setAway(false)}>
       {o ? <Portrait id={o.id} size={48} /> : <span className="flex h-12 w-12 items-center justify-center rounded-md bg-stone-200 dark:bg-stone-800"><Bot size={24} /></span>}
       <span className="flex-1">
         <span className="block text-xs font-bold tracking-wider text-brand-700 uppercase dark:text-brand-500">Game in progress</span>

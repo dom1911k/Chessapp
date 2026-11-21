@@ -43,7 +43,7 @@ export function MoreScreen() {
     <div className="flex h-full flex-col">
       <Header title="More" />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
-        <button className="card tile flex w-full items-center gap-3 !p-3 text-left active:scale-[0.99]" onClick={() => push({ name: 'profile' })}>
+        <button className="card tile flex w-full items-center gap-3 !p-3 text-left transition-[filter] active:brightness-95" onClick={() => push({ name: 'profile' })}>
           <UserAvatar size={56} />
           <span className="flex-1">
             <span className="block text-lg font-bold">{ccUser || 'You'}</span>

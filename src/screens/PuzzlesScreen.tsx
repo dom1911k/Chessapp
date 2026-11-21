@@ -178,7 +178,7 @@ export function PuzzlesScreen() {
 
 function Tile({ icon, tint, title, text, onClick }: { icon: ReactNode; tint: string; title: string; text: string; onClick: () => void }) {
   return (
-    <button className="card tile flex flex-col items-start gap-1.5 !p-3 text-left active:scale-[0.98]" onClick={onClick}>
+    <button className="card tile flex flex-col items-start gap-1.5 !p-3 text-left transition-[filter] active:brightness-95" onClick={onClick}>
       <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${tint}`}>{icon}</span>
       <span className="font-semibold leading-tight">{title}</span>
       <span className="text-xs leading-snug text-stone-500">{text}</span>

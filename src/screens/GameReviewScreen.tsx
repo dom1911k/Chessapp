@@ -177,7 +177,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
                 const q = g.plies[m.ply];
                 const line = q.isUser ? (q.comment?.bestSan ? `${q.comment.bestSan} was the move` : RC[r.plies[m.ply].cls].label) : slipCardLine(g.plies, m.ply) ?? RC[r.plies[m.ply].cls].label;
                 return (
-                  <button key={m.ply} className="card w-[148px] shrink-0 snap-start !p-2 text-left transition active:scale-[0.98]" onClick={() => onStart(m.ply)}>
+                  <button key={m.ply} className="card w-[148px] shrink-0 snap-start !p-2 text-left transition-[filter] active:brightness-95" onClick={() => onStart(m.ply)}>
                     <div className="relative">
                       <Board fen={q.fenAfter} orientation={meWhite ? 'white' : 'black'} movable={null} lastMove={{ from: q.uci.slice(0, 2), to: q.uci.slice(2, 4) }} showCoordinates={false} />
                       <SquareIcon sq={q.uci.slice(2, 4)} cls={r.plies[m.ply].cls} orientation={meWhite ? 'white' : 'black'} small />
