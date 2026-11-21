@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Board } from './Board';
 import { Spinner } from './ui';
-import { CoachAvatar } from './Coach';
+import { CoachBubble } from './Coach';
 import { useNav } from '../lib/nav';
 import { tryMove, type MoveInput } from '../lib/chess/game';
 import { classify, povScore, winPct } from '../lib/chess/evaluation';
@@ -300,32 +300,33 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
       ) : (
         <div className="space-y-2.5 px-3 pt-2.5">
           {/* Coach Sam: whose move, then the verdict. Steady height so nothing jumps. */}
-          <div className="flex items-start gap-2.5">
-            <CoachAvatar mood={bubble.tone === 'bad' ? 'concerned' : bubble.tone === 'neutral' && state !== 'solving' ? 'thinking' : 'happy'} size={38} />
-            <div key={bubble.head} className={`card animate-pop min-h-[72px] min-w-0 flex-1 !rounded-[10px] !rounded-tl-md !px-3.5 !py-2.5 transition-shadow ${bubble.tone === 'good' ? 'ring-emerald-500/50' : bubble.tone === 'bad' ? 'ring-red-400/50' : ''}`}>
-              <p className="flex items-center gap-2 font-semibold">
-                {bubble.tone === 'good' ? (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={13} strokeWidth={3.5} /></span>
-                ) : bubble.tone === 'bad' ? (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white"><X size={13} strokeWidth={3.5} /></span>
-                ) : state === 'checking' ? (
-                  <Spinner className="!h-4 !w-4" />
-                ) : (
-                  <span className={`h-4 w-4 rounded-[4px] ring-1 ${userColor === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-500'}`} />
-                )}
-                <span className={bubble.tone === 'good' ? 'text-emerald-700 dark:text-emerald-400' : bubble.tone === 'bad' ? 'text-red-600' : ''}>{bubble.head}</span>
-                {hint && state === 'solving' && <span className="ml-auto text-xs font-semibold text-amber-600">Hint {hint.level}/3</span>}
-              </p>
-              <p className="mt-0.5 text-[14.5px] leading-snug text-stone-700 dark:text-stone-200">{bubble.text}</p>
-              {done && explanation && (
-                <button className="mt-1.5 block text-left text-[13px] leading-snug text-stone-600 dark:text-stone-300" onClick={() => setWhy(!why)}>
-                  {why ? explanation.text.join(' ') : <><span className="font-semibold text-brand-700 dark:text-brand-500">Why it works ›</span> <span className="text-stone-500">{explanation.text[0]?.slice(0, 48)}…</span></>}
-                </button>
+          <CoachBubble
+            key={bubble.head}
+            mood={bubble.tone === 'bad' ? 'concerned' : bubble.tone === 'neutral' && state !== 'solving' ? 'thinking' : 'happy'}
+            className={`min-h-[72px] !py-2.5 ${bubble.tone === 'good' ? '!ring-2 !ring-emerald-500/50' : bubble.tone === 'bad' ? '!ring-2 !ring-red-400/50' : ''}`}
+          >
+            <p className="flex items-center gap-2 font-semibold">
+              {bubble.tone === 'good' ? (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={13} strokeWidth={3.5} /></span>
+              ) : bubble.tone === 'bad' ? (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white"><X size={13} strokeWidth={3.5} /></span>
+              ) : state === 'checking' ? (
+                <Spinner className="!h-4 !w-4" />
+              ) : (
+                <span className={`h-4 w-4 rounded-[4px] ring-1 ${userColor === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-500'}`} />
               )}
-              {why && spec.kind === 'mistake' && spec.explanation?.length ? <p className="mt-1 text-[13px] text-stone-500">In the game: {spec.explanation[0]}</p> : null}
-              {footer}
-            </div>
-          </div>
+              <span className={bubble.tone === 'good' ? 'text-emerald-700' : bubble.tone === 'bad' ? 'text-red-600' : ''}>{bubble.head}</span>
+              {hint && state === 'solving' && <span className="ml-auto text-xs font-semibold text-[#946a00]">Hint {hint.level}/3</span>}
+            </p>
+            <p className="text-[14.5px] leading-snug text-stone-700">{bubble.text}</p>
+            {done && explanation && (
+              <button className="mt-1 block text-left text-[13px] leading-snug text-stone-600" onClick={() => setWhy(!why)}>
+                {why ? explanation.text.join(' ') : <><span className="font-semibold text-brand-700">Why it works ›</span> <span className="text-stone-500">{explanation.text[0]?.slice(0, 48)}…</span></>}
+              </button>
+            )}
+            {why && spec.kind === 'mistake' && spec.explanation?.length ? <p className="mt-1 text-[13px] text-stone-500">In the game: {spec.explanation[0]}</p> : null}
+            {footer}
+          </CoachBubble>
 
           {/* Rating, bar and level */}
           {progress}

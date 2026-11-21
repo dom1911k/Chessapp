@@ -91,3 +91,20 @@ export function moveHaptic(before: string, after: string, lastMove: { from: stri
 }
 
 export const HAPTIC_PATTERN: Record<Haptic, number | number[]> = { none: 0, capture: 14, key: [18, 40, 26], mate: [30, 50, 30, 50, 80] };
+
+/**
+ * Stepping through a game's moves: `view` is the ply shown (-1 = the start, null = following the
+ * game), `dir` -1 back or +1 forward. Reaching the latest move follows the game again.
+ */
+export function stepView(view: number | null, plies: number, dir: -1 | 1): number | null {
+  if (plies <= 0) return null;
+  const now = view ?? plies - 1;
+  const to = dir < 0 ? Math.max(-1, now - 1) : now + 1;
+  return to >= plies - 1 ? null : to;
+}
+
+/** A quick horizontal swipe (not a slow drag or a mostly vertical scroll): -1 back, +1 forward, 0 none. */
+export function swipeDir(dx: number, dy: number, ms: number): -1 | 0 | 1 {
+  if (ms > 400 || Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return 0;
+  return dx > 0 ? -1 : 1;
+}

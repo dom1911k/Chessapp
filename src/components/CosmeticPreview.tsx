@@ -2,7 +2,8 @@ import { Sparkles, Volume2 } from 'lucide-react';
 import { PieceIcon } from './PieceIcon';
 import type { Cosmetic } from '../lib/rewards/cosmetics';
 import { CELEBRATIONS, HIGHLIGHTS } from '../lib/rewards/looks';
-import { BOARD_THEMES } from '../lib/settings';
+import { BOARD_THEMES, useSettings } from '../lib/settings';
+import { PIECE_SETS } from '../lib/rewards/looks';
 
 /** A small visual sample of an unlockable item. */
 export function CosmeticPreview({ c, size = 64 }: { c: Cosmetic; size?: number }) {
@@ -49,4 +50,33 @@ export function CosmeticPreview({ c, size = 64 }: { c: Cosmetic; size?: number }
       <Volume2 size={size * 0.45} />
     </div>
   );
+}
+
+/** Your current look at a glance: a corner of your board with your pieces and last-move colour. */
+export function LookPreview({ size = 56 }: { size?: number }) {
+  const s = useSettings();
+  const t = BOARD_THEMES[s.boardTheme] ?? BOARD_THEMES.green;
+  const hl = (HIGHLIGHTS[s.highlight] ?? HIGHLIGHTS.classic).color;
+  // A 3×3 corner: a knight that just moved, a queen and a pawn.
+  const piece: Record<number, 'wN' | 'bQ' | 'wP'> = { 1: 'bQ', 5: 'wN', 6: 'wP' };
+  return (
+    <div className="grid shrink-0 grid-cols-3 overflow-hidden rounded-[6px] ring-1 ring-black/10" style={{ width: size, height: size }} aria-hidden data-testid="look-preview">
+      {Array.from({ length: 9 }, (_, i) => {
+        const light = (Math.floor(i / 3) + i) % 2 === 0;
+        const bg = light ? (t.lightBg ?? t.light) : (t.darkBg ?? t.dark);
+        const lit = i === 5 || i === 7;
+        return (
+          <div key={i} className="flex items-center justify-center" style={{ background: lit ? `linear-gradient(rgba(${hl},0.5), rgba(${hl},0.5)), ${bg}` : bg }}>
+            {piece[i] && <PieceIcon code={piece[i]} setId={s.pieceStyle} size={size / 3} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** "Green · Neo-style" for your current board and pieces. */
+export function useLookLabel(): string {
+  const s = useSettings();
+  return `${(BOARD_THEMES[s.boardTheme] ?? BOARD_THEMES.green).label} · ${(PIECE_SETS[s.pieceStyle] ?? PIECE_SETS.kaneo).label}`;
 }

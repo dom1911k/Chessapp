@@ -9,7 +9,7 @@ import { lessonById } from '../lib/lessons/data';
 import { GraduationCap, Swords } from 'lucide-react';
 import { UserAvatar } from '../components/UserAvatar';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Play, Square, FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, Sparkles, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope } from 'lucide-react';
+import { ChartLine, Play, Square, FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, Sparkles, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope } from 'lucide-react';
 import { Board } from '../components/Board';
 import { EvalGraph } from '../components/Charts';
 import { CoachAvatar, CoachBubble, Portrait } from '../components/Coach';
@@ -385,6 +385,26 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
   const [explain, setExplain] = useState(false);
   // On a move where you missed their threat: show the threat first, then your move.
   const [threatSeen, setThreatSeen] = useState<number | null>(null);
+  // The eval graph under the moves: open on tall screens, folded away on short ones so the coach has
+  // room; your choice is remembered on this device.
+  const [graphOpen, setGraphOpen] = useState(() => {
+    try {
+      const v = localStorage.getItem('reviewGraph');
+      if (v === '1' || v === '0') return v === '1';
+    } catch {
+      /* no storage */
+    }
+    return typeof window === 'undefined' || window.innerHeight >= 780;
+  });
+  const toggleGraph = () =>
+    setGraphOpen((o) => {
+      try {
+        localStorage.setItem('reviewGraph', o ? '0' : '1');
+      } catch {
+        /* no storage */
+      }
+      return !o;
+    });
   // "Play it out": the line being stepped through on the board (index into its frames).
   const [lineK, setLineK] = useState<number | null>(null);
   const push = useNav((s) => s.push);
@@ -527,8 +547,9 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
           </div>
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {/* Move strip: the same look as the game's. */}
-          <div ref={strip} className="no-scrollbar flex h-9 shrink-0 items-center gap-0.5 overflow-x-auto px-2 text-[14px]">
+          {/* Move strip: the same look as the game's, with the graph toggle at its end. */}
+          <div className="flex shrink-0 items-center">
+          <div ref={strip} className="no-scrollbar flex h-9 min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-2 text-[14px]">
             {g.plies.map((q, k) => {
               const c = r.plies[k].cls;
               const showIcon = c === 'brilliant' || c === 'great' || isBad(c);
@@ -546,10 +567,22 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
               );
             })}
           </div>
-          {/* The eval graph as a scrubber right under the moves. */}
-          <div className="mx-3 shrink-0">
-            <EvalGraph plies={g.plies} current={i} onSelect={go} height={40} times={stepTimes} classes={r.plies.map((x) => x.cls)} />
+          <button
+            aria-label={graphOpen ? 'Hide the evaluation graph' : 'Show the evaluation graph'}
+            aria-expanded={graphOpen}
+            className={`mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${graphOpen ? 'bg-black/[0.06] text-stone-700 dark:bg-white/[0.08] dark:text-stone-200' : 'text-stone-500'}`}
+            onClick={toggleGraph}
+            data-testid="graph-toggle"
+          >
+            <ChartLine size={18} />
+          </button>
           </div>
+          {/* The eval graph as a scrubber right under the moves. */}
+          {graphOpen && (
+            <div className="mx-3 shrink-0">
+              <EvalGraph plies={g.plies} current={i} onSelect={go} height={40} times={stepTimes} classes={r.plies.map((x) => x.cls)} />
+            </div>
+          )}
           {/* Coach Sam on the move, in his speech bubble; takes the remaining height. */}
           <FadeScroll className="px-3 pt-2.5 pb-2" testId="review-coach">
             <CoachBubble mood={rp && isBad(rp.cls) && p?.isUser ? 'concerned' : 'happy'}>

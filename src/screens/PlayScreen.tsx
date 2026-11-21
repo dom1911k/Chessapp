@@ -9,6 +9,8 @@ import { TUNING as CUPS_T } from '../cups/tuning';
 import { UserAvatar, useMyName } from '../components/UserAvatar';
 import { getRating as getPuzzleRating } from '../lib/puzzles/rating';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Chess, type Square } from 'chess.js';
+import { squareAtPoint, stepView, swipeDir } from '../lib/chess/boardfeel';
 import { Clock as ClockIcon, Flame, FlipVertical2, Puzzle, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy, Undo2, Users } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { getSparring, sparringStep, type SparringState } from '../lib/sparring';
@@ -445,6 +447,27 @@ function GameView() {
   const [view, setView] = useState<number | null>(null);
   useEffect(() => setView(null), [g.startedAt]);
   const viewing = view !== null && view < g.plies.length - 1;
+  // Swipe on the board to step through the game (right = back, left = forward), like Game Review.
+  // A gesture that starts on one of your pieces is a drag, a slow one a drawing — both left alone.
+  const swipe = useRef<{ x: number; y: number; t: number; fen: string } | null>(null);
+  const boardBox = useRef<HTMLDivElement>(null);
+  const onSwipeStart = (e: React.TouchEvent) => {
+    swipe.current = null;
+    if (e.touches.length !== 1 || !boardBox.current) return;
+    const tch = e.touches[0];
+    const shownFen = viewing ? (viewPly ? viewPly.fenAfter : g.startFen) : fen;
+    const sq = squareAtPoint(boardBox.current.getBoundingClientRect(), tch.clientX, tch.clientY, orientation);
+    const piece = sq ? new Chess(shownFen).get(sq as Square) : undefined;
+    if (piece && piece.color === g.userColor && !viewing) return;
+    swipe.current = { x: tch.clientX, y: tch.clientY, t: Date.now(), fen: shownFen };
+  };
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const s0 = swipe.current;
+    swipe.current = null;
+    if (!s0) return;
+    const dir = swipeDir(e.changedTouches[0].clientX - s0.x, e.changedTouches[0].clientY - s0.y, Date.now() - s0.t);
+    if (dir) setView(stepView(view, g.plies.length, dir));
+  };
   const viewPly = viewing && view! >= 0 ? g.plies[view!] : null;
   const aids = aidsFor(settings, g);
   // Match conditions and the quieter coach levels show the move list in the coach's place.
@@ -524,7 +547,7 @@ function GameView() {
           {/* Full-bleed on phones, like every board screen; the eval bar (when on) sits on the left. */}
           <div className="flex gap-1">
             {aids.evalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
-            <div className="relative flex-1">
+            <div ref={boardBox} className="relative flex-1" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} data-testid="game-board">
               <ChatBubble />
               <BoardFlash flash={s.flash} orientation={orientation} />
               <Board
@@ -552,7 +575,10 @@ function GameView() {
           </div>
           <PlayerBar me={!flipped} />
           {settings.showMoveList && !coachOff && (
-            <MoveList plies={g.plies} startFen={g.startFen} current={viewing ? view! : undefined} onSelect={(i) => setView(i >= g.plies.length - 1 ? null : i)} />
+            // On tablets the moves are a two-column table beside the board instead (below).
+            <div className="land:hidden">
+              <MoveList plies={g.plies} startFen={g.startFen} current={viewing ? view! : undefined} onSelect={(i) => setView(i >= g.plies.length - 1 ? null : i)} />
+            </div>
           )}
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col land:pt-1">
@@ -567,9 +593,16 @@ function GameView() {
               )}
             </div>
           ) : (
-            <FadeScroll className="px-3 pt-2 pb-3" testId="coach-panel">
-              <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => setHistory(true)} />
-            </FadeScroll>
+            <>
+              <FadeScroll className="px-3 pt-2 pb-3" testId="coach-panel">
+                <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => setHistory(true)} />
+              </FadeScroll>
+              {settings.showMoveList && (
+                <div className="hidden min-h-0 px-3 pb-2 land:flex land:max-h-[48%] land:flex-col" data-testid="move-table">
+                  <MoveHistory plies={g.plies} startFen={g.startFen} view={viewing ? view : null} onView={setView} />
+                </div>
+              )}
+            </>
           )}
           {/* Choices (a paused mistake, the pre-check, game over) take the Dock's place, so they're never scrolled away. */}
           {actionKind ? (

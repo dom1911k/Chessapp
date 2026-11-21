@@ -1,4 +1,5 @@
 import { Maia3Bench } from '../components/Maia3Bench';
+import { LookPreview, useLookLabel } from '../components/CosmeticPreview';
 import { BotHumanBench } from '../components/BotHumanBench';
 import { Header, Segmented, Toggle } from '../components/ui';
 import { useSettings } from '../lib/settings';
@@ -15,11 +16,12 @@ import { FeedbackCard } from '../components/FeedbackCard';
 import { applyReminder, remindersSupported } from '../lib/reminders';
 import { playSound, previewPack, SOUND_PACKS } from '../lib/sound';
 import { useEffect, useState } from 'react';
-import { Check, ChevronRight, Palette } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 
 export function SettingsScreen() {
   const s = useSettings();
   const push = useNav((n) => n.push);
+  const look = useLookLabel();
   const runMode = useRunFlag();
   const [unlockedSounds, setUnlockedSounds] = useState<string[]>(['standard', 'wood', 'felt', 'deep', 'clack', 'marble', 'minimal']);
   useEffect(() => void unlockContext().then((ctx) => setUnlockedSounds(COSMETICS.filter((c) => c.kind === 'snd' && isUnlocked(c, ctx)).map((c) => c.key))), []);
@@ -39,10 +41,10 @@ export function SettingsScreen() {
             ]}
           />
           <button className="mt-3 flex w-full items-center gap-3 rounded-[10px] bg-stone-100 p-3 text-left active:brightness-95 dark:bg-stone-800" onClick={() => push({ name: 'collection' })}>
-            <Palette size={22} className="text-gold-500" />
-            <span className="flex-1">
+            <LookPreview size={52} />
+            <span className="min-w-0 flex-1">
               <span className="block font-semibold">Boards, pieces & effects</span>
-              <span className="block text-xs text-stone-500">Choose your look in the Collection — more unlock as you play.</span>
+              <span className="block truncate text-xs text-stone-500">{look} — change it in the Collection</span>
             </span>
             <ChevronRight size={18} className="text-stone-400" />
           </button>

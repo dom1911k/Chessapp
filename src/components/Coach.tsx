@@ -67,6 +67,7 @@ export function CoachBubble({
   compact = false,
   label,
   icon,
+  className = '',
 }: {
   children: ReactNode;
   mood?: 'happy' | 'concerned' | 'thinking';
@@ -79,12 +80,14 @@ export function CoachBubble({
   /** Small header, e.g. "Hint" or "Before you move". */
   label?: string;
   icon?: ReactNode;
+  /** Extra classes on the bubble (a tinted ring, a steady min-height). */
+  className?: string;
 }) {
   return (
     <div className={`flex items-start gap-2.5 ${compact ? 'opacity-75' : 'animate-pop'}`}>
       <CoachAvatar mood={mood} size={compact ? 32 : 40} />
       <div
-        className={`surface-light relative min-w-0 flex-1 rounded-[10px] bg-white text-[#312e2b] shadow-[0_1px_2px_rgba(0,0,0,0.14)] ring-1 ring-black/[0.06] ${compact ? 'px-3 py-2 text-sm' : 'px-3.5 py-3 text-[15px]'} leading-snug`}
+        className={`surface-light relative min-w-0 flex-1 rounded-[10px] bg-white text-[#312e2b] shadow-[0_1px_2px_rgba(0,0,0,0.14)] ring-1 ring-black/[0.06] ${compact ? 'px-3 py-2 text-sm' : 'px-3.5 py-3 text-[15px]'} leading-snug ${className}`}
       >
         {/* The tail, pointing at the avatar. */}
         <span aria-hidden className={`absolute -left-[7px] h-0 w-0 border-y-[7px] border-r-[8px] border-y-transparent border-r-white ${compact ? 'top-[9px]' : 'top-[13px]'}`} />
