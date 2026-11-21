@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { addBackHandler, useNav } from '../lib/nav';
 import type { Score } from '../lib/chess/evaluation';
@@ -145,6 +145,31 @@ export function Skeleton({ rows = 4 }: { rows?: number }) {
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className="card h-16 animate-pulse !bg-stone-200/40 !shadow-none dark:!bg-white/[0.03]" style={{ animationDelay: `${i * 90}ms` }} />
       ))}
+    </div>
+  );
+}
+
+/** A top-aligned scrolling area with a soft fade at the bottom while there's more below (coach panels). */
+export function FadeScroll({ children, className = '', testId }: { children: ReactNode; className?: string; testId?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+    check();
+    el.addEventListener('scroll', check, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null;
+    ro?.observe(el);
+    if (el.firstElementChild) ro?.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener('scroll', check);
+      ro?.disconnect();
+    };
+  }, []);
+  return (
+    <div ref={ref} className={`min-h-0 flex-1 overflow-y-auto ${more ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]' : ''} ${className}`} data-testid={testId}>
+      {children}
     </div>
   );
 }

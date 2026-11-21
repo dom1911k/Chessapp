@@ -6,7 +6,7 @@ import { Chess } from 'chess.js';
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, GraduationCap, Microscope, Pause, Play, X } from 'lucide-react';
 import { Board } from './Board';
 import { CoachAvatar } from './Coach';
-import { ReviewIcon } from './ReviewIcon';
+import { classInk, ReviewIcon } from './ReviewIcon';
 import { Segmented, Spinner, useBackHandler } from './ui';
 import { getEngine } from '../lib/engine';
 import { analysisLimits } from '../lib/engine/speed';
@@ -111,14 +111,14 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
   const better = e?.sections.find((x) => x.title === 'What was better' || x.title === 'What they should have played');
   const others = sec('Other good moves');
   const remember = sec('Remember');
-  const tone = bad ? RC[cls].color : undefined;
+  const ink = bad ? classInk(cls) : { className: '', style: undefined };
 
   return (
     <div className="animate-fade-in fixed inset-0 z-50 flex flex-col bg-stone-100 dark:bg-stone-950">
       <header className="safe-top flex shrink-0 items-center gap-3 border-b border-stone-200/70 px-3 py-2 dark:border-white/[0.06]">
         <ReviewIcon cls={cls} size={28} />
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="font-display truncate text-[17px] font-semibold">{p.san} <span className="font-sans text-sm font-semibold" style={{ color: tone }}>· {RC[cls].label}</span></div>
+          <div className="truncate text-[17px] font-bold">{p.san} <span className={`text-sm font-semibold ${ink.className}`} style={ink.style}>· {RC[cls].label}</span></div>
           <div className="text-xs text-stone-500">{isUser ? 'Your move' : 'Their move'} explained</div>
         </div>
         <button aria-label="Close" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-500 active:bg-stone-200 dark:active:bg-stone-800" onClick={onClose}>
@@ -133,7 +133,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
               <div className="mb-3 flex items-start gap-3">
                 <CoachAvatar mood={bad && isUser ? 'concerned' : 'happy'} size={40} />
                 <div className="card min-w-0 flex-1 !rounded-[18px] !rounded-tl-md !px-3.5 !py-3">
-                  <p className="text-[15px] leading-snug font-semibold" style={{ color: tone }}>{e.headline}</p>
+                  <p className={`text-[15px] leading-snug font-semibold ${ink.className}`} style={ink.style}>{e.headline}</p>
                   <Swing wpBefore={e.swing.wpBefore} wpAfter={e.swing.wpAfter} before={e.swing.before} after={e.swing.after} you={isUser} />
                 </div>
               </div>

@@ -12,9 +12,9 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Play, Square, FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, Sparkles, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope } from 'lucide-react';
 import { Board } from '../components/Board';
 import { EvalGraph } from '../components/Charts';
-import { CoachAvatar, Portrait } from '../components/Coach';
-import { EvalBar, Header, Spinner } from '../components/ui';
-import { ReviewIcon } from '../components/ReviewIcon';
+import { CoachAvatar, CoachBubble, Portrait } from '../components/Coach';
+import { EvalBar, FadeScroll, Header, Spinner } from '../components/ui';
+import { classInk, ReviewIcon } from '../components/ReviewIcon';
 import { ExplainSheet } from '../components/ExplainSheet';
 import { CauseBreakdown, CauseIcon } from '../components/Causes';
 import { CAUSE_INFO, causeTotals, missedChances, mistakeCauses, type MistakeCause } from '../lib/games/causes';
@@ -116,16 +116,17 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
   }, [g, r]);
   const badCounts = (['blunder', 'miss', 'mistake', 'inaccuracy'] as const).filter((c) => r.me.counts[c]).map((c) => `${r.me.counts[c]} ${RC[c].label.toLowerCase()}${r.me.counts[c] > 1 ? (c === 'miss' ? 'es' : 's') : ''}`);
   const rows = REVIEW_ORDER.filter((c) => allRows || r.me.counts[c] + r.them.counts[c] > 0);
-  const resultTone = g.userResult === 'win' ? 'bg-emerald-600 text-white' : g.userResult === 'loss' ? 'bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-900' : 'bg-stone-400 text-white';
+  const resultTone = g.userResult === 'win' ? 'bg-brand-500 text-white' : g.userResult === 'loss' ? 'bg-stone-700 text-white dark:bg-stone-800' : 'bg-stone-500 text-white';
+  // chess.com's accuracy boxes: the white player's white, the black player's charcoal.
   const accNum = (acc: number, white: boolean) => (
-    <span className={`font-display inline-flex min-w-[78px] justify-center rounded-xl px-3 py-1.5 text-[26px] leading-none font-semibold tabular-nums ${white ? 'bg-white text-stone-900 shadow-sm ring-1 ring-stone-200 dark:ring-transparent' : 'bg-stone-900 text-white ring-1 ring-stone-900 dark:bg-black/40 dark:ring-white/10'}`}>
+    <span className={`inline-flex w-[84px] justify-center rounded-[6px] py-1.5 text-[24px] leading-none font-extrabold tabular-nums ${white ? 'bg-white text-[#312e2b] ring-1 ring-black/10' : 'bg-[#403d39] text-white'}`}>
       {acc.toFixed(1)}
     </span>
   );
   return (
     <div className="flex h-full flex-col">
       <Header title="Game Review" back subtitle={`vs ${oppName(g)} · ${formatDate(g.endedAt)}`} />
-      <div className="mx-auto w-full max-w-xl flex-1 space-y-5 overflow-y-auto p-4 pb-28">
+      <div className="mx-auto w-full max-w-xl flex-1 space-y-5 overflow-y-auto p-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
         {/* Hero: result, players and accuracy, and Coach Sam's take */}
         <div className="card overflow-hidden !p-0">
           <div className="flex items-center justify-center gap-2 pt-3.5">
@@ -146,9 +147,9 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
             </div>
             {perf && (
               <>
-                <span className="text-center font-display text-lg font-semibold tabular-nums" data-testid="game-rating">{perf.me ? `${perf.me}${perf.me >= 2000 ? '+' : ''}` : '—'}</span>
+                <span className="text-center text-lg font-extrabold tabular-nums" data-testid="game-rating">{perf.me ? `${perf.me}${perf.me >= 2000 ? '+' : ''}` : '—'}</span>
                 <span className="text-center text-[11px] font-semibold tracking-wider text-stone-400 uppercase">Game rating</span>
-                <span className="text-center font-display text-lg font-semibold tabular-nums">{perf.them ? `${perf.them}${perf.them >= 2000 ? '+' : ''}` : '—'}</span>
+                <span className="text-center text-lg font-extrabold tabular-nums">{perf.them ? `${perf.them}${perf.them >= 2000 ? '+' : ''}` : '—'}</span>
               </>
             )}
           </div>
@@ -157,10 +158,10 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
             <div className="min-w-0 flex-1 text-[14.5px] leading-snug">
               {pending(g) ? <p>I haven't analysed this chess.com game yet — it's in the queue. You can already step through the moves.</p> : (
                 <>
-                  <p className="font-display text-[17px] leading-snug font-semibold" data-testid="verdict">{verdict}</p>
+                  <p className="text-[18px] leading-snug font-bold tracking-[-0.01em]" data-testid="verdict">{verdict}</p>
                   {samOpen ? r.summary.map((t, i) => <p key={i} className="mt-1.5 text-stone-600 dark:text-stone-300">{t}</p>) : null}
                   {r.summary.length > 0 && (
-                    <button className="mt-1.5 text-[13px] font-semibold text-brand-700 dark:text-brand-500" onClick={() => setSamOpen(!samOpen)}>{samOpen ? 'Less' : 'More from Sam'}</button>
+                    <button className="mt-1.5 text-[13px] font-bold text-brand-700 dark:text-brand-500" onClick={() => setSamOpen(!samOpen)}>{samOpen ? 'Less' : 'More from Sam'}</button>
                   )}
                 </>
               )}
@@ -221,12 +222,12 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
               <div className="divide-y divide-stone-100 dark:divide-white/[0.05]">
                 {rows.map((c) => (
                   <div key={c} className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center py-1.5 text-[14px]">
-                    <span className="text-center font-bold tabular-nums" style={{ color: r.me.counts[c] ? RC[c].color : undefined, opacity: r.me.counts[c] ? 1 : 0.25 }}>{r.me.counts[c]}</span>
+                    <span className={`text-center font-bold tabular-nums ${r.me.counts[c] ? classInk(c).className : 'opacity-25'}`} style={r.me.counts[c] ? classInk(c).style : undefined}>{r.me.counts[c]}</span>
                     <span className="flex items-center justify-center gap-2">
                       <ReviewIcon cls={c} size={18} />
                       <span className="w-24">{RC[c].label}</span>
                     </span>
-                    <span className="text-center font-bold tabular-nums" style={{ color: r.them.counts[c] ? RC[c].color : undefined, opacity: r.them.counts[c] ? 1 : 0.25 }}>{r.them.counts[c]}</span>
+                    <span className={`text-center font-bold tabular-nums ${r.them.counts[c] ? classInk(c).className : 'opacity-25'}`} style={r.them.counts[c] ? classInk(c).style : undefined}>{r.them.counts[c]}</span>
                   </div>
                 ))}
               </div>
@@ -257,10 +258,10 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
               <EvalGraph plies={g.plies} onSelect={onStart} times={times} classes={cls} />
               {times && (
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-stone-500">
-                  <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#2f9e63]" /> Your time</span>
-                  <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#a8a29e]" /> Theirs</span>
-                  <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#f59e0b]" /> Longest thinks</span>
-                  <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#dc2626]" /> Mistake in under 5 s</span>
+                  <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#81b64c]" /> Your time</span>
+                  <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#989795]" /> Theirs</span>
+                  <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#f7c045]" /> Longest thinks</span>
+                  <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#fa412d]" /> Mistake in under 5 s</span>
                 </div>
               )}
             </div>
@@ -327,13 +328,13 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
           </div>
         )}
       </div>
-      <div className="safe-bottom fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-stone-100 via-stone-100/95 to-transparent px-4 pt-6 pb-3 dark:from-stone-950 dark:via-stone-950/95">
+      <div className="safe-bottom fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.08] bg-white px-4 pt-2.5 pb-2 dark:border-white/[0.06] dark:bg-stone-900">
         <div className="mx-auto flex max-w-xl gap-2">
-          <button className="btn-primary flex-1 !py-3.5 text-base" onClick={() => onStart(-1)}>
+          <button className="btn-primary !min-h-14 flex-1 text-[17px] !font-extrabold" onClick={() => onStart(-1)}>
             <Sparkles size={18} /> Start Review
           </button>
           {firstBad >= 0 && !pending(g) && (
-            <button className="btn-secondary !py-3.5 text-sm" onClick={() => onStart(firstBad)}>
+            <button className="btn-secondary !min-h-14 text-[14px]" onClick={() => onStart(firstBad)}>
               <TriangleAlert size={16} /> First mistake
             </button>
           )}
@@ -505,27 +506,29 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
     return true;
   };
 
+  // The reviewed move's squares in its class colour (for the moves that matter), else yellow.
+  const moveTint = p && rp && !best && !retry && !threatStage && !frame && NOTABLE.has(rp.cls) ? hexRgb(RC[rp.cls].color) : undefined;
   return (
     <div className="flex h-full flex-col">
       <Header title="Game Review" back subtitle={`vs ${oppName(g)} · ${formatDate(g.endedAt)}`} right={
-        <span className="flex items-center gap-2">
-          <button aria-label="Analyse this position" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300" onClick={() => push({ name: 'explore', fen: p ? p.fenAfter : g.startFen, orientation, title: 'Analysis' })}><Microscope size={19} /></button>
-          <button aria-label="Flip board" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300" onClick={() => setFlipped((f) => !f)}><FlipVertical2 size={19} /></button>
-          <button className="text-sm font-semibold text-brand-700 dark:text-brand-500" onClick={onSummary}>Summary</button>
+        <span className="flex items-center gap-1">
+          <button aria-label="Analyse this position" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300 dark:active:bg-stone-800" onClick={() => push({ name: 'explore', fen: p ? p.fenAfter : g.startFen, orientation, title: 'Analysis' })}><Microscope size={19} /></button>
+          <button aria-label="Flip board" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300 dark:active:bg-stone-800" onClick={() => setFlipped((f) => !f)}><FlipVertical2 size={19} /></button>
+          <button className="px-2 text-sm font-semibold text-stone-600 active:text-stone-900 dark:text-stone-300 dark:active:text-white" onClick={onSummary}>Summary</button>
         </span>
       } />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-4 land:px-3">
         <div className="flex gap-1 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0">
           <EvalBar whitePct={evalNow} orientation={orientation} score={p?.evalAfter ?? { type: 'cp', value: 0 }} width={20} />
           <div className="relative min-w-0 flex-1" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} data-testid="review-board">
-            <Board fen={fen} orientation={orientation} movable={retry?.state === 'try' ? g.userColor : null} onMove={onRetryMove} arrows={arrows} lastMove={lastMove} />
+            <Board fen={fen} orientation={orientation} movable={retry?.state === 'try' ? g.userColor : null} onMove={onRetryMove} arrows={arrows} lastMove={lastMove} lastMoveColor={moveTint} />
             <ArrowOverlay arrows={dotted} orientation={orientation} />
-            {p && rp && !best && !retry && !threatStage && !frame && NOTABLE.has(rp.cls) && <SquareIcon sq={p.uci.slice(2, 4)} cls={rp.cls} orientation={orientation} />}
+            {moveTint && p && rp && <SquareIcon sq={p.uci.slice(2, 4)} cls={rp.cls} orientation={orientation} />}
           </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col">
-          {/* Move strip */}
-          <div ref={strip} className="no-scrollbar flex shrink-0 items-center gap-0.5 overflow-x-auto px-2 py-1.5">
+          {/* Move strip: the same look as the game's. */}
+          <div ref={strip} className="no-scrollbar flex h-9 shrink-0 items-center gap-0.5 overflow-x-auto px-2 text-[14px]">
             {g.plies.map((q, k) => {
               const c = r.plies[k].cls;
               const showIcon = c === 'brilliant' || c === 'great' || isBad(c);
@@ -534,38 +537,40 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
                   key={k}
                   data-ply={k}
                   onClick={() => go(k)}
-                  className={`flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[13.5px] whitespace-nowrap transition-colors ${k === i ? 'bg-stone-900 text-white shadow-sm dark:bg-stone-50 dark:text-stone-900' : 'text-stone-700 active:bg-stone-200/70 dark:text-stone-300 dark:active:bg-white/5'}`}
+                  className={`flex shrink-0 items-center gap-1 rounded-[4px] px-1.5 py-0.5 whitespace-nowrap transition-colors ${k === i ? 'bg-black/[0.08] font-bold text-stone-900 dark:bg-white/[0.12] dark:text-white' : 'font-semibold text-stone-700 active:bg-black/5 dark:text-stone-300 dark:active:bg-white/5'}`}
                 >
-                  {q.color === 'w' && <span className="text-xs text-stone-400">{moveNo(g.plies, k)}</span>}
+                  {q.color === 'w' && <span className="text-[12px] font-semibold text-stone-500 tabular-nums">{moveNo(g.plies, k)}</span>}
                   {showIcon && <ReviewIcon cls={c} size={14} />}
-                  <span className="font-semibold">{q.san}</span>
+                  <span>{q.san}</span>
                 </button>
               );
             })}
           </div>
-          {/* Coach panel: fixed height so the screen never jumps. */}
-          <div className="mx-3 flex max-h-[42%] min-h-[132px] shrink-0 gap-2.5 overflow-hidden land:max-h-none land:flex-1">
-            <CoachAvatar mood={rp && isBad(rp.cls) && p?.isUser ? 'concerned' : 'happy'} size={38} />
-            <div className="card min-w-0 flex-1 overflow-y-auto !rounded-[18px] !rounded-tl-md !px-3.5 !py-3 text-[14.5px] leading-snug">
+          {/* The eval graph as a scrubber right under the moves. */}
+          <div className="mx-3 shrink-0">
+            <EvalGraph plies={g.plies} current={i} onSelect={go} height={40} times={stepTimes} classes={r.plies.map((x) => x.cls)} />
+          </div>
+          {/* Coach Sam on the move, in his speech bubble; takes the remaining height. */}
+          <FadeScroll className="px-3 pt-2.5 pb-2" testId="review-coach">
+            <CoachBubble mood={rp && isBad(rp.cls) && p?.isUser ? 'concerned' : 'happy'}>
               <CoachText g={g} r={r} i={i} best={best} retry={retry} cause={cause} threat={threatStage ? threat : null} onSeenThreat={() => setThreatSeen(i)} />
               {play && (
                 <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
-                  <button className="chip bg-brand-100 font-semibold text-brand-700 dark:bg-brand-500/20 dark:text-brand-100" data-testid="play-line" onClick={() => setLineK(lineK === null ? 0 : null)}>
+                  <button className="chip bg-brand-100 font-semibold text-brand-700" data-testid="play-line" onClick={() => setLineK(lineK === null ? 0 : null)}>
                     {lineK === null ? <><Play size={12} /> {play.label}</> : <><Square size={11} /> Stop</>}
                   </button>
-                  {lineK !== null && <span className="font-semibold tabular-nums text-stone-600 dark:text-stone-300">{formatLine(play.fen, play.frames.slice(0, lineK + 1).map((x) => x.san))}</span>}
+                  {lineK !== null && <span className="font-semibold tabular-nums text-stone-600">{formatLine(play.fen, play.frames.slice(0, lineK + 1).map((x) => x.san))}</span>}
                 </div>
               )}
-            </div>
-          </div>
-          <div className="mt-auto" />
-          {/* The graph sits well away from the arrows, so stepping through never jumps by accident. */}
-          <div className="mx-3 mt-2 shrink-0">
-            <EvalGraph plies={g.plies} current={i} onSelect={go} height={44} times={stepTimes} classes={r.plies.map((x) => x.cls)} />
-          </div>
-          {/* Actions */}
-          <div className="mx-3 mt-2 grid shrink-0 grid-cols-4 gap-1.5">
-            <ActionButton icon={<MessageCircleQuestion size={16} />} label="Explain" disabled={!p || !rp || !!retry} onClick={() => setExplain(true)} highlight={!!rp && isBad(rp.cls)} />
+              {p && rp && !retry && (
+                <button className="mt-2 flex items-center gap-1 text-[13px] font-bold text-brand-700" onClick={() => setExplain(true)} data-testid="explain">
+                  <MessageCircleQuestion size={15} /> Explain this move
+                </button>
+              )}
+            </CoachBubble>
+          </FadeScroll>
+          {/* Best / Retry / Next mistake */}
+          <div className="mx-3 mb-2 grid shrink-0 grid-cols-3 gap-2">
             <ActionButton icon={<Lightbulb size={16} />} label={best ? 'Hide' : 'Best'} disabled={!canBest || !!retry} onClick={() => setBest(!best)} />
             <ActionButton
               icon={<RotateCcw size={16} />}
@@ -573,11 +578,11 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
               disabled={!canRetry}
               onClick={() => (retry ? setRetry(null) : (setBest(false), setRetry({ state: 'try', fen: p!.fenBefore })))}
             />
-            <ActionButton icon={<TriangleAlert size={16} />} label="Next" disabled={!g.plies.some((q, k) => k > i && q.isUser && isBad(r.plies[k].cls))} onClick={nextBad} />
+            <ActionButton icon={<TriangleAlert size={15} />} label="Next mistake" disabled={!g.plies.some((q, k) => k > i && q.isUser && isBad(r.plies[k].cls))} onClick={nextBad} />
           </div>
-          {/* Arrows */}
-          <div className="safe-bottom mt-3 shrink-0 border-t border-stone-200/70 px-3 pt-3 pb-2 dark:border-white/[0.06]">
-            <div className="grid grid-cols-[1fr_1.3fr_2.2fr_1fr] gap-2">
+          {/* Step through: a flat bar like the Dock. */}
+          <div className="safe-bottom shrink-0 border-t border-black/[0.08] bg-white dark:border-white/[0.06] dark:bg-stone-900">
+            <div className="mx-auto grid h-14 max-w-md grid-cols-[1fr_2fr_2fr_1fr] gap-1.5 px-2 py-1.5">
               <NavButton onClick={() => go(-1)} disabled={i < 0} label="Start"><ChevronFirst size={22} /></NavButton>
               <NavButton onClick={() => go(i - 1)} disabled={i < 0} label="Back"><ChevronLeft size={26} /></NavButton>
               <NavButton onClick={() => go(i + 1)} disabled={i >= n - 1} label="Forward" primary><ChevronRight size={26} /></NavButton>
@@ -602,9 +607,12 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
   );
 }
 
-function ActionButton({ icon, label, onClick, disabled, highlight }: { icon: ReactNode; label: string; onClick: () => void; disabled?: boolean; highlight?: boolean }) {
+/** "#fa412d" → "250, 65, 45" (for Board tints). */
+const hexRgb = (hex: string) => [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16)).join(', ');
+
+function ActionButton({ icon, label, onClick, disabled }: { icon: ReactNode; label: string; onClick: () => void; disabled?: boolean }) {
   return (
-    <button disabled={disabled} onClick={onClick} className={`${highlight ? 'btn-primary' : 'btn-secondary'} !gap-1 !px-1 !py-2 text-sm disabled:opacity-35`}>
+    <button disabled={disabled} onClick={onClick} className="btn-secondary !min-h-10 !gap-1 !px-1 !py-1.5 text-[13.5px] whitespace-nowrap disabled:opacity-35">
       {icon} {label}
     </button>
   );
@@ -612,22 +620,36 @@ function ActionButton({ icon, label, onClick, disabled, highlight }: { icon: Rea
 
 function NavButton({ children, onClick, disabled, label, primary }: { children: ReactNode; onClick: () => void; disabled?: boolean; label: string; primary?: boolean }) {
   return (
-    <button aria-label={label} disabled={disabled} onClick={onClick} className={`flex h-14 items-center justify-center rounded-2xl transition-transform duration-75 active:scale-[0.97] disabled:opacity-30 ${primary ? 'bg-brand-600 text-white' : 'bg-white ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700'}`}>
+    <button
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex items-center justify-center rounded-[10px] transition duration-75 disabled:opacity-30 ${
+        primary
+          ? 'bg-brand-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_3px_0_var(--color-brand-800)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_0_var(--color-brand-800)]'
+          : 'bg-stone-100 text-stone-800 active:bg-stone-200 dark:bg-stone-800 dark:text-stone-100 dark:active:bg-stone-700'
+      }`}
+    >
       {children}
     </button>
   );
 }
 
-/** The class icon on the destination square, like chess.com. */
+/**
+ * The class icon at the top-right corner of the destination square, like chess.com — kept fully
+ * inside the board on the h-file (a-file when flipped) and the top rank.
+ */
 function SquareIcon({ sq, cls, orientation, small }: { sq: string; cls: ReviewClass; orientation: 'white' | 'black'; small?: boolean }) {
   const f = sq.charCodeAt(0) - 97;
   const rk = Number(sq[1]) - 1;
   const col = orientation === 'white' ? f : 7 - f;
   const row = orientation === 'white' ? 7 - rk : rk;
-  const size = small ? 14 : 22;
+  const size = small ? 15 : 22;
+  const left = col === 7 ? `calc(100% - ${size + 1}px)` : `calc(${((col + 1) / 8) * 100}% - ${size * 0.62}px)`;
+  const top = row === 0 ? '1px' : `calc(${(row / 8) * 100}% - ${size * 0.38}px)`;
   return (
-    <span className="pointer-events-none absolute z-10" style={{ left: `calc(${((col + 1) / 8) * 100}% - ${size * 0.6}px)`, top: `calc(${(row / 8) * 100}% - ${size * 0.3}px)` }}>
-      <ReviewIcon cls={cls} size={size} className="ring-2 ring-white" />
+    <span className="pointer-events-none absolute z-10" style={{ left, top }} data-testid="square-icon">
+      <ReviewIcon cls={cls} size={size} ring />
     </span>
   );
 }
@@ -678,7 +700,7 @@ function CoachText({ g, r, i, best, retry, cause, threat, onSeenThreat }: { g: A
   const headline = notable ? (
     <p className="flex items-center gap-1.5 font-semibold">
       <ReviewIcon cls={rp.cls} size={18} />
-      <span style={{ color: isBad(rp.cls) ? RC[rp.cls].color : undefined }}>
+      <span style={{ color: isBad(rp.cls) ? RC[rp.cls].ink : undefined }}>
         {moveNo(g.plies, i)} {p.san} {RC[rp.cls].verdict}
       </span>
       <EvalDelta g={g} i={i} />

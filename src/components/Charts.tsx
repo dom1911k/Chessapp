@@ -43,7 +43,7 @@ export function EvalGraph({ plies, current, onSelect, height = 110, times, class
   return (
     <svg
       viewBox={`0 0 ${W} ${H + STRIP}`}
-      className="w-full touch-none rounded-xl bg-stone-700"
+      className="w-full touch-none rounded-[6px] bg-[#403d39]"
       onClick={(e) => {
         if (!onSelect || !plies.length) return;
         const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
@@ -51,7 +51,7 @@ export function EvalGraph({ plies, current, onSelect, height = 110, times, class
         onSelect(Math.max(0, Math.min(plies.length - 1, i)));
       }}
     >
-      <path d={area} fill="#f5f5f4" />
+      <path d={area} fill="#ffffff" />
       {times && (
         <g>
           <rect x="0" y={H} width={W} height={STRIP} className="fill-stone-100 dark:fill-stone-900" />
@@ -60,17 +60,17 @@ export function EvalGraph({ plies, current, onSelect, height = 110, times, class
             const h = Math.max(1.5, (Math.sqrt(t) / scale) * (STRIP - 3));
             const p = plies[i];
             const bad = p.isUser && (p.classification === 'mistake' || p.classification === 'blunder');
-            const fill = bad && t < 5 ? '#dc2626' : p.isUser ? (longest.has(i) ? '#f59e0b' : '#2f9e63') : '#a8a29e';
+            const fill = bad && t < 5 ? '#fa412d' : p.isUser ? (longest.has(i) ? '#f7c045' : '#81b64c') : '#989795';
             return <rect key={i} x={x(i + 1) - bw / 2} y={H + STRIP - h} width={bw} height={h} rx="0.8" fill={fill} opacity={p.isUser ? 1 : 0.6} />;
           })}
         </g>
       )}
-      <line x1="0" x2={W} y1={H / 2} y2={H / 2} stroke="#a8a29e" strokeDasharray="3 3" strokeWidth="0.8" />
-      {current !== undefined && <line x1={x(current + 1)} x2={x(current + 1)} y1="0" y2={H + STRIP} stroke="#2f9e63" strokeWidth="2" />}
+      <line x1="0" x2={W} y1={H / 2} y2={H / 2} stroke="#989795" strokeOpacity="0.6" strokeWidth="0.6" />
+      {current !== undefined && <line x1={x(current + 1)} x2={x(current + 1)} y1="0" y2={H + STRIP} stroke="#81b64c" strokeWidth="2" />}
       {classes
         ? plies.map((p, i) =>
             GRAPH_MARK.has(classes[i]) ? (
-              <circle key={i} cx={x(i + 1)} cy={y(pts[i + 1][1])} r={p.isUser ? 4 : 3} fill={RC[classes[i]].color} stroke={p.isUser ? '#fff' : '#44403c'} strokeWidth="1.2" data-mark={classes[i]} />
+              <circle key={i} cx={x(i + 1)} cy={y(pts[i + 1][1])} r={p.isUser ? 4 : 3.2} fill={RC[classes[i]].color} stroke="#403d39" strokeWidth="1.5" data-mark={classes[i]} />
             ) : null,
           )
         : plies.map((p, i) =>

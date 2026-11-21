@@ -26,7 +26,7 @@ import { Board } from '../components/Board';
 import { CoachBubble, FlagButton, Portrait } from '../components/Coach';
 import { OPPONENTS, opponentById, portraitColors, type Mood } from '../lib/people';
 import { getOpponentRecords, isUnlocked, type OpponentRecord } from '../lib/people/record';
-import { Dialog, EvalBar, IconButton, Segmented, Spinner, useBackHandler } from '../components/ui';
+import { Dialog, EvalBar, FadeScroll, IconButton, Segmented, Spinner, useBackHandler } from '../components/ui';
 import { MoveList } from '../components/MoveList';
 import { MoveHistory } from '../components/MoveHistory';
 import type { CoachArrow, CoachHighlight } from '../lib/coach/types';
@@ -572,9 +572,9 @@ function GameView() {
               )}
             </div>
           ) : (
-            <CoachPanel>
+            <FadeScroll className="px-3 pt-2 pb-3" testId="coach-panel">
               <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => setHistory(true)} />
-            </CoachPanel>
+            </FadeScroll>
           )}
           {/* Choices (a paused mistake, the pre-check, game over) take the Dock's place, so they're never scrolled away. */}
           {actionKind ? (
@@ -791,35 +791,6 @@ function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; on
           </button>
         )}
       </div>
-    </div>
-  );
-}
-
-/** The coach's area under the move strip: top-aligned, scrolls when long, with a soft fade while more is below. */
-function CoachPanel({ children }: { children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [more, setMore] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const check = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
-    check();
-    el.addEventListener('scroll', check, { passive: true });
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null;
-    ro?.observe(el);
-    if (el.firstElementChild) ro?.observe(el.firstElementChild);
-    return () => {
-      el.removeEventListener('scroll', check);
-      ro?.disconnect();
-    };
-  }, []);
-  return (
-    <div
-      ref={ref}
-      className={`min-h-0 flex-1 overflow-y-auto px-3 pt-2 pb-3 ${more ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]' : ''}`}
-      data-testid="coach-panel"
-    >
-      {children}
     </div>
   );
 }

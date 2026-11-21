@@ -45,6 +45,8 @@ interface Props {
   confirm?: boolean;
   /** While it's the opponent's turn: the colour that may queue a premove (played when its turn comes). */
   premoveColor?: 'w' | 'b' | null;
+  /** Tint the last move's squares in this colour (an rgb triplet like "250, 65, 45") instead of yellow. */
+  lastMoveColor?: string;
 }
 
 /** Animation length per speed setting (ms). */
@@ -120,7 +122,7 @@ class BoardErrorBoundary extends Component<{ children: ReactNode; onError: () =>
   }
 }
 
-function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove: realOnMove, arrows = [], highlights = [], lastMove: realLast, showCoordinates = true, confirm = false, premoveColor = null }: Props & { animate?: boolean }) {
+function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove: realOnMove, arrows = [], highlights = [], lastMove: realLast, showCoordinates = true, confirm = false, premoveColor = null, lastMoveColor }: Props & { animate?: boolean }) {
   // Each board needs its own id: the library looks squares up by id across the whole page.
   const [boardId] = useState(() => `board${++boardCount}`);
   const [selected, setSelected] = useState<string | null>(null);
@@ -259,8 +261,8 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   const shadows: Record<string, string> = {};
   if (lastMove) {
     // Both squares the same strength, like chess.com.
-    add(lastMove.from, tint(`rgba(${hl}, 0.5)`));
-    add(lastMove.to, tint(`rgba(${hl}, 0.5)`));
+    add(lastMove.from, tint(`rgba(${lastMoveColor ?? hl}, 0.5)`));
+    add(lastMove.to, tint(`rgba(${lastMoveColor ?? hl}, 0.5)`));
   }
   // Coach marks: flat tints, no borders.
   for (const h of highlights) add(h.sq, tint(TONE_BG[h.tone]));
