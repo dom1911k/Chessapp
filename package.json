@@ -11,7 +11,8 @@
     "test": "vitest run",
     "copy-engine": "node scripts/copy-engine.mjs",
     "postinstall": "node scripts/copy-engine.mjs",
-    "puzzles": "node scripts/build-puzzles.mjs"
+    "puzzles": "node scripts/build-puzzles.mjs",
+    "screens": "node scripts/screens.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.2",
@@ -42,6 +43,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "fake-indexeddb": "^6.2.6",
     "fzstd": "^0.1.1",
+    "playwright": "1.63.0",
     "tailwindcss": "^4.3.3",
     "typescript": "5.9",
     "vite": "^8.3.5",
