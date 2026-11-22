@@ -22,9 +22,9 @@ export type Tint = 'green' | 'gold' | 'rose' | 'blue' | 'violet' | 'stone';
 const TINTS: Record<Tint, string> = {
   green: 'bg-brand-100 text-brand-700 dark:bg-brand-700/25 dark:text-brand-100',
   gold: 'bg-gold-300/45 text-[#8a6416] dark:bg-gold-500/20 dark:text-gold-300',
-  rose: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200',
-  blue: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200',
-  violet: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200',
+  rose: 'bg-hue-rose-100 text-hue-rose-700 dark:bg-hue-rose-900/40 dark:text-hue-rose-200',
+  blue: 'bg-hue-sky-100 text-hue-sky-700 dark:bg-hue-sky-900/40 dark:text-hue-sky-200',
+  violet: 'bg-hue-violet-100 text-hue-violet-700 dark:bg-hue-violet-900/40 dark:text-hue-violet-200',
   stone: 'bg-stone-200 text-stone-600 dark:bg-stone-800 dark:text-stone-300',
 };
 

@@ -72,7 +72,7 @@ export function AvatarPicker({ onClose }: { onClose: () => void }) {
                   {!ok && <Lock size={16} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow" />}
                 </span>
                 <span className="text-[11px] leading-tight font-semibold">{f.name}</span>
-                {!ok && <span className="text-[10px] leading-tight text-stone-500">{unlockText(f.unlock)}</span>}
+                {!ok && <span className="text-xs leading-tight text-stone-500">{unlockText(f.unlock)}</span>}
               </button>
             );
           })}

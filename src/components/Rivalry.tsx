@@ -11,7 +11,7 @@ export function RivalryChip({ rec, className = '' }: { rec?: OpponentRecord; cla
   const lv = rivalryLevel(rpOf(rec)).level;
   if (!rec || rec.w + rec.d + rec.l === 0) return null;
   return (
-    <span className={`inline-flex items-center gap-1 rounded-md bg-rose-600/90 px-1.5 py-px text-[11px] font-bold text-white tabular-nums ${className}`}>
+    <span className={`inline-flex items-center gap-1 rounded-md bg-hue-rose-600/90 px-1.5 py-px text-[11px] font-bold text-white tabular-nums ${className}`}>
       <Swords size={10} strokeWidth={2.6} /> {lv}
     </span>
   );
@@ -32,8 +32,8 @@ export function RivalryCard({ opponentId, rec }: { opponentId: string; rec?: Opp
   return (
     <div className="card !p-0">
       <button className="flex w-full items-center gap-3 px-3.5 py-3 text-left active:brightness-95" onClick={() => setOpen(!open)} aria-expanded={open} data-testid="rivalry">
-        <span className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-[8px] bg-rose-600 text-white">
-          <span className="text-[8px] leading-none font-bold tracking-wider uppercase opacity-80">Lv</span>
+        <span className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-[8px] bg-hue-rose-600 text-white">
+          <span className="text-[11px] leading-none font-bold tracking-wider uppercase opacity-80">Lv</span>
           <span className="text-[15px] leading-none font-extrabold tabular-nums">{lv.level}</span>
         </span>
         <span className="min-w-0 flex-1 leading-tight">
@@ -43,7 +43,7 @@ export function RivalryCard({ opponentId, rec }: { opponentId: string; rec?: Opp
           {games > 0 ? (
             <span className="mt-1 flex items-center gap-2">
               <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
-                <span className="block h-full rounded-full bg-rose-500 transition-[width] duration-700" style={{ width: `${Math.max(3, (lv.into / lv.span) * 100)}%` }} />
+                <span className="block h-full rounded-full bg-hue-rose-500 transition-[width] duration-700" style={{ width: `${Math.max(3, (lv.into / lv.span) * 100)}%` }} />
               </span>
               <span className="shrink-0 text-[11px] font-semibold text-stone-500 tabular-nums">{rec!.w}W · {rec!.d}D · {rec!.l}L</span>
             </span>
@@ -59,9 +59,9 @@ export function RivalryCard({ opponentId, rec }: { opponentId: string; rec?: Opp
             {BADGES.map((b) => {
               const on = held.has(b.id);
               return (
-                <span key={b.id} title={b.hint} className={`flex flex-col items-center gap-1 rounded-[8px] px-1 py-1.5 text-center ${on ? 'bg-rose-50 dark:bg-rose-500/10' : 'bg-stone-100 dark:bg-white/[0.04]'}`}>
-                  <span className={`flex h-5 w-5 items-center justify-center rounded-full ${on ? 'bg-rose-600 text-white' : 'ring-2 ring-stone-300 dark:ring-stone-600'}`}>{on && <Check size={12} strokeWidth={4} />}</span>
-                  <span className={`text-[10px] leading-tight font-semibold ${on ? 'text-rose-700 dark:text-rose-300' : 'text-stone-500'}`}>{b.label}</span>
+                <span key={b.id} title={b.hint} className={`flex flex-col items-center gap-1 rounded-[8px] px-1 py-1.5 text-center ${on ? 'bg-hue-rose-50 dark:bg-hue-rose-500/10' : 'bg-stone-100 dark:bg-white/[0.04]'}`}>
+                  <span className={`flex h-5 w-5 items-center justify-center rounded-full ${on ? 'bg-hue-rose-600 text-white' : 'ring-2 ring-stone-300 dark:ring-stone-600'}`}>{on && <Check size={12} strokeWidth={4} />}</span>
+                  <span className={`text-[11px] leading-tight font-semibold ${on ? 'text-hue-rose-700 dark:text-hue-rose-300' : 'text-stone-500'}`}>{b.label}</span>
                 </span>
               );
             })}

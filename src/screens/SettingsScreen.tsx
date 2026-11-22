@@ -212,7 +212,7 @@ function ReminderCard() {
           />
         </label>
       )}
-      {denied && <p className="text-sm text-red-600">Notifications are blocked. Allow them for Chess Coach in Android settings.</p>}
+      {denied && <p className="text-sm text-danger-700">Notifications are blocked. Allow them for Chess Coach in Android settings.</p>}
     </div>
   );
 }

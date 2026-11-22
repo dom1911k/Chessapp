@@ -44,14 +44,14 @@ interface Bonus {
 
 /** The streak flame in the header: grows hotter with every puzzle in a row. */
 function StreakFlame({ streak, best }: { streak: number; best: number }) {
-  const hot = streak >= 10 ? 'text-fuchsia-500 fill-fuchsia-400' : streak >= 5 ? 'text-rose-500 fill-orange-400' : streak >= 3 ? 'text-orange-500 fill-amber-300' : streak ? 'text-amber-500 fill-amber-200' : 'text-stone-400';
+  const hot = streak >= 10 ? 'text-hue-fuchsia-500 fill-hue-fuchsia-400' : streak >= 5 ? 'text-hue-rose-500 fill-hue-orange-400' : streak >= 3 ? 'text-hue-orange-500 fill-hue-amber-300' : streak ? 'text-hue-amber-500 fill-hue-amber-200' : 'text-stone-400';
   return (
     <div className="flex items-center gap-1.5 pr-1">
       <span key={streak} className={`flex items-center gap-0.5 ${streak ? 'animate-count-pop' : ''}`}>
         <Flame size={22} className={`${hot} ${streak >= 3 ? 'animate-flame' : ''}`} />
         <span className="text-lg font-black tabular-nums">{streak}</span>
       </span>
-      {best > 0 && <span className="text-[10px] leading-tight text-stone-500">best<br />{best}</span>}
+      {best > 0 && <span className="text-xs leading-tight text-stone-500">best<br />{best}</span>}
     </div>
   );
 }

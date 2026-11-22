@@ -150,15 +150,15 @@ export function LineChart({ values, labels, height = 120, color = '#2f9e63', dat
       <circle cx={x(hi_)} cy={y(values[hi_])} r={hover !== null ? 5 : 4} fill={color} stroke="var(--chart-dot, #fff)" strokeWidth="2" className="[--chart-dot:#ffffff] dark:[--chart-dot:var(--color-stone-900)]" />
       {hover !== null ? (
         <g>
-          <rect x={tipX - 28} y="0" width="56" height={dates ? 26 : 16} rx="6" fill="currentColor" opacity="0.9" />
-          <text x={tipX} y="11.5" fontSize="10.5" fontWeight="700" textAnchor="middle" className="fill-white dark:fill-stone-900">{Math.round(values[hover])}{suffix}</text>
-          {dates && <text x={tipX} y="22" fontSize="8.5" textAnchor="middle" className="fill-white/80 dark:fill-stone-900/80">{new Date(dates[hover]).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</text>}
+          <rect x={tipX - 30} y="0" width="60" height={dates ? 29 : 17} rx="6" fill="currentColor" opacity="0.9" />
+          <text x={tipX} y="12.5" fontSize="11.5" fontWeight="700" textAnchor="middle" className="fill-white dark:fill-stone-900">{Math.round(values[hover])}{suffix}</text>
+          {dates && <text x={tipX} y="25" fontSize="11" textAnchor="middle" className="fill-white/80 dark:fill-stone-900/80">{new Date(dates[hover]).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</text>}
         </g>
       ) : (
         <>
-          <text x="6" y="10" fontSize="10" fill="currentColor" opacity="0.5">{Math.round(max)}{suffix}</text>
-          <text x="6" y={H - 2} fontSize="10" fill="currentColor" opacity="0.5">{Math.round(min)}{suffix}</text>
-          {labels && <text x={W / 2} y={H - 2} fontSize="10" fill="currentColor" opacity="0.5" textAnchor="middle">{labels[0]} → {labels[1]}</text>}
+          <text x="6" y="11" fontSize="11" fill="currentColor" opacity="0.5">{Math.round(max)}{suffix}</text>
+          <text x="6" y={H - 2} fontSize="11" fill="currentColor" opacity="0.5">{Math.round(min)}{suffix}</text>
+          {labels && <text x={W / 2} y={H - 2} fontSize="11" fill="currentColor" opacity="0.5" textAnchor="middle">{labels[0]} → {labels[1]}</text>}
         </>
       )}
     </svg>
@@ -180,7 +180,7 @@ export function BarChart({ values, height = 90, color = '#ea580c' }: { values: n
           <g key={i}>
             <rect x={i * bw + bw * 0.15} y={H - h - 12} width={bw * 0.7} height={Math.max(h, 1)} rx="2" fill={color} opacity={0.85} />
             {values.length <= 20 && (
-              <text x={i * bw + bw / 2} y={H - 2} fontSize="9" textAnchor="middle" fill="currentColor" opacity="0.6">{v}</text>
+              <text x={i * bw + bw / 2} y={H - 2} fontSize="11" textAnchor="middle" fill="currentColor" opacity="0.6">{v}</text>
             )}
           </g>
         );

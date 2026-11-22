@@ -7,18 +7,18 @@ import { Check, ThumbsDown } from 'lucide-react';
 import { useSettings } from '../lib/settings';
 
 export const CLASS_STYLE: Record<Classification, string> = {
-  best: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200',
-  good: 'bg-lime-100 text-lime-800 dark:bg-lime-900/50 dark:text-lime-200',
-  inaccuracy: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200',
-  mistake: 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-200',
-  blunder: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200',
+  best: 'bg-brand-100 text-brand-800 dark:bg-brand-800/60 dark:text-brand-100',
+  good: 'bg-hue-lime-100 text-hue-lime-800 dark:bg-hue-lime-900/50 dark:text-hue-lime-200',
+  inaccuracy: 'bg-warn-100 text-warn-800 dark:bg-warn-900/50 dark:text-warn-100',
+  mistake: 'bg-hue-orange-100 text-hue-orange-800 dark:bg-hue-orange-900/50 dark:text-hue-orange-200',
+  blunder: 'bg-danger-100 text-danger-800 dark:bg-danger-900/50 dark:text-danger-100',
 };
 
 /** Friendlier words and no red for the gentle coach. */
 const GENTLE_LABEL: Record<Classification, string> = { best: 'Great', good: 'Nice', inaccuracy: 'Hmm', mistake: 'Careful', blunder: 'Oops' };
 const GENTLE_STYLE: Partial<Record<Classification, string>> = {
-  mistake: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200',
-  blunder: 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-200',
+  mistake: 'bg-warn-100 text-warn-800 dark:bg-warn-900/50 dark:text-warn-100',
+  blunder: 'bg-hue-orange-100 text-hue-orange-800 dark:bg-hue-orange-900/50 dark:text-hue-orange-200',
 };
 
 export function ClassBadge({ c }: { c: Classification }) {

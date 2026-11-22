@@ -14,11 +14,11 @@ const ICON: Record<Cause | 'fast' | 'timeTrouble', ReactNode> = {
   timeTrouble: <Hourglass size={15} />,
 };
 const COLOR: Record<Cause, string> = {
-  missedThreat: 'bg-red-500',
-  hungPiece: 'bg-orange-500',
-  missedTactic: 'bg-amber-500',
-  calculation: 'bg-violet-500',
-  plan: 'bg-sky-500',
+  missedThreat: 'bg-danger-500',
+  hungPiece: 'bg-hue-orange-500',
+  missedTactic: 'bg-hue-amber-500',
+  calculation: 'bg-hue-violet-500',
+  plan: 'bg-hue-sky-500',
 };
 
 export function CauseIcon({ c }: { c: Cause | 'fast' | 'timeTrouble' }) {
@@ -45,8 +45,8 @@ export function CauseBreakdown({ r, title = 'Why your mistakes happened', bare =
       </div>
       {(r.totals.fast > 0 || r.totals.timeTrouble > 0) && (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {r.totals.fast > 0 && <span className="chip bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">{ICON.fast} {r.totals.fast} played in a few seconds</span>}
-          {r.totals.timeTrouble > 0 && <span className="chip bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300">{ICON.timeTrouble} {r.totals.timeTrouble} in time trouble</span>}
+          {r.totals.fast > 0 && <span className="chip bg-warn-50 text-warn-700 dark:bg-warn-500/15 dark:text-warn-500">{ICON.fast} {r.totals.fast} played in a few seconds</span>}
+          {r.totals.timeTrouble > 0 && <span className="chip bg-danger-50 text-danger-700 dark:bg-danger-500/15 dark:text-danger-300">{ICON.timeTrouble} {r.totals.timeTrouble} in time trouble</span>}
         </div>
       )}
       {r.top && (

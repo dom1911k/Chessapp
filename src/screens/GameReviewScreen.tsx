@@ -28,7 +28,7 @@ import { useNav } from '../lib/nav';
 import { loadAnyGame } from '../lib/games';
 import { cornerPos, kingBadges, kingSquares } from '../lib/chess/kingBadges';
 import { opponentById } from '../lib/people';
-import { formatDate } from '../lib/store/finish';
+import { shortDate } from '../lib/store/finish';
 import { db } from '../lib/db';
 import { getGameRating } from '../lib/rewards/rating';
 import { formatLine, lineToSan, tryMove, type MoveInput } from '../lib/chess/game';
@@ -87,7 +87,7 @@ function PlayerChip({ g, me }: { g: AnyGame; me: boolean }) {
       ) : o ? (
         <Portrait id={o.id} size={44} />
       ) : (
-        <span className="flex h-11 w-11 items-center justify-center rounded-md bg-[#769656] text-lg font-black text-white">{oppName(g)[0]?.toUpperCase()}</span>
+        <span className="flex h-11 w-11 items-center justify-center rounded-md bg-chesscom text-lg font-black text-white">{oppName(g)[0]?.toUpperCase()}</span>
       )}
       <span className="max-w-full truncate text-xs font-semibold">{me ? 'You' : oppName(g)}</span>
     </span>
@@ -127,7 +127,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
   );
   return (
     <div className="flex h-full flex-col">
-      <Header title="Game Review" back subtitle={`vs ${oppName(g)} · ${formatDate(g.endedAt)}`} />
+      <Header title="Game Review" back subtitle={`vs ${oppName(g)} · ${shortDate(g.endedAt)}`} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-5 overflow-y-auto p-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
         {/* Hero: result, players and accuracy, and Coach Sam's take */}
         <div className="card overflow-hidden !p-0">
@@ -135,7 +135,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
             <span className={`chip !px-3 !py-1 text-[13px] ${resultTone}`}>{resultText}</span>
             <span className="text-[13px] text-stone-500">by {g.reason}</span>
             {g.source === 'chess.com' && <ChessComBadge />}
-            {g.match && <span className="chip bg-brand-100 text-[10px] text-brand-700 dark:bg-brand-500/20 dark:text-brand-100">Match</span>}
+            {g.match && <span className="chip bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-100">Match</span>}
           </div>
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pt-3 pb-4">
             <div className="flex flex-col items-center gap-2">
@@ -186,7 +186,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
                     </div>
                     <div className="mt-1.5 flex items-center gap-1 text-[13px] font-semibold">
                       <ReviewIcon cls={r.plies[m.ply].cls} size={15} /> {moveNo(g.plies, m.ply)} {q.san}
-                      <span className="ml-auto text-[10px] font-normal text-stone-500">{q.isUser ? 'you' : 'them'}</span>
+                      <span className="ml-auto text-xs font-normal text-stone-500">{q.isUser ? 'you' : 'them'}</span>
                     </div>
                     <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-stone-600 dark:text-stone-300">{line}</div>
                   </button>
@@ -210,7 +210,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
           </button>
         )}
         {trap && (
-          <div className="card flex items-center gap-3 !p-3.5 ring-2 !ring-red-400/60">
+          <div className="card flex items-center gap-3 !p-3.5 ring-2 !ring-danger-500/60">
             <span className="flex-1 text-sm">
               <b>Lost to a known trap: {trapById(trap)!.name}.</b> It's in your daily reviews now.
             </span>
@@ -245,7 +245,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
                   <span className="text-[11px] font-semibold tracking-wide text-stone-500 capitalize">{ph}</span>
                   <span className="flex items-center gap-2">
                     {r.me.phases[ph] ? <ReviewIcon cls={r.me.phases[ph]!.cls} size={22} /> : <span className="w-[22px] text-center text-stone-300">–</span>}
-                    <span className="text-[10px] text-stone-500">vs</span>
+                    <span className="text-xs text-stone-500">vs</span>
                     {r.them.phases[ph] ? <ReviewIcon cls={r.them.phases[ph]!.cls} size={18} className="opacity-70" /> : <span className="w-[18px] text-center text-stone-300">–</span>}
                   </span>
                 </div>
@@ -295,7 +295,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
                     </span>
                     <span className="mt-0.5 block text-[13px] text-stone-600 dark:text-stone-300">
                       {m.text}
-                      {m.secs !== undefined && <span className={`whitespace-nowrap ${m.fast || m.timeTrouble ? 'font-semibold text-amber-700 dark:text-amber-400' : 'text-stone-500'}`}> · {m.secs < 10 ? m.secs.toFixed(1) : Math.round(m.secs)} s{m.timeTrouble ? ', time trouble' : m.fast ? ', fast' : ''}</span>}
+                      {m.secs !== undefined && <span className={`whitespace-nowrap ${m.fast || m.timeTrouble ? 'font-semibold text-warn-700 dark:text-warn-500' : 'text-stone-500'}`}> · {m.secs < 10 ? m.secs.toFixed(1) : Math.round(m.secs)} s{m.timeTrouble ? ', time trouble' : m.fast ? ', fast' : ''}</span>}
                     </span>
                   </Row>
                 ))}
@@ -308,7 +308,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
           <Sec title="Missed chances" fold preview={`${missed.length} chance${missed.length === 1 ? '' : 's'} to punish them`}>
             <div className="card divide-y divide-stone-100 !p-0 dark:divide-white/[0.05]">
               {missed.map((m) => (
-                <Row key={m.ply} onClick={() => onStart(m.ply)} icon={<span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-black text-white">!</span>}>
+                <Row key={m.ply} onClick={() => onStart(m.ply)} icon={<span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-[11px] font-black text-white">!</span>}>
                   <b>{moveNo(g.plies, m.ply)} {m.bestSan}</b> would have {m.what.startsWith('mate') ? `forced ${m.what}` : m.what.replace(/^win/, 'won')}
                   <span className="text-stone-500"> — you played {m.played}</span>
                 </Row>
@@ -321,7 +321,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
 
         {lesson && !pending(g) && (
           <div className="card flex items-center gap-3 !p-3.5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"><Lightbulb size={20} /></span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-warn-100 text-warn-700 dark:bg-warn-500/15 dark:text-warn-500"><Lightbulb size={20} /></span>
             <span className="flex-1 text-sm">
               <span className="block font-semibold">Practise: {THEMES[lesson].label}</span>
               <span className="block text-xs text-stone-500">{g.summary.pattern ? `It came up in ${g.summary.pattern.count} of your last ${g.summary.pattern.of} games.` : '2 minutes on what tripped you up.'}</span>
@@ -534,7 +534,8 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
   const endBadges = p && i === g.plies.length - 1 && fen === p.fenAfter && !retry && !frame ? kingBadges(g.result, g.reason) : null;
   return (
     <div className="flex h-full flex-col">
-      <Header title="Game Review" back subtitle={`vs ${oppName(g)} · ${formatDate(g.endedAt)}`} right={
+      {/* No date here: with three header buttons it would truncate (the summary shows it). */}
+      <Header title="Game Review" back subtitle={`vs ${oppName(g)}`} right={
         <span className="flex items-center gap-1">
           <button aria-label="Analyse this position" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300 dark:active:bg-stone-800" onClick={() => push({ name: 'explore', fen: p ? p.fenAfter : g.startFen, orientation, title: 'Analysis' })}><Microscope size={19} /></button>
           <button aria-label="Flip board" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300 dark:active:bg-stone-800" onClick={() => setFlipped((f) => !f)}><FlipVertical2 size={19} /></button>
@@ -715,13 +716,13 @@ function CoachText({ g, r, i, best, retry, cause, threat, onSeenThreat }: { g: A
   const nextR = r.plies[i + 1];
   if (retry) {
     const msg = { try: 'Your move — find something better than ' + p.san + '.', checking: 'Checking…', right: `Yes! ${c?.bestSan} is the best move.`, ok: 'That works too — a good alternative.', wrong: 'Not quite. Tap Retry to try again, or Best to see it.' }[retry.state];
-    return <p className={`font-semibold ${retry.state === 'right' || retry.state === 'ok' ? 'text-emerald-700 dark:text-emerald-400' : retry.state === 'wrong' ? 'text-red-600' : ''}`}>{msg}</p>;
+    return <p className={`font-semibold ${retry.state === 'right' || retry.state === 'ok' ? 'text-brand-700 dark:text-brand-500' : retry.state === 'wrong' ? 'text-danger-700' : ''}`}>{msg}</p>;
   }
   // Their threat first (you missed it), then your move.
   if (threat) {
     return (
       <>
-        <p className="flex items-center gap-1.5 font-semibold text-red-600 dark:text-red-400"><TriangleAlert size={16} /> First, their threat</p>
+        <p className="flex items-center gap-1.5 font-semibold text-danger-700 dark:text-danger-300"><TriangleAlert size={16} /> First, their threat</p>
         <p className="mt-1">{threat.text} Can you see it on the board?</p>
         <button className="btn-primary mt-2 !px-3 !py-1.5 text-sm" onClick={onSeenThreat} data-testid="show-my-move">Then you played {p.san} →</button>
       </>
@@ -760,11 +761,11 @@ function CoachText({ g, r, i, best, retry, cause, threat, onSeenThreat }: { g: A
         {cause && (
           <p className="mt-1 flex flex-wrap items-center gap-1 text-[12.5px] text-stone-600 dark:text-stone-300">
             <span className="chip bg-stone-100 !px-2 !text-[11px] dark:bg-white/[0.06]"><CauseIcon c={cause.cause} /> {CAUSE_INFO[cause.cause].label}</span>
-            {cause.secs !== undefined && <span className={cause.fast || cause.timeTrouble ? 'font-semibold text-amber-700 dark:text-amber-400' : ''}>{cause.secs < 10 ? cause.secs.toFixed(1) : Math.round(cause.secs)} s{cause.timeTrouble ? ' · time trouble' : cause.fast ? ' · played fast' : ''}</span>}
+            {cause.secs !== undefined && <span className={cause.fast || cause.timeTrouble ? 'font-semibold text-warn-700 dark:text-warn-500' : ''}>{cause.secs < 10 ? cause.secs.toFixed(1) : Math.round(cause.secs)} s{cause.timeTrouble ? ' · time trouble' : cause.fast ? ' · played fast' : ''}</span>}
           </p>
         )}
         {why && <p className="mt-1" data-testid="why"><span className="font-semibold">Why: </span>{why}</p>}
-        {showNice && <p className="mt-1 text-emerald-700 dark:text-emerald-400" data-testid="nice"><span className="font-semibold">Why it works: </span>{nice}</p>}
+        {showNice && <p className="mt-1 text-brand-700 dark:text-brand-500" data-testid="nice"><span className="font-semibold">Why it works: </span>{nice}</p>}
         {rp.cls === 'book' ? (
           <p className="mt-1">{g.opening ? `A known move in the ${g.opening}.` : 'A known opening move.'}</p>
         ) : (
@@ -773,7 +774,7 @@ function CoachText({ g, r, i, best, retry, cause, threat, onSeenThreat }: { g: A
         {isBad(rp.cls) && (
           <div className="mt-1.5 space-y-0.5 text-[13px]">
             {reply && rp.cls !== 'inaccuracy' && <p><span className="text-stone-500">What it allows:</span> <b>{reply}</b></p>}
-            {c?.bestSan && (best || !bestNamed) && <p><span className="text-stone-500">{best ? 'Best line:' : 'Best was:'}</span> <b className="text-emerald-700 dark:text-emerald-400">{best && bestLine ? bestLine : c.bestSan}</b></p>}
+            {c?.bestSan && (best || !bestNamed) && <p><span className="text-stone-500">{best ? 'Best line:' : 'Best was:'}</span> <b className="text-brand-700 dark:text-brand-500">{best && bestLine ? bestLine : c.bestSan}</b></p>}
           </div>
         )}
       </>
@@ -787,9 +788,9 @@ function CoachText({ g, r, i, best, retry, cause, threat, onSeenThreat }: { g: A
       {isBad(rp.cls) && punish ? <p className="mt-1">{punish}</p> : <p className="mt-1">Your opponent played {shortWords(p.fenBefore, p.uci).toLowerCase()}.</p>}
       {isBad(rp.cls) && next && nextR && (() => {
         const x = punishInfo(g.plies, i);
-        if (x && next.uci === x.uci) return <p className="mt-1 text-emerald-700 dark:text-emerald-400">You found it.</p>;
+        if (x && next.uci === x.uci) return <p className="mt-1 text-brand-700 dark:text-brand-500">You found it.</p>;
         if (!isBad(nextR.cls) && nextR.cls !== 'good') return <p className="mt-1">You found a good answer: <b>{next.san}</b>.</p>;
-        return <p className="mt-1">{!punish && next.comment?.bestSan ? <><b className="text-emerald-700 dark:text-emerald-400">{next.comment.bestSan}</b> would have punished it. </> : null}You played {next.san} instead.</p>;
+        return <p className="mt-1">{!punish && next.comment?.bestSan ? <><b className="text-brand-700 dark:text-brand-500">{next.comment.bestSan}</b> would have punished it. </> : null}You played {next.san} instead.</p>;
       })()}
       {!isBad(rp.cls) && next?.isUser && nextR && isBad(nextR.cls) && <p className="mt-1 text-stone-500">Careful on the next move — check what this one threatens.</p>}
     </>

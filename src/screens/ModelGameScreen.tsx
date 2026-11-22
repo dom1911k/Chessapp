@@ -147,7 +147,7 @@ export function ModelGameScreen({ gameId }: { gameId: string }) {
               label={n > 0 ? label(n, plies[n - 1].san) : g.theme}
             >
               {n > 0 && g.guess.includes(n) && (
-                <p className={`mb-1 text-xs font-bold tracking-wide uppercase ${answered[n] ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-500'}`}>{answered[n] ? 'You found it' : 'The game move'}</p>
+                <p className={`mb-1 text-xs font-bold tracking-wide uppercase ${answered[n] ? 'text-brand-700 dark:text-brand-500' : 'text-stone-500'}`}>{answered[n] ? 'You found it' : 'The game move'}</p>
               )}
               <p>{note ? <Rich text={note.replace(/^\S+\s/, '')} /> : n === 0 ? 'The starting position. Step through with the arrows.' : n % 2 === (g.hero === 'w' ? 1 : 0) ? `${heroName} plays ${plies[n - 1].san}.` : `The reply: ${plies[n - 1].san}.`}</p>
             </CoachBubble>

@@ -110,13 +110,13 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
             <div className="flex items-center gap-3 pr-2 text-sm font-bold">
               <span className="flex gap-1" aria-label={`${misses} of ${STRIKES} mistakes`}>
                 {Array.from({ length: STRIKES }, (_, k) => (
-                  <span key={k + (k < misses ? 'x' : 'o')} className={`h-3 w-3 rounded-full ${k < misses ? 'animate-count-pop bg-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.25)]' : 'bg-stone-300 dark:bg-stone-700'}`} />
+                  <span key={k + (k < misses ? 'x' : 'o')} className={`h-3 w-3 rounded-full ${k < misses ? 'animate-count-pop bg-danger-500 shadow-[0_0_0_2px_rgba(239,68,68,0.25)]' : 'bg-stone-300 dark:bg-stone-700'}`} />
                 ))}
               </span>
-              {mode !== 'survival' && <span className={`tabular-nums ${left <= 10 ? 'animate-urgent text-red-600' : left <= 20 ? 'text-red-600' : ''}`}>{mm}:{ss}</span>}
+              {mode !== 'survival' && <span className={`tabular-nums ${left <= 10 ? 'animate-urgent text-danger-700' : left <= 20 ? 'text-danger-700' : ''}`}>{mm}:{ss}</span>}
               <span className="relative">
                 <span key={score} className="animate-count-pop font-display inline-block min-w-[1.6ch] text-center text-xl text-brand-700 tabular-nums dark:text-brand-500">{score}</span>
-                {plus > 0 && <span key={plus} className="animate-float-up pointer-events-none absolute -top-4 -right-3 text-[11px] font-black text-emerald-500">+1</span>}
+                {plus > 0 && <span key={plus} className="animate-float-up pointer-events-none absolute -top-4 -right-3 text-[11px] font-black text-brand-700">+1</span>}
               </span>
             </div>
           ) : null
@@ -126,7 +126,7 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
         <div className="mx-auto w-full max-w-xl px-3 pb-1.5 land:max-w-6xl">
           <div className={`h-1.5 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10 ${left <= 10 ? 'animate-urgent' : ''}`}>
             <div
-              className={`h-full origin-left rounded-full transition-[transform,background-color] duration-1000 ease-linear ${left <= 10 ? 'bg-red-500' : left <= 30 ? 'bg-amber-500' : 'bg-brand-500'}`}
+              className={`h-full origin-left rounded-full transition-[transform,background-color] duration-1000 ease-linear ${left <= 10 ? 'bg-danger-500' : left <= 30 ? 'bg-warn-500' : 'bg-brand-500'}`}
               style={{ transform: `scaleX(${Math.max(0, left) / DURATION[mode]})` }}
             />
           </div>
@@ -137,7 +137,7 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
           <div className="space-y-4 p-4">
             <Segmented value={mode} onChange={setMode} options={(['3', '5', 'survival'] as RushMode[]).map((m) => ({ value: m, label: RUSH_LABEL[m] }))} />
             <div className="card flex flex-col items-center gap-1 !p-6 text-center">
-              <span className={`flex h-14 w-14 items-center justify-center rounded-[10px] ${mode === 'survival' ? 'bg-sky-500/15 text-sky-500' : 'bg-amber-500/15 text-amber-500'}`}>{mode === 'survival' ? <Shield size={30} strokeWidth={2.2} /> : <Zap size={30} strokeWidth={2.2} className="fill-current" />}</span>
+              <span className={`flex h-14 w-14 items-center justify-center rounded-[10px] ${mode === 'survival' ? 'bg-hue-sky-500/15 text-hue-sky-500' : 'bg-hue-amber-500/15 text-hue-amber-500'}`}>{mode === 'survival' ? <Shield size={30} strokeWidth={2.2} /> : <Zap size={30} strokeWidth={2.2} className="fill-current" />}</span>
               <span className="font-display text-2xl font-semibold">Puzzle Rush · {RUSH_LABEL[mode]}</span>
               <span className="text-sm text-stone-500">{mode === 'survival' ? 'No clock. Puzzles get harder and harder — three mistakes and you are out.' : `Solve as many as you can in ${mode} minutes. They start easy and get harder. Three mistakes end the run.`}</span>
               <span className="mt-2 text-sm">Your best: <b className="text-lg">{best}</b></span>
@@ -174,7 +174,7 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
                   <span>Best {prevBest}</span>
                   {newBest && <span className="animate-reveal flex items-center gap-1 font-bold text-gold-500" style={{ animationDelay: '1100ms' }}><Trophy size={13} /> New best!</span>}
                 </div>
-                <FillBar from={0} to={Math.min(1, score / Math.max(1, prevBest, score))} delay={200} ms={1100} className="h-2.5" fill={newBest ? 'bg-gradient-to-r from-amber-300 to-gold-500' : 'bg-gradient-to-r from-lime-400 to-emerald-500'} />
+                <FillBar from={0} to={Math.min(1, score / Math.max(1, prevBest, score))} delay={200} ms={1100} className="h-2.5" fill={newBest ? 'bg-gradient-to-r from-hue-amber-300 to-gold-500' : 'bg-gradient-to-r from-hue-lime-400 to-brand-500'} />
               </div>
             </div>
             <CoachBubble actions={<button className="btn-primary" onClick={() => void start()}>Try again</button>}>

@@ -30,10 +30,10 @@ export function BoardFlash({ flash, orientation }: { flash: { id: number; kind: 
     return (
       <div key={shown.id} className="pointer-events-none absolute inset-0 z-20">
         <span className="animate-flash-ring absolute h-[12.5%] w-[12.5%] -translate-x-1/2 -translate-y-1/2 rounded-md" style={{ ...at, boxShadow: '0 0 0 3px rgba(132,204,22,0.9), 0 0 22px 6px rgba(163,230,53,0.55)' }} />
-        <span className="animate-flash-mark absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-b from-lime-400 to-emerald-600 text-sm text-white shadow-lg ring-2 ring-white" style={{ left: `calc(${at.left} + 5.2%)`, top: `calc(${at.top} - 5.2%)` }}>
+        <span className="animate-flash-mark absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-b from-hue-lime-400 to-brand-600 text-sm text-white shadow-lg ring-2 ring-white" style={{ left: `calc(${at.left} + 5.2%)`, top: `calc(${at.top} - 5.2%)` }}>
           ★
         </span>
-        <span className="animate-flash-chip absolute -translate-x-1/2 rounded-full bg-white px-2.5 py-0.5 text-xs font-extrabold whitespace-nowrap text-emerald-700 shadow-md ring-1 ring-black/5" style={{ ...at, top: `calc(${at.top} - ${parseFloat(String(at.top)) < 14 ? '-9' : '18'}%)` }}>
+        <span className="animate-flash-chip absolute -translate-x-1/2 rounded-full bg-white px-2.5 py-0.5 text-xs font-extrabold whitespace-nowrap text-brand-700 shadow-md ring-1 ring-black/5" style={{ ...at, top: `calc(${at.top} - ${parseFloat(String(at.top)) < 14 ? '-9' : '18'}%)` }}>
           Best move
         </span>
       </div>
@@ -43,7 +43,7 @@ export function BoardFlash({ flash, orientation }: { flash: { id: number; kind: 
     return (
       <div key={shown.id} className="pointer-events-none absolute inset-0 z-20">
         <span
-          className="animate-flash-chip absolute -translate-x-1/2 rounded-full bg-gradient-to-b from-orange-400 to-orange-600 px-3 py-1 text-sm font-extrabold whitespace-nowrap text-white shadow-lg ring-2 ring-white"
+          className="animate-flash-chip absolute -translate-x-1/2 rounded-full bg-gradient-to-b from-hue-orange-400 to-hue-orange-600 px-3 py-1 text-sm font-extrabold whitespace-nowrap text-white shadow-lg ring-2 ring-white"
           style={{ ...at, top: `calc(${at.top} - 9%)` }}
         >
           {TACTIC_LABEL[shown.kind as TacticKey].one}!

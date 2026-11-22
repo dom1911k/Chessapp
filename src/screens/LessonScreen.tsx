@@ -175,7 +175,7 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
       <Header title={mode === 'review' ? `Refresh: ${lesson.title}` : lesson.title} back />
       <div className="mx-auto mb-1 flex w-full max-w-xl gap-1 px-3 land:max-w-6xl">
         {steps.map((_, k) => (
-          <div key={k} className={`h-1.5 flex-1 rounded-full transition-colors ${k < i || (k === i && state === 'done') ? (missed.has(k) && mode === 'placement' ? 'bg-red-400' : 'bg-brand-500') : k === i ? 'bg-stone-400' : 'bg-stone-200 dark:bg-stone-800'}`} />
+          <div key={k} className={`h-1.5 flex-1 rounded-full transition-colors ${k < i || (k === i && state === 'done') ? (missed.has(k) && mode === 'placement' ? 'bg-danger-500' : 'bg-brand-500') : k === i ? 'bg-stone-400' : 'bg-stone-200 dark:bg-stone-800'}`} />
         ))}
       </div>
       <div className="board-split mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4 land:max-w-6xl">
@@ -209,13 +209,13 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
                         onClick={() => pick(k)}
                         className={`flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left text-[14.5px] ring-1 transition active:scale-[0.98] ${
                           right
-                            ? 'bg-emerald-50 font-semibold text-emerald-900 ring-emerald-400 dark:bg-emerald-500/15 dark:text-emerald-200'
+                            ? 'bg-brand-50 font-semibold text-brand-800 ring-brand-500 dark:bg-brand-500/15 dark:text-brand-100'
                             : wrong
-                              ? 'bg-red-50 text-red-900 ring-red-300 dark:bg-red-500/15 dark:text-red-200'
+                              ? 'bg-danger-50 text-danger-800 ring-danger-300 dark:bg-danger-500/15 dark:text-danger-100'
                               : 'bg-stone-50 ring-stone-200 dark:bg-white/[0.04] dark:ring-white/10'
                         } ${state !== 'todo' && !right && !wrong ? 'opacity-55' : ''}`}
                       >
-                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${right ? 'bg-emerald-500 text-white' : wrong ? 'bg-red-600 text-white' : 'bg-white text-stone-500 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600'}`}>
+                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${right ? 'bg-brand-500 text-white' : wrong ? 'bg-danger-700 text-white' : 'bg-white text-stone-500 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600'}`}>
                           {right ? <Check size={14} strokeWidth={3.5} /> : wrong ? <X size={14} strokeWidth={3.5} /> : String.fromCharCode(65 + k)}
                         </span>
                         <span className="flex-1">{o}</span>
@@ -235,7 +235,7 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
             ) : (
               <>
                 <p><Rich text={step.text} /></p>
-                {hinted && step.hint && <p className="mt-1.5 text-sm text-amber-700 dark:text-amber-400"><Lightbulb size={13} className="mr-1 inline -translate-y-px" />{step.hint}</p>}
+                {hinted && step.hint && <p className="mt-1.5 text-sm text-warn-700 dark:text-warn-500"><Lightbulb size={13} className="mr-1 inline -translate-y-px" />{step.hint}</p>}
               </>
             )}
           </CoachBubble>

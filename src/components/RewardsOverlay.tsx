@@ -164,7 +164,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               <span className={`relative rounded-md ${ring(theyWon)}`}>
                 {theyWon && crown}
                 {r.firstWin && o && (
-                  <span className="animate-vs-stamp absolute -top-2 -right-3 z-10 -rotate-12 rounded-md border-2 border-red-600 bg-white/90 px-1.5 text-[11px] font-black tracking-wider text-red-600 uppercase shadow dark:bg-stone-900/90" style={{ animationDelay: '350ms' }}>
+                  <span className="animate-vs-stamp absolute -top-2 -right-3 z-10 -rotate-12 rounded-md border-2 border-danger-700 bg-white/90 px-1.5 text-[11px] font-black tracking-wider text-danger-700 uppercase shadow dark:bg-stone-900/90" style={{ animationDelay: '350ms' }}>
                     Beaten
                   </span>
                 )}
@@ -188,7 +188,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               label={
                 <span className="flex items-center gap-1">
                   Rating
-                  <span className={`font-bold tabular-nums ${delta > 0 ? 'text-brand-700 dark:text-brand-500' : delta < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
+                  <span className={`font-bold tabular-nums ${delta > 0 ? 'text-brand-700 dark:text-brand-500' : delta < 0 ? 'text-danger-700 dark:text-danger-300' : ''}`}>
                     {delta > 0 ? '+' : delta < 0 ? '−' : '±'}
                     {Math.abs(delta)}
                   </span>
@@ -216,23 +216,23 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
             {o && r.rivalry && (
               <div className={`transition-opacity duration-300 ${step >= S.stars ? 'opacity-100' : 'opacity-0'}`}>
                 <RewardRow
-                  icon={<span className="flex h-8 w-8 flex-col items-center justify-center rounded-md bg-rose-600 text-white"><span className="text-[8px] leading-none font-bold uppercase">Lv</span><span className="text-[13px] leading-none font-extrabold tabular-nums">{rivalNow}</span></span>}
+                  icon={<span className="flex h-8 w-8 flex-col items-center justify-center rounded-md bg-hue-rose-600 text-white"><span className="text-[11px] leading-none font-bold uppercase">Lv</span><span className="text-[13px] leading-none font-extrabold tabular-nums">{rivalNow}</span></span>}
                   title={<>Rivalry with {o.name} · {rivalryRank(rivalNow)}</>}
-                  bar={<FillBar className="mt-1 h-1.5" fill="bg-rose-500" from={rivalryLevel(r.rivalry.pointsBefore).pos} to={rivalryLevel(r.rivalry.pointsAfter).pos} run={step >= S.stars} instant={skipped} delay={500} onWrap={(l) => setRivalNow(l)} />}
-                  right={r.rivalry.levelAfter > r.rivalry.levelBefore && rivalNow >= r.rivalry.levelAfter ? <span className="animate-count-pop chip shrink-0 bg-rose-600 text-white">Level up · +{r.rivalry.xp} XP</span> : <span className="shrink-0 text-xs font-bold text-rose-600 tabular-nums dark:text-rose-400">+{r.rivalry.gained}</span>}
+                  bar={<FillBar className="mt-1 h-1.5" fill="bg-hue-rose-500" from={rivalryLevel(r.rivalry.pointsBefore).pos} to={rivalryLevel(r.rivalry.pointsAfter).pos} run={step >= S.stars} instant={skipped} delay={500} onWrap={(l) => setRivalNow(l)} />}
+                  right={r.rivalry.levelAfter > r.rivalry.levelBefore && rivalNow >= r.rivalry.levelAfter ? <span className="animate-count-pop chip shrink-0 bg-hue-rose-600 text-white">Level up · +{r.rivalry.xp} XP</span> : <span className="shrink-0 text-xs font-bold text-hue-rose-600 tabular-nums dark:text-hue-rose-400">+{r.rivalry.gained}</span>}
                 />
               </div>
             )}
             {o && r.rivalry?.newBadges.map((id) => (
               <Reveal key={id} show={step >= S.stars} delay={700}>
-                <RewardRow icon={<span className="flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white"><Check size={16} strokeWidth={3} /></span>} title={BADGES.find((b) => b.id === id)?.label ?? 'Badge'} sub={`Rivalry badge with ${o.name}`} right={NEW} />
+                <RewardRow icon={<span className="flex h-8 w-8 items-center justify-center rounded-md bg-hue-rose-600 text-white"><Check size={16} strokeWidth={3} /></span>} title={BADGES.find((b) => b.id === id)?.label ?? 'Badge'} sub={`Rivalry badge with ${o.name}`} right={NEW} />
               </Reveal>
             ))}
             <div className={`transition-opacity duration-300 ${step >= S.rating ? 'opacity-100' : 'opacity-0'}`}>
               <RewardRow
                 icon={<Medallion name="map" tint="blue" size={32} />}
                 title={milestoneHit && reached ? <>{reached.title} reached!</> : ja.next ? <>Next: {ja.next.title} at {ja.next.rating}</> : 'Top of the journey!'}
-                bar={<FillBar from={jb.pos} to={ja.pos} run={step >= S.rating} instant={skipped} delay={150} className="mt-1 h-1.5" fill="bg-sky-500" onWrap={() => (setMilestoneHit(true), playSound('reward'))} />}
+                bar={<FillBar from={jb.pos} to={ja.pos} run={step >= S.rating} instant={skipped} delay={150} className="mt-1 h-1.5" fill="bg-hue-sky-500" onWrap={() => (setMilestoneHit(true), playSound('reward'))} />}
                 right={milestoneHit ? NEW : undefined}
                 shine={!won && milestoneHit}
               />
@@ -264,7 +264,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
             {streak >= 2 && (
               <div className={`transition-opacity duration-300 ${step >= S.streak ? 'opacity-100' : 'opacity-0'}`}>
                 <RewardRow
-                  icon={<span className={step >= S.streak ? 'animate-flame-pop' : ''}><Flame size={26} className={streak >= 5 ? 'fill-rose-400 text-rose-500' : 'fill-orange-400 text-orange-500'} /></span>}
+                  icon={<span className={step >= S.streak ? 'animate-flame-pop' : ''}><Flame size={26} className={streak >= 5 ? 'fill-hue-rose-400 text-hue-rose-500' : 'fill-hue-orange-400 text-hue-orange-500'} /></span>}
                   title={`${streak} wins in a row`}
                   sub={r.newBestStreak ? 'Your best streak ever!' : `Best: ${r.bestWinStreak ?? streak}`}
                   right={r.newBestStreak ? <span className="chip shrink-0 bg-[#f7c045] text-[#3a2a00]">New best</span> : undefined}

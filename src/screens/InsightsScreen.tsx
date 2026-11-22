@@ -38,7 +38,7 @@ export function InsightsScreen() {
             <Section title="Accuracy by phase" note={r.weakestPhase ? `Your ${r.weakestPhase} is the weak spot — that's where training pays off most.` : undefined}>
               <div className="grid grid-cols-3 gap-2">
                 {r.phases.map((p) => (
-                  <div key={p.phase} className={`rounded-[10px] p-2.5 text-center ${p.phase === r.weakestPhase ? 'bg-red-50 ring-1 ring-red-300 dark:bg-red-950/40 dark:ring-red-800' : 'bg-stone-100 dark:bg-stone-800'}`}>
+                  <div key={p.phase} className={`rounded-[10px] p-2.5 text-center ${p.phase === r.weakestPhase ? 'bg-danger-50 ring-1 ring-danger-300 dark:bg-danger-900/40 dark:ring-danger-800' : 'bg-stone-100 dark:bg-stone-800'}`}>
                     <div className="text-2xl font-black tabular-nums">{p.accuracy ?? '–'}{p.accuracy !== null && <span className="text-sm">%</span>}</div>
                     <div className="text-xs font-semibold">{PHASE_LABEL[p.phase]}</div>
                     <div className="text-[11px] text-stone-500">{p.moves} moves</div>
@@ -97,13 +97,13 @@ function ResultRow({ label, row }: { label: string; row: Row }) {
       <div className="flex items-baseline justify-between text-sm">
         <span className="min-w-0 truncate font-semibold">{label}</span>
         <span className="shrink-0 pl-2 text-xs text-stone-500">
-          {row.score.w}W {row.score.d}D {row.score.l}L · <b className={row.pct >= 55 ? 'text-emerald-600' : row.pct < 45 ? 'text-red-500' : 'text-stone-700 dark:text-stone-200'}>{row.pct}%</b>
+          {row.score.w}W {row.score.d}D {row.score.l}L · <b className={row.pct >= 55 ? 'text-brand-700' : row.pct < 45 ? 'text-danger-700' : 'text-stone-700 dark:text-stone-200'}>{row.pct}%</b>
         </span>
       </div>
       <div className="mt-1 flex h-2 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800">
-        <div className="bg-emerald-500" style={{ width: `${(row.score.w / n) * 100}%` }} />
+        <div className="bg-brand-500" style={{ width: `${(row.score.w / n) * 100}%` }} />
         <div className="bg-stone-400" style={{ width: `${(row.score.d / n) * 100}%` }} />
-        <div className="bg-red-500" style={{ width: `${(row.score.l / n) * 100}%` }} />
+        <div className="bg-danger-500" style={{ width: `${(row.score.l / n) * 100}%` }} />
       </div>
     </div>
   );

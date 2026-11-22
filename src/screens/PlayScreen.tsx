@@ -130,7 +130,7 @@ function SetupView() {
           >
             {opp ? <Portrait id={opp.id} size={84} /> : <span className="flex h-[84px] w-[84px] items-center justify-center rounded-[8px] bg-stone-200 dark:bg-stone-800">{sparring ? <Dumbbell size={36} /> : <Bot size={36} />}</span>}
             <span className="min-w-0 flex-1">
-              <span className="block text-[10px] font-bold tracking-[0.1em] text-stone-500 uppercase dark:text-stone-400">Your opponent</span>
+              <span className="block text-[11px] font-bold tracking-[0.1em] text-stone-500 uppercase dark:text-stone-400">Your opponent</span>
               <span className="block truncate text-[22px] leading-tight font-extrabold tracking-[-0.015em]">{opp ? opp.name : sparring ? 'Sparring partner' : 'Custom bot'}</span>
               <span className="mt-0.5 flex items-center gap-1.5">
                 <span className="rounded-[4px] bg-stone-800 px-1.5 py-px text-xs font-bold text-white tabular-nums">{botElo}</span>
@@ -161,8 +161,8 @@ function SetupView() {
           </button>
           {match && <p className="px-1 text-xs text-stone-500">Like a real chess.com game: clock on, no help until it ends — then the full Game Review.</p>}
           {winRun >= 2 && (
-            <div className="flex items-center gap-2 rounded-[8px] bg-orange-500/10 px-3 py-2 text-sm">
-              <Flame size={18} className={`animate-flame ${winRun >= 5 ? 'fill-rose-400 text-rose-500' : 'fill-orange-400 text-orange-500'}`} />
+            <div className="flex items-center gap-2 rounded-[8px] bg-hue-orange-500/10 px-3 py-2 text-sm">
+              <Flame size={18} className={`animate-flame ${winRun >= 5 ? 'fill-hue-rose-400 text-hue-rose-500' : 'fill-hue-orange-400 text-hue-orange-500'}`} />
               <span className="flex-1"><b>{winRun} wins in a row</b> <span className="text-stone-500">— keep it going!</span></span>
             </div>
           )}
@@ -300,11 +300,11 @@ function HomeLinks() {
   );
   return (
     <div className="card divide-y divide-black/5 overflow-hidden !p-0 dark:divide-white/[0.06]">
-      {row(<Puzzle size={20} />, 'text-orange-500', 'Puzzles', pz === null ? 'Solve and climb' : <>Rating <b className="text-stone-700 tabular-nums dark:text-stone-200">{pz}</b></>, () => push({ name: 'puzzle', mode: { kind: 'rated' } }))}
-      {row(<CalendarCheck size={20} />, 'text-sky-500', 'Daily training', due ? `${due} to review today` : 'Picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-red-600 text-white">{due}</span> : null)}
-      {row(<BookOpen size={20} />, 'text-emerald-500', 'Course', lvl ? <>Level <b className="text-stone-700 tabular-nums dark:text-stone-200">{lvl.level}</b> · {lvl.stepsDone}/{lvl.steps} done</> : 'Learn step by step', () => setTab('learn'))}
-      {row(<History size={20} />, 'text-violet-500', 'Past games', 'Reviews of your games', () => push({ name: 'history' }))}
-      {cupsOn && row(<Trophy size={20} />, 'text-amber-500', 'Cups', cupLine ?? 'Knockout tournaments in the Cups tab', () => setTab('run'))}
+      {row(<Puzzle size={20} />, 'text-hue-orange-500', 'Puzzles', pz === null ? 'Solve and climb' : <>Rating <b className="text-stone-700 tabular-nums dark:text-stone-200">{pz}</b></>, () => push({ name: 'puzzle', mode: { kind: 'rated' } }))}
+      {row(<CalendarCheck size={20} />, 'text-hue-sky-500', 'Daily training', due ? `${due} to review today` : 'Picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-danger-700 text-white">{due}</span> : null)}
+      {row(<BookOpen size={20} />, 'text-brand-700', 'Course', lvl ? <>Level <b className="text-stone-700 tabular-nums dark:text-stone-200">{lvl.level}</b> · {lvl.stepsDone}/{lvl.steps} done</> : 'Learn step by step', () => setTab('learn'))}
+      {row(<History size={20} />, 'text-hue-violet-500', 'Past games', 'Reviews of your games', () => push({ name: 'history' }))}
+      {cupsOn && row(<Trophy size={20} />, 'text-hue-amber-500', 'Cups', cupLine ?? 'Knockout tournaments in the Cups tab', () => setTab('run'))}
     </div>
   );
 }
@@ -1013,7 +1013,7 @@ export function TimeControlPicker({ value, options, onChange, mine }: { value: s
           className={`rounded-xl px-3 py-1.5 text-sm font-semibold ring-1 ${value === tc ? 'bg-brand-700 text-white ring-brand-700' : 'ring-stone-200 dark:ring-stone-700'}`}
         >
           {tc === 'off' ? 'Off' : timeControlLabel(tc)}
-          {mine === tc && <span className={`ml-1 text-[10px] font-normal ${value === tc ? 'text-white/80' : 'text-stone-500'}`}>your usual</span>}
+          {mine === tc && <span className={`ml-1 text-xs font-normal ${value === tc ? 'text-white/80' : 'text-stone-500'}`}>your usual</span>}
         </button>
       ))}
     </div>

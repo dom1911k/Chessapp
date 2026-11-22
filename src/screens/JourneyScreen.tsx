@@ -100,7 +100,7 @@ export function JourneyScreen() {
                 <div>{r.games} rated games</div>
                 {spark && (
                   <svg viewBox="0 0 100 32" className="mt-1 h-8 w-28" preserveAspectRatio="none">
-                    <polyline points={spark} fill="none" stroke="#1f7a4c" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+                    <polyline points={spark} fill="none" stroke="#81b64c" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
                   </svg>
                 )}
               </div>
@@ -152,7 +152,7 @@ export function JourneyScreen() {
             <path d={d} fill="none" stroke="#ffffff" strokeWidth="3" strokeDasharray="2 10" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
             <path d={d} fill="none" stroke="url(#goldline)" strokeWidth="10" strokeLinecap="round" vectorEffect="non-scaling-stroke" clipPath="url(#walked)" />
             <linearGradient id="goldline" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0" stopColor="#1f7a4c" />
+              <stop offset="0" stopColor="#81b64c" />
               <stop offset="1" stopColor="#eab308" />
             </linearGradient>
           </svg>
@@ -172,7 +172,7 @@ export function JourneyScreen() {
                         : 'bg-stone-200 text-stone-500 ring-white dark:bg-stone-800 dark:ring-stone-900'
                   }`}
                 >
-                  {isNext && <span className="absolute inset-0 animate-ping rounded-full ring-4 ring-brand-400/50" />}
+                  {isNext && <span className="absolute inset-0 animate-ping rounded-full ring-4 ring-brand-500/50" />}
                   {i === nodes.length - 1 ? <MapPin size={22} /> : reached ? <Star size={24} className="fill-white" /> : isNext ? <span className="text-sm font-black">{n.rating}</span> : <Lock size={18} />}
                 </div>
                 <div className={`absolute top-1/2 w-36 -translate-y-1/2 ${right ? 'left-[66px]' : 'right-[66px] text-right'}`}>

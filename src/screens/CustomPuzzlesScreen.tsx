@@ -69,11 +69,11 @@ export function CustomPuzzlesScreen() {
                       <span className="block truncate text-xs text-stone-500">{t.description}</span>
                       {s && s.solved > 0 && (
                         <span className="mt-1 block h-1 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
-                          <span className="block h-full origin-left rounded-full bg-gradient-to-r from-amber-300 to-amber-500" style={{ transform: `scaleX(${Math.max(0.03, mastery(s.solved).pos % 1 || (mastery(s.solved).tier >= 4 ? 1 : 0.03))})` }} />
+                          <span className="block h-full origin-left rounded-full bg-gradient-to-r from-hue-amber-300 to-hue-amber-500" style={{ transform: `scaleX(${Math.max(0.03, mastery(s.solved).pos % 1 || (mastery(s.solved).tier >= 4 ? 1 : 0.03))})` }} />
                         </span>
                       )}
                     </span>
-                    {pct !== null && <span className={`text-xs font-bold ${pct >= 70 ? 'text-emerald-600' : pct < 45 ? 'text-red-500' : 'text-stone-500'}`}>{pct}%</span>}
+                    {pct !== null && <span className={`text-xs font-bold ${pct >= 70 ? 'text-brand-700' : pct < 45 ? 'text-danger-700' : 'text-stone-500'}`}>{pct}%</span>}
                     {s && mastery(s.solved).tier > 0 && <TierMedal tier={mastery(s.solved).tier} size={22} />}
                     {counts[t.id] ? <span className="text-xs text-stone-500">{counts[t.id] >= 1000 ? `${(counts[t.id] / 1000).toFixed(1)}k` : counts[t.id]}</span> : null}
                     <ChevronRight size={16} className="text-stone-400" />

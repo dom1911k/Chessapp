@@ -19,3 +19,13 @@ describe('copy read off the data', () => {
     expect(cosmeticTitle(solo)).toBe(solo.name);
   });
 });
+
+describe('short dates', () => {
+  it('drops the year when it is this year', async () => {
+    const { shortDate } = await import('../lib/store/finish');
+    const now = new Date(2026, 10, 22).getTime();
+    expect(shortDate(new Date(2026, 10, 22, 15).getTime(), now)).toBe('22 Nov');
+    expect(shortDate(new Date(2026, 0, 3).getTime(), now)).toBe('3 Jan');
+    expect(shortDate(new Date(2025, 11, 31).getTime(), now)).toBe('31 Dec 2025');
+  });
+});

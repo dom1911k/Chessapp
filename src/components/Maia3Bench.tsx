@@ -36,7 +36,7 @@ export function Maia3Bench() {
         ))}
       </div>
       {busy && <p className="mt-2 text-xs text-stone-500">Running {busy}… {done}/50</p>}
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-xs text-danger-700">{error}</p>}
       {results.length > 0 && (
         <table className="mt-2 w-full text-left text-xs tabular-nums">
           <thead className="text-stone-500">
@@ -44,7 +44,7 @@ export function Maia3Bench() {
           </thead>
           <tbody>
             {results.map((r) => (
-              <tr key={r.label} className={r.avgMs < 300 ? '' : 'text-red-600'}>
+              <tr key={r.label} className={r.avgMs < 300 ? '' : 'text-danger-700'}>
                 <td className="py-0.5">{r.label}</td><td>{r.backend}</td><td className="font-semibold">{ms(r.avgMs)}</td><td>{ms(r.p95Ms)}</td><td>{ms(r.worstMs)}</td><td>{(r.loadMs / 1000).toFixed(1)} s</td>
               </tr>
             ))}

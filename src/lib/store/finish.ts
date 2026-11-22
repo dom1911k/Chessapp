@@ -26,6 +26,14 @@ export function formatDate(t: number): string {
   return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "22 Nov", with the year only when it isn't this year ("22 Nov 2025"): fits a header subtitle. */
+export function shortDate(t: number, now = Date.now()): string {
+  const d = new Date(t);
+  const s = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return d.getFullYear() === new Date(now).getFullYear() ? s : `${s} ${d.getFullYear()}`;
+}
+
 /** Store the finished game, turn its mistakes into review cards, and set the lesson focus. */
 export interface FinishInfo {
   gameId: number;

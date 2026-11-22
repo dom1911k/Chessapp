@@ -84,7 +84,7 @@ export function CareerCard() {
           <div key={k} className={`flex flex-col items-center rounded-xl bg-stone-100 px-1 py-2 text-center dark:bg-stone-800/60 ${c[k] ? '' : 'opacity-50'}`}>
             <Glyph name={TACTIC_LABEL[k].icon} size={16} className="text-brand-700" />
             <span className="text-lg leading-tight font-bold">{c[k] ?? 0}</span>
-            <span className="text-[10px] leading-tight text-stone-500">{TACTIC_LABEL[k].many}</span>
+            <span className="text-xs leading-tight text-stone-500">{TACTIC_LABEL[k].many}</span>
           </div>
         ))}
       </div>

@@ -11,7 +11,7 @@ import type { Hint } from '../lib/coach/hints';
 import { getEngine } from '../lib/engine';
 import { playSound, playStep } from '../lib/sound';
 import { MoveMark, SolveBurst, type SquareMark } from './PuzzleFx';
-import { SolveTags } from './PuzzleProgress';
+import { PuzzleTimer, SolveTags } from './PuzzleProgress';
 import { solvePrompt, solvedPrompt, type SolveTag } from '../lib/puzzles/level';
 import { analysisLimits } from '../lib/engine/speed';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
@@ -251,13 +251,18 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     [state, startFen, spec],
   );
   const done = state === 'solved' || state === 'failed';
+  const fmt = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+  const timer = (
+    <span className={`flex items-center gap-1 text-[13px] font-semibold tabular-nums ${done && lightning ? 'text-hue-sky-600' : 'text-stone-500'}`} data-testid="puzzle-timer">
+      <Timer size={13} /> {fmt(secs)}
+    </span>
+  );
 
   const side = userColor === 'w' ? 'White' : 'Black';
   const [why, setWhy] = useState(false);
   const clean = !failed && hints === 0;
   const solvedSq = state === 'solved' && mark?.ok ? mark.sq : null;
   const tagMs = state === 'solved' ? tags.length * 1050 : 0;
-  const fmt = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
   const orientation = userColor === 'w' ? 'white' : 'black';
 
   const bubble = (() => {
@@ -303,19 +308,19 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
           <CoachBubble
             key={bubble.head}
             mood={bubble.tone === 'bad' ? 'concerned' : bubble.tone === 'neutral' && state !== 'solving' ? 'thinking' : 'happy'}
-            className={`min-h-[72px] !py-2.5 ${bubble.tone === 'good' ? '!ring-2 !ring-emerald-500/50' : bubble.tone === 'bad' ? '!ring-2 !ring-red-400/50' : ''}`}
+            className={`min-h-[72px] !py-2.5 ${bubble.tone === 'good' ? '!ring-2 !ring-brand-500/50' : bubble.tone === 'bad' ? '!ring-2 !ring-danger-500/50' : ''}`}
           >
             <p className="flex items-center gap-2 font-semibold">
               {bubble.tone === 'good' ? (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={13} strokeWidth={3.5} /></span>
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white"><Check size={13} strokeWidth={3.5} /></span>
               ) : bubble.tone === 'bad' ? (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white"><X size={13} strokeWidth={3.5} /></span>
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-danger-700 text-white"><X size={13} strokeWidth={3.5} /></span>
               ) : state === 'checking' ? (
                 <Spinner className="!h-4 !w-4" />
               ) : (
                 <span className={`h-4 w-4 rounded-[4px] ring-1 ${userColor === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-500'}`} />
               )}
-              <span className={bubble.tone === 'good' ? 'text-emerald-700' : bubble.tone === 'bad' ? 'text-red-600' : ''}>{bubble.head}</span>
+              <span className={bubble.tone === 'good' ? 'text-brand-700' : bubble.tone === 'bad' ? 'text-danger-700' : ''}>{bubble.head}</span>
               {hint && state === 'solving' && <span className="ml-auto text-xs font-semibold text-[#946a00]">Hint {hint.level}/3</span>}
             </p>
             <p className="text-[14.5px] leading-snug text-stone-700">{bubble.text}</p>
@@ -328,13 +333,8 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
             {footer}
           </CoachBubble>
 
-          {/* Rating, bar and level */}
-          {progress}
-
-          {/* Timer */}
-          <div className={`flex items-center gap-1 pl-1 text-sm font-semibold tabular-nums ${done && lightning ? 'text-sky-600' : 'text-stone-500'}`}>
-            <Timer size={15} /> {fmt(secs)}
-          </div>
+          {/* Rating, bar and level, with the timer in the card's corner (on its own row without a card). */}
+          {progress ? <PuzzleTimer.Provider value={timer}>{progress}</PuzzleTimer.Provider> : <div className="pl-1">{timer}</div>}
           <div className="flex flex-wrap justify-end gap-1">
             {spec.label && <span className="chip bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300">{spec.label}</span>}
             {done && spec.rating ? <span className="chip bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300">Puzzle {spec.rating}</span> : null}

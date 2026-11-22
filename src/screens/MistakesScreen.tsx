@@ -77,7 +77,7 @@ const mostPhase = (p: Record<Phase, number>) => PHASE_LABEL[PHASES.reduce((a, b)
 /** Where your mistakes happen: opening / middlegame / endgame. */
 function PhaseBar({ phases }: { phases: Record<Phase, number> }) {
   const total = Math.max(1, PHASES.reduce((a, p) => a + phases[p], 0));
-  const color: Record<Phase, string> = { opening: 'bg-sky-500', middlegame: 'bg-amber-500', endgame: 'bg-violet-500' };
+  const color: Record<Phase, string> = { opening: 'bg-hue-sky-500', middlegame: 'bg-hue-amber-500', endgame: 'bg-hue-violet-500' };
   return (
     <div className="card space-y-1.5 !p-3">
       <div className="section-title">When they happen</div>
@@ -107,11 +107,11 @@ function ThemeRow({ t, total, max, open, onToggle }: { t: MistakeTheme; total: n
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5 font-semibold">
             {info.label}
-            {tw === 'better' && <span className="chip bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"><TrendingDown size={11} className="mr-0.5 inline" />getting rarer</span>}
-            {tw === 'worse' && <span className="chip bg-red-100 text-[10px] text-red-700 dark:bg-red-900/40 dark:text-red-300"><TrendingUp size={11} className="mr-0.5 inline" />more often lately</span>}
+            {tw === 'better' && <span className="chip bg-brand-100 text-brand-700 dark:bg-brand-800/40 dark:text-brand-500"><TrendingDown size={11} className="mr-0.5 inline" />getting rarer</span>}
+            {tw === 'worse' && <span className="chip bg-danger-100 text-danger-700 dark:bg-danger-900/40 dark:text-danger-300"><TrendingUp size={11} className="mr-0.5 inline" />more often lately</span>}
           </span>
           <span className="mt-1 block h-2 overflow-hidden rounded-full bg-stone-100 dark:bg-stone-800">
-            <span className="block h-full rounded-full bg-amber-500" style={{ width: `${(t.share / max) * 100}%` }} />
+            <span className="block h-full rounded-full bg-hue-amber-500" style={{ width: `${(t.share / max) * 100}%` }} />
           </span>
           <span className="mt-0.5 block text-xs text-stone-500">
             {t.games} of {total} games · {t.count}× in all · most in the {mostPhase(t.phases).toLowerCase()} · as White {t.colors.w}, as Black {t.colors.b}
@@ -135,7 +135,7 @@ function ThemeRow({ t, total, max, open, onToggle }: { t: MistakeTheme; total: n
             <div key={`${e.gameId}:${e.ply}`} className="rounded-xl bg-stone-50 p-2 dark:bg-stone-800/50">
               <div className="flex items-center gap-2">
                 <button className="min-w-0 flex-1 text-left text-sm" onClick={() => setPeek(peek === k ? null : k)}>
-                  <span className={`font-bold ${e.cls === 'blunder' ? 'text-red-600' : 'text-amber-600'}`}>
+                  <span className={`font-bold ${e.cls === 'blunder' ? 'text-danger-700' : 'text-warn-700'}`}>
                     {Math.floor(e.ply / 2) + 1}{e.color === 'w' ? '.' : '…'} {e.san}
                   </span>
                   {e.better && <span className="text-stone-500"> — better {e.better}</span>}

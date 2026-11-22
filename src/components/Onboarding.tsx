@@ -123,7 +123,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               {GOAL_CHOICES.map((n) => (
                 <button key={n} aria-pressed={goal === n} className={`flex h-16 flex-1 flex-col items-center justify-center rounded-[10px] transition active:scale-95 ${goal === n ? 'bg-brand-700 text-white shadow-[0_8px_18px_-8px_rgba(27,90,60,0.8)]' : 'bg-white ring-1 ring-stone-200 dark:bg-white/5 dark:ring-white/10'}`} onClick={() => setGoal(n)}>
                   <span className="font-display text-2xl leading-none font-semibold">{n}</span>
-                  <span className={`mt-1 text-[10px] font-semibold ${goal === n ? 'text-white/80' : 'text-stone-500'}`}>{n === 7 ? 'every day' : 'days'}</span>
+                  <span className={`mt-1 text-xs font-semibold ${goal === n ? 'text-white/80' : 'text-stone-500'}`}>{n === 7 ? 'every day' : 'days'}</span>
                 </button>
               ))}
             </div>

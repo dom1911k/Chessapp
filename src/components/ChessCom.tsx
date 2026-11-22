@@ -24,7 +24,7 @@ import { ClassBadge } from './Coach';
 
 /** A small green "chess.com" tag. */
 export function ChessComBadge({ className = '' }: { className?: string }) {
-  return <span className={`inline-flex items-center rounded bg-[#769656] px-1 py-px align-middle text-[10px] font-bold leading-tight text-white ${className}`}>chess.com</span>;
+  return <span className={`inline-flex items-center rounded bg-chesscom px-1 py-px align-middle text-[11px] font-bold leading-tight text-white ${className}`}>chess.com</span>;
 }
 
 /** "Analysing your chess.com games · 12 of 40" — never blocks anything. */
@@ -40,7 +40,7 @@ export function ImportProgress({ className = '' }: { className?: string }) {
         <span>{s.done} of {s.total}</span>
       </div>
       <div className="mt-0.5 h-1 overflow-hidden rounded bg-stone-200 dark:bg-stone-800">
-        <div className="h-full bg-[#769656] transition-[width] duration-500" style={{ width: `${pct}%` }} />
+        <div className="h-full bg-chesscom transition-[width] duration-500" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -89,15 +89,15 @@ export function ChessComCard() {
           {imp.syncing ? <RefreshCw size={16} className="animate-spin" /> : <CloudDownload size={16} />} Sync now
         </button>
       </div>
-      {name && !ok && <p className="text-xs text-red-600">Usernames have 3–25 letters, digits, "_" or "-".</p>}
+      {name && !ok && <p className="text-xs text-danger-700">Usernames have 3–25 letters, digits, "_" or "-".</p>}
       <Toggle checked={s.ccAutoSync} onChange={(v) => s.set({ ccAutoSync: v })} label="Sync automatically when you open the app (only when online)" />
       {imp.error && (
-        <p className="flex items-start gap-1.5 text-sm text-red-600">
+        <p className="flex items-start gap-1.5 text-sm text-danger-700">
           <TriangleAlert size={15} className="mt-0.5 shrink-0" /> {imp.error}
         </p>
       )}
       {imp.added !== null && !imp.error && (
-        <p className="flex items-center gap-1.5 text-sm text-emerald-700 dark:text-emerald-400">
+        <p className="flex items-center gap-1.5 text-sm text-brand-700 dark:text-brand-500">
           <Check size={15} /> {imp.added ? `${imp.added} new game${imp.added === 1 ? '' : 's'} imported.` : 'Up to date — no new games.'}
         </p>
       )}
@@ -110,7 +110,7 @@ export function ChessComCard() {
         (confirmClear ? (
           <div className="flex gap-2">
             <button className="btn-secondary flex-1" onClick={() => setConfirmClear(false)}>Keep them</button>
-            <button className="btn-secondary flex-1 !text-red-600" onClick={() => void clearImports().then(() => setConfirmClear(false))}>Delete imported games</button>
+            <button className="btn-secondary flex-1 !text-danger-700" onClick={() => void clearImports().then(() => setConfirmClear(false))}>Delete imported games</button>
           </div>
         ) : (
           <button className="text-xs text-stone-500 underline" onClick={() => setConfirmClear(true)}>Remove imported games from this phone</button>
@@ -143,12 +143,12 @@ export function LastChessComGames() {
           <ChessComBadge /> Your last chess.com games
         </span>
         <span className="text-xs text-stone-500">
-          last {games.length}: <b className="text-emerald-600">{w}W</b> {d ? `${d}D ` : ''}<b className="text-red-500">{l}L</b>
+          last {games.length}: <b className="text-brand-700">{w}W</b> {d ? `${d}D ` : ''}<b className="text-danger-700">{l}L</b>
         </span>
       </div>
       <div className="flex gap-1">
         {[...games].reverse().map((g) => (
-          <span key={g.id} title={`${g.userResult} vs ${g.opponentName}`} className={`h-2 flex-1 rounded-full ${g.userResult === 'win' ? 'bg-emerald-500' : g.userResult === 'loss' ? 'bg-red-500' : 'bg-stone-400'}`} />
+          <span key={g.id} title={`${g.userResult} vs ${g.opponentName}`} className={`h-2 flex-1 rounded-full ${g.userResult === 'win' ? 'bg-brand-500' : g.userResult === 'loss' ? 'bg-danger-500' : 'bg-stone-400'}`} />
         ))}
       </div>
       <button className="flex w-full items-center gap-2 text-left" onClick={() => push({ name: 'report', gameId: last.id })}>
@@ -158,7 +158,7 @@ export function LastChessComGames() {
         <ChevronRight size={16} className="text-stone-400" />
       </button>
       {big?.move ? (
-        <div className="flex items-center gap-2 rounded-xl bg-amber-50 p-2 dark:bg-amber-900/20">
+        <div className="flex items-center gap-2 rounded-xl bg-warn-50 p-2 dark:bg-warn-900/20">
           {big.move.classification && <ClassBadge c={big.move.classification} />}
           <span className="min-w-0 flex-1 truncate text-sm">
             Biggest mistake: {shortWords(big.move.fenBefore, big.move.uci)}
@@ -170,7 +170,7 @@ export function LastChessComGames() {
       ) : !last.analyzed ? (
         <ImportProgress />
       ) : (
-        <div className="text-sm text-emerald-700 dark:text-emerald-400">No mistakes or blunders in your latest game. 👏</div>
+        <div className="text-sm text-brand-700 dark:text-brand-500">No mistakes or blunders in your latest game. 👏</div>
       )}
       <button className="text-left text-sm font-semibold text-brand-700 dark:text-brand-500" onClick={() => push({ name: 'face' })}>
         What people play against you →
@@ -215,7 +215,7 @@ export function GameInsightsCard() {
                 <span className="text-stone-500">{m.games}/{ins.games}</span>
               </div>
             ))}
-            {!ins.mistakes.length && <div className="text-xs text-stone-500">No recurring mistakes. 🎉</div>}
+            {!ins.mistakes.length && <div className="text-xs text-stone-500">No recurring mistakes.</div>}
           </div>
           <div>
             <div className="mb-1 text-sm font-semibold">You play well</div>
@@ -303,12 +303,12 @@ export function TimeStatsCard({ g, onPly }: { g: AnyGame; onPly: (ply: number) =
             key={m.ply}
             title={`${m.moveNo}. ${m.san}: ${fmt(m.secs)}`}
             onClick={() => onPly(m.ply)}
-            className={`min-w-[2px] flex-1 rounded-t-sm ${long.has(m.ply) ? 'bg-amber-500' : 'bg-brand-500/70'}`}
+            className={`min-w-[2px] flex-1 rounded-t-sm ${long.has(m.ply) ? 'bg-warn-500' : 'bg-brand-500/70'}`}
             style={{ height: `${Math.max(3, (m.secs / max) * 100)}%` }}
           />
         ))}
       </div>
-      <div className="flex justify-between text-[10px] text-stone-500">
+      <div className="flex justify-between text-[11px] text-stone-500">
         <span>move 1</span>
         <span>move {st.moves[st.moves.length - 1].moveNo}</span>
       </div>
@@ -322,7 +322,7 @@ export function TimeStatsCard({ g, onPly }: { g: AnyGame; onPly: (ply: number) =
         ))}
       </div>
       {st.slowObvious.slice(0, 2).map((m) => (
-        <div key={m.ply} className="text-sm text-amber-700 dark:text-amber-400">
+        <div key={m.ply} className="text-sm text-warn-700 dark:text-warn-500">
           {fmt(m.secs)} on {m.moveNo}. {m.san} — {m.why}. That one could be played at once.
         </div>
       ))}

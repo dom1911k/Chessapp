@@ -1,13 +1,13 @@
 // The puzzle progression shown while solving, chess.com style: the level badge (a puzzle piece
 // with your level), the rating row that counts up with a bar to the next level, the tags that
 // pop on the solved square, the level-up moment and the Daily Solver award.
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Check, Puzzle } from 'lucide-react';
 import { DAILY_SOLVER_GOAL, DAILY_SOLVER_XP, mastery as masteryOf, puzzleLevel, type SolveTag } from '../lib/puzzles/level';
 import { FillBar } from './Reward';
 
 const FillBarLite = (p: { from: number; to: number; delay: number; onWrap: (l: number) => void }) => (
-  <FillBar from={p.from} to={p.to} delay={p.delay} ms={800} className="mt-1 h-1.5" fill="bg-gradient-to-r from-amber-300 to-amber-500" onWrap={p.onWrap} />
+  <FillBar from={p.from} to={p.to} delay={p.delay} ms={800} className="mt-1 h-1.5" fill="bg-gradient-to-r from-hue-amber-300 to-hue-amber-500" onWrap={p.onWrap} />
 );
 import { playSound } from '../lib/sound';
 import { useCelebrate } from '../lib/celebrate';
@@ -80,6 +80,9 @@ function useCountUp(from: number, to: number, ms: number, delay: number) {
  * counts up (after `delay` ms), the delta shows beside it and the bar moves; crossing a level
  * fills the bar, pops the badge and announces the new level.
  */
+/** The solve timer, handed down by the puzzle player so the rating card can show it (top right). */
+export const PuzzleTimer = createContext<ReactNode>(null);
+
 export function RatingRow({ before, after, delay = 400, xp, unrated, onLevelUp }: { before: number; after?: number; delay?: number; xp?: number; unrated?: boolean; onLevelUp?: (level: number) => void }) {
   const target = after ?? before;
   const shown = useCountUp(before, target, 900, delay);
@@ -110,6 +113,7 @@ export function RatingRow({ before, after, delay = 400, xp, unrated, onLevelUp }
   const lvl = up && phase !== 'levelled' ? lb : la;
   const pct = phase === 'filling' ? 100 : delta ? (phase === 'idle' && up ? lb.pct * 100 : la.pct * 100) : lb.pct * 100;
   const barPct = after === undefined ? lb.pct * 100 : pct;
+  const timer = useContext(PuzzleTimer);
   return (
     <div className="card relative flex items-center gap-3 !rounded-[10px] !px-3 !py-2.5">
       {!unrated && <LevelBadge level={lvl.level} size={38} />}
@@ -122,7 +126,7 @@ export function RatingRow({ before, after, delay = 400, xp, unrated, onLevelUp }
             <span className="font-display text-[26px] leading-none font-semibold tabular-nums">{shown}</span>
             {delta === 0 && <span className="text-[11px] font-bold tracking-wider text-stone-500 uppercase">Level {lvl.level}</span>}
             {delta !== 0 && (
-              <span key={target} className={`animate-count-pop text-[15px] font-bold tabular-nums ${delta > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`} style={{ animationDelay: `${delay}ms` }}>
+              <span key={target} className={`animate-count-pop text-[15px] font-bold tabular-nums ${delta > 0 ? 'text-brand-700 dark:text-brand-500' : 'text-danger-700'}`} style={{ animationDelay: `${delay}ms` }}>
                 {delta > 0 ? '+' : ''}
                 {delta}
               </span>
@@ -130,16 +134,17 @@ export function RatingRow({ before, after, delay = 400, xp, unrated, onLevelUp }
           </>
         )}
         {xp ? (
-          <span className="chip animate-count-pop ml-auto bg-amber-100 !text-[11px] text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" style={{ animationDelay: `${delay + 600}ms` }}>
+          <span className="chip animate-count-pop ml-auto bg-hue-amber-100 !text-[11px] text-hue-amber-800 dark:bg-hue-amber-500/15 dark:text-hue-amber-300" style={{ animationDelay: `${delay + 600}ms` }}>
             +{xp} XP
           </span>
         ) : null}
+        {timer && <span className={`${xp ? 'ml-2' : 'ml-auto'} self-center`}>{timer}</span>}
       </div>
       {!unrated && (
         <div className="mt-1.5 flex items-center gap-2">
           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-lime-400 to-emerald-500"
+              className="h-full rounded-full bg-gradient-to-r from-hue-lime-400 to-brand-500"
               style={{ width: `${Math.max(1.5, barPct)}%`, transition: phase === 'levelled' ? 'none' : `width 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) ${delay}ms` }}
             />
           </div>
@@ -157,7 +162,7 @@ export function LevelUpBanner({ level, id }: { level: number; id: number }) {
     <div data-levelup={id} className="pointer-events-none absolute inset-x-0 top-[34%] z-30 flex flex-col items-center">
       <div className="animate-levelup flex flex-col items-center">
         <LevelBadge level={level} size={84} className="animate-badge-pop drop-shadow-[0_8px_16px_rgba(0,0,0,0.45)]" />
-        <span className="-mt-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-1.5 font-display text-xl font-bold text-white shadow-lg ring-2 ring-white/70">Level {level}!</span>
+        <span className="-mt-1 rounded-full bg-gradient-to-r from-hue-amber-400 to-hue-orange-500 px-4 py-1.5 font-display text-xl font-bold text-white shadow-lg ring-2 ring-white/70">Level {level}!</span>
       </div>
     </div>
   );
@@ -172,9 +177,9 @@ function squareStyle(sq: string, orientation: 'white' | 'black'): CSSProperties 
 }
 
 const TAG_BG: Record<SolveTag['tone'], string> = {
-  gold: 'bg-gradient-to-b from-amber-300 to-amber-500 ring-amber-600/40',
-  sky: 'bg-gradient-to-b from-sky-300 to-sky-500 ring-sky-600/40',
-  orange: 'bg-gradient-to-b from-orange-300 to-orange-500 ring-orange-600/40',
+  gold: 'bg-gradient-to-b from-hue-amber-300 to-hue-amber-500 ring-hue-amber-600/40',
+  sky: 'bg-gradient-to-b from-hue-sky-300 to-hue-sky-500 ring-hue-sky-600/40',
+  orange: 'bg-gradient-to-b from-hue-orange-300 to-hue-orange-500 ring-hue-orange-600/40',
 };
 
 /** The tags that pop on the solved square one after another: "Hard +8", then "Speed +3"… */
@@ -201,7 +206,7 @@ export function SolveTags({ sq, orientation, tags, id }: { sq: string; orientati
       </span>
       <span
         key={`l${i}`}
-        className="animate-solve-pill absolute rounded-full bg-white px-2 py-0.5 text-[min(2.8vw,12px)] font-bold whitespace-nowrap text-amber-700 shadow-md ring-1 ring-black/5"
+        className="animate-solve-pill absolute rounded-full bg-white px-2 py-0.5 text-[clamp(11px,2.8vw,12px)] font-bold whitespace-nowrap text-hue-amber-700 shadow-md ring-1 ring-black/5"
         style={{ left: p.left, top: `calc(${p.top} ${topRow ? '+' : '-'} 9.5%)`, animationDelay: '80ms' }}
       >
         {tag.label}
@@ -234,7 +239,7 @@ export function DailySolverOverlay({ onDone }: { onDone: () => void }) {
             {Array.from({ length: DAILY_SOLVER_GOAL }, (_, k) => (
               <div key={k} className={`relative ${step >= k + 1 ? 'animate-piece-in' : 'opacity-0'}`} style={{ transform: `translateY(${k === 1 ? -6 : 0}px)` }}>
                 <LevelBadge level={k + 1} size={k === 1 ? 72 : 64} />
-                <span className="absolute -top-2 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-white">
+                <span className="absolute -top-2 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-500 text-white ring-2 ring-white">
                   <Check size={14} strokeWidth={3.5} />
                 </span>
               </div>
@@ -247,8 +252,8 @@ export function DailySolverOverlay({ onDone }: { onDone: () => void }) {
         </>
       ) : (
         <div className="relative h-full w-full">
-          <span className="animate-glow-pulse absolute top-1/2 left-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-lime-400/25" />
-          <span className="animate-coin-fly absolute top-1/2 left-1/2 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-b from-lime-300 to-emerald-500 font-display text-2xl font-bold text-white shadow-[0_0_0_6px_rgba(163,230,53,0.35)] ring-2 ring-white/80" style={{ '--fly': '260px' } as CSSProperties}>
+          <span className="animate-glow-pulse absolute top-1/2 left-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-hue-lime-400/25" />
+          <span className="animate-coin-fly absolute top-1/2 left-1/2 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-b from-hue-lime-300 to-brand-500 font-display text-2xl font-bold text-white shadow-[0_0_0_6px_rgba(163,230,53,0.35)] ring-2 ring-white/80" style={{ '--fly': '260px' } as CSSProperties}>
             {DAILY_SOLVER_XP}
           </span>
           <div className="absolute inset-x-0 bottom-[28%] text-center">
@@ -266,7 +271,7 @@ export function DailySolverDots({ done }: { done: number }) {
   return (
     <span className="flex items-center gap-0.5" title={`Daily Solver: ${done} of ${DAILY_SOLVER_GOAL} today`}>
       {Array.from({ length: DAILY_SOLVER_GOAL }, (_, k) => (
-        <Puzzle key={k} size={13} className={k < done ? 'fill-amber-300 text-amber-600' : 'text-stone-300 dark:text-stone-600'} />
+        <Puzzle key={k} size={13} className={k < done ? 'fill-hue-amber-300 text-hue-amber-600' : 'text-stone-300 dark:text-stone-600'} />
       ))}
     </span>
   );
@@ -274,10 +279,10 @@ export function DailySolverDots({ done }: { done: number }) {
 
 const TIER_STYLE = [
   'from-stone-300 to-stone-400 text-stone-700',
-  'from-amber-600 to-amber-800 text-amber-50',
+  'from-hue-amber-600 to-hue-amber-800 text-hue-amber-50',
   'from-slate-200 to-slate-400 text-slate-800',
-  'from-amber-300 to-yellow-500 text-amber-950',
-  'from-fuchsia-400 to-violet-600 text-white',
+  'from-hue-amber-300 to-hue-yellow-500 text-hue-amber-950',
+  'from-hue-fuchsia-400 to-hue-violet-600 text-white',
 ];
 
 /** A small medal for a mastery tier. */

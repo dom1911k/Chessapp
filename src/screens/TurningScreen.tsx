@@ -121,7 +121,7 @@ export function TurningScreen({ gameId }: { gameId: number | string }) {
         {stage === 'reveal' && result && (
           <div className="card space-y-2 !p-3">
             <div className="flex items-center gap-2 font-semibold">
-              {result.found ? <Check size={18} className="text-emerald-600" /> : <X size={18} className="text-red-500" />}
+              {result.found ? <Check size={18} className="text-brand-700" /> : <X size={18} className="text-danger-700" />}
               {result.found ? 'Spot on!' : `It turned on ${moveLabel(tp.ply)}`}
             </div>
             <div className="flex gap-2">

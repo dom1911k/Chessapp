@@ -52,13 +52,13 @@ export function HistoryScreen() {
             <button key={String(g.id)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors active:bg-stone-100 dark:active:bg-white/[0.04]" onClick={() => push({ name: 'report', gameId: g.id! })}>
               <span className="relative">
                 {cc ? (
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#769656] text-lg font-black text-white">{imported.opponentName[0]?.toUpperCase()}</span>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-chesscom text-lg font-black text-white">{imported.opponentName[0]?.toUpperCase()}</span>
                 ) : opponentById(g.opponentId) ? (
                   <Portrait id={g.opponentId!} size={40} />
                 ) : (
                   <Medallion name="brain" size={40} tint="stone" />
                 )}
-                <span className={`absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-white dark:ring-stone-900 ${g.userResult === 'win' ? 'bg-emerald-600' : g.userResult === 'loss' ? 'bg-red-500' : 'bg-stone-400'}`}>
+                <span className={`absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-white ring-2 ring-white dark:ring-stone-900 ${g.userResult === 'win' ? 'bg-brand-600' : g.userResult === 'loss' ? 'bg-danger-500' : 'bg-stone-400'}`}>
                   {g.userResult === 'win' ? 'W' : g.userResult === 'loss' ? 'L' : 'D'}
                 </span>
               </span>

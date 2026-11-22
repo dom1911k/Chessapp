@@ -29,7 +29,7 @@ function SkillNode({ skill, st, onClick }: { skill: Skill; st: SkillState; onCli
           <Glyph name={skill.icon} size={24} />
         </span>
         {st.tier > 0 && (
-          <span className="absolute -bottom-0.5 rounded-full px-1.5 text-[9px] font-black tracking-wider text-white uppercase shadow" style={{ background: tier.color }}>
+          <span className="absolute -bottom-0.5 rounded-full px-1.5 text-[11px] font-black tracking-wider text-white uppercase shadow" style={{ background: tier.color }}>
             {tier.name}
           </span>
         )}

@@ -119,7 +119,7 @@ export function VisionScreen() {
             </>
           ) : (
             <>
-              <span className="flex h-11 w-11 items-center justify-center rounded-[10px] bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"><Eye size={22} /></span>
+              <span className="flex h-11 w-11 items-center justify-center rounded-[10px] bg-hue-sky-100 text-hue-sky-700 dark:bg-hue-sky-500/15 dark:text-hue-sky-300"><Eye size={22} /></span>
               <div className="min-w-0 flex-1 text-sm leading-snug">
                 {mode === 'find' ? 'A square’s name appears — tap it on the board as fast as you can.' : 'A square lights up — pick its name.'} {ROUND_SECS} seconds.
               </div>
@@ -129,7 +129,7 @@ export function VisionScreen() {
         </div>
         {phase === 'playing' && (
           <div className="h-1.5 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
-            <div className={`h-full rounded-full transition-[width] duration-100 ease-linear ${left < 6 ? 'bg-red-500' : 'bg-brand-500'}`} style={{ width: `${(left / ROUND_SECS) * 100}%` }} />
+            <div className={`h-full rounded-full transition-[width] duration-100 ease-linear ${left < 6 ? 'bg-danger-500' : 'bg-brand-500'}`} style={{ width: `${(left / ROUND_SECS) * 100}%` }} />
           </div>
         )}
 
@@ -153,7 +153,7 @@ export function VisionScreen() {
                   style={{ background: light ? theme.lightBg ?? theme.light : theme.darkBg ?? theme.dark }}
                 >
                   {lit && <span className="animate-pop absolute inset-[10%] rounded-md bg-brand-500/80 ring-2 ring-white/80" />}
-                  {isFlash && <span className={`absolute inset-0 ${flash!.ok ? 'bg-emerald-500/55' : 'bg-red-500/55'}`} />}
+                  {isFlash && <span className={`absolute inset-0 ${flash!.ok ? 'bg-brand-500/55' : 'bg-danger-500/55'}`} />}
                   {(coords || phase !== 'playing') && (
                     <>
                       {col === 0 && <span className="absolute top-0.5 left-1 text-[10px] font-bold opacity-60" style={{ color: light ? theme.dark : theme.light }}>{sq[1]}</span>}

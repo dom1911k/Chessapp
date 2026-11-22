@@ -60,10 +60,10 @@ function OpeningCard({ o }: { o: FacedOpening }) {
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">{o.name}</span>
           <span className="block text-xs text-stone-500">
-            <ChessComBadge /> {o.games} games · <b className="text-emerald-600">{o.w}W</b> {o.d}D <b className="text-red-500">{o.l}L</b>
+            <ChessComBadge /> {o.games} games · <b className="text-brand-700">{o.w}W</b> {o.d}D <b className="text-danger-700">{o.l}L</b>
           </span>
         </span>
-        <span className={`text-xl font-bold ${o.score >= 55 ? 'text-emerald-600' : o.score < 45 ? 'text-red-500' : ''}`}>{o.score}%</span>
+        <span className={`text-xl font-bold ${o.score >= 55 ? 'text-brand-700' : o.score < 45 ? 'text-danger-700' : ''}`}>{o.score}%</span>
       </button>
       {o.line.length > 0 && (
         <div className="text-sm">
@@ -73,7 +73,7 @@ function OpeningCard({ o }: { o: FacedOpening }) {
         </div>
       )}
       {o.trouble && (
-        <div className="rounded-xl bg-amber-50 p-2 text-sm dark:bg-amber-900/20">
+        <div className="rounded-xl bg-warn-50 p-2 text-sm dark:bg-warn-900/20">
           You've gone wrong here <b>{o.trouble.times} times</b>: move {Math.floor(o.trouble.ply / 2) + 1}, you played <b>{o.trouble.played}</b>
           {o.trouble.better ? <> — {o.trouble.better} was better.</> : '.'}
         </div>

@@ -303,10 +303,10 @@ export function App() {
                     className={`flex h-8 w-14 items-center justify-center rounded-lg transition-colors duration-150 ${
                       active
                         ? run
-                          ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-200'
+                          ? 'bg-hue-violet-100 text-hue-violet-700 dark:bg-hue-violet-500/20 dark:text-hue-violet-200'
                           : 'bg-stone-200/70 text-stone-900 dark:bg-white/[0.08] dark:text-white'
                         : run
-                          ? 'text-violet-500/80 active:bg-violet-100/60 dark:text-violet-300/70'
+                          ? 'text-hue-violet-500/80 active:bg-hue-violet-100/60 dark:text-hue-violet-300/70'
                           : 'text-stone-500 active:bg-stone-200/60 dark:active:bg-white/[0.05]'
                     }`}
                   >

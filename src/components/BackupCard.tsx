@@ -64,7 +64,7 @@ export function BackupCard() {
       {msg && <p className="text-sm text-stone-500">{msg}</p>}
       <Dialog open={!!pending} onClose={() => setPending(null)} title="Restore backup?">
         <p className="text-sm">{pending && describeBackup(pending)}</p>
-        <p className="mt-2 text-sm font-semibold text-red-600">This replaces everything currently in the app.</p>
+        <p className="mt-2 text-sm font-semibold text-danger-700">This replaces everything currently in the app.</p>
         <div className="mt-4 flex gap-2">
           <button className="btn-primary flex-1" onClick={confirm} disabled={busy}>
             {busy ? <Spinner /> : 'Restore'}

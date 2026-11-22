@@ -82,12 +82,12 @@ export function HomeHero({ right }: { right?: ReactNode }) {
         <span
           title={line}
           className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-bold tabular-nums transition-colors ${
-            streak && doneToday ? 'bg-orange-500/15 text-orange-600 dark:text-orange-400' : 'bg-stone-200 text-stone-600 dark:bg-stone-800 dark:text-stone-300'
+            streak && doneToday ? 'bg-hue-orange-500/15 text-hue-orange-600 dark:text-hue-orange-400' : 'bg-stone-200 text-stone-600 dark:bg-stone-800 dark:text-stone-300'
           }`}
         >
           <Flame
             size={15}
-            className={`${streak && doneToday ? 'fill-orange-400 text-orange-500' : streak ? 'fill-orange-300/60 text-orange-400' : ''} ${grew ? 'animate-flame-pop' : streak && !doneToday ? 'animate-flame-breathe' : ''}`}
+            className={`${streak && doneToday ? 'fill-hue-orange-400 text-hue-orange-500' : streak ? 'fill-hue-orange-300/60 text-hue-orange-400' : ''} ${grew ? 'animate-flame-pop' : streak && !doneToday ? 'animate-flame-breathe' : ''}`}
           />{' '}
           {streak}
         </span>
@@ -105,7 +105,7 @@ export function HomeHero({ right }: { right?: ReactNode }) {
           className="animate-fade-in mx-auto mb-2 flex w-[calc(100%-2rem)] max-w-md items-center gap-2 rounded-[10px] bg-white px-3 py-2 text-left text-[13px] ring-1 ring-black/[0.06] active:brightness-95 dark:bg-stone-900 dark:ring-0"
           onClick={() => push({ name: 'puzzle', mode: { kind: 'rated' } })}
         >
-          <Flame size={16} className="animate-flame-breathe shrink-0 fill-orange-400 text-orange-500" />
+          <Flame size={16} className="animate-flame-breathe shrink-0 fill-hue-orange-400 text-hue-orange-500" />
           <span className="flex-1">
             Keep your <b>{streak}-day streak</b> going
           </span>

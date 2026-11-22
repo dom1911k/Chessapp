@@ -10,6 +10,10 @@ import { Portrait } from './Coach';
 
 const SHOW_MS = 1900;
 
+/** A 2px ring in the player's piece colour (black gets a hairline so it shows on charcoal). */
+const ringFor = (c: 'w' | 'b') =>
+  `${c === 'w' ? '0 0 0 2px #ffffff' : '0 0 0 2px #262421, 0 0 0 3px rgba(255,255,255,0.28)'}, 0 12px 30px rgba(0,0,0,0.45)`;
+
 export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { opponentId?: string; elo: number; userColor: 'w' | 'b'; line?: string; onDone: () => void }) {
   const o = opponentById(opponentId);
   const [level, setLevel] = useState<number | null>(null);
@@ -35,45 +39,50 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
       aria-label="Start the game"
       onClick={skip}
       className={`fixed inset-0 z-50 overflow-hidden text-white transition-opacity duration-300 ${leaving ? 'opacity-0' : 'opacity-100'}`}
-      style={{ background: 'radial-gradient(circle at 50% 45%, #2a3b31 0%, #14100c 75%)' }}
+      style={{ background: '#262421' }}
     >
-      {/* Two halves sweep in from opposite corners, split by a bright diagonal. */}
-      <div className="animate-vs-left absolute inset-0" style={{ background: 'linear-gradient(160deg, #1f7a4c 0%, #12452d 60%, transparent 60.2%)' }} />
-      <div className="animate-vs-right absolute inset-0" style={{ background: 'linear-gradient(160deg, transparent 59.8%, #7a3b2a 60%, #3b1c14 100%)' }} />
-      <div className="animate-vs-flash absolute inset-0" style={{ background: 'linear-gradient(160deg, transparent 59.4%, rgba(255,236,170,0.95) 60%, transparent 60.6%)' }} />
+      {/* Two charcoal halves sweep in from opposite corners, split by a green slash. */}
+      <div className="animate-vs-left absolute inset-0" style={{ background: 'linear-gradient(160deg, #262421 0%, #262421 60%, transparent 60%)' }} />
+      <div className="animate-vs-right absolute inset-0" style={{ background: 'linear-gradient(160deg, transparent 60%, #3c3a37 60%, #3c3a37 100%)' }} />
+      <div
+        className="animate-vs-flash absolute inset-0"
+        style={{ background: 'linear-gradient(160deg, transparent calc(60% - 1.5px), #81b64c calc(60% - 1.5px), #81b64c calc(60% + 1.5px), transparent calc(60% + 1.5px))' }}
+      />
 
       <div className="relative mx-auto flex h-full max-w-md flex-col justify-between px-6 py-[18vh]">
         {/* You */}
         <div className="animate-vs-in-left flex items-center gap-4 self-start">
-          <span className="relative rounded-[8px] shadow-[0_12px_30px_rgba(0,0,0,0.45)] ring-4 ring-white/80">
+          <span className="relative rounded-[8px]" style={{ boxShadow: ringFor(userColor) }}>
             <UserAvatar size={96} className="block" />
             <span className="absolute -right-2 -bottom-2 h-9 w-9 rounded-full bg-white/95 p-1 shadow"><PieceIcon code={userColor === 'w' ? 'wK' : 'bK'} /></span>
           </span>
           <span className="text-left">
             <span className="block max-w-[46vw] truncate font-display text-3xl font-semibold">{name}</span>
-            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-xs font-semibold">
+            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-black/30 px-2 py-0.5 text-xs font-semibold">
               <Star size={11} className="fill-gold-400 text-gold-400" /> Level {level ?? '…'} · {userColor === 'w' ? 'White' : 'Black'}
             </span>
           </span>
         </div>
 
-        <div className="animate-vs-stamp self-center font-display text-7xl font-black tracking-tight text-gold-300 italic drop-shadow-[0_6px_18px_rgba(0,0,0,0.6)]">VS</div>
+        <div className="animate-vs-stamp self-center font-display text-[64px] leading-none font-black tracking-tight text-white drop-shadow-[0_4px_14px_rgba(0,0,0,0.5)]">VS</div>
 
         {/* Opponent */}
         <div className="animate-vs-in-right flex flex-col items-end gap-3 self-end">
           <div className="flex items-center gap-4">
             <span className="text-right">
               <span className="block font-display text-3xl font-semibold">{o ? o.name : 'Bot'}</span>
-              <span className="mt-1 inline-flex rounded-full bg-white/15 px-2 py-0.5 text-xs font-semibold">{elo}{o ? ` · ${o.tagline}` : ''}</span>
+              <span className="mt-1 inline-flex rounded-full bg-black/30 px-2 py-0.5 text-xs font-semibold">{elo}{o ? ` · ${o.tagline}` : ''}</span>
             </span>
             {o ? (
-              <Portrait id={o.id} size={96} mood="happy" className="ring-4 ring-white/80 shadow-[0_12px_30px_rgba(0,0,0,0.45)]" />
+              <span className="block rounded-[8px]" style={{ boxShadow: ringFor(userColor === 'w' ? 'b' : 'w') }}>
+                <Portrait id={o.id} size={96} mood="happy" className="block" />
+              </span>
             ) : (
-              <span className="h-24 w-24 rounded-[8px] bg-stone-700 ring-4 ring-white/80" />
+              <span className="h-24 w-24 rounded-[8px] bg-stone-700" style={{ boxShadow: ringFor(userColor === 'w' ? 'b' : 'w') }} />
             )}
           </div>
           {line && (
-            <span className="animate-vs-line max-w-[85%] rounded-2xl rounded-tr-sm bg-white px-3 py-2 text-left text-sm font-medium text-stone-800 shadow-lg">{line}</span>
+            <span className="animate-vs-line max-w-[85%] rounded-[10px] rounded-tr-[3px] bg-white px-3 py-2 text-left text-sm font-medium text-[#312e2b] shadow-lg">{line}</span>
           )}
         </div>
       </div>

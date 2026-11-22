@@ -110,7 +110,7 @@ export function FillBar({
   run = true,
   instant = false,
   className = 'h-2.5',
-  fill = 'bg-gradient-to-r from-lime-400 to-emerald-500',
+  fill = 'bg-gradient-to-r from-hue-lime-400 to-brand-500',
   track = 'bg-stone-200 dark:bg-white/10',
   onWrap,
   onDone,

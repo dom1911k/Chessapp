@@ -152,16 +152,16 @@ export function ProfileScreen() {
               <div className="flex h-3 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800">
                 {total > 0 && (
                   <>
-                    <div className="bg-emerald-500" style={{ width: `${(p.score.w / total) * 100}%` }} />
+                    <div className="bg-brand-500" style={{ width: `${(p.score.w / total) * 100}%` }} />
                     <div className="bg-stone-400" style={{ width: `${(p.score.d / total) * 100}%` }} />
-                    <div className="bg-red-500" style={{ width: `${(p.score.l / total) * 100}%` }} />
+                    <div className="bg-danger-500" style={{ width: `${(p.score.l / total) * 100}%` }} />
                   </>
                 )}
               </div>
               <div className="mt-1.5 grid grid-cols-3 text-center text-sm">
-                <span><b className="text-emerald-600">{p.score.w}</b> won</span>
+                <span><b className="text-brand-700">{p.score.w}</b> won</span>
                 <span><b>{p.score.d}</b> drawn</span>
-                <span><b className="text-red-500">{p.score.l}</b> lost</span>
+                <span><b className="text-danger-700">{p.score.l}</b> lost</span>
               </div>
             </div>
             <div className="card !p-3">
@@ -196,7 +196,7 @@ export function ProfileScreen() {
               ))}
             </div>
             <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'insights' })}>
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-hue-sky-100 text-hue-sky-700 dark:bg-hue-sky-900/40 dark:text-hue-sky-300">
                 <Lightbulb size={20} />
               </span>
               <span className="flex-1">
@@ -345,7 +345,7 @@ function WeekCard({ week }: { week: { thisWeek: WeekStats; lastWeek: WeekStats }
           <span>{r.label}</span>
           <span>
             <b>{r.now}</b>{' '}
-            <span className={r.better === null ? 'text-stone-500' : r.better ? 'text-emerald-600' : 'text-red-500'}>
+            <span className={r.better === null ? 'text-stone-500' : r.better ? 'text-brand-700' : 'text-danger-700'}>
               {r.better === null ? '' : r.better ? '▲' : '▼'} {r.before}
             </span>
           </span>

@@ -82,7 +82,7 @@ export function LearnScreen() {
     <div className="flex h-full flex-col">
       <Header title="Learn" right={<SettingsButton />} />
       <div className="mx-auto w-full max-w-xl shrink-0 px-4 pb-1">
-        <Segmented value={view} onChange={setView} options={[{ value: 'course', label: 'Course' }, { value: 'practice', label: <>Practice{due.length > 0 && <span className="ml-1 rounded-full bg-sky-500 px-1.5 text-[10px] font-bold text-white">{due.length}</span>}</> }]} />
+        <Segmented value={view} onChange={setView} options={[{ value: 'course', label: 'Course' }, { value: 'practice', label: <>Practice{due.length > 0 && <span className="ml-1 rounded-full bg-info-700 px-1.5 text-[10px] font-bold text-white">{due.length}</span>}</> }]} />
       </div>
       {view === 'course' ? (
         <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4 pt-3">
@@ -96,7 +96,7 @@ export function LearnScreen() {
                 {lv && !lv.finished && (
                   <div className="mt-2 flex items-center gap-1.5">
                     {lv.chapter.steps.map((s) => (
-                      <span key={s.id} className={`flex h-[18px] flex-1 items-center justify-center rounded-full ${st!.done[s.id] ? 'bg-amber-300 text-amber-950' : 'bg-black/25'}`} style={{ maxWidth: 34 }}>
+                      <span key={s.id} className={`flex h-[18px] flex-1 items-center justify-center rounded-full ${st!.done[s.id] ? 'bg-hue-amber-300 text-hue-amber-950' : 'bg-black/25'}`} style={{ maxWidth: 34 }}>
                         {st!.done[s.id] && <Check size={12} strokeWidth={4} />}
                       </span>
                     ))}
@@ -114,7 +114,7 @@ export function LearnScreen() {
             </div>
           </div>
           {!placed && (
-            <button className="card tile flex w-full items-center gap-3 !p-3 text-left ring-2 ring-amber-300 dark:ring-amber-500/40" onClick={() => push({ name: 'placement' })}>
+            <button className="card tile flex w-full items-center gap-3 !p-3 text-left ring-2 ring-hue-amber-300 dark:ring-hue-amber-500/40" onClick={() => push({ name: 'placement' })}>
               <Medallion name="map" tint="gold" />
               <span className="flex-1">
                 <span className="block font-semibold">Not a beginner? Find your level</span>
@@ -136,13 +136,13 @@ export function LearnScreen() {
                 return (
                   <button key={sg.id} data-stage={k} onClick={() => setStage(k)} className={`tile relative w-[132px] shrink-0 snap-center rounded-[10px] p-3 text-left ring-1 transition-colors ${on ? 'bg-brand-700 text-white ring-brand-700' : 'bg-white ring-black/[0.06] dark:bg-stone-900 dark:ring-0'}`}>
                     <span className="flex items-center justify-between">
-                      <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${complete ? 'bg-amber-400 text-amber-950' : on ? 'bg-white/20' : 'bg-stone-100 text-stone-600 dark:bg-white/10 dark:text-stone-300'}`}>{complete ? <Check size={14} strokeWidth={3.5} /> : k + 1}</span>
-                      {k === cur && !complete && <span className={`rounded-full px-1.5 py-px text-[9px] font-bold tracking-wider uppercase ${on ? 'bg-white/20' : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'}`}>You</span>}
+                      <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${complete ? 'bg-hue-amber-400 text-hue-amber-950' : on ? 'bg-white/20' : 'bg-stone-100 text-stone-600 dark:bg-white/10 dark:text-stone-300'}`}>{complete ? <Check size={14} strokeWidth={3.5} /> : k + 1}</span>
+                      {k === cur && !complete && <span className={`rounded-full px-1.5 py-px text-[11px] font-bold tracking-wider uppercase ${on ? 'bg-white/20' : 'bg-hue-amber-100 text-hue-amber-800 dark:bg-hue-amber-500/20 dark:text-hue-amber-300'}`}>You</span>}
                     </span>
                     <span className="mt-2 block text-[15px] leading-tight font-semibold">{sg.title}</span>
                     <span className={`block text-[11px] ${on ? 'text-white/75' : 'text-stone-500'}`}>{sg.range}</span>
                     <span className={`mt-2 block h-1.5 overflow-hidden rounded-full ${on ? 'bg-black/25' : 'bg-stone-200 dark:bg-white/10'}`}>
-                      <span className={`block h-full rounded-full ${on ? 'bg-amber-300' : 'bg-brand-500'}`} style={{ width: `${(p.done / p.total) * 100}%` }} />
+                      <span className={`block h-full rounded-full ${on ? 'bg-hue-amber-300' : 'bg-brand-500'}`} style={{ width: `${(p.done / p.total) * 100}%` }} />
                     </span>
                   </button>
                 );
@@ -155,13 +155,13 @@ export function LearnScreen() {
       ) : (
         <div className="mx-auto w-full max-w-xl flex-1 space-y-5 overflow-y-auto p-4 pt-3">
           {due.length > 0 && (
-            <button className="card tile flex w-full items-center gap-3 !p-3 text-left ring-2 ring-sky-300 dark:ring-sky-500/40" onClick={() => push({ name: 'lesson', lessonId: due[0], mode: 'review' })}>
+            <button className="card tile flex w-full items-center gap-3 !p-3 text-left ring-2 ring-info-500 dark:ring-info-500/40" onClick={() => push({ name: 'lesson', lessonId: due[0], mode: 'review' })}>
               <Medallion name="repeat" tint="blue" />
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">Refresh: {lessonById(due[0])?.title}</span>
                 <span className="block text-xs text-stone-500">{due.length === 1 ? 'A two-minute refresh is due today.' : `${due.length} lesson refreshes are due.`}</span>
               </span>
-              <span className="chip bg-sky-500 text-white">{due.length}</span>
+              <span className="chip bg-info-700 text-white">{due.length}</span>
             </button>
           )}
           <Group title="Openings">

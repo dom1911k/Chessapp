@@ -158,7 +158,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
                 <div className="no-scrollbar -mx-3 flex gap-1.5 overflow-x-auto px-3">
                   {e.lines.map((l) => {
                     const on = l.id === lineId;
-                    const dot = l.tone === 'bad' ? 'bg-red-500' : l.tone === 'good' ? 'bg-emerald-500' : 'bg-stone-400';
+                    const dot = l.tone === 'bad' ? 'bg-danger-500' : l.tone === 'good' ? 'bg-brand-500' : 'bg-stone-400';
                     return (
                       <button
                         key={l.id}
@@ -201,7 +201,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
                           <span className="text-xs font-semibold text-stone-500">{note.who === 'you' ? 'You' : 'Them'} · {k}/{n}</span>
                         </span>
                         {note.material !== 0 && (
-                          <span className={`chip tabular-nums ${note.material > 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'}`}>
+                          <span className={`chip tabular-nums ${note.material > 0 ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-500' : 'bg-danger-50 text-danger-700 dark:bg-danger-500/15 dark:text-danger-300'}`}>
                             {note.material > 0 ? '+' : '−'}{Math.abs(note.material)} material
                           </span>
                         )}
@@ -242,7 +242,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
                       <Block title="Why it happened" icon={<CauseIcon c={cause.cause} />} right={<span className="chip bg-stone-100 text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">{CAUSE_INFO[cause.cause].label}</span>}>
                         <p>{cause.text}</p>
                         {cause.secs !== undefined && (
-                          <p className={`mt-1 text-[13px] ${cause.fast || cause.timeTrouble ? 'font-semibold text-amber-700 dark:text-amber-400' : 'text-stone-500'}`}>
+                          <p className={`mt-1 text-[13px] ${cause.fast || cause.timeTrouble ? 'font-semibold text-warn-700 dark:text-warn-500' : 'text-stone-500'}`}>
                             {cause.secs < 10 ? cause.secs.toFixed(1) : Math.round(cause.secs)} seconds on the clock{cause.timeTrouble ? ' — with very little time left.' : cause.fast ? ' — a quick safety check would likely have caught it.' : '.'}
                           </p>
                         )}
@@ -253,7 +253,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
                       <Block
                         title="How hard was it to find?"
                         right={
-                          <span className={`chip ${difficultyOf(hard.best) === 'easy' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : difficultyOf(hard.best) === 'moderate' ? 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300' : 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300'}`}>
+                          <span className={`chip ${difficultyOf(hard.best) === 'easy' ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-500' : difficultyOf(hard.best) === 'moderate' ? 'bg-hue-sky-50 text-hue-sky-700 dark:bg-hue-sky-500/15 dark:text-hue-sky-300' : 'bg-hue-violet-50 text-hue-violet-700 dark:bg-hue-violet-500/15 dark:text-hue-violet-300'}`}>
                             {DIFFICULTY_LABEL[difficultyOf(hard.best)]}
                           </span>
                         }
@@ -261,7 +261,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
                         <div className="mb-2.5 flex items-center gap-2.5">
                           <span className="font-display w-14 text-2xl leading-none font-semibold tabular-nums">{Math.round(hard.best * 100)}%</span>
                           <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
-                            <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600" style={{ width: `${Math.max(2, hard.best * 100)}%` }} />
+                            <div className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-600" style={{ width: `${Math.max(2, hard.best * 100)}%` }} />
                           </div>
                         </div>
                         <Points list={difficultySentence({ bestSan: hard.bestSan, bestShare: hard.best, playedSan: p.san, playedShare: hard.played, rating: hard.rating, isUser, same: hard.same })} />
@@ -270,7 +270,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
                     )}
                     {remember && (
                       <Block title="Remember">
-                        <p className="rounded-xl bg-amber-50 px-3 py-2.5 text-[14px] leading-snug text-amber-950 ring-1 ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/20">{remember.points[0]}</p>
+                        <p className="rounded-xl bg-warn-50 px-3 py-2.5 text-[14px] leading-snug text-warn-800 ring-1 ring-warn-100/70 dark:bg-warn-500/10 dark:text-warn-100 dark:ring-warn-500/20">{remember.points[0]}</p>
                       </Block>
                     )}
                   </>
@@ -353,7 +353,7 @@ function Points({ list }: { list: string[] }) {
 /** Winning chances before → after: one bar with the old level as a ghost and the new one solid. */
 function Swing({ wpBefore, wpAfter, before, after, you }: { wpBefore: number; wpAfter: number; before: string; after: string; you: boolean }) {
   const delta = wpAfter - wpBefore;
-  const color = Math.abs(delta) < 3 ? 'bg-stone-400' : delta < 0 ? 'bg-red-500' : 'bg-emerald-500';
+  const color = Math.abs(delta) < 3 ? 'bg-stone-400' : delta < 0 ? 'bg-danger-500' : 'bg-brand-500';
   return (
     <div className="mt-2.5">
       <div className="flex items-baseline justify-between text-xs">

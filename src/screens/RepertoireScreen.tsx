@@ -13,7 +13,7 @@ import { progress } from '../lib/progress';
 import { LEVEL_NAME, SLOTS, SYSTEMS, getRepStats, getRepertoire, lineById, lineLevel, linePlies, nextLine, recordRun, repertoireLines, saveRepertoire, systemById, validLine, type RepLine, type RepStats, type Repertoire } from '../lib/repertoire';
 import { playSound } from '../lib/sound';
 
-const LEVEL_STYLE = ['bg-stone-100 text-stone-600 dark:bg-white/10 dark:text-stone-300', 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300', 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300', 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300'];
+const LEVEL_STYLE = ['bg-stone-100 text-stone-600 dark:bg-white/10 dark:text-stone-300', 'bg-hue-amber-100 text-hue-amber-800 dark:bg-hue-amber-500/15 dark:text-hue-amber-300', 'bg-hue-sky-100 text-hue-sky-800 dark:bg-hue-sky-500/15 dark:text-hue-sky-300', 'bg-brand-100 text-brand-800 dark:bg-brand-500/15 dark:text-brand-500'];
 
 function LineRow({ line, stats, onOpen, onDelete }: { line: RepLine; stats: RepStats; onOpen: () => void; onDelete?: () => void }) {
   const lv = lineLevel(stats[line.id]);
@@ -29,7 +29,7 @@ function LineRow({ line, stats, onOpen, onDelete }: { line: RepLine; stats: RepS
         <ChevronRight size={17} className="text-stone-400" />
       </button>
       {onDelete && (
-        <button aria-label={`Delete ${line.name}`} className="px-3 py-3 text-stone-400 active:text-red-500" onClick={onDelete}><Trash2 size={16} /></button>
+        <button aria-label={`Delete ${line.name}`} className="px-3 py-3 text-stone-400 active:text-danger-700" onClick={onDelete}><Trash2 size={16} /></button>
       )}
     </div>
   );

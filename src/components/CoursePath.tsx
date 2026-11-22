@@ -62,8 +62,8 @@ export function CoursePath({ stage, state }: { stage: number; state?: CourseStat
           return (
             <div key={ch.id} className="relative">
               <span
-                className={`absolute top-3 -left-[17px] flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ring-4 ring-stone-100 dark:ring-stone-950 ${
-                  isDone ? 'bg-brand-700 text-white' : isOpen ? 'bg-amber-400 text-white' : 'bg-stone-300 text-stone-500 dark:bg-stone-700'
+                className={`absolute top-3 -left-[17px] flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ring-4 ring-stone-100 dark:ring-stone-950 ${
+                  isDone ? 'bg-brand-700 text-white' : isOpen ? 'bg-hue-amber-400 text-white' : 'bg-stone-300 text-stone-500 dark:bg-stone-700'
                 }`}
               >
                 {isDone ? <Check size={12} strokeWidth={3} /> : i + 1}
@@ -71,11 +71,11 @@ export function CoursePath({ stage, state }: { stage: number; state?: CourseStat
               <button
                 disabled={!isOpen}
                 onClick={() => setOpen(showSteps ? '' : ch.id)}
-                className={`card tile flex w-full items-center gap-3 !p-3 text-left ${isOpen ? '' : 'opacity-50'} ${i === current ? '!ring-2 !ring-amber-400' : ''}`}
+                className={`card tile flex w-full items-center gap-3 !p-3 text-left ${isOpen ? '' : 'opacity-50'} ${i === current ? '!ring-2 !ring-hue-amber-400' : ''}`}
               >
                 <Medallion name={isOpen ? ch.icon : 'trap'} tint={isDone ? 'green' : 'gold'} muted={!isOpen} />
                 <span className="flex-1">
-                  <span className={`block text-[10px] font-bold tracking-[0.1em] uppercase ${isDone ? 'text-brand-700 dark:text-brand-500' : i === current ? 'text-amber-600 dark:text-amber-400' : 'text-stone-500'}`}>Level {i + 1}{isDone ? ' · complete' : i === current ? ' · you are here' : ''}</span>
+                  <span className={`block text-[11px] font-bold tracking-[0.1em] uppercase ${isDone ? 'text-brand-700 dark:text-brand-500' : i === current ? 'text-hue-amber-600 dark:text-hue-amber-400' : 'text-stone-500'}`}>Level {i + 1}{isDone ? ' · complete' : i === current ? ' · you are here' : ''}</span>
                   <span className="block font-semibold leading-tight">{ch.title}</span>
                   <span className="block text-xs text-stone-500">{isOpen ? ch.intro : `Opens when you finish level ${i}.`}</span>
                   {/* One tick per step: lessons, puzzles, drills and games to tick off. */}

@@ -19,7 +19,7 @@ export function MoveMark({ mark, orientation, delayMs = 0 }: { mark: SquareMark;
   return (
     <span
       className={`${mark.stay ? 'animate-mark-stay' : 'animate-mark'} pointer-events-none absolute z-20 flex h-[7%] w-[7%] items-center justify-center rounded-full text-[min(3.6vw,18px)] font-black text-white shadow-lg ring-2 ring-white ${
-        mark.ok ? 'bg-emerald-500' : 'bg-rose-500'
+        mark.ok ? 'bg-brand-500' : 'bg-hue-rose-500'
       }`}
       style={{ left: `calc(${p.left} + 3.6%)`, top: `calc(${p.top} - 3.6%)`, animationDelay: delayMs ? `${delayMs}ms` : undefined }}
     >
@@ -53,7 +53,7 @@ export function SolveBurst({ sq, orientation, power = 1, id }: { sq: string; ori
 
 /** "On fire!" style banner across the board. */
 export function ComboBanner({ streak, id }: { streak: number; id: number }) {
-  const tier = streak >= 10 ? { text: 'Unstoppable!', bg: 'from-fuchsia-500 to-purple-600' } : streak >= 5 ? { text: 'On fire!', bg: 'from-orange-500 to-rose-600' } : { text: 'Hot streak!', bg: 'from-amber-400 to-orange-500' };
+  const tier = streak >= 10 ? { text: 'Unstoppable!', bg: 'from-hue-fuchsia-500 to-hue-purple-600' } : streak >= 5 ? { text: 'On fire!', bg: 'from-hue-orange-500 to-hue-rose-600' } : { text: 'Hot streak!', bg: 'from-hue-amber-400 to-hue-orange-500' };
   return (
     <div data-combo={id} className="pointer-events-none absolute inset-x-0 top-[38%] z-30 flex justify-center">
       <span className={`animate-flash-banner flex items-center gap-2 rounded-2xl bg-gradient-to-r ${tier.bg} px-5 py-2 font-display text-2xl font-bold text-white shadow-2xl ring-2 ring-white/70`}>

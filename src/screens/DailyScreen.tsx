@@ -85,7 +85,7 @@ export function DailyScreen() {
             </div>
           </div>
         )}
-        {info?.doneToday && <div className="px-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">Today's session is done — anything more is a bonus.</div>}
+        {info?.doneToday && <div className="px-1 text-sm font-semibold text-brand-700 dark:text-brand-500">Today's session is done — anything more is a bonus.</div>}
         <CoachBubble
           actions={
             <button className="btn-primary !px-6 !py-3 text-base" onClick={start} disabled={d.building}>
@@ -139,7 +139,7 @@ function Session({ onExit }: { onExit: () => void }) {
       />
       <div className="mx-auto mb-1 flex w-full max-w-xl gap-1 px-3">
         {d.items.map((x, i) => (
-          <div key={i} className={`h-1.5 flex-1 rounded-full ${x.result === true ? 'bg-emerald-500' : x.result === false ? 'bg-red-400' : i === d.index ? 'bg-stone-400' : 'bg-stone-200 dark:bg-stone-800'}`} />
+          <div key={i} className={`h-1.5 flex-1 rounded-full ${x.result === true ? 'bg-brand-500' : x.result === false ? 'bg-danger-500' : i === d.index ? 'bg-stone-400' : 'bg-stone-200 dark:bg-stone-800'}`} />
         ))}
       </div>
       <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto pb-4 land:max-w-6xl">

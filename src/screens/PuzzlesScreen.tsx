@@ -84,7 +84,7 @@ export function PuzzlesScreen() {
               {d && (
                 <div className="mt-1.5 flex items-center gap-2">
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
-                    <div className="h-full rounded-full bg-gradient-to-r from-lime-400 to-emerald-500" style={{ width: `${Math.max(3, puzzleLevel(d.rating).pct * 100)}%` }} />
+                    <div className="h-full rounded-full bg-gradient-to-r from-hue-lime-400 to-brand-500" style={{ width: `${Math.max(3, puzzleLevel(d.rating).pct * 100)}%` }} />
                   </div>
                   <span className="text-[11px] font-semibold text-stone-500 tabular-nums">{puzzleLevel(d.rating).next - d.rating} to level {puzzleLevel(d.rating).level + 1}</span>
                 </div>
@@ -105,7 +105,7 @@ export function PuzzlesScreen() {
 
         {/* Daily Puzzle */}
         <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'puzzle', mode: { kind: 'dailyPuzzle' } })}>
-          <span className={`flex h-12 w-12 items-center justify-center rounded-[10px] ${d?.dailySolved ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
+          <span className={`flex h-12 w-12 items-center justify-center rounded-[10px] ${d?.dailySolved ? 'bg-brand-600 text-white' : 'bg-hue-amber-100 text-hue-amber-700 dark:bg-hue-amber-900/40 dark:text-hue-amber-300'}`}>
             <CalendarDays size={24} />
           </span>
           <span className="flex-1">
@@ -113,8 +113,8 @@ export function PuzzlesScreen() {
             <span className="block text-xs text-stone-500">{d?.dailySolved ? 'Solved today ✓ — come back tomorrow' : 'A new puzzle every day'}</span>
           </span>
           {d && d.dailyStreak > 0 && (
-            <span className="flex items-center gap-0.5 font-bold text-orange-600">
-              <Flame size={18} className="fill-orange-400" /> {d.dailyStreak}
+            <span className="flex items-center gap-0.5 font-bold text-hue-orange-600">
+              <Flame size={18} className="fill-hue-orange-400" /> {d.dailyStreak}
             </span>
           )}
           <ChevronRight size={18} className="text-stone-400" />
@@ -122,28 +122,28 @@ export function PuzzlesScreen() {
 
         {/* Daily training (spaced reviews of positions you missed + weak-spot puzzles) */}
         <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'daily' })}>
-          <span className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+          <span className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-brand-100 text-brand-700 dark:bg-brand-800/40 dark:text-brand-500">
             <CalendarCheck size={24} />
           </span>
           <span className="flex-1">
             <span className="block font-semibold">Daily training</span>
             <span className="block text-xs text-stone-500">{d?.due ? `${d.due} position${d.due === 1 ? '' : 's'} to review, then weak-spot puzzles` : 'Puzzles picked for your weak spots'}</span>
           </span>
-          {d?.due ? <span className="chip bg-red-600 text-white">{d.due}</span> : null}
+          {d?.due ? <span className="chip bg-danger-700 text-white">{d.due}</span> : null}
           <ChevronRight size={18} className="text-stone-400" />
         </button>
 
         {/* Puzzle Rush */}
         <div className="card !p-3">
           <div className="mb-2 flex items-center gap-2">
-            <Zap size={18} className="fill-amber-400 text-amber-500" />
+            <Zap size={18} className="fill-hue-amber-400 text-hue-amber-500" />
             <span className="font-semibold">Puzzle Rush</span>
             <span className="text-xs text-stone-500">· beat your best</span>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {(['3', '5', 'survival'] as RushMode[]).map((m) => (
               <button key={m} className="flex flex-col items-center rounded-[10px] bg-stone-100 py-2.5 active:scale-[0.97] dark:bg-stone-800" onClick={() => push({ name: 'rush', mode: m })}>
-                {m === 'survival' ? <Shield size={20} className="text-sky-600" /> : <Timer size={20} className="text-amber-600" />}
+                {m === 'survival' ? <Shield size={20} className="text-hue-sky-600" /> : <Timer size={20} className="text-hue-amber-600" />}
                 <span className="mt-0.5 text-sm font-semibold">{RUSH_LABEL[m]}</span>
                 <span className="text-xs text-stone-500">Best {d?.rush[m] ?? 0}</span>
               </button>
@@ -153,13 +153,13 @@ export function PuzzlesScreen() {
 
         {/* More modes */}
         <div className="grid grid-cols-2 gap-2.5">
-          <Tile icon={<SlidersHorizontal size={22} />} tint="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" title="Custom" text={`${THEME_SETS.length} themes, any difficulty`} onClick={() => push({ name: 'customPuzzles' })} />
-          <Tile icon={<GraduationCap size={22} />} tint="bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" title="Learning" text="Unrated — take your time" onClick={() => push({ name: 'puzzle', mode: { kind: 'learn' } })} />
-          <Tile icon={<Swords size={22} />} tint="bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" title="From your games" text="Punish the blunders you missed" onClick={() => push({ name: 'puzzle', mode: { kind: 'yours' } })} />
+          <Tile icon={<SlidersHorizontal size={22} />} tint="bg-hue-violet-100 text-hue-violet-700 dark:bg-hue-violet-900/40 dark:text-hue-violet-300" title="Custom" text={`${THEME_SETS.length} themes, any difficulty`} onClick={() => push({ name: 'customPuzzles' })} />
+          <Tile icon={<GraduationCap size={22} />} tint="bg-hue-sky-100 text-hue-sky-700 dark:bg-hue-sky-900/40 dark:text-hue-sky-300" title="Learning" text="Unrated — take your time" onClick={() => push({ name: 'puzzle', mode: { kind: 'learn' } })} />
+          <Tile icon={<Swords size={22} />} tint="bg-hue-rose-100 text-hue-rose-700 dark:bg-hue-rose-900/40 dark:text-hue-rose-300" title="From your games" text="Punish the blunders you missed" onClick={() => push({ name: 'puzzle', mode: { kind: 'yours' } })} />
           {d?.weak ? (
-            <Tile icon={<Puzzle size={22} />} tint="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" title={THEME_SETS.find((t) => t.id === d.weak)?.label ?? 'Weak spot'} text="Your weakest theme" onClick={() => push({ name: 'puzzle', mode: { kind: 'theme', theme: d.weak! } })} />
+            <Tile icon={<Puzzle size={22} />} tint="bg-hue-amber-100 text-hue-amber-700 dark:bg-hue-amber-900/40 dark:text-hue-amber-300" title={THEME_SETS.find((t) => t.id === d.weak)?.label ?? 'Weak spot'} text="Your weakest theme" onClick={() => push({ name: 'puzzle', mode: { kind: 'theme', theme: d.weak! } })} />
           ) : (
-            <Tile icon={<Puzzle size={22} />} tint="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" title="Mate in 1" text="Quick warm-up" onClick={() => push({ name: 'puzzle', mode: { kind: 'theme', theme: 'mateIn1', difficulty: -300 } })} />
+            <Tile icon={<Puzzle size={22} />} tint="bg-hue-amber-100 text-hue-amber-700 dark:bg-hue-amber-900/40 dark:text-hue-amber-300" title="Mate in 1" text="Quick warm-up" onClick={() => push({ name: 'puzzle', mode: { kind: 'theme', theme: 'mateIn1', difficulty: -300 } })} />
           )}
         </div>
 
@@ -167,8 +167,8 @@ export function PuzzlesScreen() {
         {d && (
           <div className="card grid grid-cols-3 gap-1 !p-3 text-center">
             <Record icon={<Trophy size={16} className="text-gold-500" />} label="Highest" value={d.peak} />
-            <Record icon={<Flame size={16} className="text-orange-500" />} label="Best streak" value={d.bestStreak} />
-            <Record icon={<Zap size={16} className="text-amber-500" />} label="Rush best" value={Math.max(d.rush['3'], d.rush['5'])} />
+            <Record icon={<Flame size={16} className="text-hue-orange-500" />} label="Best streak" value={d.bestStreak} />
+            <Record icon={<Zap size={16} className="text-hue-amber-500" />} label="Rush best" value={Math.max(d.rush['3'], d.rush['5'])} />
           </div>
         )}
       </div>

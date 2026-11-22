@@ -122,7 +122,7 @@ function ConvertDrill() {
       <div className="board-split mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto pb-4 land:max-w-6xl">
         <div className="flex items-center justify-between px-3">
           <span className="text-sm text-stone-500">Checkmate before the flag falls. Maia defends.</span>
-          <span className={`rounded-lg px-2 py-0.5 font-mono text-lg font-bold tabular-nums ${low ? 'animate-pulse bg-red-600 text-white' : 'bg-stone-900 text-white dark:bg-white dark:text-stone-900'}`}>{fmtClock(ms)}</span>
+          <span className={`rounded-lg px-2 py-0.5 font-mono text-lg font-bold tabular-nums ${low ? 'animate-pulse bg-danger-700 text-white' : 'bg-stone-900 text-white dark:bg-white dark:text-stone-900'}`}>{fmtClock(ms)}</span>
         </div>
         <div className="board-cell">
           <Board fen={fen} orientation={me === 'w' ? 'white' : 'black'} movable={phase === 'play' || phase === 'ready' ? me : null} onMove={onMove} lastMove={last} />
@@ -249,7 +249,7 @@ function QuickDrill() {
               <span className="text-sm font-semibold">{i + 1}/{items.length}</span>
               <span className="chip bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300">{QUICK_LABEL[it!.kind]}?</span>
               <div className="h-2 flex-1 overflow-hidden rounded bg-stone-200 dark:bg-stone-800">
-                <div className={`h-full ${ms < 1500 ? 'bg-red-500' : 'bg-brand-500'}`} style={{ width: `${(ms / (QUICK_SECONDS * 1000)) * 100}%` }} />
+                <div className={`h-full ${ms < 1500 ? 'bg-danger-500' : 'bg-brand-500'}`} style={{ width: `${(ms / (QUICK_SECONDS * 1000)) * 100}%` }} />
               </div>
             </div>
             <div className="board-cell">

@@ -43,7 +43,7 @@ export function LibraryScreen() {
                       <span className="block truncate font-semibold">{l.title}</span>
                       <span className="block truncate text-xs text-stone-500">{l.summary}</span>
                     </span>
-                    {done.includes(l.id) && <Check size={17} strokeWidth={3} className="text-emerald-600" />}
+                    {done.includes(l.id) && <Check size={17} strokeWidth={3} className="text-brand-700" />}
                   </button>
                 ))}
                 {games.map((g) => (

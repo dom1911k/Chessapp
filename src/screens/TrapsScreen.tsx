@@ -53,7 +53,7 @@ export function TrapsScreen() {
                   {s && (
                     <span className="mt-0.5 flex items-center gap-1 text-xs">
                       <ChessComBadge />
-                      {s.faced > 0 && <span className={s.fell ? 'text-red-600' : 'text-emerald-700'}>faced {s.faced}×{s.fell ? `, fell for it ${s.fell}×` : ', never fell for it'}</span>}
+                      {s.faced > 0 && <span className={s.fell ? 'text-danger-700' : 'text-brand-700'}>faced {s.faced}×{s.fell ? `, fell for it ${s.fell}×` : ', never fell for it'}</span>}
                       {s.set > 0 && <span className="text-stone-500">{s.faced ? ' · ' : ''}you set it {s.set}×</span>}
                     </span>
                   )}
