@@ -81,8 +81,12 @@ describe('chess.com import: parsing', () => {
   it('time controls and clocks', () => {
     expect(normalizeTimeControl('180+2')).toBe('180+2');
     expect(normalizeTimeControl('1/86400')).toBe('daily');
-    expect(timeControlLabel('600+0')).toBe('10+0');
-    expect(timeControlLabel('180+2')).toBe('3+2');
+    expect(timeControlLabel('600+0')).toBe('10 min');
+    expect(timeControlLabel('600')).toBe('10 min');
+    expect(timeControlLabel('180+2')).toBe('3 | 2');
+    expect(timeControlLabel('900+10')).toBe('15 | 10');
+    expect(timeControlLabel('1800+0')).toBe('30 min');
+    expect(timeControlLabel('30')).toBe('30 sec');
     expect(timeControlLabel('daily')).toBe('Daily');
     expect(parseClocks('{[%clk 1:00:00]} {[%clk 0:00:05.5]}')).toEqual([3600, 5.5]);
     expect(validUsername('hikaru')).toBe(true);

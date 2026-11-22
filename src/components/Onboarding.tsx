@@ -7,7 +7,7 @@ import { START_KEY } from '../lib/course';
 import { kvSet } from '../lib/db';
 import { useNav } from '../lib/nav';
 import { EXPERIENCE, GOAL_CHOICES, finishOnboarding, startPlan, type Experience } from '../lib/onboarding';
-import { opponentById } from '../lib/people';
+import { castSummary, opponentById } from '../lib/people';
 import { GOAL_KEY } from '../lib/progress/weekly';
 import { useSettings } from '../lib/settings';
 import { playSound } from '../lib/sound';
@@ -66,7 +66,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             <p className="mt-2 text-stone-600 dark:text-stone-300">I’ll help you get better at chess — a little every day, at your own pace.</p>
             <div className="mt-6 w-full space-y-2.5 text-left">
               {[
-                [<Swords size={19} key="a" />, 'Play opponents who make human mistakes', 'Nine characters from 400 to 2000, with a coach at your side.'],
+                [<Swords size={19} key="a" />, 'Play opponents who make human mistakes', `${castSummary()}, with a coach at your side.`],
                 [<BookOpen size={19} key="b" />, 'Follow a course, level by level', 'From the first checkmate to about 1800.'],
                 [<Puzzle size={19} key="c" />, 'Train with 100,000 puzzles', 'And with the mistakes from your own games.'],
               ].map(([icon, t, s], k) => (

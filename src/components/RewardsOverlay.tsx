@@ -12,7 +12,7 @@ import { challengeFor } from '../lib/people/challenges';
 import { MAX_STARS } from '../lib/people/record';
 import { levelFor } from '../lib/progress/xp';
 import { TACTIC_KEYS, TACTIC_LABEL } from '../lib/rewards/career';
-import { KIND_LABEL } from '../lib/rewards/cosmetics';
+import { cosmeticTitle, KIND_LABEL } from '../lib/rewards/cosmetics';
 import { SKILLS, TIERS } from '../lib/rewards/skills';
 import { playSound } from '../lib/sound';
 import type { GameRewards } from '../lib/store/finish';
@@ -307,7 +307,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
             )}
             {r.unlocks.map((c, i) => (
               <Reveal key={c.id} show={step >= S.extras} delay={200 + i * 150}>
-                <RewardRow icon={<CosmeticPreview c={c} size={32} />} title={c.name} sub={`New ${KIND_LABEL[c.kind].one.toLowerCase()} · equip it in your Collection`} right={NEW} shine={!won} />
+                <RewardRow icon={<CosmeticPreview c={c} size={32} />} title={cosmeticTitle(c)} sub={`New ${KIND_LABEL[c.kind].one.toLowerCase()} · equip it in your Collection`} right={NEW} shine={!won} />
               </Reveal>
             ))}
             {r.achievements.map((a, i) => (

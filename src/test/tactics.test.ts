@@ -33,6 +33,19 @@ describe('motifs', () => {
     // Bb5 pins the c6 knight to the e8 king.
     expect(kinds('4k3/8/2n5/8/8/8/8/4KB2 w - - 0 1', 'f1b5')).toContain('pin');
   });
+  it('relative pin to a piece worth more than the pinner', () => {
+    // Bg5 pins the f6 knight to the d8 queen.
+    expect(kinds('3qk3/8/5n2/8/8/8/8/2B1K3 w - - 0 1', 'c1g5')).toContain('pin');
+  });
+  it('Bc4 against f7/g8 is not a pin', () => {
+    // 1.e4 e5 2.Nf3 Nc6 3.Bc4: the g8 knight is worth no more than the bishop and is defended.
+    expect(kinds('r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3', 'f1c4')).not.toContain('pin');
+  });
+  it('relative pin to an undefended piece only', () => {
+    // Ra1 pins the a4 pawn to the a5 knight while the knight is loose, not once b6 guards it.
+    expect(kinds('4k3/8/8/n7/p7/8/6K1/7R w - - 0 1', 'h1a1')).toContain('pin');
+    expect(kinds('4k3/8/1p6/n7/p7/8/6K1/7R w - - 0 1', 'h1a1')).not.toContain('pin');
+  });
   it('skewer', () => {
     // Rook checks the king on e-file with the queen behind.
     expect(kinds('4q3/8/8/4k3/8/8/8/R3K3 w - - 0 1', 'a1a5')).not.toContain('skewer');

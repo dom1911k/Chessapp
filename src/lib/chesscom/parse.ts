@@ -51,11 +51,15 @@ export function normalizeTimeControl(tc: string): string {
 }
 
 /** "600+0" → "10+0" (minutes + increment seconds, as players say it). */
+/** chess.com's names: "10 min", "3 | 2", "15 | 10", "30 sec", "Daily". */
 export function timeControlLabel(tc: string): string {
   if (tc === 'daily') return 'Daily';
   const [base, inc] = tc.split('+').map(Number);
+  if (!Number.isFinite(base)) return tc;
   const min = base / 60;
-  return `${Number.isInteger(min) ? min : min.toFixed(1)}+${inc || 0}`;
+  const mins = Number.isInteger(min) ? String(min) : min.toFixed(1);
+  if (inc) return base < 60 ? `${base} sec | ${inc}` : `${mins} | ${inc}`;
+  return base < 60 ? `${base} sec` : `${mins} min`;
 }
 
 /** Seconds on the clock after each move, from the PGN's {[%clk h:mm:ss(.s)]} comments. */

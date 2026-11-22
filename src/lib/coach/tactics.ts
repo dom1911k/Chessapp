@@ -64,7 +64,10 @@ function lineMotifs(board: Board, sq: number, kind: 'pin' | 'skewer'): LineMotif
       // A piece that slides the same way can just capture the pinner.
       if (slides(A.type, df, dr)) continue;
       if (B.type === 'k') out.push({ pinner: sq, first: a, behind: b, absolute: true });
-      else if (VALUE[B.type] > VALUE[A.type] && VALUE[B.type] > VALUE[p.type] - 1)
+      // A relative pin only when moving away really costs: the piece behind is worth more than
+      // the pinner, or it's undefended and worth more than the pinned piece (so Bc4 against
+      // f7/g8 in every Italian isn't one).
+      else if (VALUE[B.type] > VALUE[p.type] || (VALUE[B.type] > VALUE[A.type] && attackersOf(board, b, enemy).length === 0))
         out.push({ pinner: sq, first: a, behind: b });
     } else {
       if (VALUE[A.type] <= VALUE[B.type] || B.type === 'p') continue;

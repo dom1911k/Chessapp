@@ -124,9 +124,19 @@ export const TEMPLATES = {
   missedPromotion: [
     'If you {doMove}, nothing can stop that pawn from queening.',
   ],
+  // A defending move: the piece stays where it is.
   savePiece: [
     'Your {piece} on {sq} needed help. You could {doMove} to keep it safe.',
     '{move} would have kept your {piece} on {sq} safe.',
+  ],
+  // The piece itself runs (so never "kept on {sq}": it leaves that square).
+  escapePiece: [
+    '{move} would have got your {piece} out of danger.',
+    'Your {piece} on {sq} needed a safe square. You could {doMove}.',
+  ],
+  // You moved that piece into danger; another square for it was safe.
+  escapeMovedPiece: [
+    'Your {piece} had a safe square on {to} instead.',
   ],
   fallbackMaterial: [
     '{move} was better: {line}, and you come out ahead.',

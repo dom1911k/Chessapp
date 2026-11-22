@@ -87,8 +87,9 @@ export const ideaRules: Rule[] = [
       // Only if the played move left that piece hanging.
       const stillHanging = hangingPieces(c.boardAfter, c.mover).some((h) => h.sq === saves.sq || (saves.kind === 'escape' && h.sq === c.to && c.from === saves.sq));
       if (!stillHanging) return null;
+      const key = saves.kind === 'defend' ? 'savePiece' : c.from === saves.sq ? 'escapeMovedPiece' : 'escapePiece';
       return {
-        text: t('savePiece', { move: c.bestGer, doMove: c.bestInf, piece: c.name(saves.piece), sq: c.sq(saves.sq) }, c.seed),
+        text: t(key, { move: c.bestGer, doMove: c.bestInf, piece: c.name(saves.piece), sq: c.sq(saves.sq), to: c.bestUci?.slice(2, 4) ?? '' }, c.seed),
         arrows: bestArrow(c),
         highlights: [{ sq: c.sq(saves.sq), tone: 'info' }],
       };

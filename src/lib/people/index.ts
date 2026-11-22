@@ -327,6 +327,13 @@ export const OPPONENTS: Opponent[] = [
 
 export const opponentById = (id: string | undefined) => OPPONENTS.find((o) => o.id === id);
 
+const COUNT_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
+/** "Nine characters from 200 to 1800" — read off the cast, so it can't drift from the ladder. */
+export function castSummary(list: { elo: number }[] = OPPONENTS): string {
+  const elos = list.map((o) => o.elo);
+  return `${COUNT_WORDS[list.length] ?? list.length} characters from ${Math.min(...elos)} to ${Math.max(...elos)}`;
+}
+
 /** Closest opponent for a custom strength. */
 export function nearestOpponent(elo: number): Opponent {
   return OPPONENTS.reduce((a, b) => (Math.abs(b.elo - elo) < Math.abs(a.elo - elo) ? b : a));

@@ -97,6 +97,13 @@ export const COSMETICS: Cosmetic[] = (Object.keys(keysOf) as CosmeticKind[]).fla
 
 export const cosmeticById = (id: string) => COSMETICS.find((c) => c.id === id);
 
+/** What to add after a name another kind shares: "Marble board", "Marble pieces". */
+const KIND_NOUN: Record<CosmeticKind, string> = { board: 'board', pieces: 'pieces', fx: 'celebration', hl: 'move colour', snd: 'sounds' };
+const NAME_KINDS = new Map<string, Set<CosmeticKind>>();
+for (const c of COSMETICS) NAME_KINDS.set(c.name, (NAME_KINDS.get(c.name) ?? new Set()).add(c.kind));
+/** The name to show outside the Collection's own tabs: with its kind when the name alone is ambiguous. */
+export const cosmeticTitle = (c: Pick<Cosmetic, 'name' | 'kind'>) => ((NAME_KINDS.get(c.name)?.size ?? 0) > 1 ? `${c.name} ${KIND_NOUN[c.kind]}` : c.name);
+
 export function unlockText(u: Unlock): string {
   switch (u.kind) {
     case 'free':

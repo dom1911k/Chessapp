@@ -4,7 +4,7 @@ import { CoachBubble } from '../components/Coach';
 import { CosmeticPreview } from '../components/CosmeticPreview';
 import { Glyph } from '../components/Glyph';
 import { Header } from '../components/ui';
-import { cosmeticById } from '../lib/rewards/cosmetics';
+import { cosmeticById, cosmeticTitle } from '../lib/rewards/cosmetics';
 import { getGameRating, MILESTONES, REGIONS, START_RATING, titleFor, type GameRating } from '../lib/rewards/rating';
 
 const ROW = 128;
@@ -181,7 +181,7 @@ export function JourneyScreen() {
                   {reward && (
                     <div className={`mt-1 inline-flex items-center gap-1.5 rounded-full bg-white/80 py-0.5 pr-2 pl-0.5 text-[11px] font-semibold shadow-sm dark:bg-stone-800/80 ${right ? '' : 'flex-row-reverse pr-0.5 pl-2'}`}>
                       <CosmeticPreview c={reward} size={22} />
-                      <span className="truncate">{reward.name}</span>
+                      <span className="truncate">{cosmeticTitle(reward)}</span>
                       {reached && <Check size={12} className="text-brand-700" strokeWidth={3} />}
                     </div>
                   )}

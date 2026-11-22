@@ -619,7 +619,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         kind: 'info',
         ply: -1,
         text: opts.match ? [`Match conditions vs ${o ? o.name : opts.rematch ? `a stand-in for ${opts.rematch.name}` : 'the bot'} (${elo}): no hints, no take-backs, no warnings. Play it like a real game — I'll go through it with you afterwards.`] : [
-          o ? `You're playing ${o.name} (~${o.elo}). ${REPERTOIRES[o.id] ? `Watch out — ${o.name.split(' ').pop()} likes the ${REPERTOIRES[o.id].favourite}.` : 'Expect surprises!'}` : 'New game — good luck!',
+          o ? `You're playing ${o.name} (${o.elo}). ${REPERTOIRES[o.id] ? `Watch out — ${o.name.split(' ').pop()} likes the ${REPERTOIRES[o.id].favourite}.` : 'Expect surprises!'}` : 'New game — good luck!',
           color === 'w' ? 'You have the white pieces, so you move first. Tap a piece, then a square.' : 'You have black, so your opponent moves first.',
         ],
       });

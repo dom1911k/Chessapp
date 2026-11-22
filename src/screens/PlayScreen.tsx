@@ -147,7 +147,7 @@ function SetupView() {
             onChange={(v) => settings.set({ matchMode: v === 'match' })}
             options={[
               { value: 'coached', label: <><MessageCircleHeart size={15} /> Coached</> },
-              { value: 'match', label: <><Swords size={15} /> Match conditions</> },
+              { value: 'match', label: <><Swords size={15} /> Match</> },
             ]}
           />
           <button className="flex w-full flex-wrap items-center gap-1.5 rounded-[8px] p-1 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={() => setSheet('options')}>
