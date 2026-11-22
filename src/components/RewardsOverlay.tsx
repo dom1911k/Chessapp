@@ -149,7 +149,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-5 pb-3">
           {/* Header: the result between the two players; the winner ringed in green with a crown. */}
           <div className="flex items-center justify-between gap-3 px-3">
-            <div className="flex w-[76px] shrink-0 flex-col items-center gap-1">
+            <div className="flex w-[84px] shrink-0 flex-col items-center gap-1">
               <span className={`relative rounded-md ${ring(meWon)}`}>
                 {meWon && crown}
                 <UserAvatar size={56} className="block" />
@@ -160,7 +160,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               <div className="animate-banner text-[26px] leading-tight font-extrabold tracking-[-0.02em]">{r.userResult === 'win' ? 'You won' : r.userResult === 'draw' ? 'Draw' : 'You lost'}</div>
               <div className="mt-0.5 text-[13px] font-medium text-stone-500">{reasonText(r.reason)}</div>
             </div>
-            <div className="flex w-[76px] shrink-0 flex-col items-center gap-1">
+            <div className="flex w-[84px] shrink-0 flex-col items-center gap-1">
               <span className={`relative rounded-md ${ring(theyWon)}`}>
                 {theyWon && crown}
                 {r.firstWin && o && (
