@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Chess, type Square } from 'chess.js';
 import { squareAtPoint, stepView, swipeDir } from '../lib/chess/boardfeel';
 import { kingBadges } from '../lib/chess/kingBadges';
-import { Clock as ClockIcon, Flame, FlipVertical2, Puzzle, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy, Undo2, Users } from 'lucide-react';
+import { Clock as ClockIcon, Flame, FlipVertical2, Puzzle, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy, Undo2, Users, X } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { getSparring, sparringStep, type SparringState } from '../lib/sparring';
 import { getPlayerRating } from '../lib/playerRating';
@@ -25,6 +25,7 @@ import { detectOpening } from '../lib/openings';
 import { useNav } from '../lib/nav';
 import { useSettings } from '../lib/settings';
 import { currentFen, turnOf, usePlay } from '../lib/store/play';
+import { canAbort } from '../lib/store/finish';
 import { Board } from '../components/Board';
 import { CoachBubble, FlagIconButton, Portrait } from '../components/Coach';
 import { OPPONENTS, opponentById, portraitColors, type Mood } from '../lib/people';
@@ -528,6 +529,8 @@ function GameView() {
   const lastEval = [...g.plies].reverse().find((p) => p.evalAfter)?.evalAfter;
   const whitePct = lastEval ? winPct(povScore(lastEval, 'w')) : 50;
   const userPlies = g.plies.filter((p) => p.isUser).length;
+  // Before each side has made 2 moves, Resign reads Abort (chess.com): nothing is recorded.
+  const abortable = !s.over && canAbort(g);
 
   useEffect(() => {
     if (s.over) setMenu(false);
@@ -640,7 +643,11 @@ function GameView() {
                   <>
                     <DockButton label="Back" icon={<ChevronLeft size={24} />} disabled={!g.plies.length || view === -1} onClick={() => setView(stepView(view, g.plies.length, -1))} />
                     <DockButton label="Forward" icon={<ChevronRight size={24} />} disabled={!viewing} onClick={() => setView(stepView(view, g.plies.length, 1))} />
-                    <DockButton label="Resign" icon={<Flag size={22} />} onClick={() => setConfirmResign(true)} />
+                    {abortable ? (
+                      <DockButton label="Abort" icon={<X size={22} />} onClick={() => void s.abort()} />
+                    ) : (
+                      <DockButton label="Resign" icon={<Flag size={22} />} onClick={() => setConfirmResign(true)} />
+                    )}
                   </>
                 )}
                 <DockButton label="More" icon={<EllipsisVertical size={22} />} onClick={() => setMenu(true)} />
@@ -681,7 +688,7 @@ function GameView() {
           )}
           {!g.match && menuItem(<ShieldCheck size={19} />, 'Safety overlay', () => settings.set({ safetyOverlay: !settings.safetyOverlay }), onOff(settings.safetyOverlay))}
           {menuItem(<ListOrdered size={19} />, 'Move list', () => settings.set({ showMoveList: !settings.showMoveList }), onOff(settings.showMoveList))}
-          {!s.over && menuItem(<Flag size={19} />, 'Resign', () => (g.match ? setConfirmResign(true) : void s.resign()))}
+          {!s.over && (abortable ? menuItem(<X size={19} />, 'Abort', () => void s.abort()) : menuItem(<Flag size={19} />, 'Resign', () => (g.match ? setConfirmResign(true) : void s.resign())))}
           {menuItem(<RotateCcw size={19} />, 'New game', () => void (s.over ? s.leaveGame() : s.abandon()))}
         </div>
       </Dialog>

@@ -26,6 +26,12 @@ export function formatDate(t: number): string {
   return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/** chess.com's rule: until each side has made 2 moves, the game can be aborted instead of resigned. */
+export function canAbort(g: { plies: { isUser: boolean }[] }): boolean {
+  const mine = g.plies.filter((p) => p.isUser).length;
+  return mine < 2 || g.plies.length - mine < 2;
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /** "22 Nov", with the year only when it isn't this year ("22 Nov 2025"): fits a header subtitle. */
 export function shortDate(t: number, now = Date.now()): string {

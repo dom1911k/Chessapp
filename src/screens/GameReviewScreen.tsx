@@ -149,9 +149,9 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
             </div>
             {perf && (
               <>
-                <span className="text-center text-lg font-extrabold tabular-nums" data-testid="game-rating">{perf.me ? `${perf.me}${perf.me >= 2000 ? '+' : ''}` : '—'}</span>
-                <span className="text-center text-[11px] font-semibold tracking-wider text-stone-500 uppercase">Game rating</span>
-                <span className="text-center text-lg font-extrabold tabular-nums">{perf.them ? `${perf.them}${perf.them >= 2000 ? '+' : ''}` : '—'}</span>
+                {perf.me ? <GameRating value={perf.me} testId="game-rating" /> : <span />}
+                <span />
+                {perf.them ? <GameRating value={perf.them} /> : <span />}
               </>
             )}
           </div>
@@ -219,7 +219,7 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
         )}
 
         {!pending(g) && (
-          <Sec title="Moves" fold preview={badCounts.length ? badCounts.join(' · ') : 'No mistakes from you'}>
+          <Sec title="Moves" fold startOpen remember="reviewMoves" preview={badCounts.length ? badCounts.join(' · ') : 'No mistakes from you'}>
             <div className="card !px-3 !py-2">
               <div className="divide-y divide-stone-100 dark:divide-white/[0.05]">
                 {rows.map((c) => (
@@ -347,8 +347,25 @@ function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: st
 }
 
 /** A titled section of the summary; `fold` sections start closed with a one-line preview. */
-function Sec({ title, children, fold, preview }: { title: string; children: ReactNode; fold?: boolean; preview?: string }) {
-  const [open, setOpen] = useState(!fold);
+function Sec({ title, children, fold, preview, startOpen = false, remember }: { title: string; children: ReactNode; fold?: boolean; preview?: string; /** A foldable section that starts open. */ startOpen?: boolean; /** Remember the fold state on this device under this key. */ remember?: string }) {
+  const [open, setOpenState] = useState(() => {
+    if (!fold) return true;
+    try {
+      const v = remember ? localStorage.getItem(remember) : null;
+      if (v === '1' || v === '0') return v === '1';
+    } catch {
+      /* no storage */
+    }
+    return startOpen;
+  });
+  const setOpen = (o: boolean) => {
+    setOpenState(o);
+    try {
+      if (remember) localStorage.setItem(remember, o ? '1' : '0');
+    } catch {
+      /* no storage */
+    }
+  };
   if (!fold) return (
     <section>
       <h2 className="section-title mb-1.5">{title}</h2>
@@ -364,6 +381,16 @@ function Sec({ title, children, fold, preview }: { title: string; children: Reac
       </button>
       {open && <div className="mt-1.5">{children}</div>}
     </section>
+  );
+}
+
+/** chess.com's per-player "Game rating" under the accuracy box (nothing when too few moves count). */
+function GameRating({ value, testId }: { value: number; testId?: string }) {
+  return (
+    <span className="flex flex-col items-center leading-tight" data-testid={testId}>
+      <span className="text-[13px] font-semibold text-stone-500">Game rating</span>
+      <span className="text-base font-extrabold tabular-nums">{value}{value >= 2000 ? '+' : ''}</span>
+    </span>
   );
 }
 

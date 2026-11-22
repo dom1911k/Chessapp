@@ -48,3 +48,17 @@ describe('finishing a game', () => {
     expect(await kvGet<number>('xp', 0)).toBe(0);
   });
 });
+
+describe('abort before move 2', () => {
+  it('is allowed until each side has made 2 moves', async () => {
+    const { canAbort } = await import('../lib/store/finish');
+    const plies = (seq: boolean[]) => ({ plies: seq.map((isUser) => ({ isUser })) });
+    expect(canAbort(plies([]))).toBe(true);
+    expect(canAbort(plies([true, false]))).toBe(true);
+    expect(canAbort(plies([true, false, true]))).toBe(true);
+    expect(canAbort(plies([true, false, true, false]))).toBe(false);
+    // Playing Black: the bot's 2 moves and yours.
+    expect(canAbort(plies([false, true, false]))).toBe(true);
+    expect(canAbort(plies([false, true, false, true]))).toBe(false);
+  });
+});

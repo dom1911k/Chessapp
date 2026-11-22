@@ -23,7 +23,7 @@ import { opponentById, pickLine, type ChatEvent, type Mood } from '../people';
 import { bookMove, REPERTOIRES } from '../people/openings';
 import { detectOpening } from '../openings';
 import { useCelebrate } from '../celebrate';
-import { finishGame, gameTactics, type GameRewards } from './finish';
+import { canAbort, finishGame, gameTactics, type GameRewards } from './finish';
 import type { FeedItem, SavedGame } from './types';
 import { cap, moveWords } from '../chess/words';
 import { specialMove, tacticsOfMove, TACTIC_KEYS, type Special, type TacticCounts, type TacticKey } from '../rewards/career';
@@ -81,6 +81,8 @@ interface PlayStore {
   resign(): Promise<void>;
   /** Start over: very short games are discarded, longer ones count as resigned. */
   abandon(): Promise<void>;
+  /** End the game before each side has made 2 moves (canAbort): nothing is recorded, back to the menu. */
+  abort(): Promise<void>;
   leaveGame(): void;
   /** Back to the menu while a game is running (the game stays saved). */
   away: boolean;
@@ -796,6 +798,14 @@ export const usePlay = create<PlayStore>((set, get) => {
       get().leaveGame();
     },
 
+    async abort() {
+      const g = get().game;
+      if (!g || get().over || !canAbort(g)) return;
+      token++;
+      getEngine().cancelAll('play');
+      await db.current.delete('play');
+      get().leaveGame();
+    },
     leaveGame() {
       token++;
       getEngine().cancelAll('play');
