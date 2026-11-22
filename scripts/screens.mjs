@@ -5,6 +5,7 @@
 //   npm run screens                     # label "latest", all sizes, both themes, every scenario
 //   npm run screens -- before           # label "before"
 //   npm run screens -- after --only=coached,review --sizes=390x844 --schemes=dark
+//   npm run screens -- pre --seed=7 --sizes=390x844 --schemes=dark   # repeatable, for refactors
 //   SCREENS_URL=http://localhost:5173 npm run screens   # use a dev server that's already running
 //
 // Scenarios: home, coached (versus intro, start, 1.e4, a selected piece, 2.Qh5, the pre-check,
@@ -28,6 +29,9 @@ const label = args.find((x) => !x.startsWith('--')) ?? 'latest';
 const ONLY = opt('only', '') ? opt('only', '').split(',') : null;
 const SIZES = opt('sizes', '360x740,390x844,1280x800').split(',').map((s) => s.split('x').map(Number));
 const SCHEMES = opt('schemes', 'dark,light').split(',');
+// --seed=N makes Math.random repeatable in the page (bot moves, puzzle picks), so two runs of the
+// same code can be compared pixel for pixel (e.g. before and after a refactor).
+const SEED = opt('seed', '');
 const PORT = Number(opt('port', '5181'));
 const OUT = join(process.cwd(), '.cache', 'screens', label);
 const want = (k) => !ONLY || ONLY.includes(k);
@@ -171,6 +175,16 @@ async function run([W, H], scheme) {
   const tag = `${W}x${H}-${scheme}`;
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, isMobile: W < 700, hasTouch: true, colorScheme: scheme });
+  if (SEED)
+    await ctx.addInitScript((seed) => {
+      let a = Number(seed) >>> 0 || 1;
+      Math.random = () => {
+        a = (a + 0x6d2b79f5) >>> 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }, SEED);
   const p = await ctx.newPage();
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));

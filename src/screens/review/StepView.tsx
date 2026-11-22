@@ -1,0 +1,432 @@
+// Game Review's step-through: eval bar + board, the move strip, Coach Sam on the move shown,
+// Best / Retry / Next mistake, and the step arrows.
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ChartLine, Play, Square, FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope } from 'lucide-react';
+import { Board } from '../../components/Board';
+import { EvalGraph } from '../../components/Charts';
+import { CoachBubble } from '../../components/Coach';
+import { EvalBar, FadeScroll, Header } from '../../components/ui';
+import { ReviewIcon } from '../../components/ReviewIcon';
+import { namesMove } from '../../lib/coach/names';
+import { ExplainSheet } from '../../components/ExplainSheet';
+import { CauseIcon } from '../../components/Causes';
+import { CAUSE_INFO, mistakeCauses, type MistakeCause } from '../../lib/games/causes';
+import { useNav } from '../../lib/nav';
+import { kingBadges, kingSquares } from '../../lib/chess/kingBadges';
+import { getGameRating } from '../../lib/rewards/rating';
+import { formatLine, lineToSan, tryMove, type MoveInput } from '../../lib/chess/game';
+import { classify, formatScore, povScore, winPct } from '../../lib/chess/evaluation';
+import { shortWords } from '../../lib/chess/words';
+import { getEngine } from '../../lib/engine';
+import { goodWhy, looseWhy, missedThreat, planWhy, repeatedTips, reviewNotes } from '../../lib/reviewText';
+import { ArrowOverlay, type OverlayArrow } from '../../components/ArrowOverlay';
+import { isBad, moveNo, punishInfo, punishment, RC, type Review, type ReviewClass } from '../../lib/review';
+import { playSound } from '../../lib/sound';
+import type { AnyGame, ImportedGame } from '../../lib/store/types';
+import { SquareIcon, oppName, timesOf } from './shared';
+
+type Retry = { state: 'try' | 'checking' | 'right' | 'ok' | 'wrong'; fen: string; last?: { from: string; to: string }; reply?: string };
+
+export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: number; onSummary: () => void }) {
+  const [i, setI] = useState(start);
+  const [best, setBest] = useState(false);
+  const [retry, setRetry] = useState<Retry | null>(null);
+  const [explain, setExplain] = useState(false);
+  // On a move where you missed their threat: show the threat first, then your move.
+  const [threatSeen, setThreatSeen] = useState<number | null>(null);
+  // The eval graph under the moves: open on tall screens, folded away on short ones so the coach has
+  // room; your choice is remembered on this device.
+  const [graphOpen, setGraphOpen] = useState(() => {
+    try {
+      const v = localStorage.getItem('reviewGraph');
+      if (v === '1' || v === '0') return v === '1';
+    } catch {
+      /* no storage */
+    }
+    return typeof window === 'undefined' || window.innerHeight >= 780;
+  });
+  const toggleGraph = () =>
+    setGraphOpen((o) => {
+      try {
+        localStorage.setItem('reviewGraph', o ? '0' : '1');
+      } catch {
+        /* no storage */
+      }
+      return !o;
+    });
+  // "Play it out": the line being stepped through on the board (index into its frames).
+  const [lineK, setLineK] = useState<number | null>(null);
+  const push = useNav((s) => s.push);
+  const stepTimes = useMemo(() => timesOf(g), [g]);
+  const causeAt = useMemo(() => new Map(mistakeCauses(g, r.plies.map((x) => x.cls)).map((c) => [c.ply, c])), [g, r]);
+  const [myRating, setMyRating] = useState<number | null>(null);
+  const history = useMemo(() => [g.startFen, ...g.plies.slice(0, Math.max(0, i)).map((q) => q.fenAfter)], [g, i]);
+  useEffect(() => {
+    if (g.source === 'chess.com') setMyRating((g as ImportedGame).myRating || null);
+    else void getGameRating().then((x) => setMyRating(x.rating));
+  }, [g]);
+  const strip = useRef<HTMLDivElement>(null);
+  const n = g.plies.length;
+  const p = i >= 0 ? g.plies[i] : null;
+  const rp = i >= 0 ? r.plies[i] : null;
+  const [flipped, setFlipped] = useState(false);
+  const orientation = (g.userColor === 'w') !== flipped ? 'white' : 'black';
+  useEffect(() => {
+    setBest(false);
+    setRetry(null);
+    setThreatSeen(null);
+    setLineK(null);
+    strip.current?.querySelector(`[data-ply="${i}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, [i]);
+  useEffect(() => () => getEngine().cancelAll('review'), []);
+  const go = (k: number) => setI(Math.max(-1, Math.min(n - 1, k)));
+  // Swipe on the board to step: left = forward, right = back (not while retrying a move).
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const onSwipeStart = (e: React.TouchEvent) => { swipe.current = retry ? null : { x: e.touches[0].clientX, y: e.touches[0].clientY }; };
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const s0 = swipe.current;
+    swipe.current = null;
+    if (!s0) return;
+    const dx = e.changedTouches[0].clientX - s0.x;
+    const dy = e.changedTouches[0].clientY - s0.y;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? i + 1 : i - 1);
+  };
+  const nextBad = () => {
+    for (let k = i + 1; k < n; k++) if (g.plies[k].isUser && isBad(r.plies[k].cls)) return go(k);
+  };
+  const canRetry = !!p && p.isUser && !!rp && isBad(rp.cls) && !!p.comment?.bestUci;
+  const canBest = !!p?.comment?.bestUci && p.comment.bestUci !== p.uci;
+
+  const cause = causeAt.get(i);
+  const threat = useMemo(() => (p && cause?.cause === 'missedThreat' ? missedThreat(p) : null), [p, cause]);
+  const threatStage = !!threat && threatSeen !== i && !best && !retry;
+  // The line worth playing out here: the best line (Best on), what your mistake allowed, or how
+  // to punish their mistake.
+  const play = useMemo(() => {
+    if (!p || !rp || retry || threatStage) return null;
+    const nx = g.plies[i + 1];
+    const src = best
+      ? p.comment?.bestLine?.length ? { fen: p.fenBefore, line: p.comment.bestLine, label: 'Play the best line' } : null
+      : !isBad(rp.cls) ? null
+      : p.isUser ? p.comment?.replyLine && p.comment.replyLine.length > 1 && rp.cls !== 'inaccuracy' ? { fen: p.fenAfter, line: p.comment.replyLine, label: 'Play out what it allows' } : null
+      : nx?.isUser && nx.comment?.bestLine && nx.comment.bestLine.length > 1 ? { fen: p.fenAfter, line: nx.comment.bestLine, label: 'Play out the punishment' } : null;
+    if (!src) return null;
+    const frames: { fen: string; last: { from: string; to: string }; san: string }[] = [];
+    let f = src.fen;
+    for (const u of src.line.slice(0, 6)) {
+      const m = tryMove(f, u);
+      if (!m) break;
+      f = m.fen;
+      frames.push({ fen: f, last: { from: m.move.from, to: m.move.to }, san: m.move.san });
+    }
+    return frames.length > 1 ? { ...src, frames } : null;
+  }, [p, rp, retry, threatStage, best, g.plies, i]);
+  const frame = play && lineK !== null ? play.frames[Math.min(lineK, play.frames.length - 1)] : null;
+  useEffect(() => {
+    if (lineK === null || !play || lineK >= play.frames.length - 1) return;
+    const t = setTimeout(() => setLineK(lineK + 1), lineK === 0 ? 650 : 900);
+    return () => clearTimeout(t);
+  }, [lineK, play]);
+  useEffect(() => setLineK(null), [best]);
+  // What the board shows: the position after the move; before it for Best / Retry / their threat.
+  const fen = frame ? frame.fen : retry ? retry.fen : p ? (best || threatStage ? p.fenBefore : p.fenAfter) : g.startFen;
+  const lastMove = frame ? frame.last : retry ? retry.last ?? null : p && !best && !threatStage ? { from: p.uci.slice(0, 2), to: p.uci.slice(2, 4) } : null;
+  // The same arrows everywhere: green = best move, red = what a move allowed, dotted = a punishing
+  // reply to their mistake (or their threat).
+  const arr = (uci: string, tone: 'good' | 'bad' | 'info') => ({ from: uci.slice(0, 2), to: uci.slice(2, 4), tone });
+  const arrows: { from: string; to: string; tone: 'good' | 'bad' | 'info' }[] = [];
+  const dotted: OverlayArrow[] = [];
+  if (frame) {
+    // Playing a line out: the board speaks for itself.
+  } else if (retry) {
+    if (retry.state === 'wrong' && retry.reply) arrows.push(arr(retry.reply, 'bad'));
+  } else if (threatStage && threat) dotted.push(arr(threat.uci, 'bad'));
+  else if (best && p?.comment?.bestUci) arrows.push(arr(p.comment.bestUci, 'good'));
+  else if (p && rp && isBad(rp.cls)) {
+    if (p.isUser && rp.cls !== 'inaccuracy' && p.comment?.replyLine?.[0]) arrows.push(arr(p.comment.replyLine[0], 'bad'));
+    const next = g.plies[i + 1];
+    if (!p.isUser && next?.isUser && next.comment?.bestUci) dotted.push(arr(next.comment.bestUci, 'good'));
+  }
+  const evalNow = r.curve[i + 1] ?? 50;
+
+  const onRetryMove = (m: MoveInput) => {
+    if (!retry || retry.state !== 'try' || !p) return false;
+    const res = tryMove(p.fenBefore, m);
+    if (!res) return false;
+    const uci = res.move.lan;
+    setRetry({ state: 'checking', fen: res.fen, last: { from: res.move.from, to: res.move.to } });
+    if (uci === p.comment?.bestUci) {
+      playSound('success');
+      setRetry({ state: 'right', fen: res.fen, last: { from: res.move.from, to: res.move.to } });
+      return true;
+    }
+    void (async () => {
+      try {
+        const e = getEngine();
+        const [b, a] = await Promise.all([e.analyze(p.fenBefore, { depth: 11, owner: 'review' }), e.analyze(res.fen, { depth: 11, owner: 'review' })]);
+        const cls = classify(winPct(povScore(b.lines[0].score, p.color)), winPct(povScore(a.lines[0].score, p.color)), uci === b.bestMove);
+        const good = cls === 'best' || cls === 'good';
+        playSound(good ? 'success' : 'error');
+        setRetry({ state: good ? 'ok' : 'wrong', fen: res.fen, last: { from: res.move.from, to: res.move.to }, reply: good ? undefined : a.bestMove ?? undefined });
+      } catch {
+        setRetry({ state: 'wrong', fen: res.fen, last: { from: res.move.from, to: res.move.to } });
+      }
+    })();
+    return true;
+  };
+
+  // The reviewed move's squares in its class colour (for the moves that matter), else yellow.
+  const moveTint = p && rp && !best && !retry && !threatStage && !frame && NOTABLE.has(rp.cls) ? hexRgb(RC[rp.cls].color) : undefined;
+  // On the final move, the result on each king (crown, flag, #, clock or ½), like chess.com.
+  const endBadges = p && i === g.plies.length - 1 && fen === p.fenAfter && !retry && !frame ? kingBadges(g.result, g.reason) : null;
+  return (
+    <div className="flex h-full flex-col">
+      {/* No date here: with three header buttons it would truncate (the summary shows it). */}
+      <Header title="Game Review" back subtitle={`vs ${oppName(g)}`} right={
+        <span className="flex items-center gap-1">
+          <button aria-label="Analyse this position" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300 dark:active:bg-stone-800" onClick={() => push({ name: 'explore', fen: p ? p.fenAfter : g.startFen, orientation, title: 'Analysis' })}><Microscope size={19} /></button>
+          <button aria-label="Flip board" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300 dark:active:bg-stone-800" onClick={() => setFlipped((f) => !f)}><FlipVertical2 size={19} /></button>
+          <button className="px-2 text-sm font-semibold text-stone-600 active:text-stone-900 dark:text-stone-300 dark:active:text-white" onClick={onSummary}>Summary</button>
+        </span>
+      } />
+      <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-4 land:px-3">
+        <div className="flex gap-1 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0 land:self-start">
+          <EvalBar whitePct={evalNow} orientation={orientation} score={p?.evalAfter ?? { type: 'cp', value: 0 }} width={20} />
+          <div className="relative min-w-0 flex-1" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} data-testid="review-board">
+            <Board fen={fen} orientation={orientation} movable={retry?.state === 'try' ? g.userColor : null} onMove={onRetryMove} arrows={arrows} lastMove={lastMove} lastMoveColor={moveTint} kingBadges={endBadges} />
+            <ArrowOverlay arrows={dotted} orientation={orientation} />
+            {moveTint && p && rp && !(endBadges && Object.values(kingSquares(fen)).includes(p.uci.slice(2, 4))) && <SquareIcon sq={p.uci.slice(2, 4)} cls={rp.cls} orientation={orientation} />}
+          </div>
+        </div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {/* Move strip: the same look as the game's, with the graph toggle at its end. */}
+          <div className="flex shrink-0 items-center">
+          <div ref={strip} className="no-scrollbar flex h-9 min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-2 text-[14px]">
+            {g.plies.map((q, k) => {
+              const c = r.plies[k].cls;
+              const showIcon = c === 'brilliant' || c === 'great' || isBad(c);
+              return (
+                <button
+                  key={k}
+                  data-ply={k}
+                  onClick={() => go(k)}
+                  className={`flex shrink-0 items-center gap-1 rounded-[4px] px-1.5 py-0.5 whitespace-nowrap transition-colors ${k === i ? 'bg-black/[0.08] font-bold text-stone-900 dark:bg-white/[0.12] dark:text-white' : 'font-semibold text-stone-700 active:bg-black/5 dark:text-stone-300 dark:active:bg-white/5'}`}
+                >
+                  {q.color === 'w' && <span className="text-[12px] font-semibold text-stone-500 tabular-nums">{moveNo(g.plies, k)}</span>}
+                  {showIcon && <ReviewIcon cls={c} size={14} />}
+                  <span>{q.san}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            aria-label={graphOpen ? 'Hide the evaluation graph' : 'Show the evaluation graph'}
+            aria-expanded={graphOpen}
+            className={`mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${graphOpen ? 'bg-black/[0.06] text-stone-700 dark:bg-white/[0.08] dark:text-stone-200' : 'text-stone-500'}`}
+            onClick={toggleGraph}
+            data-testid="graph-toggle"
+          >
+            <ChartLine size={18} />
+          </button>
+          </div>
+          {/* The eval graph as a scrubber right under the moves. */}
+          {graphOpen && (
+            <div className="mx-3 shrink-0">
+              <EvalGraph plies={g.plies} current={i} onSelect={go} height={40} times={stepTimes} classes={r.plies.map((x) => x.cls)} />
+            </div>
+          )}
+          {/* Coach Sam on the move, in his speech bubble; takes the remaining height. */}
+          <FadeScroll className="px-3 pt-2.5 pb-2" testId="review-coach">
+            <CoachBubble mood={rp && isBad(rp.cls) && p?.isUser ? 'concerned' : 'happy'}>
+              <CoachText g={g} r={r} i={i} best={best} retry={retry} cause={cause} threat={threatStage ? threat : null} onSeenThreat={() => setThreatSeen(i)} />
+              {play && (
+                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+                  <button className="chip bg-brand-100 font-semibold text-brand-700" data-testid="play-line" onClick={() => setLineK(lineK === null ? 0 : null)}>
+                    {lineK === null ? <><Play size={12} /> {play.label}</> : <><Square size={11} /> Stop</>}
+                  </button>
+                  {lineK !== null && <span className="font-semibold tabular-nums text-stone-600">{formatLine(play.fen, play.frames.slice(0, lineK + 1).map((x) => x.san))}</span>}
+                </div>
+              )}
+              {p && rp && !retry && (
+                <button className="mt-2 flex items-center gap-1 text-[13px] font-bold text-brand-700" onClick={() => setExplain(true)} data-testid="explain">
+                  <MessageCircleQuestion size={15} /> Explain this move
+                </button>
+              )}
+            </CoachBubble>
+          </FadeScroll>
+          {/* Best / Retry / Next mistake */}
+          {/* The longest label gets the widest column, so nothing pushes the row past a 360px screen. */}
+          <div className="mx-3 mb-2 grid shrink-0 grid-cols-[1fr_1fr_1.3fr] gap-2">
+            <ActionButton icon={<Lightbulb size={16} />} label={best ? 'Hide' : 'Best'} disabled={!canBest || !!retry} onClick={() => setBest(!best)} />
+            <ActionButton
+              icon={<RotateCcw size={16} />}
+              label={retry ? 'Stop' : 'Retry'}
+              disabled={!canRetry}
+              onClick={() => (retry ? setRetry(null) : (setBest(false), setRetry({ state: 'try', fen: p!.fenBefore })))}
+            />
+            <ActionButton icon={<TriangleAlert size={15} />} label="Next mistake" disabled={!g.plies.some((q, k) => k > i && q.isUser && isBad(r.plies[k].cls))} onClick={nextBad} />
+          </div>
+          {/* Step through: a flat bar like the Dock. */}
+          <div className="safe-bottom shrink-0 border-t border-black/[0.08] bg-white dark:border-white/[0.06] dark:bg-stone-900">
+            <div className="mx-auto grid h-14 max-w-md grid-cols-[1fr_2fr_2fr_1fr] gap-1.5 px-2 py-1.5">
+              <NavButton onClick={() => go(-1)} disabled={i < 0} label="Start"><ChevronFirst size={22} /></NavButton>
+              <NavButton onClick={() => go(i - 1)} disabled={i < 0} label="Back"><ChevronLeft size={26} /></NavButton>
+              <NavButton onClick={() => go(i + 1)} disabled={i >= n - 1} label="Forward" primary><ChevronRight size={26} /></NavButton>
+              <NavButton onClick={() => go(n - 1)} disabled={i >= n - 1} label="End"><ChevronLast size={22} /></NavButton>
+            </div>
+          </div>
+        </div>
+      </div>
+      {explain && p && rp && (
+        <ExplainSheet
+          p={p}
+          cls={rp.cls}
+          isUser={p.isUser}
+          orientation={orientation}
+          history={history}
+          rating={p.isUser ? myRating : g.elo || null}
+          cause={causeAt.get(i)}
+          onClose={() => setExplain(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** "#fa412d" → "250, 65, 45" (for Board tints). */
+const hexRgb = (hex: string) => [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16)).join(', ');
+
+function ActionButton({ icon, label, onClick, disabled }: { icon: ReactNode; label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button disabled={disabled} onClick={onClick} className="btn-secondary !min-h-10 min-w-0 !gap-1 !px-1 !py-1.5 text-[13.5px] whitespace-nowrap disabled:opacity-35">
+      {icon} <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function NavButton({ children, onClick, disabled, label, primary }: { children: ReactNode; onClick: () => void; disabled?: boolean; label: string; primary?: boolean }) {
+  return (
+    <button
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex items-center justify-center rounded-[10px] transition duration-75 disabled:opacity-30 ${
+        primary
+          ? 'bg-brand-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_3px_0_var(--color-brand-800)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_0_var(--color-brand-800)]'
+          : 'bg-stone-100 text-stone-800 active:bg-stone-200 dark:bg-stone-800 dark:text-stone-100 dark:active:bg-stone-700'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** The evaluation before → after a move ("+0.4 → −3.1"), White's view, like chess.com. */
+function EvalDelta({ g, i }: { g: AnyGame; i: number }) {
+  const after = g.plies[i].evalAfter;
+  const before = i > 0 ? g.plies[i - 1].evalAfter : { type: 'cp' as const, value: 0 };
+  if (!after || !before) return null;
+  const f = (s: typeof after) => formatScore(s).replace('-', '−');
+  return <span className="ml-auto shrink-0 rounded-md bg-stone-100 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-stone-600 dark:bg-white/[0.07] dark:text-stone-300" data-testid="eval-delta">{f(before)} → {f(after)}</span>;
+}
+
+/** Classes worth a badge on the board and the move strip; quiet good moves don't get one every turn. */
+const NOTABLE = new Set<ReviewClass>(['brilliant', 'great', 'inaccuracy', 'mistake', 'miss', 'blunder']);
+
+/** Coach Sam on the move being viewed: a one-line verdict, why, and the concrete lines. */
+function CoachText({ g, r, i, best, retry, cause, threat, onSeenThreat }: { g: AnyGame; r: Review; i: number; best: boolean; retry: Retry | null; cause?: MistakeCause; threat?: { san: string; text: string } | null; onSeenThreat?: () => void }) {
+  if (i < 0) {
+    return (
+      <>
+        <p className="font-semibold">Let's go through the game.</p>
+        <p className="mt-1 text-stone-600 dark:text-stone-300">Use the arrows, tap a move above, or jump straight to your next mistake. On a mistake, tap Retry to find the better move yourself.</p>
+      </>
+    );
+  }
+  const p = g.plies[i];
+  const rp = r.plies[i];
+  const c = p.comment;
+  const next = g.plies[i + 1];
+  const nextR = r.plies[i + 1];
+  if (retry) {
+    const msg = { try: 'Your move — find something better than ' + p.san + '.', checking: 'Checking…', right: `Yes! ${c?.bestSan} is the best move.`, ok: 'That works too — a good alternative.', wrong: 'Not quite. Tap Retry to try again, or Best to see it.' }[retry.state];
+    return <p className={`font-semibold ${retry.state === 'right' || retry.state === 'ok' ? 'text-brand-700 dark:text-brand-500' : retry.state === 'wrong' ? 'text-danger-700' : ''}`}>{msg}</p>;
+  }
+  // Their threat first (you missed it), then your move.
+  if (threat) {
+    return (
+      <>
+        <p className="flex items-center gap-1.5 font-semibold text-danger-700 dark:text-danger-300"><TriangleAlert size={16} /> First, their threat</p>
+        <p className="mt-1">{threat.text} Can you see it on the board?</p>
+        <button className="btn-primary mt-2 !px-3 !py-1.5 text-sm" onClick={onSeenThreat} data-testid="show-my-move">Then you played {p.san} →</button>
+      </>
+    );
+  }
+  // Quiet good moves get a plain line; badges and colour are kept for the moves that matter.
+  const notable = NOTABLE.has(rp.cls);
+  const headline = notable ? (
+    <p className="flex items-center gap-1.5 font-semibold">
+      <ReviewIcon cls={rp.cls} size={18} />
+      <span style={{ color: isBad(rp.cls) ? RC[rp.cls].ink : undefined }}>
+        {moveNo(g.plies, i)} {p.san} {RC[rp.cls].verdict}
+      </span>
+      <EvalDelta g={g} i={i} />
+    </p>
+  ) : (
+    <p className="font-semibold">
+      {moveNo(g.plies, i)} {p.san} <span className="font-normal text-stone-500">· {RC[rp.cls].label}</span>
+    </p>
+  );
+  // Why a bad move went wrong, in one plain sentence (a loose piece gets its counts spelled out).
+  const why = !cause ? null : cause.cause === 'hungPiece' && cause.sq ? looseWhy(p, cause.sq) ?? cause.text : cause.cause === 'plan' ? planWhy(rp.wpBefore, rp.wpAfter) : cause.text;
+  // Why a good move worked: always for brilliant / great, and when there is a real tactic behind a best move.
+  const nice = p.isUser && !isBad(rp.cls) && rp.cls !== 'book' ? goodWhy(p) : null;
+  const showNice = !!nice && (rp.cls === 'brilliant' || rp.cls === 'great' || !/saves your/.test(nice));
+  const sanLine = (fen: string, line?: string[], k = 4) => (line?.length ? formatLine(fen, lineToSan(fen, line, k)) : null);
+  if (p.isUser) {
+    const reply = sanLine(p.fenAfter, c?.replyLine, 3);
+    const notes = rp.cls === 'book' ? [] : reviewNotes(p, rp.cls, cause, why, { nice: showNice, repeatTip: repeatedTips(g.plies).has(i) });
+    // Say the better move once: no "Best was:" when a sentence above already names it.
+    const bestNamed = [why ?? '', ...notes].some((t) => namesMove(t, p.fenBefore, c?.bestUci));
+    const bestLine = sanLine(p.fenBefore, c?.bestLine, 4);
+    return (
+      <>
+        {headline}
+        {cause && (
+          <p className="mt-1 flex flex-wrap items-center gap-1 text-[12.5px] text-stone-600 dark:text-stone-300">
+            <span className="chip bg-stone-100 !px-2 !text-[11px] dark:bg-white/[0.06]"><CauseIcon c={cause.cause} /> {CAUSE_INFO[cause.cause].label}</span>
+            {cause.secs !== undefined && <span className={cause.fast || cause.timeTrouble ? 'font-semibold text-warn-700 dark:text-warn-500' : ''}>{cause.secs < 10 ? cause.secs.toFixed(1) : Math.round(cause.secs)} s{cause.timeTrouble ? ' · time trouble' : cause.fast ? ' · played fast' : ''}</span>}
+          </p>
+        )}
+        {why && <p className="mt-1" data-testid="why"><span className="font-semibold">Why: </span>{why}</p>}
+        {showNice && <p className="mt-1 text-brand-700 dark:text-brand-500" data-testid="nice"><span className="font-semibold">Why it works: </span>{nice}</p>}
+        {rp.cls === 'book' ? (
+          <p className="mt-1">{g.opening ? `A known move in the ${g.opening}.` : 'A known opening move.'}</p>
+        ) : (
+          notes.map((t, k) => <p key={k} className="mt-1">{t}</p>)
+        )}
+        {isBad(rp.cls) && (
+          <div className="mt-1.5 space-y-0.5 text-[13px]">
+            {reply && rp.cls !== 'inaccuracy' && <p><span className="text-stone-500">What it allows:</span> <b>{reply}</b></p>}
+            {c?.bestSan && (best || !bestNamed) && <p><span className="text-stone-500">{best ? 'Best line:' : 'Best was:'}</span> <b className="text-brand-700 dark:text-brand-500">{best && bestLine ? bestLine : c.bestSan}</b></p>}
+          </div>
+        )}
+      </>
+    );
+  }
+  // The opponent's move: what punishes it (the engine's best reply), and whether you answered it well.
+  const punish = rp.cls === 'inaccuracy' ? null : punishment(g.plies, i);
+  return (
+    <>
+      {headline}
+      {isBad(rp.cls) && punish ? <p className="mt-1">{punish}</p> : <p className="mt-1">Your opponent played {shortWords(p.fenBefore, p.uci).toLowerCase()}.</p>}
+      {isBad(rp.cls) && next && nextR && (() => {
+        const x = punishInfo(g.plies, i);
+        if (x && next.uci === x.uci) return <p className="mt-1 text-brand-700 dark:text-brand-500">You found it.</p>;
+        if (!isBad(nextR.cls) && nextR.cls !== 'good') return <p className="mt-1">You found a good answer: <b>{next.san}</b>.</p>;
+        return <p className="mt-1">{!punish && next.comment?.bestSan ? <><b className="text-brand-700 dark:text-brand-500">{next.comment.bestSan}</b> would have punished it. </> : null}You played {next.san} instead.</p>;
+      })()}
+      {!isBad(rp.cls) && next?.isUser && nextR && isBad(nextR.cls) && <p className="mt-1 text-stone-500">Careful on the next move — check what this one threatens.</p>}
+    </>
+  );
+}
