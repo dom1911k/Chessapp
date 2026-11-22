@@ -1,7 +1,7 @@
 // The results screen after a game, revealed step by step like the end of a level:
 // result banner → stars → XP → rating → tactics → new achievements, unlocks and milestones.
 import { BADGES, rivalryLevel, rivalryRank } from '../lib/people/rivalry';
-import { UserAvatar } from './UserAvatar';
+import { UserAvatar, useMyName } from './UserAvatar';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Check, Crown, Flame, RotateCcw, Star, Users, X } from 'lucide-react';
 import { CountUp, FillBar, useSequence } from './Reward';
@@ -76,6 +76,7 @@ function journeyPos(rating: number): { pos: number; next?: Milestone; prev: numb
 
 export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent, onPlayNext }: { r: GameRewards; onClose: () => void; onReport?: () => void; onRematch?: () => void; onNewOpponent?: () => void; onPlayNext?: (id: string) => void }) {
   const o = opponentById(r.opponentId);
+  const myName = useMyName();
   const lvBefore = levelFor(r.xpBefore);
   const lvAfter = levelFor(r.xpAfter);
   // Once all five stars are in, the rivalry carries the progression.
@@ -147,32 +148,36 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
         </button>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-5 pb-3">
           {/* Header: the result between the two players; the winner ringed in green with a crown. */}
-          <div className="flex items-center justify-between gap-3 px-7">
-            <span className={`relative rounded-md ${ring(meWon)}`}>
-              {meWon && crown}
-              <UserAvatar size={56} className="block" />
-            </span>
+          <div className="flex items-center justify-between gap-3 px-3">
+            <div className="flex w-[76px] shrink-0 flex-col items-center gap-1">
+              <span className={`relative rounded-md ${ring(meWon)}`}>
+                {meWon && crown}
+                <UserAvatar size={56} className="block" />
+              </span>
+              <span className="w-full truncate text-center text-xs font-semibold text-stone-600 dark:text-stone-300">{myName}</span>
+            </div>
             <div className="min-w-0 flex-1 text-center">
               <div className="animate-banner text-[26px] leading-tight font-extrabold tracking-[-0.02em]">{r.userResult === 'win' ? 'You won' : r.userResult === 'draw' ? 'Draw' : 'You lost'}</div>
-              <div className="mt-0.5 text-[13px] font-medium text-stone-500">
-                {reasonText(r.reason)} · {o ? `vs ${o.name}` : 'vs the bot'}
-              </div>
+              <div className="mt-0.5 text-[13px] font-medium text-stone-500">{reasonText(r.reason)}</div>
             </div>
-            <span className={`relative rounded-md ${ring(theyWon)}`}>
-              {theyWon && crown}
-              {r.firstWin && o && (
-                <span className="animate-vs-stamp absolute -right-3 -bottom-2 z-10 -rotate-12 rounded-md border-2 border-red-600 bg-white/90 px-1.5 text-[11px] font-black tracking-wider text-red-600 uppercase shadow dark:bg-stone-900/90" style={{ animationDelay: '350ms' }}>
-                  Beaten
-                </span>
-              )}
-              {o ? (
-                <Portrait id={o.id} mood={r.userResult === 'win' ? 'worried' : r.userResult === 'loss' ? 'happy' : 'neutral'} size={56} />
-              ) : (
-                <span className="flex h-14 w-14 items-center justify-center rounded-md bg-stone-200 text-stone-500 dark:bg-stone-800">
-                  <Users size={24} />
-                </span>
-              )}
-            </span>
+            <div className="flex w-[76px] shrink-0 flex-col items-center gap-1">
+              <span className={`relative rounded-md ${ring(theyWon)}`}>
+                {theyWon && crown}
+                {r.firstWin && o && (
+                  <span className="animate-vs-stamp absolute -top-2 -right-3 z-10 -rotate-12 rounded-md border-2 border-red-600 bg-white/90 px-1.5 text-[11px] font-black tracking-wider text-red-600 uppercase shadow dark:bg-stone-900/90" style={{ animationDelay: '350ms' }}>
+                    Beaten
+                  </span>
+                )}
+                {o ? (
+                  <Portrait id={o.id} mood={r.userResult === 'win' ? 'worried' : r.userResult === 'loss' ? 'happy' : 'neutral'} size={56} />
+                ) : (
+                  <span className="flex h-14 w-14 items-center justify-center rounded-md bg-stone-200 text-stone-500 dark:bg-stone-800">
+                    <Users size={24} />
+                  </span>
+                )}
+              </span>
+              <span className="w-full truncate text-center text-xs font-semibold text-stone-600 dark:text-stone-300">{o ? o.name : 'Bot'}</span>
+            </div>
           </div>
 
           {/* One stat strip: rating ±, accuracy, stars, XP. */}

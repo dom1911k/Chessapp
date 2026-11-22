@@ -1,15 +1,35 @@
 // The game's moves as a numbered table (white | black), like on chess.com. Tap a move to see
-// the position after it; the arrows step through the game.
+// the position after it; the arrows step through the game (in Match mode the Dock's Back/Forward do).
 import { useEffect, useRef } from 'react';
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { PlyRecord } from '../lib/store/types';
+import { PieceIcon, type PieceCode } from './PieceIcon';
 
 /** Chess notation with little piece symbols instead of letters (Nf3 → ♘f3). */
 const FIGURINE: Record<string, string> = { K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘' };
 export const figurine = (san: string) => san.replace(/^[KQRBN]/, (c) => FIGURINE[c]).replace(/=([QRBN])/, (_, c: string) => `=${FIGURINE[c]}`);
 
+/** The same notation drawn with the board's own pieces (font glyphs are thin and don't match the set). */
+export function Figurine({ san, color }: { san: string; color: 'w' | 'b' }) {
+  const piece = (p: string) => (
+    <span className="-mr-px inline-block h-[1.05em] w-[1.05em] align-[-0.12em]">
+      <PieceIcon code={`${color}${p}` as PieceCode} className="h-full w-full" />
+    </span>
+  );
+  const m = /^([KQRBN])?(.*?)(?:=([QRBN]))?([+#]?)$/.exec(san);
+  if (!m) return <>{san}</>;
+  return (
+    <>
+      {m[1] && piece(m[1])}
+      {m[2]}
+      {m[3] && <>={piece(m[3])}</>}
+      {m[4]}
+    </>
+  );
+}
+
 /** `view`: index of the ply whose position is shown (-1 = start), or null when following the game. */
-export function MoveHistory({ plies, startFen, view, onView }: { plies: PlyRecord[]; startFen: string; view: number | null; onView: (i: number | null) => void }) {
+export function MoveHistory({ plies, startFen, view, onView, arrows = true }: { plies: PlyRecord[]; startFen: string; view: number | null; onView: (i: number | null) => void; /** The header's step arrows (off when the Dock has Back/Forward). */ arrows?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const last = plies.length - 1;
   const shown = view ?? last;
@@ -35,12 +55,13 @@ export function MoveHistory({ plies, startFen, view, onView }: { plies: PlyRecor
     ) : (
       <button
         data-active={shown === i}
+        aria-label={figurine(plies[i].san)}
         onClick={() => go(i)}
         className={`rounded-lg px-2 py-1 text-left font-semibold tabular-nums transition ${
           shown === i ? 'bg-brand-700 text-white shadow-sm' : 'text-stone-700 active:bg-stone-100 dark:text-stone-200 dark:active:bg-stone-800'
         }`}
       >
-        {figurine(plies[i].san)}
+        <Figurine san={plies[i].san} color={plies[i].fenBefore.split(' ')[1] === 'b' ? 'b' : 'w'} />
       </button>
     );
 
@@ -48,7 +69,7 @@ export function MoveHistory({ plies, startFen, view, onView }: { plies: PlyRecor
     <div className="card flex min-h-0 flex-col !p-0">
       <div className="flex items-center justify-between border-b border-stone-100 px-3 py-1.5 dark:border-stone-800">
         <span className="text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">Moves</span>
-        <div className="flex items-center">
+        {arrows && <div className="flex items-center">
           {[
             { icon: <ChevronFirst size={20} />, label: 'First position', to: -1, off: shown <= -1 },
             { icon: <ChevronLeft size={20} />, label: 'Previous move', to: shown - 1, off: shown <= -1 },
@@ -59,7 +80,7 @@ export function MoveHistory({ plies, startFen, view, onView }: { plies: PlyRecor
               {b.icon}
             </button>
           ))}
-        </div>
+        </div>}
       </div>
       <div ref={ref} className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
         {rows.length === 0 && <p className="px-1 py-2 text-sm text-stone-500">No moves yet — your turn to start.</p>}

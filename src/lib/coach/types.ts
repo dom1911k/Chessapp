@@ -49,6 +49,9 @@ export interface CoachComment {
   bestLine?: string[];
   /** The opponent's best answer to the move played, and what follows (UCI). */
   replyLine?: string[];
+  /** The text already names the better move ("Moving your queen to e2 would have…"), so a
+   * separate "Better: Qe2" line would say it twice. Absent on games saved before it existed. */
+  namesBest?: boolean;
 }
 
 export type FindingKind = 'problem' | 'idea' | 'principle' | 'praise';
@@ -60,4 +63,6 @@ export interface Finding {
   text: string;
   arrows?: CoachArrow[];
   highlights?: CoachHighlight[];
+  /** The sentence names the better move (templates with {move} / {doMove}). */
+  namesBest?: boolean;
 }

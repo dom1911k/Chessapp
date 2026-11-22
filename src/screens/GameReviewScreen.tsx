@@ -15,6 +15,7 @@ import { EvalGraph } from '../components/Charts';
 import { CoachAvatar, CoachBubble, Portrait } from '../components/Coach';
 import { EvalBar, FadeScroll, Header, Spinner } from '../components/ui';
 import { classInk, ReviewIcon } from '../components/ReviewIcon';
+import { namesMove } from '../lib/coach/names';
 import { ExplainSheet } from '../components/ExplainSheet';
 import { CauseBreakdown, CauseIcon } from '../components/Causes';
 import { CAUSE_INFO, causeTotals, missedChances, mistakeCauses, type MistakeCause } from '../lib/games/causes';
@@ -25,6 +26,7 @@ const timesOf = (g: AnyGame) => (g.clocks?.length && g.timeControl && /^\d+(\+\d
 import { ChessComBadge, TimeStatsCard } from '../components/ChessCom';
 import { useNav } from '../lib/nav';
 import { loadAnyGame } from '../lib/games';
+import { cornerPos, kingBadges, kingSquares } from '../lib/chess/kingBadges';
 import { opponentById } from '../lib/people';
 import { formatDate } from '../lib/store/finish';
 import { db } from '../lib/db';
@@ -528,6 +530,8 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
 
   // The reviewed move's squares in its class colour (for the moves that matter), else yellow.
   const moveTint = p && rp && !best && !retry && !threatStage && !frame && NOTABLE.has(rp.cls) ? hexRgb(RC[rp.cls].color) : undefined;
+  // On the final move, the result on each king (crown, flag, #, clock or ½), like chess.com.
+  const endBadges = p && i === g.plies.length - 1 && fen === p.fenAfter && !retry && !frame ? kingBadges(g.result, g.reason) : null;
   return (
     <div className="flex h-full flex-col">
       <Header title="Game Review" back subtitle={`vs ${oppName(g)} · ${formatDate(g.endedAt)}`} right={
@@ -541,9 +545,9 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
         <div className="flex gap-1 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0 land:self-start">
           <EvalBar whitePct={evalNow} orientation={orientation} score={p?.evalAfter ?? { type: 'cp', value: 0 }} width={20} />
           <div className="relative min-w-0 flex-1" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} data-testid="review-board">
-            <Board fen={fen} orientation={orientation} movable={retry?.state === 'try' ? g.userColor : null} onMove={onRetryMove} arrows={arrows} lastMove={lastMove} lastMoveColor={moveTint} />
+            <Board fen={fen} orientation={orientation} movable={retry?.state === 'try' ? g.userColor : null} onMove={onRetryMove} arrows={arrows} lastMove={lastMove} lastMoveColor={moveTint} kingBadges={endBadges} />
             <ArrowOverlay arrows={dotted} orientation={orientation} />
-            {moveTint && p && rp && <SquareIcon sq={p.uci.slice(2, 4)} cls={rp.cls} orientation={orientation} />}
+            {moveTint && p && rp && !(endBadges && Object.values(kingSquares(fen)).includes(p.uci.slice(2, 4))) && <SquareIcon sq={p.uci.slice(2, 4)} cls={rp.cls} orientation={orientation} />}
           </div>
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -603,7 +607,8 @@ function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: nu
             </CoachBubble>
           </FadeScroll>
           {/* Best / Retry / Next mistake */}
-          <div className="mx-3 mb-2 grid shrink-0 grid-cols-3 gap-2">
+          {/* The longest label gets the widest column, so nothing pushes the row past a 360px screen. */}
+          <div className="mx-3 mb-2 grid shrink-0 grid-cols-[1fr_1fr_1.3fr] gap-2">
             <ActionButton icon={<Lightbulb size={16} />} label={best ? 'Hide' : 'Best'} disabled={!canBest || !!retry} onClick={() => setBest(!best)} />
             <ActionButton
               icon={<RotateCcw size={16} />}
@@ -645,8 +650,8 @@ const hexRgb = (hex: string) => [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2
 
 function ActionButton({ icon, label, onClick, disabled }: { icon: ReactNode; label: string; onClick: () => void; disabled?: boolean }) {
   return (
-    <button disabled={disabled} onClick={onClick} className="btn-secondary !min-h-10 !gap-1 !px-1 !py-1.5 text-[13.5px] whitespace-nowrap disabled:opacity-35">
-      {icon} {label}
+    <button disabled={disabled} onClick={onClick} className="btn-secondary !min-h-10 min-w-0 !gap-1 !px-1 !py-1.5 text-[13.5px] whitespace-nowrap disabled:opacity-35">
+      {icon} <span className="truncate">{label}</span>
     </button>
   );
 }
@@ -673,15 +678,9 @@ function NavButton({ children, onClick, disabled, label, primary }: { children: 
  * inside the board on the h-file (a-file when flipped) and the top rank.
  */
 function SquareIcon({ sq, cls, orientation, small }: { sq: string; cls: ReviewClass; orientation: 'white' | 'black'; small?: boolean }) {
-  const f = sq.charCodeAt(0) - 97;
-  const rk = Number(sq[1]) - 1;
-  const col = orientation === 'white' ? f : 7 - f;
-  const row = orientation === 'white' ? 7 - rk : rk;
   const size = small ? 15 : 22;
-  const left = col === 7 ? `calc(100% - ${size + 1}px)` : `calc(${((col + 1) / 8) * 100}% - ${size * 0.62}px)`;
-  const top = row === 0 ? '1px' : `calc(${(row / 8) * 100}% - ${size * 0.38}px)`;
   return (
-    <span className="pointer-events-none absolute z-10" style={{ left, top }} data-testid="square-icon">
+    <span className="pointer-events-none absolute z-10" style={cornerPos(sq, orientation, size)} data-testid="square-icon">
       <ReviewIcon cls={cls} size={size} ring />
     </span>
   );
@@ -751,6 +750,9 @@ function CoachText({ g, r, i, best, retry, cause, threat, onSeenThreat }: { g: A
   const sanLine = (fen: string, line?: string[], k = 4) => (line?.length ? formatLine(fen, lineToSan(fen, line, k)) : null);
   if (p.isUser) {
     const reply = sanLine(p.fenAfter, c?.replyLine, 3);
+    const notes = rp.cls === 'book' ? [] : reviewNotes(p, rp.cls, cause, why, { nice: showNice, repeatTip: repeatedTips(g.plies).has(i) });
+    // Say the better move once: no "Best was:" when a sentence above already names it.
+    const bestNamed = [why ?? '', ...notes].some((t) => namesMove(t, p.fenBefore, c?.bestUci));
     const bestLine = sanLine(p.fenBefore, c?.bestLine, 4);
     return (
       <>
@@ -766,12 +768,12 @@ function CoachText({ g, r, i, best, retry, cause, threat, onSeenThreat }: { g: A
         {rp.cls === 'book' ? (
           <p className="mt-1">{g.opening ? `A known move in the ${g.opening}.` : 'A known opening move.'}</p>
         ) : (
-          reviewNotes(p, rp.cls, cause, why, { nice: showNice, repeatTip: repeatedTips(g.plies).has(i) }).map((t, k) => <p key={k} className="mt-1">{t}</p>)
+          notes.map((t, k) => <p key={k} className="mt-1">{t}</p>)
         )}
         {isBad(rp.cls) && (
           <div className="mt-1.5 space-y-0.5 text-[13px]">
             {reply && rp.cls !== 'inaccuracy' && <p><span className="text-stone-500">What it allows:</span> <b>{reply}</b></p>}
-            {c?.bestSan && <p><span className="text-stone-500">{best ? 'Best line:' : 'Best was:'}</span> <b className="text-emerald-700 dark:text-emerald-400">{best && bestLine ? bestLine : c.bestSan}</b></p>}
+            {c?.bestSan && (best || !bestNamed) && <p><span className="text-stone-500">{best ? 'Best line:' : 'Best was:'}</span> <b className="text-emerald-700 dark:text-emerald-400">{best && bestLine ? bestLine : c.bestSan}</b></p>}
           </div>
         )}
       </>

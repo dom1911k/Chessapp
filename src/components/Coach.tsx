@@ -3,7 +3,7 @@ import { flagExplanation } from '../lib/feedback';
 import { COACH, portrait, type Mood } from '../lib/people';
 import type { CoachComment } from '../lib/coach/types';
 import { CLASS_LABEL, CLASS_SYMBOL, type Classification } from '../lib/chess/evaluation';
-import { ThumbsDown } from 'lucide-react';
+import { Check, ThumbsDown } from 'lucide-react';
 import { useSettings } from '../lib/settings';
 
 export const CLASS_STYLE: Record<Classification, string> = {
@@ -68,6 +68,7 @@ export function CoachBubble({
   label,
   icon,
   className = '',
+  corner,
 }: {
   children: ReactNode;
   mood?: 'happy' | 'concerned' | 'thinking';
@@ -82,6 +83,8 @@ export function CoachBubble({
   icon?: ReactNode;
   /** Extra classes on the bubble (a tinted ring, a steady min-height). */
   className?: string;
+  /** A small control in the top-right corner (e.g. "this explanation seems wrong"). */
+  corner?: ReactNode;
 }) {
   return (
     <div className={`flex items-start gap-2.5 ${compact ? 'opacity-75' : 'animate-pop'}`}>
@@ -91,6 +94,7 @@ export function CoachBubble({
       >
         {/* The tail, pointing at the avatar. */}
         <span aria-hidden className={`absolute -left-[7px] h-0 w-0 border-y-[7px] border-r-[8px] border-y-transparent border-r-white ${compact ? 'top-[9px]' : 'top-[13px]'}`} />
+        {corner && <span className="absolute top-1 right-1 z-10">{corner}</span>}
         {label && !compact && (
           <div className="mb-1 flex items-center gap-1 text-[11px] font-bold tracking-[0.06em] text-stone-500 uppercase">
             {icon}
@@ -117,19 +121,21 @@ export function CoachBubble({
   );
 }
 
-/** Small "this explanation is wrong" link; saves the position for later review. */
-export function FlagButton({ fen, uci, comment }: { fen: string; uci: string; comment: CoachComment }) {
+/** "This explanation seems wrong" as a 32px icon button (the bubble's corner); saves the position for review. */
+export function FlagIconButton({ fen, uci, comment }: { fen: string; uci: string; comment: CoachComment }) {
   const [done, setDone] = useState(false);
   return (
     <button
-      className="mt-1 text-xs text-stone-400 underline-offset-2 hover:underline disabled:no-underline"
+      className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${done ? 'text-brand-700' : 'text-stone-400 active:bg-black/5 active:text-stone-600'}`}
+      aria-label={done ? 'Saved for review (Settings → Coach feedback)' : 'This explanation seems wrong'}
+      title={done ? 'Thanks — saved for review (Settings → Coach feedback)' : 'This explanation seems wrong'}
       disabled={done}
       onClick={() => {
         void flagExplanation(fen, uci, comment);
         setDone(true);
       }}
     >
-      {done ? 'Thanks — saved for review (Settings → Coach feedback)' : <><ThumbsDown size={13} className="mr-1 inline -translate-y-px" />This explanation seems wrong</>}
+      {done ? <Check size={16} strokeWidth={2.6} /> : <ThumbsDown size={15} />}
     </button>
   );
 }

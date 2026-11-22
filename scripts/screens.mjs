@@ -175,6 +175,10 @@ async function run([W, H], scheme) {
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
   const shot = async (name) => {
+    // A page wider than the screen can be panned sideways on a phone (and a later scrollIntoView
+    // shifts every screen after it): report it like a page error.
+    const wide = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    if (wide > 0) errors.push(`${name}: page ${wide}px wider than the screen`);
     await p.screenshot({ path: join(OUT, `${tag}-${name}.png`) });
     process.stdout.write('.');
   };

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronDown, ChevronLeft } from 'lucide-react';
 import { addBackHandler, useNav } from '../lib/nav';
 import type { Score } from '../lib/chess/evaluation';
 
@@ -149,8 +149,11 @@ export function Skeleton({ rows = 4 }: { rows?: number }) {
   );
 }
 
-/** A top-aligned scrolling area with a soft fade at the bottom while there's more below (coach panels). */
-export function FadeScroll({ children, className = '', testId }: { children: ReactNode; className?: string; testId?: string }) {
+/**
+ * A top-aligned scrolling area with a soft fade at the bottom while there's more below (coach
+ * panels). With `onMore`, a small "More" pill sits on the bottom edge while it overflows.
+ */
+export function FadeScroll({ children, className = '', testId, onMore }: { children: ReactNode; className?: string; testId?: string; onMore?: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [more, setMore] = useState(false);
   useEffect(() => {
@@ -167,9 +170,24 @@ export function FadeScroll({ children, className = '', testId }: { children: Rea
       ro?.disconnect();
     };
   }, []);
-  return (
+  const area = (
     <div ref={ref} className={`min-h-0 flex-1 overflow-y-auto ${more ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]' : ''} ${className}`} data-testid={testId}>
       {children}
+    </div>
+  );
+  if (!onMore) return area;
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      {area}
+      {more && (
+        <button
+          className="absolute bottom-1.5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-white py-0.5 pr-2 pl-2.5 text-[12px] font-bold text-[#312e2b] shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
+          onClick={onMore}
+          data-testid="coach-more"
+        >
+          More <ChevronDown size={14} strokeWidth={2.6} />
+        </button>
+      )}
     </div>
   );
 }

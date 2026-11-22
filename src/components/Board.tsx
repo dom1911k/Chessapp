@@ -7,7 +7,8 @@ import { BOARD_THEMES, useSettings } from '../lib/settings';
 import { playSound } from '../lib/sound';
 import { HAPTIC_PATTERN, moveHaptic, moveSound, premoveTargets as premoveTargetsFor, squareAtPoint } from '../lib/chess/boardfeel';
 import type { CoachArrow, CoachHighlight, Tone } from '../lib/coach/types';
-import { Check, X } from 'lucide-react';
+import { AlarmClock, Check, Crown, Flag, X } from 'lucide-react';
+import { cornerPos, kingSquares, type KingBadge, type KingBadges } from '../lib/chess/kingBadges';
 import { shortWords } from '../lib/chess/words';
 import { HIGHLIGHTS } from '../lib/rewards/looks';
 import { PieceIcon, renderSet, type PieceCode } from './PieceIcon';
@@ -47,6 +48,8 @@ interface Props {
   premoveColor?: 'w' | 'b' | null;
   /** Tint the last move's squares in this colour (an rgb triplet like "250, 65, 45") instead of yellow. */
   lastMoveColor?: string;
+  /** Once the game is over: the result marker on each king (crown, flag, #, clock, ½). */
+  kingBadges?: KingBadges | null;
 }
 
 /** Animation length per speed setting (ms). */
@@ -127,7 +130,7 @@ class BoardErrorBoundary extends Component<{ children: ReactNode; onError: () =>
   }
 }
 
-function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove: realOnMove, arrows = [], highlights = [], lastMove: realLast, showCoordinates = true, confirm = false, premoveColor = null, lastMoveColor }: Props & { animate?: boolean }) {
+function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove: realOnMove, arrows = [], highlights = [], lastMove: realLast, showCoordinates = true, confirm = false, premoveColor = null, lastMoveColor, kingBadges }: Props & { animate?: boolean }) {
   // Each board needs its own id: the library looks squares up by id across the whole page.
   const [boardId] = useState(() => `board${++boardCount}`);
   const [selected, setSelected] = useState<string | null>(null);
@@ -468,6 +471,11 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
           </div>
         </div>
       )}
+      {kingBadges &&
+        (['w', 'b'] as const).map((c) => {
+          const sq = kingSquares(fen)[c];
+          return sq ? <KingResult key={c} kind={kingBadges[c]} sq={sq} orientation={orientation} /> : null;
+        })}
       {pending && (
         <div className="absolute inset-x-0 bottom-2 z-10 flex justify-center">
           <div className="flex items-center gap-2 rounded-[10px] bg-white/95 p-1.5 pl-4 shadow-xl ring-1 ring-stone-200 dark:bg-stone-800/95 dark:ring-stone-700">
@@ -478,5 +486,31 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
         </div>
       )}
     </div>
+  );
+}
+
+const BADGE_SIZE = 22;
+const BADGE: Record<KingBadge, { bg: string; label: string }> = {
+  win: { bg: '#81b64c', label: 'Winner' },
+  mate: { bg: '#fa412d', label: 'Checkmated' },
+  time: { bg: '#fa412d', label: 'Lost on time' },
+  resign: { bg: '#fa412d', label: 'Lost' },
+  draw: { bg: '#989795', label: 'Draw' },
+};
+
+/** chess.com's result marker on a king's square (top-right corner, kept inside the board). */
+function KingResult({ kind, sq, orientation }: { kind: KingBadge; sq: string; orientation: 'white' | 'black' }) {
+  const b = BADGE[kind];
+  const icon = { size: 13, strokeWidth: 2.6, color: '#fff' };
+  return (
+    <span
+      className="animate-pop pointer-events-none absolute z-10 flex items-center justify-center rounded-full font-extrabold leading-none text-white shadow-[0_1px_2px_rgba(0,0,0,.3)] ring-2 ring-white/90"
+      style={{ ...cornerPos(sq, orientation, BADGE_SIZE), width: BADGE_SIZE, height: BADGE_SIZE, background: b.bg, fontSize: 14 }}
+      role="img"
+      aria-label={b.label}
+      data-testid={`king-badge-${kind}`}
+    >
+      {kind === 'win' ? <Crown {...icon} fill="#fff" strokeWidth={1.8} /> : kind === 'resign' ? <Flag {...icon} fill="#fff" strokeWidth={1.8} /> : kind === 'time' ? <AlarmClock {...icon} /> : kind === 'mate' ? '#' : '½'}
+    </span>
   );
 }

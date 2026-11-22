@@ -11,6 +11,7 @@ import { getRating as getPuzzleRating } from '../lib/puzzles/rating';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Chess, type Square } from 'chess.js';
 import { squareAtPoint, stepView, swipeDir } from '../lib/chess/boardfeel';
+import { kingBadges } from '../lib/chess/kingBadges';
 import { Clock as ClockIcon, Flame, FlipVertical2, Puzzle, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, ChevronLeft, Crosshair, EllipsisVertical, Flag, History, Lightbulb, ListOrdered, Lock, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, Settings, Share, ShieldCheck, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy, Undo2, Users } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../lib/bot';
 import { getSparring, sparringStep, type SparringState } from '../lib/sparring';
@@ -25,7 +26,7 @@ import { useNav } from '../lib/nav';
 import { useSettings } from '../lib/settings';
 import { currentFen, turnOf, usePlay } from '../lib/store/play';
 import { Board } from '../components/Board';
-import { CoachBubble, FlagButton, Portrait } from '../components/Coach';
+import { CoachBubble, FlagIconButton, Portrait } from '../components/Coach';
 import { OPPONENTS, opponentById, portraitColors, type Mood } from '../lib/people';
 import { getOpponentRecords, isUnlocked, type OpponentRecord } from '../lib/people/record';
 import { Dialog, EvalBar, FadeScroll, IconButton, Segmented, Spinner, useBackHandler } from '../components/ui';
@@ -434,7 +435,7 @@ function ChatBubble() {
       data-testid="chat-bubble"
     >
       <span className="absolute top-[11px] -left-[6px] h-0 w-0 border-y-[6px] border-r-[7px] border-y-transparent border-r-white" aria-hidden />
-      <span className="line-clamp-2 block rounded-[10px] rounded-tl-[3px] bg-white px-2.5 py-1 text-[13px] leading-[1.3] font-medium text-[#312e2b] shadow-[0_2px_8px_rgba(0,0,0,0.3)]">{chat.text}</span>
+      <span className="line-clamp-2 rounded-[10px] rounded-tl-[3px] bg-white px-2.5 py-1 text-[13px] leading-[1.3] font-medium text-[#312e2b] shadow-[0_2px_8px_rgba(0,0,0,0.3)]">{chat.text}</span>
     </button>
   );
 }
@@ -453,6 +454,8 @@ function GameView() {
   const [history, setHistory] = useState(false);
   const [confirmResign, setConfirmResign] = useState(false);
   const [overMenu, setOverMenu] = useState(false);
+  // The coach's whole message in a sheet, when it doesn't fit under the board.
+  const [full, setFull] = useState(false);
   const g = s.game!;
   const fen = currentFen(g);
   const [flipped, setFlipped] = useState(false);
@@ -559,6 +562,13 @@ function GameView() {
       <GameTopBar onMenu={() => setMenu(true)} />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-5 land:px-3">
         <div className="land:w-[min(calc(100dvh-11rem),58vw)] land:shrink-0">
+          {settings.showMoveList && !coachOff && (
+            // At the top, like chess.com's app: the coach then sits right under your bar. On tablets
+            // the moves are a two-column table beside the board instead (below).
+            <div className="land:hidden">
+              <MoveList plies={g.plies} startFen={g.startFen} current={viewing ? view! : undefined} onSelect={(i) => setView(i >= g.plies.length - 1 ? null : i)} />
+            </div>
+          )}
           <PlayerBar me={flipped} />
           {/* Full-bleed on phones, like every board screen; the eval bar (when on) sits on the left. */}
           <div className="flex gap-1">
@@ -576,6 +586,7 @@ function GameView() {
                 showCoordinates={settings.showCoordinates}
                 confirm={settings.confirmMoves}
                 premoveColor={!viewing && (s.phase === 'analyzing' || s.phase === 'botThinking') ? g.userColor : null}
+                kingBadges={s.over && !s.rewards && !viewing ? kingBadges(s.over.result, s.over.reason) : null}
               />
               {viewing && (
                 <button
@@ -589,18 +600,12 @@ function GameView() {
             </div>
           </div>
           <PlayerBar me={!flipped} />
-          {settings.showMoveList && !coachOff && (
-            // On tablets the moves are a two-column table beside the board instead (below).
-            <div className="land:hidden">
-              <MoveList plies={g.plies} startFen={g.startFen} current={viewing ? view! : undefined} onSelect={(i) => setView(i >= g.plies.length - 1 ? null : i)} />
-            </div>
-          )}
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col land:pt-1">
           {/* The coach's message sits right under the move strip and scrolls (with a fade) if long. */}
           {coachOff ? (
             <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-1 pb-2">
-              <MoveHistory plies={g.plies} startFen={g.startFen} view={viewing ? view : null} onView={setView} />
+              <MoveHistory plies={g.plies} startFen={g.startFen} view={viewing ? view : null} onView={setView} arrows={aids.requests} />
               {coachFresh && (
                 <div className="max-h-[45%] shrink-0 overflow-y-auto">
                   <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => setHistory(true)} />
@@ -609,7 +614,7 @@ function GameView() {
             </div>
           ) : (
             <>
-              <FadeScroll className="px-3 pt-2 pb-3" testId="coach-panel">
+              <FadeScroll className="px-3 pt-2 pb-3" testId="coach-panel" onMore={() => setFull(true)}>
                 <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => setHistory(true)} />
               </FadeScroll>
               {settings.showMoveList && (
@@ -631,11 +636,10 @@ function GameView() {
                     <DockButton label="Threats" icon={<Crosshair size={22} />} disabled={!myTurn} onClick={s.requestThreat} />
                   </>
                 ) : (
+                  // Match conditions: chess.com's bar. Back and Forward step through the game like a swipe.
                   <>
-                    <div className="flex flex-[2] flex-col items-center justify-center text-[11px] leading-tight font-semibold text-stone-500">
-                      <Swords size={18} className="mb-0.5 text-brand-700" />
-                      Match conditions
-                    </div>
+                    <DockButton label="Back" icon={<ChevronLeft size={24} />} disabled={!g.plies.length || view === -1} onClick={() => setView(stepView(view, g.plies.length, -1))} />
+                    <DockButton label="Forward" icon={<ChevronRight size={24} />} disabled={!viewing} onClick={() => setView(stepView(view, g.plies.length, 1))} />
                     <DockButton label="Resign" icon={<Flag size={22} />} onClick={() => setConfirmResign(true)} />
                   </>
                 )}
@@ -679,6 +683,11 @@ function GameView() {
           {menuItem(<ListOrdered size={19} />, 'Move list', () => settings.set({ showMoveList: !settings.showMoveList }), onOff(settings.showMoveList))}
           {!s.over && menuItem(<Flag size={19} />, 'Resign', () => (g.match ? setConfirmResign(true) : void s.resign()))}
           {menuItem(<RotateCcw size={19} />, 'New game', () => void (s.over ? s.leaveGame() : s.abandon()))}
+        </div>
+      </Dialog>
+      <Dialog open={full} onClose={() => setFull(false)}>
+        <div className="max-h-[70dvh] overflow-y-auto">
+          <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => (setFull(false), setHistory(true))} />
         </div>
       </Dialog>
       <Dialog open={overMenu} onClose={() => setOverMenu(false)}>
@@ -752,10 +761,19 @@ function FeedBubble({ it, compact, flag, type }: { it: FeedItem; compact?: boole
   const gentle = useSettings((st) => st.coachStyle === 'gentle');
   const { shown, skip } = useTypewriter(`${g.startedAt}:${it.id}`, total, !!type);
   const verdict = it.kind === 'comment' && !!p;
+  const canFlag = !!flag && !gentle && !compact && it.kind === 'comment' && !!p?.comment && it.classification !== 'best' && it.classification !== 'good';
   let index = 0;
   return (
     // One verdict only: the "Qh6 is a blunder" row when the move is known, else the class chip.
-    <CoachBubble compact={compact} {...FEED_LABEL[it.kind]} mood={it.mood ?? 'happy'} badge={verdict ? undefined : it.classification} special={verdict ? undefined : it.special}>
+    <CoachBubble
+      compact={compact}
+      {...FEED_LABEL[it.kind]}
+      mood={it.mood ?? 'happy'}
+      badge={verdict ? undefined : it.classification}
+      special={verdict ? undefined : it.special}
+      corner={canFlag ? <FlagIconButton fen={p!.fenBefore} uci={p!.uci} comment={p!.comment!} /> : undefined}
+      className={canFlag ? '!pr-9' : ''}
+    >
       {verdict && <MoveVerdict p={p!} index={it.ply} />}
       <div className="space-y-1" onClick={shown < total ? skip : undefined}>
         {words.map((line, i) => (
@@ -771,7 +789,6 @@ function FeedBubble({ it, compact, flag, type }: { it: FeedItem; compact?: boole
         ))}
       </div>
       {it.kind === 'comment' && p && (it.classification === 'mistake' || it.classification === 'blunder') && shown >= total && <MoveLines p={p} />}
-      {flag && !gentle && it.kind === 'comment' && p?.comment && it.classification !== 'best' && it.classification !== 'good' && <FlagButton fen={p.fenBefore} uci={p.uci} comment={p.comment} />}
     </CoachBubble>
   );
 }
@@ -1093,10 +1110,12 @@ function MoveVerdict({ p, index }: { p: PlyRecord; index: number }) {
 function MoveLines({ p }: { p: PlyRecord }) {
   const c = p.comment;
   const reply = c?.replyLine?.length ? formatLine(p.fenAfter, lineToSan(p.fenAfter, c.replyLine, 3)) : null;
-  if (!c?.bestSan && !reply) return null;
+  // The text already names the better move: don't say it twice.
+  const better = c?.bestSan && !c.namesBest ? c.bestSan : null;
+  if (!better && !reply) return null;
   return (
     <div className="mt-1.5 space-y-0.5 rounded-[8px] bg-black/[0.04] px-2.5 py-1.5 text-[13px]">
-      {c?.bestSan && (
+      {better && c?.bestSan && (
         <p>
           <span className="text-stone-500">Better:</span> <b style={{ color: RC.best.ink }}>{c.bestSan}</b>
         </p>

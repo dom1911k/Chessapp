@@ -213,8 +213,9 @@ export function App() {
     const gone = before.filter((s) => !stack.includes(s));
     if (!gone.length) return;
     setLeaving((l) => [...l, ...gone]);
-    const t = setTimeout(() => setLeaving((l) => l.filter((s) => !gone.includes(s))), 200);
-    return () => clearTimeout(t);
+    // Not cancelled when the stack changes again within 200ms: a closed screen must always go
+    // (left behind, it stayed mounted, invisible, 36px off the right edge, widening the page).
+    setTimeout(() => setLeaving((l) => l.filter((s) => !gone.includes(s))), 200);
   }, [stack]);
   // Tabs you've visited stay mounted (hidden), so switching back is instant and keeps their state.
   const [visited, setVisited] = useState<Tab[]>([tab]);
@@ -256,7 +257,7 @@ export function App() {
   return (
     <div className="flex h-full flex-col">
       {welcome && <Onboarding onDone={() => setWelcome(false)} />}
-      <main className={`relative min-h-0 flex-1 ${top ? 'safe-bottom' : ''}`}>
+      <main className={`relative min-h-0 flex-1 overflow-x-clip ${top ? 'safe-bottom' : ''}`}>
         {/* Tabs stay mounted (and so keep their state); the shown one fades in. */}
         {visited.filter((t) => t !== 'run' || (runMode && shownTab === 'run')).map((t) => (
           <div key={t} className={top || t !== shownTab ? 'hidden' : 'animate-fade-in h-full'}>

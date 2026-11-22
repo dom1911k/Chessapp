@@ -1,5 +1,6 @@
 // Coaching explanation engine: position + move + engine analysis → 1–3 short,
 // beginner-friendly sentences, arrows and highlights. Entirely local and rule-based.
+import { namesMove } from './names';
 import { Chess } from 'chess.js';
 import { parseUci } from '../chess/game';
 import { CoachContext, type CoachInput } from './context';
@@ -35,7 +36,7 @@ function run(ctx: CoachContext, kind: FindingKind, max = 1): Finding[] {
       continue;
     }
     if (r) {
-      out.push({ rule: rule.id, kind, theme: r.theme ?? rule.theme, text: r.text, arrows: r.arrows, highlights: r.highlights });
+      out.push({ rule: rule.id, kind, theme: r.theme ?? rule.theme, text: r.text, arrows: r.arrows, highlights: r.highlights, namesBest: r.namesBest ?? namesMove(r.text, ctx.input.fenBefore, ctx.bestUci ?? undefined) });
       if (out.length >= max) break;
     }
   }
@@ -55,6 +56,7 @@ function compose(ctx: CoachContext, findings: Finding[]): CoachComment {
     bestUci: ctx.bestUci ?? undefined,
     bestLine: ctx.bestLine.length ? ctx.bestLine.slice(0, 6) : undefined,
     replyLine: ctx.input.after?.lines[0]?.pv.length ? ctx.input.after.lines[0].pv.slice(0, 6) : undefined,
+    namesBest: findings.slice(0, 3).some((f) => f.namesBest) || undefined,
   };
 }
 
