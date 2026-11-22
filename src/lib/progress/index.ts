@@ -33,9 +33,10 @@ export function xpFor(e: ProgressEvent): number {
 
 export async function progress(e: ProgressEvent): Promise<number> {
   const xp = xpFor(e);
-  // Puzzles happen often: their XP is shown in the puzzle itself, not as a toast.
-  await awardXp(xp, e.kind === 'puzzle');
+  // Puzzles happen often: their XP is shown in the puzzle itself; a game's on its results sheet.
+  const game = e.kind === 'game';
+  await awardXp(xp, e.kind === 'puzzle' || game);
   if (await checkWeeklyGoal()) await awardXp(XP.weeklyGoal, true);
-  await checkAchievements();
+  await checkAchievements({}, { quiet: game });
   return xp;
 }

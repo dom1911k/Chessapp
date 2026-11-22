@@ -386,12 +386,18 @@ let bad = 0;
 for (const size of SIZES)
   for (const scheme of SCHEMES) {
     process.stdout.write(`${size.join('x')} ${scheme} `);
-    try {
-      const errors = await run(size, scheme);
-      console.log(errors.length ? ` page errors: ${errors.slice(0, 3).join(' | ')}` : ' ok');
-    } catch (e) {
-      bad++;
-      console.log(` FAILED: ${e.message}`);
+    // One retry: a fresh dev server can still reload the page once while it optimises.
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const errors = await run(size, scheme);
+        console.log(errors.length ? ` page errors: ${errors.slice(0, 3).join(' | ')}` : ' ok');
+        break;
+      } catch (e) {
+        if (attempt === 2) {
+          bad++;
+          console.log(` FAILED: ${String(e.message).split('\n')[0]}`);
+        } else process.stdout.write(' (retrying) ');
+      }
     }
   }
 stop();

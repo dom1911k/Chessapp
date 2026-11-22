@@ -15,6 +15,10 @@ export interface CelebrateStore {
   /** While a results screen is open, rewards are shown there instead of as toasts. */
   muted: boolean;
   setMuted(m: boolean): void;
+  /** While a game is on the board nothing pops over it: toasts and confetti are dropped (the
+   * results sheet lists what the game earned). */
+  hold: boolean;
+  setHold(h: boolean): void;
   /** A burst of the equipped celebration; `force` ignores mute, `style` previews another one. */
   confetti(opts?: { style?: string; force?: boolean }): void;
   toast(t: Omit<Toast, 'id'>): void;
@@ -29,12 +33,17 @@ export const useCelebrate = create<CelebrateStore>((set, get) => ({
   toasts: [],
   muted: false,
   setMuted: (muted) => set({ muted }),
+  hold: false,
+  setHold: (hold) => {
+    if (get().hold !== hold) set({ hold });
+  },
   confetti: (opts) => {
+    if (get().hold) return;
     if (get().muted && !opts?.force) return;
     set({ burst: get().burst + 1, burstStyle: opts?.style });
   },
   toast: (t) => {
-    if (get().muted) return;
+    if (get().muted || get().hold) return;
     const id = nextId++;
     set({ toasts: [...get().toasts, { ...t, id }].slice(-3) });
     setTimeout(() => get().dismiss(id), 3500);

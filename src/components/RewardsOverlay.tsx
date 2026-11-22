@@ -29,10 +29,12 @@ function Reveal({ show, children, delay = 0 }: { show: boolean; children: ReactN
   );
 }
 
-/** One compact 48px reward row: icon, title, a short progress bar or a line, and a "New!" chip. */
-function RewardRow({ icon, title, sub, bar, right }: { icon: ReactNode; title: ReactNode; sub?: ReactNode; bar?: ReactNode; right?: ReactNode }) {
+/** One compact 48px reward row: icon, title, a short progress bar or a line, and a "New!" chip.
+ * `shine`: a light sweep across the row (the celebration on a loss or draw, instead of confetti). */
+function RewardRow({ icon, title, sub, bar, right, shine }: { icon: ReactNode; title: ReactNode; sub?: ReactNode; bar?: ReactNode; right?: ReactNode; shine?: boolean }) {
   return (
-    <div className="flex min-h-12 items-center gap-3 py-1.5">
+    <div className="relative flex min-h-12 items-center gap-3 overflow-hidden py-1.5">
+      {shine && <span className="animate-shine pointer-events-none absolute inset-y-0 -left-1/2 w-1/3 skew-x-[-20deg] bg-white/50 dark:bg-white/10" />}
       <span className="flex h-8 w-8 shrink-0 items-center justify-center">{icon}</span>
       <div className="min-w-0 flex-1 text-left leading-tight">
         <div className="truncate text-[14px] font-bold">{title}</div>
@@ -91,11 +93,13 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
   const [levelUp, setLevelUp] = useState<number | null>(null);
   const [milestoneHit, setMilestoneHit] = useState(false);
 
+  // Full-screen confetti only for a win; on a loss or draw the new rows shine instead.
+  const won = r.userResult === 'win';
   useEffect(() => {
-    if (step === S.acc && r.userResult === 'win') useCelebrate.getState().confetti({ force: true });
+    if (step === S.acc && won) useCelebrate.getState().confetti({ force: true });
     if (step === S.extras && extras) {
       playSound('success');
-      if (r.milestones.length || r.unlocks.length || r.challengeDone) useCelebrate.getState().confetti({ force: true });
+      if (won && (r.milestones.length || r.unlocks.length || r.challengeDone)) useCelebrate.getState().confetti({ force: true });
     }
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -225,6 +229,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
                 title={milestoneHit && reached ? <>{reached.title} reached!</> : ja.next ? <>Next: {ja.next.title} at {ja.next.rating}</> : 'Top of the journey!'}
                 bar={<FillBar from={jb.pos} to={ja.pos} run={step >= S.rating} instant={skipped} delay={150} className="mt-1 h-1.5" fill="bg-sky-500" onWrap={() => (setMilestoneHit(true), playSound('reward'))} />}
                 right={milestoneHit ? NEW : undefined}
+                shine={!won && milestoneHit}
               />
             </div>
             <div className={`transition-opacity duration-300 ${step >= S.xp ? 'opacity-100' : 'opacity-0'}`}>
@@ -243,11 +248,12 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
                     onWrap={(l) => {
                       setLevelUp(l);
                       playSound('reward');
-                      useCelebrate.getState().confetti({ force: true });
+                      if (won) useCelebrate.getState().confetti({ force: true });
                     }}
                   />
                 }
                 right={levelUp ? NEW : undefined}
+                shine={!won && !!levelUp}
               />
             </div>
             {streak >= 2 && (
@@ -281,7 +287,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
             )}
             {r.milestones.map((m, i) => (
               <Reveal key={m.rating} show={step >= S.extras} delay={i * 150}>
-                <RewardRow icon={<Medallion name="map" tint="gold" size={32} />} title={m.title} sub={`Journey · ${m.rating} · ${m.line}`} right={NEW} />
+                <RewardRow icon={<Medallion name="map" tint="gold" size={32} />} title={m.title} sub={`Journey · ${m.rating} · ${m.line}`} right={NEW} shine={!won} />
               </Reveal>
             ))}
             {(r.challengeOpened || r.challengeDone) && ch && (
@@ -296,7 +302,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
             )}
             {r.unlocks.map((c, i) => (
               <Reveal key={c.id} show={step >= S.extras} delay={200 + i * 150}>
-                <RewardRow icon={<CosmeticPreview c={c} size={32} />} title={c.name} sub={`New ${KIND_LABEL[c.kind].one.toLowerCase()} · equip it in your Collection`} right={NEW} />
+                <RewardRow icon={<CosmeticPreview c={c} size={32} />} title={c.name} sub={`New ${KIND_LABEL[c.kind].one.toLowerCase()} · equip it in your Collection`} right={NEW} shine={!won} />
               </Reveal>
             ))}
             {r.achievements.map((a, i) => (

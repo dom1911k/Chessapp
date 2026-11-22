@@ -154,17 +154,22 @@ export async function gatherStats(extra: TacticCounts = {}): Promise<Stats> {
   };
 }
 
-/** Unlocks anything newly earned; celebrates and gives a little XP for each. */
-export async function checkAchievements(extra: TacticCounts = {}): Promise<Achievement[]> {
+/**
+ * Unlocks anything newly earned and gives a little XP for each; celebrates with confetti and a
+ * toast unless `quiet` (games: the results sheet lists them instead).
+ */
+export async function checkAchievements(extra: TacticCounts = {}, opts: { quiet?: boolean } = {}): Promise<Achievement[]> {
   const stats = await gatherStats(extra);
   const have = await unlockedAchievements();
   const fresh = ACHIEVEMENTS.filter((a) => !have[a.id] && a.check(stats));
   if (!fresh.length) return [];
   for (const a of fresh) have[a.id] = Date.now();
   await kvSet(KEY, have);
-  const c = useCelebrate.getState();
-  c.confetti();
-  for (const a of fresh) c.toast({ icon: a.portrait ? 'trophy' : a.icon, title: `Achievement: ${a.title}`, text: a.description });
+  if (!opts.quiet) {
+    const c = useCelebrate.getState();
+    c.confetti();
+    for (const a of fresh) c.toast({ icon: a.portrait ? 'trophy' : a.icon, title: `Achievement: ${a.title}`, text: a.description });
+  }
   await awardXp(XP.achievement * fresh.length, true);
   return fresh;
 }

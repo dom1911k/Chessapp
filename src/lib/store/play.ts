@@ -363,7 +363,8 @@ export const usePlay = create<PlayStore>((set, get) => {
           say('userBrilliant', 0.8);
         }
       }
-      if (Object.keys(tactics).length) void checkAchievements(gameTactics(get().game!));
+      // Quietly: nothing pops over the board mid-game; the results sheet lists what was earned.
+      if (Object.keys(tactics).length) void checkAchievements(gameTactics(get().game!), { quiet: true });
       announceOpening();
       if (await checkOver(get().game!)) {
         set({ comment: { comment, ply: i } });
@@ -851,3 +852,8 @@ const GENTLE_OPENERS = [
   'Ooh, tricky spot. Here is what happened:',
 ];
 const pick = <T,>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)];
+
+// While a game is on the board nothing pops over it: celebrations (toasts, confetti) are held
+// back and dropped — what the game earned shows on the results sheet instead.
+const PLAYING = new Set<Phase>(['userTurn', 'analyzing', 'botThinking', 'paused']);
+usePlay.subscribe((s) => useCelebrate.getState().setHold(!!s.game && !s.away && PLAYING.has(s.phase)));

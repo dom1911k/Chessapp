@@ -145,7 +145,8 @@ export function CelebrationLayer() {
 
   return (
     <>
-      <canvas ref={canvas} className="pointer-events-none fixed inset-0 z-[60] h-full w-full" />
+      {/* Above the page, below sheets and dialogs (z-50): confetti never covers a number on the results sheet. */}
+      <canvas ref={canvas} className="pointer-events-none fixed inset-0 z-[45] h-full w-full" />
       <div className="safe-top pointer-events-none fixed inset-x-0 top-2 z-[61] flex flex-col items-center gap-2 px-3">
         {toasts.map((t) => (
           <div
