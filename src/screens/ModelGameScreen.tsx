@@ -10,9 +10,9 @@ import { kvGet, kvSet } from '../lib/db';
 import { MODEL_DONE_KEY, guessStars, modelGameById, modelPlies } from '../lib/lessons/games';
 import { useNav } from '../lib/nav';
 import { progress } from '../lib/progress';
-import { playSound } from '../lib/sound';
 import { Rich } from './LessonScreen';
 import { Dock, DockButton, DockMain } from '../components/Dock';
+import { sfx } from '../lib/sfx';
 
 const label = (n: number, san: string) => `${Math.ceil(n / 2)}${n % 2 ? '.' : '…'} ${san}`;
 
@@ -52,7 +52,7 @@ export function ModelGameScreen({ gameId }: { gameId: string }) {
     const first = !(g.id in book);
     await kvSet(MODEL_DONE_KEY, { ...book, [g.id]: Math.max(book[g.id] ?? 0, stars) });
     void progress({ kind: 'lesson', first });
-    playSound('reward');
+    sfx('reward');
     setDone(true);
   };
 
@@ -61,13 +61,13 @@ export function ModelGameScreen({ gameId }: { gameId: string }) {
     const want = plies[n];
     if (m.from === want.from && m.to === want.to) {
       setAnswered((a) => ({ ...a, [nextPly]: tries === 0 }));
-      playSound('success');
+      sfx('correct');
       step(nextPly);
       // The reply follows by itself, so you keep your rhythm.
       if (nextPly < plies.length && !g.guess.includes(nextPly + 1)) timer.current = setTimeout(() => setN((k) => (k === nextPly ? k + 1 : k)), 900);
       return true;
     }
-    playSound('error');
+    sfx('fail');
     setWrong({ from: m.from, to: m.to });
     setTries((t) => t + 1);
     return false;

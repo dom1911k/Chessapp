@@ -10,11 +10,11 @@ import { solvesTask, taskSolutions } from '../lib/lessons/check';
 import { lessonById, type Lesson, type LessonStep } from '../lib/lessons/data';
 import { INTERVALS, markReviewed, refreshSteps, scheduleLesson } from '../lib/lessons/review';
 import { useNav } from '../lib/nav';
-import { playSound } from '../lib/sound';
 import { progress } from '../lib/progress';
 import { Check, ChevronLeft, ChevronRight, CircleCheck, GraduationCap, Lightbulb, RotateCcw, X } from 'lucide-react';
 import { Dock, DockButton, DockMain } from '../components/Dock';
 import { Medallion } from '../components/Glyph';
+import { sfx } from '../lib/sfx';
 
 export const LESSONS_KEY = 'lessonsDone';
 
@@ -67,11 +67,11 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
     setLast({ from: m.from, to: m.to });
     if (solvesTask(step.fen, step.task, r.move.lan)) {
       setState('done');
-      playSound('success');
+      sfx('correct');
     } else {
       miss();
       setTries((t) => t + 1);
-      playSound('error');
+      sfx('fail');
       // The placement check gives one try: show the answer and move on.
       setState(mode === 'placement' ? 'done' : 'wrong');
     }
@@ -83,11 +83,11 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
     setPicked(k);
     if (k === step.quiz.answer) {
       setState('done');
-      playSound('success');
+      sfx('correct');
     } else {
       miss();
       setState('wrong');
-      playSound('error');
+      sfx('fail');
     }
   };
 
@@ -104,7 +104,7 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
       const stage = placementStage(steps.length - missed.size);
       await kvSet(START_KEY, Math.max(stage, await kvGet<number>(START_KEY, 0)));
       await kvSet('placementDone', true);
-      playSound('reward');
+      sfx('reward');
       return setFinished({ stage });
     }
     if (mode === 'review') {
@@ -117,7 +117,7 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
       await scheduleLesson(lesson.id);
       void progress({ kind: 'lesson', first });
     }
-    playSound('reward');
+    sfx('reward');
     setFinished({});
   };
 

@@ -316,7 +316,7 @@ async function momWeek(m: Moment, tk: MomToken) {
   void animate(cr, [{ transform: 'translate(-50%,-50%) translateY(-200px) rotate(-14deg)', opacity: 1 }, { transform: 'translate(-50%,-50%) translateY(0) rotate(0)', opacity: 1, offset: 0.6 }, { transform: 'translate(-50%,-50%) translateY(-14px) rotate(3deg)', opacity: 1, offset: 0.8 }, { transform: 'translate(-50%,-50%)', opacity: 1 }], { d: 640, e: 'cubic-bezier(.5,0,.6,1)' });
   await sleep(390, tk);
   if (tk.skip) return;
-  sfx('crown');
+  sfx('weekCrown');
   const rays = mkEl('mrays');
   void animate(rays, [{ opacity: 0 }, { opacity: 1 }], { d: 600 });
   const s = stageXY();

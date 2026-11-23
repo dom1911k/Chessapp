@@ -48,7 +48,7 @@ export function MoreScreen() {
           <span className="flex-1">
             <span className="block text-lg font-bold">{ccUser || 'You'}</span>
             <span className="mt-0.5 block">
-              <LevelBadge />
+              <LevelBadge seenKey="more.level" />
             </span>
           </span>
           <span className="text-sm font-semibold text-brand-700 dark:text-brand-500">Profile</span>

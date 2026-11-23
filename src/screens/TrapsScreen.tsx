@@ -16,7 +16,7 @@ import { formatLine, START_FEN, tryMove, uciToSan, type MoveInput } from '../lib
 import { classify, povScore, winPct } from '../lib/chess/evaluation';
 import { getEngine } from '../lib/engine';
 import { chooseMaiaMove, maiaLogits, maiaTemperature } from '../lib/maia';
-import { playSound } from '../lib/sound';
+import { sfx } from '../lib/sfx';
 
 type Stats = Record<string, { faced: number; fell: number; set: number }>;
 
@@ -195,7 +195,7 @@ function TrapDrill({ t }: { t: Trap }) {
         const first = made === 0;
         const ok = first ? cls === 'best' || cls === 'good' : cls !== 'mistake' && cls !== 'blunder';
         if (!ok) {
-          playSound('error');
+          sfx('fail');
           setPhase('failed');
           setBetter(before.bestMove);
           setMsg(
@@ -208,7 +208,7 @@ function TrapDrill({ t }: { t: Trap }) {
         const n = made + 1;
         setMade(n);
         if (n >= DRILL_MOVES || mate) {
-          playSound('success');
+          sfx('correct');
           setPhase('won');
           setMsg(first ? `Spotted it! ${t.text[t.text.length - 1]}` : `Refuted — and you kept it safe for ${n} moves against Maia. That's how you beat this trap.`);
           return;

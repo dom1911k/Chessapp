@@ -15,16 +15,19 @@ type O = {
   to?: number; dur?: number; vib?: number; f1?: number; f2?: number; f?: number; click?: number; lo?: number; oct?: number; step?: number; open?: number;
 };
 
-let ac: AudioContext | null = null;
+let ac: BaseAudioContext | null = null;
+/** While measuring a sound offline: the render context (the live one is untouched). */
+let offline: BaseAudioContext | null = null;
 let NB: AudioBuffer | null = null;
 let BUS: { dry: GainNode; send: GainNode; out: GainNode } | null = null;
 const SP = () => speed();
 
-function au(): AudioContext | null {
+function au(): BaseAudioContext | null {
+  if (offline) return offline;
   if (!useSettings.getState().sound) return null;
   try {
     ac = ac || new AudioContext({ latencyHint: 'interactive' });
-    if (ac.state === 'suspended') void ac.resume();
+    if (ac.state === 'suspended') void (ac as AudioContext).resume();
     if (!BUS) BUS = mkBus(ac);
     return ac;
   } catch {
@@ -50,7 +53,7 @@ function mkIR(c: BaseAudioContext, dur: number, decay: number, pre = 0.012) {
   return b;
 }
 
-function mkBus(c: AudioContext) {
+function mkBus(c: BaseAudioContext) {
   const sr = c.sampleRate;
   NB = c.createBuffer(1, sr * 2, sr);
   const nd = NB.getChannelData(0);
@@ -322,7 +325,7 @@ const SND = {
     noise(0, 0.12, { f1: 3800, q: 1.4, g: 0.025, a: 0.2, rev: 0.15 });
   },
   /** The pawn lands: a soft thud, a wooden knock, leaves settling. */
-  land: () => {
+  pawnLand: () => {
     thump(0, 0.15, { f: 120, from: 2, dec: 0.14 });
     noise(0, 0.05, { f1: 760, q: 5, g: 0.07, a: 0.05, rev: 0.12 });
     noise(0.02, 0.16, { f1: 4200, q: 1.2, g: 0.018, a: 0.1, rev: 0.2 });
@@ -391,7 +394,8 @@ const SND = {
     noise(0, 0.03, { f1: 1500 + i * 90, q: 4, g: 0.11, a: 0.04, pan: p, rev: 0.12 });
     thump(0, 0.07, { f: 170 + i * 9, from: 1.6, dec: 0.08, pan: p });
   },
-  crown: () => {
+  /** The perfect week's crown. */
+  weekCrown: () => {
     thump(0, 0.14, { f: 110, from: 2, dec: 0.22, rev: 0.2 });
     [2093, 2637, 3136, 4186].forEach((f, i) => bell(f, 0.02 + i * 0.06, 0.05, { pan: -0.4 + i * 0.27, dec: 1.6 }));
     noise(0, 0.7, { type: 'bandpass', f1: 7000, q: 0.6, g: 0.014, a: 0.1, rev: 0.6 });
@@ -404,17 +408,117 @@ const SND = {
     tone(660, 0, { g: 0.03, dec: 0.45, rev: 0.4 });
     noise(0, 0.2, { type: 'highpass', f1: 5000, q: 0.5, g: 0.01, a: 0.2, rev: 0.5 });
   },
+
+  // ----- the game's moments (polish round 3, docs/polish-3-prototype.html) -----
+  /** The versus halves sweeping in: panned air. */
+  swish: (p = -0.4) => noise(0, 0.42, { f1: 300, f2: 2600, q: 1.1, g: 0.05, a: 0.55, pan: p, pan2: -p, rev: 0.3 }),
+  /** VS lands: a low thud, a click, a bell, a short sparkle. */
+  stamp: () => {
+    thump(0, 0.24, { f: 78, from: 2.6, dec: 0.38, rev: 0.25 });
+    noise(0, 0.045, { f1: 2400, q: 1.4, g: 0.09, a: 0.05, rev: 0.1 });
+    bell(1568, 0.02, 0.04, { dec: 0.9 });
+    shimmer(0.06, 5, 0.01);
+  },
+  /** The first coach line of a game: two bells, G5 → D6. */
+  start: () => {
+    bell(784, 0, 0.045, { dec: 0.9 });
+    bell(1175, 0.08, 0.045, { dec: 1 });
+  },
+  /** Game won: a soft hit, a warm chord, a four-bell rise, a sparkle. */
+  win: () => {
+    thump(0, 0.12, { f: 110, from: 2, dec: 0.25, rev: 0.2 });
+    pad([523, 659, 784], 0, 0.55, 0.016, { a: 0.04, dec: 1.5, open: 4.5 });
+    [784, 1047, 1319, 1568].forEach((f, i) => bell(f, 0.03 + i * 0.07, 0.06, { pan: -0.4 + i * 0.27, dec: 1.4 }));
+    shimmer(0.32, 8, 0.012);
+  },
+  /** Game lost: two soft plucks down (A4 → F4) over a quiet pad. */
+  loss: () => {
+    pluck(440, 0, 0.075, { dec: 0.5, rev: 0.35 });
+    pluck(349, 0.17, 0.075, { dec: 0.9, rev: 0.4 });
+    pad([220, 262, 330], 0.05, 0.45, 0.011, { a: 0.14, dec: 1.3, open: 2.2 });
+  },
+  /** A draw: two bells, G5 then E5, over a light pad. */
+  draw: () => {
+    bell(784, 0, 0.05, { dec: 1 });
+    bell(659, 0.16, 0.05, { dec: 1.2 });
+    pad([392, 494, 587], 0.04, 0.35, 0.009, { a: 0.1, dec: 1.1, open: 3 });
+  },
+  /** The crown on the winner's avatar: two high bells and a little sparkle. */
+  crown: () => {
+    bell(1568, 0, 0.05, { dec: 0.9, pan: 0.2 });
+    bell(2093, 0.06, 0.045, { dec: 1, pan: 0.25 });
+    shimmer(0.08, 4, 0.01);
+  },
+  /** The king badges at the end of a game: a low thud with a knock. */
+  mate: () => {
+    thump(0, 0.17, { f: 70, from: 2.2, dec: 0.3, rev: 0.2 });
+    noise(0, 0.04, { f1: 900, q: 3, g: 0.06, a: 0.05 });
+  },
+  /** A star lighting up: a bell climbing the pentatonic. */
+  star: (k = 0) => {
+    bell(PENTA[Math.min(9, k + 3)], 0, 0.055, { dec: 0.9 });
+    shimmer(0.04, 3, 0.008);
+  },
+  /** A number landing, a bar filling: a marimba step on the pentatonic. */
+  land: (k = 0) => marimba(PENTA[Math.min(9, k)], 0, 0.075, { pan: -0.1, rev: 0.25 }),
+  /** "New!" on an achievement or unlock: a bell pair and a sparkle. */
+  achieve: () => {
+    bell(1319, 0, 0.05, { dec: 1 });
+    bell(1976, 0.07, 0.05, { dec: 1.1 });
+    shimmer(0.12, 6, 0.01);
+  },
+  /** The review's accuracies landing: a chord with two bells. */
+  accLand: () => {
+    pad([392, 494, 587], 0, 0.3, 0.013, { a: 0.05, dec: 1.1, open: 4 });
+    bell(1175, 0.02, 0.05, { dec: 1 });
+    bell(1568, 0.08, 0.045, { dec: 1.1 });
+  },
+  // Move classes (stepping through a review; a blunder never louder than a brilliant).
+  clsBrilliant: () => {
+    [1568, 1976, 2349, 3136].forEach((f, i) => bell(f, i * 0.045, 0.055, { pan: -0.3 + i * 0.2, dec: 1.2 }));
+    pad([784, 988, 1175], 0, 0.3, 0.012, { a: 0.04, dec: 1.2, open: 5 });
+    shimmer(0.15, 9, 0.013, { lo: 2800 });
+  },
+  clsGreat: () => {
+    bell(1319, 0, 0.055, { dec: 1 });
+    bell(1760, 0.07, 0.05, { dec: 1.1 });
+  },
+  clsBest: () => marimba(1175, 0, 0.05, { rev: 0.25 }),
+  clsExcellent: () => marimba(988, 0, 0.045, { rev: 0.25 }),
+  clsGood: () => marimba(880, 0, 0.035, { rev: 0.2 }),
+  clsBook: () => {
+    noise(0, 0.03, { f1: 900, q: 4, g: 0.06, a: 0.05 });
+    thump(0, 0.05, { f: 180, from: 1.5, dec: 0.06 });
+  },
+  clsInaccuracy: () => pluck(523, 0, 0.05, { dec: 0.3 }),
+  clsMistake: () => {
+    pluck(392, 0, 0.06, { dec: 0.25 });
+    pluck(349, 0.11, 0.06, { dec: 0.4 });
+  },
+  clsMiss: () => {
+    pluck(392, 0, 0.06, { dec: 0.25 });
+    pluck(330, 0.11, 0.06, { dec: 0.4 });
+  },
+  clsBlunder: () => {
+    thump(0, 0.14, { f: 75, from: 1.8, dec: 0.25 });
+    pluck(311, 0.02, 0.07, { dec: 0.3 });
+    pluck(277, 0.14, 0.07, { dec: 0.55 });
+  },
 };
 export type Sfx = keyof typeof SND;
 
 /** Each effect's level (the measured order: fanfare loudest … small foley quietest). */
-const LEVEL: Partial<Record<Sfx, number>> = { clack: 10, snap: 1.25, fill: 1.3, move: 8, tick: 1.3, whoosh: 2, impact: 2.2, unlock: 1.25, open: 2.7, hop: 4, land: 2, grow: 1.6, levelUp: 1.2, wind: 2.4, fail: 0.65, ember: 4.2, smoke: 2.2 };
+const LEVEL: Partial<Record<Sfx, number>> = {
+  clack: 10, snap: 1.25, fill: 1.3, move: 8, tick: 1.3, whoosh: 2, impact: 2.2, unlock: 1.25, open: 2.7, hop: 4, pawnLand: 2, grow: 1.6, levelUp: 1.2, wind: 2.4, fail: 0.65, ember: 4.2, smoke: 2.2,
+  // the game's moments, measured offline (loudest 300ms): win −21, loss −25, stamp −23, brilliant −23, blunder −26, swish −35
+  swish: 3.4, loss: 0.65, clsBook: 7, clsInaccuracy: 2.3, clsBlunder: 0.7, clsExcellent: 1.12, clsGood: 1.45,
+};
 /** Repeated foley varies a little each time (cents of detune; ±0.7 dB). Notes stay in tune. */
-const HUMAN: Partial<Record<Sfx, number>> = { move: 15, hop: 30, land: 22, grow: 12, ember: 10, smoke: 10, whoosh: 8 };
+const HUMAN: Partial<Record<Sfx, number>> = { move: 15, hop: 30, pawnLand: 22, grow: 12, ember: 10, smoke: 10, whoosh: 8 };
 
-/** Play a Puzzle Path sound. `step` climbs the pentatonic for tick / impact / fill / snap / clack. */
+/** Play a moment sound. `step` climbs the pentatonic for tick / impact / fill / snap / clack / land / star. */
 export function sfx(name: Sfx, step?: number) {
-  if (!useSettings.getState().sound) return;
+  if (!offline && !useSettings.getState().sound) return;
   if (!au()) return;
   SLV = (LEVEL[name] || 1) * (1 + (HUMAN[name] ? (Math.random() - 0.5) * 0.16 : 0));
   SHUM = HUMAN[name] || 0;
@@ -425,3 +529,43 @@ export function sfx(name: Sfx, step?: number) {
     SHUM = 0;
   }
 }
+
+/** A move class's sound when you step onto it in a review (brilliant … blunder). */
+export const CLS_SFX: Record<string, Sfx> = { brilliant: 'clsBrilliant', great: 'clsGreat', best: 'clsBest', excellent: 'clsExcellent', good: 'clsGood', book: 'clsBook', inaccuracy: 'clsInaccuracy', mistake: 'clsMistake', miss: 'clsMiss', blunder: 'clsBlunder' };
+export function sfxCls(cls: string) {
+  const n = CLS_SFX[cls];
+  if (n) sfx(n);
+}
+
+/**
+ * Render a sound offline and measure it: the peak and the loudest 300ms (RMS, dBFS), the way the
+ * levels were set. Dev tooling (window.__sndRender in dev builds).
+ */
+export async function renderSfx(name: Sfx, step?: number, dur = 3): Promise<{ peak: number; rms: number }> {
+  const keep = { ac, BUS, NB };
+  const oc = new OfflineAudioContext(2, Math.floor(48000 * dur), 48000);
+  offline = oc;
+  ac = oc;
+  BUS = mkBus(oc);
+  try {
+    sfx(name, step);
+  } finally {
+    offline = null;
+  }
+  const buf = await oc.startRendering();
+  ({ ac, BUS, NB } = keep);
+  const L = buf.getChannelData(0);
+  const R = buf.getChannelData(1);
+  const W = 14400;
+  let pk = 0;
+  let acc = 0;
+  let best = 0;
+  for (let i = 0; i < L.length; i++) {
+    pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i]));
+    acc += (L[i] * L[i] + R[i] * R[i]) / 2;
+    if (i >= W) acc -= (L[i - W] * L[i - W] + R[i - W] * R[i - W]) / 2;
+    if (acc > best) best = acc;
+  }
+  return { peak: +(20 * Math.log10(pk || 1e-9)).toFixed(1), rms: +(10 * Math.log10(best / W || 1e-12)).toFixed(1) };
+}
+if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __sndRender: typeof renderSfx }).__sndRender = renderSfx;

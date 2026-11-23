@@ -176,7 +176,7 @@ export function TierUpCard({ board, onClose, onOpenPath }: { board: number; onCl
       if (!crest.current) return;
       const r = rect(crest.current);
       emit({ x: r.left + r.width / 2, y: r.top + r.height / 2, n: 44, shape: 'star', colors: ['#ffe27a', '#f7c631', '#fff3c4'], speed: [140, 400], life: [0.5, 1.1], size: [4, 9] });
-      sfx('land');
+      sfx('pawnLand');
       buzz([30, 40, 60]);
     }, D(160) + BOUNCE.d * 0.35);
     if (!reduced()) confettiRain(innerWidth, 90);

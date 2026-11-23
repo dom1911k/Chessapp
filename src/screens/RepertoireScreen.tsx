@@ -11,7 +11,7 @@ import { tryMove, type MoveInput } from '../lib/chess/game';
 import { useNav } from '../lib/nav';
 import { progress } from '../lib/progress';
 import { LEVEL_NAME, SLOTS, SYSTEMS, getRepStats, getRepertoire, lineById, lineLevel, linePlies, nextLine, recordRun, repertoireLines, saveRepertoire, systemById, validLine, type RepLine, type RepStats, type Repertoire } from '../lib/repertoire';
-import { playSound } from '../lib/sound';
+import { sfx } from '../lib/sfx';
 
 const LEVEL_STYLE = ['bg-stone-100 text-stone-600 dark:bg-white/10 dark:text-stone-300', 'bg-hue-amber-100 text-hue-amber-800 dark:bg-hue-amber-500/15 dark:text-hue-amber-300', 'bg-hue-sky-100 text-hue-sky-800 dark:bg-hue-sky-500/15 dark:text-hue-sky-300', 'bg-brand-100 text-brand-800 dark:bg-brand-500/15 dark:text-brand-500'];
 
@@ -143,7 +143,7 @@ export function RepertoireTrainScreen({ lineId }: { lineId: string }) {
   useEffect(() => {
     if (!line || done || n < plies.length || !plies.length) return;
     setDone(true);
-    playSound('reward');
+    sfx('reward');
     void (async () => {
       await recordRun(line.id, slips === 0);
       void progress({ kind: 'lesson', first: false });
@@ -160,12 +160,12 @@ export function RepertoireTrainScreen({ lineId }: { lineId: string }) {
   const onMove = (m: MoveInput) => {
     if (!myTurn) return false;
     if (m.from === want.from && m.to === want.to) {
-      playSound('success');
+      sfx('correct');
       setTries(0);
       setN(n + 1);
       return true;
     }
-    playSound('error');
+    sfx('fail');
     if (tries === 0) setSlips((s) => s + 1);
     setTries((t) => t + 1);
     return false;
@@ -252,7 +252,7 @@ export function RepertoireBuildScreen() {
   const save = async () => {
     const r = await getRepertoire();
     await saveRepertoire({ ...r, custom: [...r.custom, { id: `c${Date.now()}`, name: name.trim(), color, moves: sans.join(' '), custom: true }] });
-    playSound('success');
+    sfx('correct');
     pop();
   };
   return (

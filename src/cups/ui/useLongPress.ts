@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { buzz } from '../../lib/motion';
 
 /** Props for an element that calls `fn` after being held for `ms`. */
 export function useLongPress(fn: () => void, ms = 650) {
@@ -12,11 +13,7 @@ export function useLongPress(fn: () => void, ms = 650) {
       clear();
       t.current = setTimeout(() => {
         t.current = null;
-        try {
-          navigator.vibrate?.(30);
-        } catch {
-          /* ignore */
-        }
+        buzz(30);
         fn();
       }, ms);
     },

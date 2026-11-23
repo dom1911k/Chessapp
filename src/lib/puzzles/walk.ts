@@ -72,7 +72,7 @@ function pawnFeet(sc: Scene) {
   return { x: r.cx, y: r.cy };
 }
 function landIso(sc: Scene) {
-  sfx('land');
+  sfx('pawnLand');
   buzz(9);
   const p = pawnFeet(sc);
   [0, 180].forEach((a) => emit({ x: p.x, y: p.y, n: 4, shape: 'dust', colors: ['rgba(255,255,255,.55)', 'rgba(235,228,214,.5)'], speed: [40, 110], angle: a, spread: 30, gravity: -10, drag: 0.88, life: [0.25, 0.45], size: [1.4, 2.8] }));

@@ -24,18 +24,5 @@ export const reg = (k: keyof typeof pathEls) => (el: HTMLElement | null) => {
   pathEls[k] = el;
 };
 
-/** Rolling digits: each digit is a 0–9 strip that slides (same markup every time, so it's cheap). */
-export function odo(el: HTMLElement | null | undefined, val: number) {
-  if (!el) return;
-  const s = Math.round(val).toLocaleString('en-US');
-  if (el.dataset.v === s) return;
-  const fmt = s.replace(/\d/g, '0');
-  if (el.dataset.fmt !== fmt) {
-    el.dataset.fmt = fmt;
-    el.innerHTML = [...s].map((ch) => (/\d/.test(ch) ? `<span class="dg"><span class="st">${'0123456789'.split('').map((d) => `<i>${d}</i>`).join('')}</span></span>` : `<span>${ch}</span>`)).join('');
-  }
-  el.dataset.v = s;
-  [...s].forEach((ch, i) => {
-    if (/\d/.test(ch)) ((el.children[i] as HTMLElement).firstChild as HTMLElement).style.transform = `translateY(${-Number(ch)}em)`;
-  });
-}
+/** Rolling digits (the shared odometer in lib/numbers). */
+export { odo } from '../numbers';

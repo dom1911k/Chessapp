@@ -16,6 +16,7 @@ import { loadRange } from '../lib/puzzles/data';
 import { playSound } from '../lib/sound';
 import { fmtClock } from '../lib/clock';
 import { CONVERT_SECONDS, QUICK_COUNT, QUICK_LABEL, QUICK_MAX_RATING, QUICK_SECONDS, convertPositions, quickCorrect, quickSet, type QuickItem } from '../lib/timedrills';
+import { sfx } from '../lib/sfx';
 
 const BEST_KEY = 'timeDrillBest';
 type Best = { convert?: number; quick?: number };
@@ -65,7 +66,7 @@ function ConvertDrill() {
   const fen = fens[fens.length - 1];
   const me = start.fen.split(' ')[1] as 'w' | 'b';
   const running = phase === 'play' || phase === 'reply';
-  const ms = useCountdown(CONVERT_SECONDS, running, () => (setPhase('lost'), playSound('error')), start);
+  const ms = useCountdown(CONVERT_SECONDS, running, () => (setPhase('lost'), sfx('fail')), start);
 
   const again = () => {
     const s = pick(convertPositions());
@@ -86,7 +87,7 @@ function ConvertDrill() {
     if (c.isCheckmate()) {
       const secs = Math.round((CONVERT_SECONDS * 1000 - ms) / 100) / 10;
       setPhase('won');
-      playSound('success');
+      sfx('correct');
       if (!best.convert || secs < best.convert) {
         const b = { ...best, convert: secs };
         setBest(b);
@@ -96,7 +97,7 @@ function ConvertDrill() {
     }
     if (c.isGameOver()) {
       setPhase('lost');
-      playSound('error');
+      sfx('fail');
       return true;
     }
     setPhase('reply');

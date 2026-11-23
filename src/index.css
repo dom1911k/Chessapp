@@ -83,6 +83,8 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 :root {
+  /* UI motion (tabs, switches, pages, sheets, fades): fast out, no overshoot (motion.ts UI_EASE). */
+  --ease-ui: cubic-bezier(0.2, 0.8, 0.3, 1);
   --dur-fast: 80ms;
   --dur-standard: 160ms;
   --dur-slow: 260ms;

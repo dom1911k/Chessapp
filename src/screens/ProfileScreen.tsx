@@ -19,6 +19,7 @@ import type { ImportedGame } from '../lib/store/types';
 import { getRating, START_RATING } from '../lib/puzzles/rating';
 import { boardName, getPathState, levelAt, type PathState } from '../lib/puzzles/path';
 import { PathBadge } from '../components/path/PathUI';
+import { SeenNumber } from '../components/Odometer';
 import { themeStats, type ThemeStat } from '../lib/puzzles/select';
 import { themeLabel } from '../lib/puzzles/themes';
 import { bestStreak, currentStreak } from '../lib/stats';
@@ -141,7 +142,7 @@ export function ProfileScreen() {
         {view === 'stats' && (
           <>
             <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
-              <RatingRow label="Bots" sub={`${d.bots.games} rated games`} value={d.bots.rating} best={d.bots.peak} onClick={() => push({ name: 'journey' })} />
+              <RatingRow label="Bots" sub={`${d.bots.games} rated games`} value={d.bots.rating} best={d.bots.peak} onClick={() => push({ name: 'journey' })} seenKey="stats.rating" />
               <RatingRow label="Puzzles" sub={d.puzzles.total ? `${d.puzzles.solved} of ${d.puzzles.total} solved` : "No puzzles yet"} value={d.rating} best={Math.max(d.rating, ...d.ratings)} />
               <RatingRow label="Puzzle Rush" sub={`Survival best ${d.survival}`} value={d.rush} />
               {d.cc.map((c) => (
@@ -271,7 +272,7 @@ export function ProfileScreen() {
   );
 }
 
-function RatingRow({ label, sub, value, best, onClick }: { label: string; sub: string; value: number; best?: number; onClick?: () => void }) {
+function RatingRow({ label, sub, value, best, onClick, seenKey }: { label: string; sub: string; value: number; best?: number; onClick?: () => void; /** Roll from the value last seen here. */ seenKey?: string }) {
   const inner = (
     <>
       <span className="min-w-0 flex-1">
@@ -279,7 +280,7 @@ function RatingRow({ label, sub, value, best, onClick }: { label: string; sub: s
         <span className="block truncate text-xs text-stone-500">{sub}</span>
       </span>
       <span className="text-right">
-        <span className="font-display block text-[22px] leading-tight font-semibold tabular-nums">{value}</span>
+        <span className="font-display block text-[22px] leading-tight font-semibold tabular-nums">{seenKey ? <SeenNumber k={seenKey} value={value} chipClass="text-[14px]" /> : value}</span>
         {best !== undefined && best > value && <span className="block text-[11px] text-stone-500">best {best}</span>}
       </span>
       {onClick && <ChevronRight size={16} className="text-stone-400" />}

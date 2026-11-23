@@ -135,3 +135,17 @@ export function buzz(p: number | number[]) {
     /* no vibration */
   }
 }
+
+/** The app's haptic vocabulary (it respects the vibration setting). */
+export const HAPTIC = { select: 6, success: 12, warn: [10, 40, 10], big: [30, 40, 60] } as const;
+export type HapticKind = keyof typeof HAPTIC;
+/** select: tabs, switches, sheets, Play · success: a star, a badge · warn: a blunder badge · big: a level-up, a new board. */
+export const haptic = (kind: HapticKind) => buzz(HAPTIC[kind] as number | number[]);
+
+/** UI motion (tabs, switches, pages, sheets, fades): fast out, no overshoot. Also the CSS variable --ease-ui. */
+export const UI_EASE = 'cubic-bezier(.2,.8,.3,1)';
+
+/** Content that swaps (a tab pane, a coach bubble, a skeleton turning into content): fades up 6px. */
+export function crossfade(el: Element | null | undefined, dur = 220): Promise<void> {
+  return animate(el, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { d: dur, e: UI_EASE });
+}

@@ -10,9 +10,9 @@ import { EXPERIENCE, GOAL_CHOICES, finishOnboarding, startPlan, type Experience 
 import { castSummary, opponentById } from '../lib/people';
 import { GOAL_KEY } from '../lib/progress/weekly';
 import { useSettings } from '../lib/settings';
-import { playSound } from '../lib/sound';
 import { Portrait } from './Coach';
 import { AvatarImg } from './UserAvatar';
+import { sfx } from '../lib/sfx';
 
 const STEPS = 5;
 
@@ -39,7 +39,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       nav.setTab('learn');
       nav.push({ name: 'placement' });
     } else nav.setTab('play');
-    playSound('success');
+    sfx('correct');
     onDone();
   };
   const next = () => setStep((s) => Math.min(STEPS - 1, s + 1));

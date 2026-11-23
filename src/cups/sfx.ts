@@ -5,6 +5,7 @@ import { marimba, tockWith } from '../lib/sound';
 import { useSettings } from '../lib/settings';
 import { useRunSettings } from './settings';
 import { playTheme, type Player, type Theme } from './music';
+import { buzz as appBuzz } from '../lib/motion';
 
 export type RunSound =
   | 'relic' | 'hit' | 'clear' | 'over' | 'slam' | 'chip' | 'coin' | 'card' | 'fail' | 'win' | 'whoosh' | 'door' | 'technique' | 'ready' | 'drip'
@@ -267,12 +268,9 @@ function playSfx(name: RunSound, n: number, opp: boolean, pitch: number) {
   }
 }
 
+/** Cups' buzz goes through the app's haptics helper (it respects the vibration setting). */
 export function buzz(ms: number | number[]) {
-  try {
-    navigator.vibrate?.(ms);
-  } catch {
-    /* not supported (iOS) */
-  }
+  appBuzz(ms);
 }
 
 // ---- Ambient music --------------------------------------------------------------------------

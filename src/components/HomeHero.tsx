@@ -7,6 +7,7 @@ import { currentStreak, trainedToday } from '../lib/stats';
 import { useNav } from '../lib/nav';
 import { useCelebrate } from '../lib/celebrate';
 import { UserAvatar, useMyName, useMyTitle } from './UserAvatar';
+import { DeltaChip, useLastSeen } from './Odometer';
 
 type Daypart = 'morning' | 'afternoon' | 'evening' | 'night';
 
@@ -33,6 +34,8 @@ export function HomeHero({ right }: { right?: ReactNode }) {
   const [grew, setGrew] = useState(false);
   const push = useNav((s) => s.push);
   const [week, setWeek] = useState<{ days: number; goal: number } | null>(null);
+  // Refreshed when you come back from a game or a screen (the stack empties), as well as on celebrations.
+  const depth = useNav((s) => s.stack.length);
   useEffect(() => {
     void getXp().then(setXp);
     void Promise.all([currentStreak(), trainedToday()]).then(([n, done]) => {
@@ -48,8 +51,11 @@ export function HomeHero({ right }: { right?: ReactNode }) {
       }
     });
     void weeklyGoal().then((w) => setWeek({ days: w.days, goal: w.goal }));
-  }, [burst]);
-  const l = levelFor(xp ?? 0);
+  }, [burst, depth]);
+  // Numbers change in front of you: back from a game, the XP (and with it the level) rolls up from
+  // what you last saw here, with a "+60" chip.
+  const seen = useLastSeen('home.xp', xp);
+  const l = levelFor(seen.shown ?? 0);
   const name = useMyName();
   const title = useMyTitle();
   const line =
@@ -75,8 +81,9 @@ export function HomeHero({ right }: { right?: ReactNode }) {
           <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-stone-500">
             <span className="truncate font-semibold">{title}</span>
             <span className="relative h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-stone-300 dark:bg-stone-800" title={`${l.span - l.into} XP to go`}>
-              <span className="absolute inset-y-0 left-0 rounded-full bg-[#f7c045]" style={{ width: `${Math.max(4, (xp === null ? 0 : l.into / l.span) * 100)}%`, transition: 'width 1s cubic-bezier(0.2,0,0,1)' }} />
+              <span className="absolute inset-y-0 left-0 rounded-full bg-[#f7c045]" style={{ width: `${Math.max(4, (seen.shown === null ? 0 : l.into / l.span) * 100)}%` }} />
             </span>
+            {seen.delta && seen.delta.d > 0 && <DeltaChip key={seen.delta.id} d={seen.delta.d} className="!ml-0 text-[11px]" />}
           </div>
         </div>
         <span

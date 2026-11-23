@@ -10,6 +10,7 @@ import { Portrait } from './Coach';
 import { Header } from './ui';
 import { Check, ChevronRight, Star } from 'lucide-react';
 import { Medallion } from './Glyph';
+import { SeenNumber } from './Odometer';
 
 /** Re-reads data whenever celebrations fire (XP/achievements may have changed). */
 function useRefreshKey() {
@@ -18,7 +19,8 @@ function useRefreshKey() {
   return `${burst}-${toasts}`;
 }
 
-export function LevelBadge() {
+/** "★ Level 4". With `seenKey`, the level rolls up from the one you last saw there. */
+export function LevelBadge({ seenKey }: { seenKey?: string } = {}) {
   const [xp, setXp] = useState<number | null>(null);
   const key = useRefreshKey();
   useEffect(() => void getXp().then(setXp), [key]);
@@ -26,7 +28,7 @@ export function LevelBadge() {
   const l = levelFor(xp);
   return (
     <span className="chip bg-gold-300/40 text-stone-800 ring-1 ring-gold-400/50 dark:bg-gold-500/20 dark:text-gold-300" title={l.title}>
-      <Star size={12} className="fill-gold-400 text-gold-500" /> Level {l.level}
+      <Star size={12} className="fill-gold-400 text-gold-500" /> Level {seenKey ? <SeenNumber k={seenKey} value={l.level} /> : l.level}
     </span>
   );
 }

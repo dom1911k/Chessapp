@@ -5,6 +5,7 @@ import { Chessboard, defaultArrowOptions } from 'react-chessboard';
 import { isPromotion, tryMove, type MoveInput } from '../lib/chess/game';
 import { BOARD_THEMES, useSettings } from '../lib/settings';
 import { playSound } from '../lib/sound';
+import { buzz, haptic } from '../lib/motion';
 import { HAPTIC_PATTERN, moveHaptic, moveSound, premoveTargets as premoveTargetsFor, squareAtPoint } from '../lib/chess/boardfeel';
 import type { CoachArrow, CoachHighlight, Tone } from '../lib/coach/types';
 import { AlarmClock, Check, Crown, Flag, X } from 'lucide-react';
@@ -70,7 +71,7 @@ function useMoveSounds(fen: string, lastMove: { from: string; to: string } | nul
       playSound(moveSound(before, fen, lastMove, orientation === 'white' ? 'w' : 'b'));
       if (useSettings.getState().haptics) {
         const h = moveHaptic(before, fen, lastMove);
-        if (h !== 'none') navigator.vibrate?.(HAPTIC_PATTERN[h]);
+        if (h !== 'none') buzz(HAPTIC_PATTERN[h]);
       }
     } catch {
       /* unreadable position: stay quiet */
@@ -337,11 +338,7 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
         const esc = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true });
         document.dispatchEvent(esc);
         window.dispatchEvent(esc);
-        try {
-          navigator.vibrate?.(12);
-        } catch {
-          /* no vibration */
-        }
+        haptic('success');
       }, LONG_PRESS_MS) };
     },
     onPointerMove: (e: React.PointerEvent) => {

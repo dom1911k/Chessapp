@@ -10,8 +10,8 @@ import { fromLichess, type PuzzleSpec } from '../lib/puzzles/spec';
 import { progress } from '../lib/progress';
 import { CountUp, FillBar } from '../components/Reward';
 import { useCelebrate } from '../lib/celebrate';
-import { playSound } from '../lib/sound';
 import { Shield, Trophy, Zap } from 'lucide-react';
+import { sfx } from '../lib/sfx';
 
 const STRIKES = 3;
 const START_RATING = 600;
@@ -95,7 +95,7 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
       const a = await awardPath({ event: 'rushRecord', today: today() });
       setRecordPts(a.total);
       setTimeout(() => {
-        playSound('reward');
+        sfx('reward');
         useCelebrate.getState().confetti({ force: true });
       }, 1100);
     }

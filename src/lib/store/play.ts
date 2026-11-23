@@ -19,6 +19,7 @@ import { CancelledError, getEngine, type AnalysisResult } from '../engine';
 import { analysisLimits } from '../engine/speed';
 import { useSettings } from '../settings';
 import { playSound } from '../sound';
+import { sfxCls } from '../sfx';
 import { opponentById, pickLine, wantsSummaryLine, type ChatEvent, type Mood } from '../people';
 import { bookMove, REPERTOIRES } from '../people/openings';
 import { detectOpening } from '../openings';
@@ -360,9 +361,9 @@ export const usePlay = create<PlayStore>((set, get) => {
       if (shown === 'best') lastBestTag = i;
       if (shown) {
         set({ flash: { id: Date.now(), kind: shown, sq: ply.uci.slice(2, 4) } });
-        if (shown === 'best') playSound('success');
+        if (shown === 'best') sfxCls('best');
         if (special) {
-          playSound('brilliant');
+          sfxCls(special === 'great' ? 'great' : 'brilliant');
           say('userBrilliant', 0.8);
         }
       }
@@ -380,7 +381,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         else if (comment.ruleIds.some((r) => r === 'praise-tactic' || r === 'praise-mate' || r === 'praise-capture')) say('userGoodMove', 0.7);
       }
       if (serious && aids.comments && useSettings.getState().pauseOnMistakes && !get().game!.clock) {
-        playSound('error');
+        sfxCls('mistake');
         set({ phase: 'paused', comment: { comment, ply: i } });
         return;
       }
