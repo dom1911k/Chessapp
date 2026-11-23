@@ -1,7 +1,8 @@
 // The Puzzle Path's small pieces, used everywhere: the level badge (chess.com's tilted puzzle
 // piece in the board's material), the Daily Solver dots, the streak flame and the path card
 // (total points, the orange bar with the next level's badge, "Wood · Level 4  170 / 175").
-import { forwardRef, useContext, useId, type ReactNode } from 'react';
+import { forwardRef, useContext, useEffect, useId, useRef, type ReactNode } from 'react';
+import { odo, reg, usePathUi } from '../../lib/puzzles/pathUi';
 import { boardName, levelAt } from '../../lib/puzzles/path';
 import { PuzzleTimer } from '../PuzzleProgress';
 
@@ -123,6 +124,99 @@ export function PathCard({ points, gain, streak, rating, ratingDelta, extra }: {
           <b>{boardName(pos.board)}</b> <span className="text-stone-500">· Level {pos.level}</span>
         </span>
         <span className="text-stone-500 tabular-nums">
+          {pos.into.toLocaleString('en-US')} / {pos.cost.toLocaleString('en-US')}
+        </span>
+      </div>
+      {extra}
+    </div>
+  );
+}
+
+// ---------- Live pieces: they follow the tally's beats (usePathUi) ----------
+
+/** The header badge (flips when the bar crosses a level). */
+export function LiveCrest({ size = 32, onClick }: { size?: number; onClick?: () => void }) {
+  const points = usePathUi((s) => s.points);
+  const pos = levelAt(points);
+  return (
+    <button ref={reg('crest')} className="block [perspective:400px]" onClick={onClick} aria-label="Puzzle path" data-testid="path-crest">
+      <PathBadge tier={pos.tier} level={pos.level} size={size} />
+    </button>
+  );
+}
+export function LiveDots() {
+  const daily = usePathUi((s) => s.daily);
+  return (
+    <span ref={reg('dots')} className="flex items-center gap-0.5" aria-label={`Daily Solver ${Math.min(daily, 3)} of 3`} data-testid="solver-dots">
+      {[0, 1, 2].map((i) => {
+        const on = i < daily;
+        return (
+          <svg key={i} width="17" height="17" viewBox="0 0 60 60" className={on ? 'drop-shadow-[0_0_3px_rgba(247,198,49,0.55)]' : ''}>
+            <path d={PZ} fill={on ? '#c98608' : '#2b2927'} transform="translate(0,3)" />
+            <path d={PZ} fill={on ? '#f7c631' : '#4b4847'} />
+          </svg>
+        );
+      })}
+    </span>
+  );
+}
+export function LiveFlame({ size = 20, card = false }: { size?: number; card?: boolean }) {
+  const streak = usePathUi((s) => s.streak);
+  return <StreakFlame ref={reg(card ? 'cardFlame' : 'flame')} streak={streak} size={size} />;
+}
+
+/** The points card during and after a tally: odometer, "+N", streak, rating; the bar; level line. */
+export function LivePathCard({ rating, ratingDelta, onTap, extra }: { rating?: number | null; ratingDelta?: number | null; onTap?: () => void; extra?: ReactNode }) {
+  const points = usePathUi((s) => s.points);
+  const gain = usePathUi((s) => s.gain);
+  const pos = levelAt(points);
+  const next = pos.level === 20 ? { tier: Math.min(7, pos.board + 1), level: 1 } : { tier: pos.tier, level: pos.level + 1 };
+  const timer = useContext(PuzzleTimer);
+  const total = useRef<HTMLSpanElement | null>(null);
+  // At rest the odometer shows the UI points (the tally rolls it itself).
+  useEffect(() => odo(total.current, points), [points]);
+  return (
+    <div className="px-1" onClick={onTap} data-testid="path-card">
+      <div className="flex items-baseline gap-2">
+        <span
+          ref={(el) => {
+            total.current = el;
+            reg('total')(el);
+          }}
+          className="odo inline-block origin-left text-[24px] leading-none font-extrabold tabular-nums"
+          data-testid="path-total"
+        />
+        <span ref={reg('gain')} className={`inline-block text-[14px] font-extrabold text-[#81b64c] tabular-nums ${gain ? '' : 'opacity-0'}`} data-testid="path-gain">
+          +{gain}
+        </span>
+        <span className="self-center">
+          <LiveFlame size={15} card />
+        </span>
+        <span className="ml-auto flex items-center gap-3 self-center">
+          {rating != null && (
+            <span className="text-xs text-stone-500 tabular-nums" data-testid="path-rating">
+              Rating {rating}
+              {ratingDelta ? ` (${ratingDelta > 0 ? '+' : ''}${ratingDelta})` : ''}
+            </span>
+          )}
+          {timer}
+        </span>
+      </div>
+      <div className="relative mt-2.5 mr-3">
+        <div ref={reg('track')} className="relative h-3 overflow-hidden rounded-full bg-[#43403d]">
+          <div ref={reg('fill')} className="relative h-full overflow-hidden rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]" style={{ width: `${Math.max(2, (pos.into / pos.cost) * 100)}%`, background: 'linear-gradient(180deg,#fbae63,#f3913f 60%,#ec8231)' }}>
+            <span ref={reg('sweep')} className="pp-sweep" />
+          </div>
+        </div>
+        <span ref={reg('endBadge')} className="absolute top-1/2 -right-4 -translate-y-1/2">
+          <PathBadge tier={next.tier} level={next.level} size={34} />
+        </span>
+      </div>
+      <div className="mt-1.5 flex justify-between text-xs">
+        <span>
+          <b>{boardName(pos.board)}</b> <span className="text-stone-500">· Level {pos.level}</span>
+        </span>
+        <span ref={reg('tonext')} className="text-stone-500 tabular-nums" data-testid="path-tonext">
           {pos.into.toLocaleString('en-US')} / {pos.cost.toLocaleString('en-US')}
         </span>
       </div>

@@ -14,6 +14,9 @@ import { MoveMark, SolveBurst, type SquareMark } from './PuzzleFx';
 import { PuzzleTimer } from './PuzzleProgress';
 import { solvePrompt, solvedPrompt } from '../lib/puzzles/level';
 import { promptFor, WARM_UP_LINE } from '../lib/puzzles/prompts';
+import { boardRing, type BoardRef } from '../lib/puzzles/tally';
+import { sfx } from '../lib/sfx';
+import { buzz } from '../lib/motion';
 import { analysisLimits } from '../lib/engine/speed';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
 import { themeLabel } from '../lib/puzzles/themes';
@@ -28,6 +31,8 @@ export interface PuzzleResult {
   seconds: number;
   /** Correct moves you played (a hint solve earns this many points). */
   correctMoves: number;
+  /** The square of your last move (the solved square, or the wrong move's). */
+  square?: string;
 }
 
 interface Props {
@@ -41,6 +46,11 @@ interface Props {
   progress?: React.ReactNode;
   /** Hold the solved square's ✓ this long (the points tally uses that corner first). */
   markDelayMs?: number;
+  /** Puzzle Path: the tally owns the solved square (no confetti, no ✓/✗ here; a soft ring and
+   * the chime as the move lands). */
+  pathMode?: boolean;
+  /** The board element and orientation, for the tally's chips. */
+  onBoard?: (b: BoardRef) => void;
   /** Solved in how many puzzles in a row (for the coach's line). */
   solvedStreak?: number;
   /** Puzzle Rush: no hints or explanations, a wrong move ends the puzzle, auto-advance. */
@@ -53,7 +63,7 @@ interface Props {
   failOnWrong?: boolean;
 }
 
-export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle', footer, progress, markDelayMs = 0, solvedStreak = 0, fast = false, combo = 0, overlay, failOnWrong = false }: Props) {
+export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle', footer, progress, markDelayMs = 0, pathMode = false, onBoard, solvedStreak = 0, fast = false, combo = 0, overlay, failOnWrong = false }: Props) {
   const push = useNav((n) => n.push);
   const startFen = useMemo(() => (spec.setup ? tryMove(spec.fen, spec.setup)!.fen : spec.fen), [spec]);
   const userColor = startFen.split(' ')[1] as 'w' | 'b';
@@ -107,20 +117,32 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     const seconds = Math.round((Date.now() - (startedAt.current || Date.now())) / 1000);
     const userMoves = Math.ceil(spec.solution.length / 2);
     setLightning(success && !failed && hints === 0 && seconds > 0 && seconds <= 8 + 6 * (userMoves - 1));
-    onFinish({ success: success && !failed, hintsUsed: hints, seconds, correctMoves: correct.current });
+    onFinish({ success: success && !failed, hintsUsed: hints, seconds, correctMoves: correct.current, square: lastSq.current });
   };
 
+  const lastSq = useRef<string | undefined>(undefined);
   const solvedFx = (sq: string) => {
+    if (pathMode) {
+      // chess.com: a soft white ring, the chime and a tick; the chips use the square next.
+      if (boardBox.current) boardRing({ el: boardBox.current, orientation: userColor === 'w' ? 'white' : 'black' }, sq);
+      sfx('correct');
+      buzz(12);
+      return;
+    }
     setBurst({ id: Date.now(), sq });
     playSound(combo >= 2 ? 'combo' : 'success');
   };
+  useEffect(() => {
+    if (boardBox.current) onBoard?.({ el: boardBox.current, orientation: userColor === 'w' ? 'white' : 'black' });
+  }, [onBoard, userColor]);
 
   const advance = (afterFen: string, uci: string, nextIdx: number) => {
     setFen(afterFen);
     setLast({ from: uci.slice(0, 2), to: uci.slice(2, 4) });
     setHint(null);
     const final = nextIdx >= spec.solution.length;
-    setMark({ id: Date.now(), sq: uci.slice(2, 4), ok: true, stay: final });
+    lastSq.current = uci.slice(2, 4);
+    if (!(pathMode && final)) setMark({ id: Date.now(), sq: uci.slice(2, 4), ok: true, stay: final });
     playStep(correct.current++ + Math.min(combo, 6));
     if (final) {
       solvedFx(uci.slice(2, 4));
@@ -167,8 +189,12 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     setLast({ from: m.from, to: m.to });
     setFailed(true);
     setState('wrong');
-    playSound('error');
-    setMark({ id: Date.now(), sq: m.to, ok: false });
+    lastSq.current = m.to;
+    // Path mode: the tally shows the ✗, the red ring and the friendly "bonk".
+    if (!pathMode) {
+      playSound('error');
+      setMark({ id: Date.now(), sq: m.to, ok: false });
+    }
     setShake((n) => n + 1);
     if (failOnWrong && !fast) finish(false);
     if (fast) {

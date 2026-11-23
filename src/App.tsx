@@ -47,6 +47,7 @@ import { RepertoireBuildScreen, RepertoireScreen, RepertoireTrainScreen } from '
 import { LessonScreen } from './screens/LessonScreen';
 import { UpdateDialog } from './components/UpdatePanel';
 import { CelebrationLayer } from './components/Celebrate';
+import { FxCanvas } from './components/FxCanvas';
 import { autoCheck, type UpdateInfo } from './lib/update';
 import { calibrate } from './lib/engine/speed';
 import { applyReminder } from './lib/reminders';
@@ -323,6 +324,7 @@ export function App() {
       <PieceDefs />
       <WebUpdateBanner />
       <CelebrationLayer />
+      <FxCanvas />
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 bottom-20 flex justify-center">
           <div className="rounded-full bg-stone-800 px-4 py-2 text-sm text-white shadow-lg">Press back again to exit — your game is saved</div>
