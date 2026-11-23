@@ -1,9 +1,10 @@
+import { awardPath } from '../lib/puzzles/path';
 import { useEffect, useRef, useState } from 'react';
 import { CoachBubble } from '../components/Coach';
 import { PuzzlePlayer } from '../components/PuzzlePlayer';
 import { Header, Segmented, Spinner } from '../components/ui';
 import type { RushMode } from '../lib/nav';
-import { bumpActivity, kvGet, kvSet } from '../lib/db';
+import { bumpActivity, kvGet, kvSet, today } from '../lib/db';
 import { nextPuzzle } from '../lib/puzzles/select';
 import { fromLichess, type PuzzleSpec } from '../lib/puzzles/spec';
 import { progress } from '../lib/progress';
@@ -36,6 +37,7 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
   const [best, setBest] = useState(0);
   const [newBest, setNewBest] = useState(false);
   const [prevBest, setPrevBest] = useState(0);
+  const [recordPts, setRecordPts] = useState(0);
   const [plus, setPlus] = useState(0);
   const rating = useRef(START_RATING);
   const seen = useRef(new Set<string>());
@@ -89,6 +91,9 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
       setBest(score);
       setNewBest(true);
       await kvSet(BEST_KEY, score);
+      // Puzzle Path: a new personal best earns a record bonus.
+      const a = await awardPath({ event: 'rushRecord', today: today() });
+      setRecordPts(a.total);
       setTimeout(() => {
         playSound('reward');
         useCelebrate.getState().confetti({ force: true });
@@ -173,6 +178,7 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
                 <div className="mb-1 flex justify-between text-xs text-stone-500">
                   <span>Best {prevBest}</span>
                   {newBest && <span className="animate-reveal flex items-center gap-1 font-bold text-gold-500" style={{ animationDelay: '1100ms' }}><Trophy size={13} /> New best!</span>}
+                  {newBest && recordPts > 0 && <span className="animate-reveal rounded-full bg-[#f2b51c] px-2 py-0.5 text-xs font-extrabold text-[#3a2a00]" style={{ animationDelay: '1300ms' }} data-testid="rush-record">Rush record +{recordPts}</span>}
                 </div>
                 <FillBar from={0} to={Math.min(1, score / Math.max(1, prevBest, score))} delay={200} ms={1100} className="h-2.5" fill={newBest ? 'bg-gradient-to-r from-hue-amber-300 to-gold-500' : 'bg-gradient-to-r from-hue-lime-400 to-brand-500'} />
               </div>

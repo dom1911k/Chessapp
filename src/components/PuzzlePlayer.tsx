@@ -11,8 +11,9 @@ import type { Hint } from '../lib/coach/hints';
 import { getEngine } from '../lib/engine';
 import { playSound, playStep } from '../lib/sound';
 import { MoveMark, SolveBurst, type SquareMark } from './PuzzleFx';
-import { PuzzleTimer, SolveTags } from './PuzzleProgress';
-import { solvePrompt, solvedPrompt, type SolveTag } from '../lib/puzzles/level';
+import { PuzzleTimer } from './PuzzleProgress';
+import { solvePrompt, solvedPrompt } from '../lib/puzzles/level';
+import { promptFor, WARM_UP_LINE } from '../lib/puzzles/prompts';
 import { analysisLimits } from '../lib/engine/speed';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
 import { themeLabel } from '../lib/puzzles/themes';
@@ -25,6 +26,8 @@ export interface PuzzleResult {
   hintsUsed: number;
   /** Seconds from the first possible move to the last correct one. */
   seconds: number;
+  /** Correct moves you played (a hint solve earns this many points). */
+  correctMoves: number;
 }
 
 interface Props {
@@ -36,8 +39,8 @@ interface Props {
   footer?: React.ReactNode;
   /** The progression row (rating, bar, level) under the coach bubble. */
   progress?: React.ReactNode;
-  /** Tags that pop on the solved square, one after another ("Hard +8", "Speed +3"). */
-  tags?: SolveTag[];
+  /** Hold the solved square's ✓ this long (the points tally uses that corner first). */
+  markDelayMs?: number;
   /** Solved in how many puzzles in a row (for the coach's line). */
   solvedStreak?: number;
   /** Puzzle Rush: no hints or explanations, a wrong move ends the puzzle, auto-advance. */
@@ -50,7 +53,7 @@ interface Props {
   failOnWrong?: boolean;
 }
 
-export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle', footer, progress, tags = [], solvedStreak = 0, fast = false, combo = 0, overlay, failOnWrong = false }: Props) {
+export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle', footer, progress, markDelayMs = 0, solvedStreak = 0, fast = false, combo = 0, overlay, failOnWrong = false }: Props) {
   const push = useNav((n) => n.push);
   const startFen = useMemo(() => (spec.setup ? tryMove(spec.fen, spec.setup)!.fen : spec.fen), [spec]);
   const userColor = startFen.split(' ')[1] as 'w' | 'b';
@@ -104,7 +107,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     const seconds = Math.round((Date.now() - (startedAt.current || Date.now())) / 1000);
     const userMoves = Math.ceil(spec.solution.length / 2);
     setLightning(success && !failed && hints === 0 && seconds > 0 && seconds <= 8 + 6 * (userMoves - 1));
-    onFinish({ success: success && !failed, hintsUsed: hints, seconds });
+    onFinish({ success: success && !failed, hintsUsed: hints, seconds, correctMoves: correct.current });
   };
 
   const solvedFx = (sq: string) => {
@@ -171,7 +174,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     if (fast) {
       if (!finished.current) {
         finished.current = true;
-        onFinish({ success: false, hintsUsed: 0, seconds: 0 });
+        onFinish({ success: false, hintsUsed: 0, seconds: 0, correctMoves: correct.current });
       }
       setTimeout(() => onNext?.(), 700);
     }
@@ -261,8 +264,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
   const side = userColor === 'w' ? 'White' : 'Black';
   const [why, setWhy] = useState(false);
   const clean = !failed && hints === 0;
-  const solvedSq = state === 'solved' && mark?.ok ? mark.sq : null;
-  const tagMs = state === 'solved' ? tags.length * 1050 : 0;
+  const tagMs = state === 'solved' ? markDelayMs : 0;
   const orientation = userColor === 'w' ? 'white' : 'black';
 
   const bubble = (() => {
@@ -271,7 +273,14 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     if (state === 'solving')
       return {
         head: `${side} to move`,
-        text: hint ? hint.text : spec.kind === 'mistake' ? `In your game you played ${spec.playedSan}. Find a better move.` : solvePrompt(spec.themes, side, spec.id),
+        text: hint
+          ? hint.text
+          : spec.kind === 'mistake'
+            ? `In your game you played ${spec.playedSan}. Find a better move.`
+            : spec.promptLevel !== undefined
+              ? // Puzzle Path: the clue fades as you climb (and a warm-up note after a bad run).
+                [spec.warmUp ? WARM_UP_LINE : '', promptFor(spec.themes, spec.promptLevel, Math.ceil(spec.solution.length / 2)) ?? ''].filter(Boolean).join(' ') || 'No clues this time.'
+              : solvePrompt(spec.themes, side, spec.id),
         tone: 'neutral' as const,
       };
     if (state === 'wrong') return { head: 'Not quite', text: failOnWrong ? 'That isn’t it. Retry to learn it, or see the solution.' : 'That’s not the best move. Try again!', tone: 'bad' as const };
@@ -283,9 +292,8 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     <div className="board-split flex min-h-full flex-col">
       <div className="board-cell">
         <div ref={boardBox} className="relative">
-          {mark && <MoveMark key={mark.id} mark={mark} orientation={orientation} delayMs={mark.stay ? tagMs : 0} />}
-          {burst && <SolveBurst key={burst.id} id={burst.id} sq={burst.sq} power={combo + 1} orientation={orientation} />}
-          {solvedSq && tags.length > 0 && <SolveTags key={`t${burst?.id ?? 0}`} id={burst?.id ?? 0} sq={solvedSq} orientation={orientation} tags={tags} />}
+          {mark && <MoveMark key={`m${mark.id}`} mark={mark} orientation={orientation} delayMs={mark.stay ? tagMs : 0} />}
+          {burst && <SolveBurst key={`b${burst.id}`} id={burst.id} sq={burst.sq} power={combo + 1} orientation={orientation} />}
           {overlay}
           <Board
             fen={fen}

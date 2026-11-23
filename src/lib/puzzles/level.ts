@@ -32,29 +32,6 @@ export function difficultyFor(puzzleRating: number, yourRating: number): Difficu
   return d < -150 ? 'easy' : d < 100 ? 'medium' : d < 300 ? 'hard' : 'expert';
 }
 
-/** Solve this many rated puzzles in a day for the Daily Solver award. */
-export const DAILY_SOLVER_GOAL = 3;
-export const DAILY_SOLVER_XP = 30;
-export const dailySolverKey = (day: string) => `dailySolver:${day}`;
-
-/** A bonus shown on the solved square after the rating change. */
-export interface SolveTag {
-  label: string;
-  value: string;
-  tone: 'gold' | 'sky' | 'orange';
-}
-
-export function solveTags(o: { ratingDelta: number | null; puzzleRating?: number; yourRating?: number; speedXp: number; streak: number; streakXp: number }): SolveTag[] {
-  const tags: SolveTag[] = [];
-  if (o.ratingDelta !== null) {
-    const diff = o.puzzleRating && o.yourRating ? DIFFICULTY_LABEL[difficultyFor(o.puzzleRating, o.yourRating)] : 'Solved';
-    tags.push({ label: diff, value: `${o.ratingDelta >= 0 ? '+' : ''}${o.ratingDelta}`, tone: 'gold' });
-  }
-  if (o.speedXp > 0) tags.push({ label: 'Speed', value: `+${o.speedXp}`, tone: 'sky' });
-  if (o.streakXp > 0) tags.push({ label: `Streak ×${o.streak}`, value: `+${o.streakXp}`, tone: 'orange' });
-  return tags;
-}
-
 const pick = <T,>(list: T[], seed: string): T => {
   let h = 0;
   for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;

@@ -1,8 +1,9 @@
 // Daily training: due reviews first, then new puzzles from the weakest themes.
 import { create } from 'zustand';
 import { db, today } from '../db';
-import { nextPuzzle, weakestThemes } from '../puzzles/select';
-import { fromCard, fromLichess, type PuzzleSpec } from '../puzzles/spec';
+import { nextPathSpec, weakestThemes } from '../puzzles/select';
+import { useSettings } from '../settings';
+import { fromCard, type PuzzleSpec } from '../puzzles/spec';
 import { themeLabel } from '../puzzles/themes';
 
 export const MAX_REVIEWS = 10;
@@ -46,10 +47,11 @@ export const useDaily = create<DailyStore>((set, get) => ({
     const used = new Set<string>();
     for (let k = 0; fresh.length < nNew && k < nNew * 3; k++) {
       const theme = themes.length ? themes[k % themes.length] : undefined;
-      const p = await nextPuzzle(theme);
+      // New puzzles come from the Puzzle Path's ladder (with the focus theme from your games).
+      const p = await nextPathSpec(useSettings.getState().puzzleDifficulty ?? 'standard', theme);
       if (!p || used.has(p.id)) continue;
       used.add(p.id);
-      fresh.push({ spec: { ...fromLichess(p), label: theme ? `Focus: ${themeLabel(theme)}` : undefined }, source: 'daily' });
+      fresh.push({ spec: { ...p, label: theme ? `Focus: ${themeLabel(theme)}` : undefined }, source: 'daily' });
     }
     set({ day: today(), items: [...reviews, ...fresh], index: 0, building: false });
   },

@@ -1,9 +1,11 @@
-import { bumpActivity, db } from '../db';
+import { bumpActivity, db, today } from '../db';
 import { newCardDue, reviewCard, type Card } from '../srs';
 import { applyResult } from './rating';
 import { progress } from '../progress';
 import type { PuzzleSource } from './types';
 import type { PuzzleSpec } from './spec';
+import { awardPath, type PathAward, type PathSource } from './path';
+import { useSettings } from '../settings';
 
 export interface AttemptOutcome {
   ratingBefore?: number;
@@ -11,13 +13,21 @@ export interface AttemptOutcome {
   xp?: number;
   /** A new highest puzzle rating (after the first 10 rated puzzles). */
   newPeak?: boolean;
+  /** What the Puzzle Path awarded (saved before anything animates). */
+  path?: PathAward;
+}
+
+export interface PathAttempt {
+  seconds: number;
+  correctMoves: number;
+  path: PathSource;
 }
 
 /**
  * Records a finished puzzle: rating (first attempt only), attempt history,
  * activity, and spaced repetition (failed puzzles become cards; reviews advance).
  */
-export async function recordAttempt(spec: PuzzleSpec, success: boolean, hintsUsed: number, source: PuzzleSource): Promise<AttemptOutcome> {
+export async function recordAttempt(spec: PuzzleSpec, success: boolean, hintsUsed: number, source: PuzzleSource, extra?: PathAttempt): Promise<AttemptOutcome> {
   const clean = success && hintsUsed === 0;
   let out: AttemptOutcome = {};
   const isNew = spec.kind === 'lichess' && !(await db.attempts.where('puzzleId').equals(spec.id).count());
@@ -36,6 +46,23 @@ export async function recordAttempt(spec: PuzzleSpec, success: boolean, hintsUse
     source,
     hintsUsed,
   });
+  // The only place puzzles award path points ('full' scores only when the rating moved).
+  if (extra && extra.path !== 'none') {
+    out.path = await awardPath({
+      source: extra.path,
+      success,
+      hintsUsed,
+      correctMoves: extra.correctMoves,
+      seconds: extra.seconds,
+      userMoves: Math.ceil(spec.solution.length / 2),
+      puzzleRating: spec.rating,
+      ratingBefore: out.ratingBefore,
+      ratingAfter: out.ratingAfter,
+      promptLevel: spec.promptLevel ?? 3,
+      today: today(),
+      setting: useSettings.getState().puzzleDifficulty ?? 'standard',
+    });
+  }
   await bumpActivity(source === 'review' ? 'reviews' : 'puzzles');
   out.xp = await progress({ kind: 'puzzle', success, clean, review: source === 'review' });
 

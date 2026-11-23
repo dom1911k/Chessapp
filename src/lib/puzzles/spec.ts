@@ -18,6 +18,10 @@ export interface PuzzleSpec {
   playedSan?: string;
   explanation?: string[];
   cardId?: string;
+  /** Puzzle Path: how much the coach says up front (3 theme + length … 0 no clues). */
+  promptLevel?: 0 | 1 | 2 | 3;
+  /** Puzzle Path: picked after a run of misses (the coach says "Let's warm up…"). */
+  warmUp?: boolean;
 }
 
 export function fromLichess(p: Puzzle): PuzzleSpec {

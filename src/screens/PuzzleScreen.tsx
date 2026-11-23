@@ -4,7 +4,7 @@ import { Header, Spinner } from '../components/ui';
 import type { PuzzleMode } from '../lib/nav';
 import { recordAttempt, type AttemptOutcome } from '../lib/puzzles/record';
 import { getRating } from '../lib/puzzles/rating';
-import { nextPuzzle } from '../lib/puzzles/select';
+import { nextPathSpec, nextPuzzle } from '../lib/puzzles/select';
 import { fromLichess, type PuzzleSpec } from '../lib/puzzles/spec';
 import { themeLabel } from '../lib/puzzles/themes';
 import { addCoursePuzzle, checkChapters } from '../lib/course';
@@ -12,49 +12,22 @@ import { kvGet, kvSet } from '../lib/db';
 import { useNav } from '../lib/nav';
 import { useCelebrate } from '../lib/celebrate';
 import { DRILLS_KEY } from './PracticeScreen';
-import { awardXp } from '../lib/progress/xp';
 import { ComboBanner } from '../components/PuzzleFx';
-import { DailySolverDots, DailySolverOverlay, LevelBadge, LevelUpBanner, MasteryStrip, RatingRow } from '../components/PuzzleProgress';
-import { THEME_SETS } from '../lib/puzzles/themes';
-import { db } from '../lib/db';
-import { DAILY_SOLVER_GOAL, DAILY_SOLVER_XP, dailySolverKey, puzzleLevel, solveTags } from '../lib/puzzles/level';
-import { kvGet as kvRead, today } from '../lib/db';
-import { Flame } from 'lucide-react';
+import { PathBadge, PathCard, SolverDots, StreakFlame } from '../components/path/PathUI';
+import { getPathState, levelAt, type PathAward, type PathSource, type PathState } from '../lib/puzzles/path';
+import { useSettings } from '../lib/settings';
+import { useContext } from 'react';
+import { PuzzleTimer } from '../components/PuzzleProgress';
 import { dailyPick, gamePuzzles, markDailySolved } from '../lib/puzzles/sources';
 import { loadRange } from '../lib/puzzles/data';
 import { allGames } from '../lib/games';
 
-const BEST_KEY = 'puzzleBestStreak';
 const YOURS_KEY = 'yourPuzzlesDone';
 /** The daily puzzle comes from this rating range (the same for everyone on a given day). */
 export const DAILY_RANGE = [1000, 1500] as const;
 const MODE_TITLE: Partial<Record<PuzzleMode['kind'], string>> = { rated: 'Puzzles', learn: 'Learning mode', yours: 'From your games', dailyPuzzle: 'Daily Puzzle' };
 /** Streak lengths that get a banner. */
 const isMilestone = (n: number) => n === 3 || n === 5 || (n >= 10 && n % 5 === 0);
-
-/** What the last puzzle earned on top of the usual XP. */
-interface Bonus {
-  seconds: number;
-  lightning: boolean;
-  streakXp: number;
-  speedXp: number;
-  newBest: boolean;
-  lostStreak: number;
-}
-
-/** The streak flame in the header: grows hotter with every puzzle in a row. */
-function StreakFlame({ streak, best }: { streak: number; best: number }) {
-  const hot = streak >= 10 ? 'text-hue-fuchsia-500 fill-hue-fuchsia-400' : streak >= 5 ? 'text-hue-rose-500 fill-hue-orange-400' : streak >= 3 ? 'text-hue-orange-500 fill-hue-amber-300' : streak ? 'text-hue-amber-500 fill-hue-amber-200' : 'text-stone-400';
-  return (
-    <div className="flex items-center gap-1.5 pr-1">
-      <span key={streak} className={`flex items-center gap-0.5 ${streak ? 'animate-count-pop' : ''}`}>
-        <Flame size={22} className={`${hot} ${streak >= 3 ? 'animate-flame' : ''}`} />
-        <span className="text-lg font-black tabular-nums">{streak}</span>
-      </span>
-      {best > 0 && <span className="text-xs leading-tight text-stone-500">best<br />{best}</span>}
-    </div>
-  );
-}
 
 /** Endless rated or themed puzzle training. */
 export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
@@ -76,32 +49,22 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   const [empty, setEmpty] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [outcome, setOutcome] = useState<AttemptOutcome | null>(null);
-  const [streak, setStreak] = useState(0);
   const [n, setN] = useState(0);
-  const [best, setBest] = useState(0);
-  const [bonus, setBonus] = useState<Bonus | null>(null);
   const [banner, setBanner] = useState<{ id: number; streak: number } | null>(null);
-  useEffect(() => void kvGet<number>(BEST_KEY, 0).then(setBest), []);
-  // Daily Solver: the first three rated puzzles solved each day earn an award.
-  const [dailyCount, setDailyCount] = useState(0);
-  const [award, setAward] = useState(false);
-  const [extraXp, setExtraXp] = useState(0);
-  const [levelUp, setLevelUp] = useState<{ id: number; level: number } | null>(null);
-  /** Theme mastery for the puzzle just played: clean solves before and after. */
-  const [mast, setMast] = useState<{ label: string; before: number; after: number } | null>(null);
-  /** The level in the header moves only once the bar has filled. */
-  const [headerLevel, setHeaderLevel] = useState<number | null>(null);
-  useEffect(() => void kvRead<number>(dailySolverKey(today()), 0).then(setDailyCount), []);
+  // The Puzzle Path: points, persistent streak and today's Daily Solver count.
+  const [path, setPath] = useState<PathState | null>(null);
+  const [award, setAward] = useState<PathAward | null>(null);
+  useEffect(() => void getPathState().then(setPath), []);
+  const difficulty = useSettings((st) => st.puzzleDifficulty) ?? 'standard';
+  const showRating = useSettings((st) => st.puzzleShowRating) ?? true;
+  // Which source the path scores this mode as (custom themes and learning earn nothing).
+  const pathSource: PathSource = rated ? 'full' : mode.kind === 'yours' ? 'yours' : mode.kind === 'dailyPuzzle' ? 'dailyPuzzle' : 'none';
 
   const load = useCallback(async () => {
     setSpec(null);
     setOutcome(null);
-    setBonus(null);
     setBanner(null);
-    setAward(false);
-    setExtraXp(0);
-    setLevelUp(null);
-    setMast(null);
+    setAward(null);
     const r = await getRating();
     setRating(r.rating);
     let next: PuzzleSpec | null = null;
@@ -115,6 +78,9 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
     } else if (mode.kind === 'dailyPuzzle') {
       const p = dailyPick(await loadRange(DAILY_RANGE[0], DAILY_RANGE[1]));
       next = p ? { ...fromLichess(p), label: 'Daily Puzzle' } : null;
+    } else if (mode.kind === 'rated') {
+      // The rated stream follows the path's ladder, not your rating.
+      next = await nextPathSpec(difficulty);
     } else {
       const offset = mode.kind === 'theme' ? (mode.difficulty ?? 0) : drill ? -150 : 0;
       const p = await nextPuzzle(theme, r.rating + offset);
@@ -125,7 +91,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
       setSpec(next);
       setN((x) => x + 1);
     }
-  }, [theme, drill, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [theme, drill, mode, difficulty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     void load();
@@ -133,12 +99,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
 
   const onFinish = async (r: PuzzleResult) => {
     if (!spec) return;
-    // Which theme this puzzle trains (the chosen one, else its first known theme), and how many
-    // clean solves you had in it before.
-    const mt = THEME_SETS.find((t) => t.id === theme) ?? THEME_SETS.find((t) => spec.themes.includes(t.id));
-    const mBefore = mt ? await db.attempts.filter((a) => a.success && a.themes.includes(mt.id)).count() : 0;
-    const o = await recordAttempt(spec, r.success, r.hintsUsed, source);
-    if (mt) setMast({ label: mt.label, before: mBefore, after: mBefore + (r.success && r.hintsUsed === 0 ? 1 : 0) });
+    const o = await recordAttempt(spec, r.success, r.hintsUsed, source, { seconds: r.seconds, correctMoves: r.correctMoves, path: pathSource });
     if (mode.kind === 'yours' && r.success) void kvGet<string[]>(YOURS_KEY, []).then((d) => kvSet(YOURS_KEY, [...d, spec.id].slice(-2000)));
     if (mode.kind === 'dailyPuzzle' && r.success) {
       await markDailySolved();
@@ -160,63 +121,28 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
       }
     }
     setOutcome(o);
-    if (o.ratingAfter) {
-      setRating(o.ratingAfter);
-      if (o.ratingBefore !== undefined) setHeaderLevel(puzzleLevel(o.ratingBefore).level);
-    }
-    // Streak, speed and personal-best extras.
-    const next = r.success ? streak + 1 : 0;
-    const userMoves = Math.ceil(spec.solution.length / 2);
-    const lightning = r.success && r.hintsUsed === 0 && r.seconds > 0 && r.seconds <= 8 + 6 * (userMoves - 1);
-    const b: Bonus = {
-      seconds: r.seconds,
-      lightning,
-      streakXp: next >= 3 ? Math.min(next, 10) : 0,
-      speedXp: lightning ? 3 : 0,
-      newBest: false,
-      lostStreak: r.success ? 0 : streak,
-    };
-    if (next > best && next >= 3) {
-      b.newBest = true;
-      setBest(next);
-      void kvSet(BEST_KEY, next);
-    }
-    if (b.streakXp + b.speedXp) void awardXp(b.streakXp + b.speedXp, true);
-    if (r.success && isMilestone(next)) setBanner({ id: Date.now(), streak: next });
-    if (r.success && rated && spec.kind === 'lichess') {
-      const key = dailySolverKey(today());
-      const c = (await kvRead<number>(key, 0)) + 1;
-      await kvSet(key, c);
-      setDailyCount(c);
-      // The award plays after the square's tags have had their moment.
-      // (and after the level-up moment, when this solve crosses a level)
-      const crossed = o.ratingBefore !== undefined && o.ratingAfter !== undefined && puzzleLevel(o.ratingAfter).level > puzzleLevel(o.ratingBefore).level;
-      if (c === DAILY_SOLVER_GOAL) setTimeout(() => setAward(true), 1050 * (1 + (b.speedXp ? 1 : 0) + (b.streakXp ? 1 : 0)) + 500 + (crossed ? 2400 : 0));
-    }
-    setBonus(b);
-    setStreak(next);
+    if (o.ratingAfter) setRating(o.ratingAfter);
+    if (o.path) setAward(o.path);
+    setPath(await getPathState());
+    const streakNow = o.path?.streak ?? path?.streak ?? 0;
+    if (r.success && o.path && isMilestone(streakNow)) setBanner({ id: Date.now(), streak: streakNow });
   };
 
   const delta = outcome?.ratingAfter !== undefined && outcome.ratingBefore !== undefined ? outcome.ratingAfter - outcome.ratingBefore : null;
-  const tags = outcome ? solveTags({ ratingDelta: delta, puzzleRating: spec?.rating, yourRating: outcome.ratingBefore, speedXp: bonus?.speedXp ?? 0, streak, streakXp: bonus?.streakXp ?? 0 }) : [];
-  const xpShown = outcome?.xp ? outcome.xp + (bonus ? bonus.streakXp + bonus.speedXp : 0) + extraXp : extraXp || undefined;
   const title = drill ? `${drill.label} · ${Math.min(drillSolved, drill.count)}/${drill.count}` : course ? `${course.label}${solvedInStep !== null ? ` · ${Math.min(solvedInStep, course.count)}/${course.count}` : ''}` : theme ? themeLabel(theme) : MODE_TITLE[mode.kind] ?? 'Puzzles';
-  const awardDone = () => {
-    setAward(false);
-    setExtraXp(DAILY_SOLVER_XP);
-    void awardXp(DAILY_SOLVER_XP, true);
-  };
+  const pos = path ? levelAt(path.points) : null;
+  const streak = path?.streak ?? 0;
 
   return (
     <div className="flex h-full flex-col">
       <Header
         title={title}
         back
-        leading={rated && rating !== null ? <LevelBadge key={headerLevel ?? puzzleLevel(rating).level} level={headerLevel ?? puzzleLevel(rating).level} size={34} className={levelUp ? 'animate-badge-pop' : ''} /> : undefined}
+        leading={pos ? <PathBadge tier={pos.tier} level={pos.level} size={32} /> : undefined}
         right={
           <div className="flex items-center gap-3 pr-2">
-            {rated && <DailySolverDots done={dailyCount} />}
-            <StreakFlame streak={streak} best={best} />
+            {pathSource !== 'none' && <SolverDots count={path?.dailyCount ?? 0} />}
+            <StreakFlame streak={streak} />
           </div>
         }
       />
@@ -234,42 +160,38 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
             onFinish={onFinish}
             combo={streak}
             solvedStreak={streak}
-            tags={tags}
-            overlay={
-              <>
-                {banner && <ComboBanner key={banner.id} id={banner.id} streak={banner.streak} />}
-                {levelUp && <LevelUpBanner key={levelUp.id} id={levelUp.id} level={levelUp.level} />}
-                {award && <DailySolverOverlay onDone={awardDone} />}
-              </>
-            }
+            overlay={banner && <ComboBanner key={banner.id} id={banner.id} streak={banner.streak} />}
             failOnWrong={rated}
             onNext={(drill && drillSolved >= drill.count) || (mode.kind === 'dailyPuzzle' && (dailyDone || outcome)) ? pop : load}
             nextLabel={drill && drillSolved >= drill.count ? 'Back to practice' : mode.kind === 'dailyPuzzle' ? 'Done' : course && solvedInStep !== null && solvedInStep >= course.count ? 'Keep practising' : 'Next'}
             progress={
-              rating !== null ? (
-                <div className="space-y-2.5">
-                {
-                rated || mode.kind === 'dailyPuzzle' ? (
-                  <RatingRow key={outcome ? 'after' : 'before'} before={outcome?.ratingBefore ?? rating} after={outcome?.ratingAfter} xp={xpShown} unrated={!!outcome && outcome.ratingAfter === undefined && !rated} onLevelUp={(l) => (setLevelUp({ id: Date.now(), level: l }), setHeaderLevel(l))} />
-                ) : (
-                  <RatingRow before={rating} xp={xpShown} unrated />
-                )}
-                {mast && mast.after > mast.before && <MasteryStrip key={spec.id} label={mast.label} before={mast.before} after={mast.after} delay={1200} />}
-                </div>
+              pathSource === 'none' ? (
+                <PracticeCard />
+              ) : path ? (
+                <PathCard points={path.points} gain={award?.total || undefined} streak={streak} rating={showRating ? rating : null} ratingDelta={showRating ? delta : null} />
               ) : null
             }
             footer={
-              bonus && (bonus.newBest || bonus.lostStreak >= 3 || outcome?.newPeak) ? (
-                <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs">
-                  {outcome?.newPeak && <span className="chip bg-gold-300/50 text-stone-800 dark:bg-gold-500/25 dark:text-gold-300">★ Highest rating</span>}
-                  {bonus.newBest && <span className="chip bg-gold-300/50 text-stone-800 dark:bg-gold-500/25 dark:text-gold-300">★ New best streak</span>}
-                  {bonus.lostStreak >= 3 && <span className="text-stone-500">Your streak of {bonus.lostStreak} ended — start a new one!</span>}
-                </div>
+              award?.streakLost && award.streakLost >= 3 ? (
+                <p className="mt-1.5 text-xs text-stone-500">Streak of {award.streakLost} ended. Start a new one!</p>
+              ) : outcome?.newPeak ? (
+                <div className="mt-1.5 text-xs"><span className="chip bg-gold-300/50 text-stone-800 dark:bg-gold-500/25 dark:text-gold-300">★ Highest rating</span></div>
               ) : null
             }
           />
         )}
       </div>
+    </div>
+  );
+}
+
+/** Custom themes and learning mode: you pick the difficulty, so no points (they could be farmed). */
+function PracticeCard() {
+  const timer = useContext(PuzzleTimer);
+  return (
+    <div className="flex items-center justify-between px-1 text-[13px] text-stone-500" data-testid="practice-card">
+      <span className="font-semibold">Practice · no points</span>
+      {timer}
     </div>
   );
 }

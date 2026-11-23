@@ -84,6 +84,14 @@ export interface Settings {
   haptics: boolean;
   /** Set once the chess.com-style look (dark charcoal, green board, Neo-style pieces) became the default. */
   uiV2: boolean;
+  /** Puzzle Path difficulty: the ladder +0 / +150 / +300, points ×1 / ×1.3 / ×1.6. */
+  puzzleDifficulty: 'standard' | 'hard' | 'extraHard';
+  /** Show the small "Rating 812 (+6)" line while solving. */
+  puzzleShowRating: boolean;
+  /** The points tally after a solve: normal or 0.6× as long. */
+  puzzleTallySpeed: 'normal' | 'fast';
+  /** "Reduce animations": follow the phone's setting, or always on / off. */
+  reduceAnimations: 'system' | 'on' | 'off';
 }
 
 export type BoardTheme = string;
@@ -200,6 +208,10 @@ export const DEFAULT_SETTINGS: Settings = {
   avatarTitle: '',
   haptics: true,
   uiV2: true,
+  puzzleDifficulty: 'standard',
+  puzzleShowRating: true,
+  puzzleTallySpeed: 'normal',
+  reduceAnimations: 'system',
 };
 
 const KEY = 'settings';

@@ -5,6 +5,7 @@ import { Header, Spinner, useBackHandler } from '../components/ui';
 import { db, today } from '../lib/db';
 import { useNav } from '../lib/nav';
 import { recordAttempt } from '../lib/puzzles/record';
+import { awardPath } from '../lib/puzzles/path';
 import { progress } from '../lib/progress';
 import { weakestThemes } from '../lib/puzzles/select';
 import { themeLabel } from '../lib/puzzles/themes';
@@ -126,6 +127,8 @@ function Session({ onExit }: { onExit: () => void }) {
         const first = !row.dailyDone;
         await db.activity.put({ ...row, dailyDone: true });
         if (first) await progress({ kind: 'daily' });
+        // Puzzle Path: finishing the session earns points once a day.
+        await awardPath({ event: 'dailyTrainingDone', today: day });
       })();
     }
   }, [finished, d.items.length]);
@@ -157,7 +160,7 @@ function Session({ onExit }: { onExit: () => void }) {
               spec={item.spec}
               onFinish={(r) => {
                 d.markResult(d.index, r.success);
-                void recordAttempt(item.spec, r.success, r.hintsUsed, item.source);
+                void recordAttempt(item.spec, r.success, r.hintsUsed, item.source, { seconds: r.seconds, correctMoves: r.correctMoves, path: item.source === 'review' ? 'review' : 'full' });
               }}
               onNext={d.next}
               nextLabel={d.index === d.items.length - 1 ? 'Finish' : 'Next'}

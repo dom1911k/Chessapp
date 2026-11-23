@@ -6,6 +6,8 @@ import { loadRange } from './data';
 import { getRating } from './rating';
 import { THEME_SETS } from './themes';
 import type { Puzzle } from './types';
+import { getPathState, nextPuzzleSpec, type PuzzleDifficulty, type PuzzleSpecReq } from './path';
+import { fromLichess, type PuzzleSpec } from './spec';
 
 async function attemptedIds(): Promise<Set<string>> {
   const ids = await db.attempts.orderBy('puzzleId').uniqueKeys();
@@ -27,6 +29,27 @@ export async function nextPuzzle(theme?: string, rating?: number): Promise<Puzzl
     if (p) return p;
   }
   return null;
+}
+
+/** A fresh puzzle for the Puzzle Path: inside the ladder's window and short enough for the board. */
+export async function nextPathPuzzle(req: PuzzleSpecReq, theme?: string): Promise<Puzzle | null> {
+  const done = await attemptedIds();
+  const fits = (p: Puzzle) => !done.has(p.id) && (!theme || p.themes.includes(theme)) && Math.floor(p.moves.length / 2) <= req.maxMoves;
+  const [lo, hi] = req.window;
+  for (const [a, b] of [[lo, hi], [lo - 100, hi + 100], [req.target - 300, req.target + 450]]) {
+    const p = pick((await loadRange(a, b)).filter(fits));
+    if (p) return p;
+  }
+  // Nothing left near the target: the nearest unseen puzzle (never stuck).
+  return nextPuzzle(theme, req.target);
+}
+
+/** The next path puzzle as a spec, with the clue level the ladder chose and the warm-up flag. */
+export async function nextPathSpec(setting: PuzzleDifficulty, theme?: string): Promise<PuzzleSpec | null> {
+  const s = await getPathState();
+  const req = nextPuzzleSpec(s, setting);
+  const p = await nextPathPuzzle(req, theme);
+  return p ? { ...fromLichess(p), promptLevel: req.promptLevel, warmUp: s.missesInARow >= 3 || undefined } : null;
 }
 
 export interface ThemeStat {
