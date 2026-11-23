@@ -82,7 +82,7 @@ const TINT = {
 
 function Row({ item, onClick, tint = 'stone' }: { item: Item; onClick: () => void; tint?: keyof typeof TINT }) {
   return (
-    <button className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors active:bg-stone-100 dark:active:bg-white/5" onClick={onClick}>
+    <button className="flex w-full items-center gap-3 px-3.5 py-3 text-left press" onClick={onClick}>
       <span className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[32%] ${TINT[tint]}`}>{item.icon}</span>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold leading-tight">{item.label}</span>

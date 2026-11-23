@@ -60,7 +60,7 @@ export function CustomPuzzlesScreen() {
                 const s = stats[t.id];
                 const pct = s && s.attempts ? Math.round((s.solved / s.attempts) * 100) : null;
                 return (
-                  <button key={t.id} className="flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={() => push({ name: 'puzzle', mode: { kind: 'theme', theme: t.id, difficulty: DIFFICULTY[diff] } })}>
+                  <button key={t.id} className="flex w-full items-center gap-3 px-3 py-2.5 text-left press" onClick={() => push({ name: 'puzzle', mode: { kind: 'theme', theme: t.id, difficulty: DIFFICULTY[diff] } })}>
                     <Medallion name={t.icon} size={34} />
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold">{t.label}</span>

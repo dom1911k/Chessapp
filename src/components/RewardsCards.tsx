@@ -7,6 +7,7 @@ import { COSMETICS, isUnlocked, unlockContext } from '../lib/rewards/cosmetics';
 import { getGameRating, MILESTONES, titleFor, type GameRating } from '../lib/rewards/rating';
 import { skillStates, TIERS, type SkillState } from '../lib/rewards/skills';
 import { Glyph, Medallion } from './Glyph';
+import { Arrive, SkelText } from './ui';
 
 function useRefresh() {
   const tab = useNav((s) => s.tab);
@@ -36,7 +37,7 @@ export function RewardsCards() {
         <span className="relative flex-1">
           <span className="block text-xs font-bold tracking-wider text-stone-500 uppercase">Your journey</span>
           <span className="block font-display text-xl leading-tight font-semibold">
-            {r?.rating ?? '…'} · {r ? titleFor(r.peak) : ''}
+            <Arrive inline ready={!!r} skeleton={<SkelText w="6em" />}>{r?.rating} · {r ? titleFor(r.peak) : ''}</Arrive>
           </span>
           {next && r && <span className="block text-xs text-stone-500">{next.rating - r.peak} to {next.title}</span>}
         </span>

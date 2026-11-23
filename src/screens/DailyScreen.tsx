@@ -77,7 +77,7 @@ export function DailyScreen() {
                 const l = lessonById(id);
                 if (!l) return null;
                 return (
-                  <button key={id} className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left active:bg-stone-100 dark:active:bg-white/5" onClick={() => push({ name: 'lesson', lessonId: id, mode: 'review' })}>
+                  <button key={id} className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left press" onClick={() => push({ name: 'lesson', lessonId: id, mode: 'review' })}>
                     <Medallion name={l.icon} size={36} tint="blue" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold">{l.title}</span>

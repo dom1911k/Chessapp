@@ -19,7 +19,7 @@ function LineRow({ line, stats, onOpen, onDelete }: { line: RepLine; stats: RepS
   const lv = lineLevel(stats[line.id]);
   return (
     <div className="flex items-center">
-      <button className="flex min-w-0 flex-1 items-center gap-3 px-3.5 py-2.5 text-left active:bg-stone-100 dark:active:bg-white/5" onClick={onOpen}>
+      <button className="flex min-w-0 flex-1 items-center gap-3 px-3.5 py-2.5 text-left press" onClick={onOpen}>
         <span className={`h-4 w-4 shrink-0 rounded-full ring-1 ${line.color === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-600'}`} />
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold">{line.name}</span>

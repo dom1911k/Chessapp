@@ -481,7 +481,7 @@ function GameRating({ value, testId }: { value: number; testId?: string }) {
 /** A tappable row inside a summary card. */
 function Row({ icon, children, onClick }: { icon: ReactNode; children: ReactNode; onClick: () => void }) {
   return (
-    <button className="flex w-full items-start gap-3 px-3.5 py-2.5 text-left text-[14px] leading-snug transition-colors active:bg-stone-100 dark:active:bg-white/5" onClick={onClick}>
+    <button className="flex w-full items-start gap-3 px-3.5 py-2.5 text-left text-[14px] leading-snug press" onClick={onClick}>
       <span className="mt-0.5 shrink-0">{icon}</span>
       <span className="min-w-0 flex-1">{children}</span>
       <ChevronRight size={16} className="mt-0.5 shrink-0 text-stone-300 dark:text-stone-600" />

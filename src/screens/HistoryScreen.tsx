@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { TurningList } from '../components/TurningCards';
 import { History } from 'lucide-react';
-import { EmptyState, Header, Segmented, Skeleton } from '../components/ui';
+import { Arrive, EmptyState, Header, Segmented, Skeleton } from '../components/ui';
 import { Portrait } from '../components/Coach';
 import { opponentById } from '../lib/people';
 import { useNav } from '../lib/nav';
@@ -41,7 +41,7 @@ export function HistoryScreen() {
             <ImportProgress />
           </>
         )}
-        {!shown && <Skeleton rows={6} />}
+        <Arrive ready={!!shown} skeleton={<Skeleton rows={6} />}>
         {shown?.length === 0 && <EmptyState icon={<History size={26} />} title="No finished games yet" text="Every game you finish — here or imported from chess.com — shows up with its Game Review." />}
         {shown && shown.length > 0 && (
         <div className="card divide-y divide-stone-100 overflow-hidden !p-0 dark:divide-white/[0.06]">
@@ -49,7 +49,7 @@ export function HistoryScreen() {
           const cc = g.source === 'chess.com';
           const imported = g as ImportedGame;
           return (
-            <button key={String(g.id)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors active:bg-stone-100 dark:active:bg-white/[0.04]" onClick={() => push({ name: 'report', gameId: g.id! })}>
+            <button key={String(g.id)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left press" onClick={() => push({ name: 'report', gameId: g.id! })}>
               <span className="relative">
                 {cc ? (
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-chesscom text-lg font-black text-white">{imported.opponentName[0]?.toUpperCase()}</span>
@@ -90,6 +90,7 @@ export function HistoryScreen() {
         })}
         </div>
         )}
+        </Arrive>
       </div>
     </div>
   );

@@ -26,6 +26,7 @@ import type { GameRewards } from '../lib/store/finish';
 import { CoachAvatar, Portrait } from './Coach';
 import { CosmeticPreview } from './CosmeticPreview';
 import { Medallion } from './Glyph';
+import { sheetExit, useSheetDrag } from './Sheet';
 
 /** One compact 48px reward row: icon, title, a short progress bar or a line, and a "New!" chip. */
 function RewardRow({ icon, title, sub, bar, right, kind = 'plain' }: { icon: ReactNode; title: ReactNode; sub?: ReactNode; bar?: ReactNode; right?: ReactNode; /** 'new': it pops its icon and chip with a shine and a chime as it lands. */ kind?: 'plain' | 'new' | 'rivalry' | 'journey' | 'level' }) {
@@ -136,6 +137,15 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
   const [milestoneHit, setMilestoneHit] = useState(false);
   const sheet = useRef<HTMLDivElement>(null);
   const back = useRef<HTMLDivElement>(null);
+  // Closing slides the sheet away (×, the backdrop, Continue, or a drag down by its handle).
+  const closing = useRef(false);
+  const close = (from = 0) => {
+    if (closing.current) return;
+    closing.current = true;
+    tkRef.current.skip = true;
+    void sheetExit(sheet.current, back.current, from).then(onClose);
+  };
+  const drag = useSheetDrag(sheet, back, close);
   const q = useRef<Record<string, HTMLElement | null>>({});
   const ref = (k: string) => (el: HTMLElement | null) => {
     q.current[k] = el;
@@ -314,15 +324,19 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
   const hide = done ? '' : 'pp-hide opacity-0';
 
   return (
-    <div ref={back} className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" style={{ opacity: 0 }} onClick={onClose}>
+    <div ref={back} className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" style={{ opacity: 0 }} onClick={() => close()}>
       <div
         ref={sheet}
         className="safe-bottom relative flex w-full max-w-md flex-col overflow-hidden rounded-t-[14px] bg-white shadow-2xl sm:rounded-[14px] dark:bg-stone-900"
         style={{ maxHeight: 'min(88dvh, 720px)', transform: 'translateY(105%)' }}
-        onClick={(e) => (e.stopPropagation(), !done && finish())}
+        onClick={(e) => (e.stopPropagation(), !done && !closing.current && finish())}
+        {...drag}
         data-testid="results-sheet"
       >
-        <button className="absolute top-1.5 right-1.5 z-20 rounded-full p-1.5 text-stone-500 active:bg-stone-100 dark:active:bg-stone-800" onClick={(e) => (e.stopPropagation(), onClose())} aria-label="Close">
+        <div data-sheet-handle className="absolute inset-x-12 top-0 z-10 flex h-5 cursor-grab touch-none justify-center pt-1.5" aria-hidden>
+          <span className="h-1 w-10 rounded-full bg-stone-300 dark:bg-stone-600" />
+        </div>
+        <button className="absolute top-1.5 right-1.5 z-20 rounded-full p-1.5 text-stone-500 active:bg-stone-100 dark:active:bg-stone-800" onClick={(e) => (e.stopPropagation(), close())} aria-label="Close">
           <X size={18} />
         </button>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-5 pb-3">
@@ -514,7 +528,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               Game Review
             </button>
           ) : (
-            <button className="btn-primary !min-h-14 w-full text-[17px] !font-extrabold" onClick={onClose}>
+            <button className="btn-primary !min-h-14 w-full text-[17px] !font-extrabold" onClick={() => close()}>
               Continue
             </button>
           )}

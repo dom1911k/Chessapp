@@ -7,7 +7,8 @@ import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, GraduationCap, Mi
 import { Board } from './Board';
 import { CoachAvatar } from './Coach';
 import { classInk, ReviewIcon } from './ReviewIcon';
-import { Segmented, Spinner, useBackHandler } from './ui';
+import { Segmented, Spinner } from './ui';
+import { Sheet } from './Sheet';
 import { getEngine } from '../lib/engine';
 import { analysisLimits } from '../lib/engine/speed';
 import { annotateLine, explainInDepth, type DeepExplanation, type ExplainLine } from '../lib/coach/explain';
@@ -22,8 +23,18 @@ import type { PlyRecord } from '../lib/store/types';
 
 const OWNER = 'explain';
 
-export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, rating, cause }: { p: PlyRecord; cls: ReviewClass; isUser: boolean; orientation: 'white' | 'black'; onClose: () => void; history?: string[]; rating?: number | null; cause?: MistakeCause }) {
-  useBackHandler(onClose, true);
+type ExplainProps = { p: PlyRecord; cls: ReviewClass; isUser: boolean; orientation: 'white' | 'black'; onClose: () => void; history?: string[]; rating?: number | null; cause?: MistakeCause };
+
+/** The Explain sheet: slides up over the review, drags down by its header, and slides away on every close. */
+export function ExplainSheet(props: ExplainProps) {
+  return (
+    <Sheet full onClose={props.onClose} panelClass="flex h-full w-full flex-col bg-stone-100 dark:bg-stone-950" testId="explain-sheet">
+      {(close) => <ExplainBody {...props} onClose={close} />}
+    </Sheet>
+  );
+}
+
+function ExplainBody({ p, cls, isUser, orientation, onClose, history, rating, cause }: ExplainProps) {
   const push = useNav((s) => s.push);
   const [e, setE] = useState<DeepExplanation | null>(null);
   const [failed, setFailed] = useState(false);
@@ -114,8 +125,10 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
   const ink = bad ? classInk(cls) : { className: '', style: undefined };
 
   return (
-    <div className="animate-fade-in fixed inset-0 z-50 flex flex-col bg-stone-100 dark:bg-stone-950">
-      <header className="safe-top flex shrink-0 items-center gap-3 border-b border-stone-200/70 px-3 py-2 dark:border-white/[0.06]">
+    <>
+      <div data-sheet-handle className="safe-top shrink-0 touch-none border-b border-stone-200/70 dark:border-white/[0.06]">
+      <div className="flex justify-center pt-1.5" aria-hidden><span className="h-1 w-10 rounded-full bg-stone-300 dark:bg-stone-600" /></div>
+      <header className="flex items-center gap-3 px-3 pt-1 pb-2">
         <ReviewIcon cls={cls} size={28} />
         <div className="min-w-0 flex-1 leading-tight">
           <div className="truncate text-[17px] font-bold">{p.san} <span className={`text-sm font-semibold ${ink.className}`} style={ink.style}>· {RC[cls].label}</span></div>
@@ -125,6 +138,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
           <X size={22} />
         </button>
       </header>
+      </div>
       <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto px-3 pt-3 pb-8 land:max-w-5xl">
         <div className="land:grid land:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] land:gap-5">
           {/* Verdict, board and the line player */}
@@ -282,7 +296,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
                         <li key={i}>
                           <button
                             onClick={() => (setPlaying(false), setK(i + 1))}
-                            className={`flex w-full gap-2.5 rounded-xl px-1.5 py-1.5 text-left text-[13.5px] leading-snug transition-colors ${i + 1 === k ? 'bg-brand-50 ring-1 ring-brand-500/30 dark:bg-brand-500/10' : 'active:bg-stone-100 dark:active:bg-white/5'}`}
+                            className={`flex w-full gap-2.5 rounded-xl px-1.5 py-1.5 text-left text-[13.5px] leading-snug transition-colors ${i + 1 === k ? 'bg-brand-50 ring-1 ring-brand-500/30 dark:bg-brand-500/10' : 'press'}`}
                           >
                             <span className={`mt-[5px] h-2 w-2 shrink-0 rounded-full ${x.who === 'you' ? 'bg-brand-500' : 'bg-stone-400'}`} />
                             <span>
@@ -317,7 +331,7 @@ export function ExplainSheet({ p, cls, isUser, orientation, onClose, history, ra
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

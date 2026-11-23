@@ -3,7 +3,7 @@
 // (Rush, Daily Puzzle, Custom, Learning, your games) and your records.
 import { useEffect, useState, type ReactNode } from 'react';
 import { CalendarCheck, CalendarDays, ChevronRight, Flame, GraduationCap, Puzzle, Shield, SlidersHorizontal, Swords, Timer, Trophy, Zap } from 'lucide-react';
-import { Header, Segmented } from '../components/ui';
+import { Arrive, Header, Segmented, SkelText } from '../components/ui';
 import { GreenDot, PathBadge, SolverDots, StreakFlame } from '../components/path/PathUI';
 import { PathWindow } from '../components/path/PathWorld';
 import { boardName, getPathState, levelAt, pathBehind, type PathState } from '../lib/puzzles/path';
@@ -193,7 +193,7 @@ function PathHubCard({ d, onOpen, onSolve }: { d: HubData | null; onOpen: () => 
               <div className="text-[13px]">
                 <b>{boardName(pos.board)}</b> <span className="text-stone-500">· Level {pos.level}</span>
               </div>
-              <div className="text-[26px] leading-tight font-extrabold tabular-nums">{p ? p.points.toLocaleString('en-US') : '…'}</div>
+              <div className="text-[26px] leading-tight font-extrabold tabular-nums"><Arrive inline ready={!!p} skeleton={<SkelText w="3.2em" />}>{p?.points.toLocaleString('en-US')}</Arrive></div>
               <div className="flex items-center gap-2">
                 <SolverDots count={daily} />
                 <StreakFlame streak={p?.streak ?? 0} size={16} />

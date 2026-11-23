@@ -7,6 +7,7 @@ import { getXp, levelFor } from '../lib/progress/xp';
 import { meets, unlockContext, unlockText, type UnlockContext } from '../lib/rewards/cosmetics';
 import { useSettings } from '../lib/settings';
 import { avatarRadius } from './Coach';
+import { GrabHandle, Sheet } from './Sheet';
 
 /** The name shown for the player. */
 export const useMyName = () => useSettings((s) => s.ccUsername) || 'You';
@@ -42,11 +43,14 @@ export function AvatarPicker({ onClose }: { onClose: () => void }) {
   useEffect(() => void unlockContext().then(setCtx), []);
   const open = (u: Parameters<typeof meets>[0]) => !ctx || meets(u, ctx);
   return (
-    <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center" onClick={onClose}>
-      <div className="safe-bottom animate-pop max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-[14px] bg-white px-5 pt-4 pb-5 shadow-2xl sm:rounded-[14px] dark:bg-stone-900" onClick={(e) => e.stopPropagation()}>
+    <Sheet onClose={onClose} backdropClass="bg-black/55" panelClass="safe-bottom flex max-h-[88dvh] w-full max-w-md flex-col rounded-t-[14px] bg-white shadow-2xl sm:rounded-[14px] dark:bg-stone-900">
+      {(close) => (
+      <>
+      <GrabHandle />
+      <div className="min-h-0 overflow-y-auto px-5 pb-5">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl font-semibold">Your look</h2>
-          <button className="rounded-full p-1.5 text-stone-400" onClick={onClose} aria-label="Close">
+          <button className="rounded-full p-1.5 text-stone-400" onClick={close} aria-label="Close">
             <X size={20} />
           </button>
         </div>
@@ -93,8 +97,10 @@ export function AvatarPicker({ onClose }: { onClose: () => void }) {
           })}
         </div>
         <p className="mt-3 text-xs text-stone-500">Frames and titles unlock as you level up and climb your rating journey.</p>
-        <button className="btn-primary mt-4 w-full" onClick={onClose}>Done</button>
+        <button className="btn-primary mt-4 w-full" onClick={close}>Done</button>
       </div>
-    </div>
+      </>
+      )}
+    </Sheet>
   );
 }

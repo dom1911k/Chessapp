@@ -186,7 +186,7 @@ export function ProfileScreen() {
               </div>
               {p.bestWins.length === 0 && <p className="px-3 pb-3 text-xs text-stone-500">Your wins against the strongest opponents show up here.</p>}
               {p.bestWins.map((b) => (
-                <button key={String(b.gameId)} className="flex w-full items-center gap-3 px-3 py-2 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={() => push({ name: 'report', gameId: b.gameId })}>
+                <button key={String(b.gameId)} className="flex w-full items-center gap-3 px-3 py-2 text-left press" onClick={() => push({ name: 'report', gameId: b.gameId })}>
                   <span className="w-12 text-lg font-black tabular-nums">{b.rating}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{b.opponent}</span>
@@ -287,7 +287,7 @@ function RatingRow({ label, sub, value, best, onClick, seenKey }: { label: strin
     </>
   );
   return onClick ? (
-    <button className="flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={onClick}>{inner}</button>
+    <button className="flex w-full items-center gap-3 px-3 py-2.5 text-left press" onClick={onClick}>{inner}</button>
   ) : (
     <div className="flex items-center gap-3 px-3 py-2.5">{inner}</div>
   );

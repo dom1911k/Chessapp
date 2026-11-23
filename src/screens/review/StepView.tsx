@@ -325,10 +325,11 @@ function NavButton({ children, onClick, disabled, label, primary }: { children: 
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className={`flex items-center justify-center rounded-[10px] transition duration-75 disabled:opacity-30 ${
+      data-lip
+      className={`mb-[3px] flex items-center justify-center rounded-[10px] transition duration-[60ms] disabled:opacity-30 ${
         primary
-          ? 'bg-brand-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_3px_0_var(--color-brand-800)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_0_var(--color-brand-800)]'
-          : 'bg-stone-100 text-stone-800 active:bg-stone-200 dark:bg-stone-800 dark:text-stone-100 dark:active:bg-stone-700'
+          ? 'bg-brand-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_3px_0_var(--color-brand-800)] enabled:active:translate-y-[2px] enabled:active:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_0_var(--color-brand-800)] enabled:data-[down]:translate-y-[2px] enabled:data-[down]:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_0_var(--color-brand-800)]'
+          : 'bg-stone-100 text-stone-800 shadow-[0_3px_0_rgba(0,0,0,0.12)] enabled:active:translate-y-[2px] enabled:active:shadow-[0_1px_0_rgba(0,0,0,0.12)] enabled:data-[down]:translate-y-[2px] enabled:data-[down]:shadow-[0_1px_0_rgba(0,0,0,0.12)] dark:bg-stone-800 dark:text-stone-100 dark:shadow-[0_3px_0_rgba(0,0,0,0.4)] dark:enabled:active:shadow-[0_1px_0_rgba(0,0,0,0.4)] dark:enabled:data-[down]:shadow-[0_1px_0_rgba(0,0,0,0.4)]'
       }`}
     >
       {children}

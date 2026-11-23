@@ -119,7 +119,7 @@ export function SetupView() {
               { value: 'match', label: <><Swords size={15} /> Match</> },
             ]}
           />
-          <button className="flex w-full flex-wrap items-center gap-1.5 rounded-[8px] p-1 text-left active:bg-stone-100 dark:active:bg-stone-800" onClick={() => setSheet('options')}>
+          <button className="flex w-full flex-wrap items-center gap-1.5 rounded-[8px] p-1 text-left press" onClick={() => setSheet('options')}>
             <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">
               {settings.colorPref === 'random' ? <Shuffle size={12} /> : <span className={`h-3 w-3 rounded-full ring-1 ${settings.colorPref === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-600'}`} />} {colorLabel}
             </span>

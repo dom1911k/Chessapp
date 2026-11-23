@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronLeft } from 'lucide-react';
 import { addBackHandler, useNav } from '../lib/nav';
 import type { Score } from '../lib/chess/evaluation';
-import { SOFT } from '../lib/motion';
+import { SNAP, SOFT, UI_EASE, animate, haptic } from '../lib/motion';
+import { GrabHandle, Sheet } from './Sheet';
 
 /** Register an Android back-button handler while `active`. */
 export function useBackHandler(fn: () => boolean | void, active = true) {
@@ -13,16 +14,13 @@ export function useBackHandler(fn: () => boolean | void, active = true) {
 }
 
 export function Dialog({ open, onClose, title, children }: { open: boolean; onClose: () => void; title?: string; children: ReactNode }) {
-  useBackHandler(onClose, open);
-  if (!open) return null;
+  // A bottom sheet (centred on tablets): springs up, drags by its handle, and every close slides it away.
   return (
-    <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center sm:p-3" onClick={onClose}>
-      <div className="card safe-bottom animate-pop w-full max-w-md !rounded-t-[14px] !rounded-b-none !p-5 sm:!rounded-[14px]" onClick={(e) => e.stopPropagation()}>
-        <div className="mx-auto -mt-2 mb-3 h-1 w-10 rounded-full bg-stone-300 dark:bg-stone-700" />
-        {title && <h2 className="mb-3 text-xl font-extrabold tracking-[-0.01em]">{title}</h2>}
-        {children}
-      </div>
-    </div>
+    <Sheet open={open} onClose={onClose} panelClass="card safe-bottom w-full max-w-md !rounded-t-[14px] !rounded-b-none !px-5 !pt-0 !pb-5 sm:!rounded-[14px]">
+      <GrabHandle className="-mx-5 mb-1" />
+      {title && <h2 className="mb-3 text-xl font-extrabold tracking-[-0.01em]">{title}</h2>}
+      {children}
+    </Sheet>
   );
 }
 
@@ -55,7 +53,22 @@ export function IconButton({ label, onClick, children }: { label: string; onClic
   );
 }
 
+/** The thumb's travel: it stretches a little mid-way (24 → 30 → 24px, as scaleX), SNAP + 60ms. */
+export const SWITCH = { travel: 20, stretch: 30 / 24, d: SNAP.d + 60, track: 220 } as const;
+
 export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode }) {
+  const thumb = useRef<HTMLSpanElement>(null);
+  const was = useRef(checked);
+  useEffect(() => {
+    if (was.current === checked) return;
+    was.current = checked;
+    const [a, b] = checked ? [0, SWITCH.travel] : [SWITCH.travel, 0];
+    void animate(
+      thumb.current,
+      [{ transform: `translateX(${a}px)` }, { transform: `translateX(${(a + b) / 2}px) scaleX(${SWITCH.stretch})`, offset: 0.4 }, { transform: `translateX(${b}px)` }],
+      { d: SWITCH.d, e: UI_EASE, fill: 'backwards' },
+    );
+  }, [checked]);
   return (
     <label className="flex cursor-pointer items-center justify-between gap-3 py-2">
       <span className="text-sm">{label}</span>
@@ -63,10 +76,15 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
         type="button"
         role="switch"
         aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${checked ? 'bg-brand-500' : 'bg-stone-300 dark:bg-stone-700'}`}
+        onClick={() => {
+          haptic('select');
+          onChange(!checked);
+        }}
+        className="relative h-7 w-12 shrink-0 overflow-hidden rounded-full bg-stone-300 dark:bg-stone-700"
       >
-        <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.2)] transition-all duration-200 ${checked ? 'left-[22px]' : 'left-0.5'}`} />
+        {/* The track crossfades to green (opacity only). */}
+        <span className="absolute inset-0 rounded-full bg-brand-500" style={{ opacity: checked ? 1 : 0, transition: `opacity ${SWITCH.track}ms ease` }} />
+        <span ref={thumb} className="absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.2)]" style={{ transform: `translateX(${checked ? SWITCH.travel : 0}px)` }} />
       </button>
     </label>
   );
@@ -140,13 +158,63 @@ export function EmptyState({ icon, title, text, action }: { icon: ReactNode; tit
 }
 
 /** Grey placeholder blocks while a screen loads (instead of a blank page). */
-export function Skeleton({ rows = 4 }: { rows?: number }) {
+/** Loading placeholders in the content's own shape, with a shimmer: a list card's rows, or chart cards. */
+export function Skeleton({ rows = 4, kind = 'list' }: { rows?: number; kind?: 'list' | 'charts' }) {
+  if (kind === 'charts')
+    return (
+      <div className="space-y-4" aria-busy="true" aria-label="Loading" data-testid="skeleton">
+        {Array.from({ length: rows }, (_, i) => (
+          <section key={i}>
+            <div className="skel mb-2 h-3 w-36 rounded" />
+            <div className="card flex h-32 items-end gap-2 !py-3">
+              {[62, 84, 40, 72, 55, 90, 36].map((h, j) => (
+                <div key={j} className="skel flex-1 rounded-[4px]" style={{ height: `${h - ((i * 7 + j * 3) % 18)}%` }} />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    );
   return (
-    <div className="space-y-3" aria-busy="true" aria-label="Loading">
-      <div className="card h-24 animate-pulse !bg-stone-200/50 !shadow-none dark:!bg-white/[0.04]" />
+    <div className="card divide-y divide-stone-100 overflow-hidden !p-0 dark:divide-white/[0.06]" aria-busy="true" aria-label="Loading" data-testid="skeleton">
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="card h-16 animate-pulse !bg-stone-200/40 !shadow-none dark:!bg-white/[0.03]" style={{ animationDelay: `${i * 90}ms` }} />
+        <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+          <div className="skel h-10 w-10 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="skel h-3.5 rounded" style={{ width: `${72 - (i % 3) * 12}%` }} />
+            <div className="skel h-2.5 rounded" style={{ width: `${50 - (i % 2) * 12}%` }} />
+          </div>
+        </div>
       ))}
+    </div>
+  );
+}
+
+/** An inline shimmer the size of a short word or number, for text that's still loading. */
+export function SkelText({ w = '3em', className = '' }: { w?: string; className?: string }) {
+  return <span className={`skel inline-block h-[0.8em] rounded align-[-0.05em] ${className}`} style={{ width: w }} aria-label="Loading" />;
+}
+
+/**
+ * Shows `skeleton` until `ready`, then crossfades the content in (opacity and a 6px rise, 220ms).
+ * Content that is ready on the first render just shows.
+ */
+export function Arrive({ ready, skeleton, children, inline = false, className = '' }: { ready: boolean; skeleton: ReactNode; children: ReactNode; inline?: boolean; className?: string }) {
+  const was = useRef(ready);
+  const el = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (!ready || was.current) return;
+    was.current = true;
+    void animate(el.current, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { d: 220, e: UI_EASE, fill: 'backwards' });
+  }, [ready]);
+  if (!ready) return <>{skeleton}</>;
+  return inline ? (
+    <span ref={el as React.RefObject<HTMLSpanElement>} className={`inline-block ${className}`}>
+      {children}
+    </span>
+  ) : (
+    <div ref={el as React.RefObject<HTMLDivElement>} className={className}>
+      {children}
     </div>
   );
 }

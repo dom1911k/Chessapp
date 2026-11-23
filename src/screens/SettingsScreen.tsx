@@ -1,7 +1,7 @@
 import { Maia3Bench } from '../components/Maia3Bench';
 import { LookPreview, useLookLabel } from '../components/CosmeticPreview';
 import { BotHumanBench } from '../components/BotHumanBench';
-import { Header, Segmented, Toggle } from '../components/ui';
+import { Arrive, Header, Segmented, Toggle } from '../components/ui';
 import { useSettings } from '../lib/settings';
 import { useNav } from '../lib/nav';
 import { COSMETICS, isUnlocked, unlockContext } from '../lib/rewards/cosmetics';
@@ -24,7 +24,15 @@ export function SettingsScreen() {
   const look = useLookLabel();
   const runMode = useRunFlag();
   const [unlockedSounds, setUnlockedSounds] = useState<string[]>(['standard', 'wood', 'felt', 'deep', 'clack', 'marble', 'minimal']);
-  useEffect(() => void unlockContext().then((ctx) => setUnlockedSounds(COSMETICS.filter((c) => c.kind === 'snd' && isUnlocked(c, ctx)).map((c) => c.key))), []);
+  const [soundsReady, setSoundsReady] = useState(false);
+  useEffect(
+    () =>
+      void unlockContext().then((ctx) => {
+        setUnlockedSounds(COSMETICS.filter((c) => c.kind === 'snd' && isUnlocked(c, ctx)).map((c) => c.key));
+        setSoundsReady(true);
+      }),
+    [],
+  );
   return (
     <div className="flex h-full flex-col">
       <Header title="Settings" back />
@@ -70,6 +78,20 @@ export function SettingsScreen() {
           {s.sound && (
             <div className="space-y-1.5 py-2">
               <div className="section-title">Sound set</div>
+              {/* The sound sets you've unlocked: skeleton rows while that's worked out, then they crossfade in. */}
+              <Arrive
+                ready={soundsReady}
+                className="space-y-1.5"
+                skeleton={unlockedSounds.map((id) => (
+                  <div key={id} className="flex items-center gap-2 rounded-xl p-2 ring-1 ring-stone-200 dark:ring-stone-700" data-testid="sound-skel">
+                    <div className="flex-1 space-y-1.5 py-0.5">
+                      <div className="skel h-3.5 w-24 rounded" />
+                      <div className="skel h-2.5 w-44 rounded" />
+                    </div>
+                    <div className="skel h-8 w-10 rounded-[10px]" />
+                  </div>
+                ))}
+              >
               {Object.entries(SOUND_PACKS).filter(([id]) => unlockedSounds.includes(id)).map(([id, pack]) => (
                 <div key={id} className={`flex items-center gap-2 rounded-xl p-2 ring-1 ${s.soundPack === id ? 'bg-brand-50 ring-brand-500 dark:bg-brand-700/20' : 'ring-stone-200 dark:ring-stone-700'}`}>
                   <button className="flex-1 text-left" onClick={() => { s.set({ soundPack: id }); previewPack(id); }}>
@@ -79,6 +101,7 @@ export function SettingsScreen() {
                   <button className="btn-secondary !px-3 !py-1.5" aria-label={`Preview ${pack.label}`} onClick={() => previewPack(id)}>▶</button>
                 </div>
               ))}
+              </Arrive>
             </div>
           )}
           <Toggle checked={s.confirmMoves} onChange={(v) => s.set({ confirmMoves: v })} label="Confirm each move (prevents slips)" />

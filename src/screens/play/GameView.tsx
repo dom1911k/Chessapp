@@ -178,7 +178,7 @@ export function GameView() {
   };
   const menuItem = (icon: ReactNode, label: string, onClick: () => void, extra?: ReactNode) => (
     <button
-      className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left font-semibold active:bg-stone-100 dark:active:bg-stone-800"
+      className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left font-semibold press"
       onClick={() => {
         setMenu(false);
         onClick();

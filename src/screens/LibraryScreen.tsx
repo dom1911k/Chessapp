@@ -37,7 +37,7 @@ export function LibraryScreen() {
               </div>
               <div className="card divide-y divide-stone-100 !p-0 dark:divide-white/[0.06]">
                 {lessons.map((l) => (
-                  <button key={l.id} className="flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-stone-100 dark:active:bg-white/5" onClick={() => push({ name: 'lesson', lessonId: l.id })}>
+                  <button key={l.id} className="flex w-full items-center gap-3 px-3 py-2.5 text-left press" onClick={() => push({ name: 'lesson', lessonId: l.id })}>
                     <Medallion name={l.icon} size={34} tint={done.includes(l.id) ? 'green' : 'stone'} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold">{l.title}</span>
@@ -47,7 +47,7 @@ export function LibraryScreen() {
                   </button>
                 ))}
                 {games.map((g) => (
-                  <button key={g.id} className="flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-stone-100 dark:active:bg-white/5" onClick={() => push({ name: 'modelGame', gameId: g.id })}>
+                  <button key={g.id} className="flex w-full items-center gap-3 px-3 py-2.5 text-left press" onClick={() => push({ name: 'modelGame', gameId: g.id })}>
                     <Medallion name={g.icon} size={34} tint="gold" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold">{g.title}</span>

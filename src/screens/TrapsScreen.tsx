@@ -40,7 +40,7 @@ export function TrapsScreen() {
           {list.map((t) => {
             const s = st[t.id];
             return (
-              <button key={t.id} className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors active:bg-stone-100 dark:active:bg-white/5" onClick={() => push({ name: 'trap', trapId: t.id })}>
+              <button key={t.id} className="flex w-full items-center gap-3 px-3.5 py-3 text-left press" onClick={() => push({ name: 'trap', trapId: t.id })}>
                 <span className="relative shrink-0">
                   <Medallion name="swords" tint="rose" size={38} />
                   <span className={`absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-white dark:ring-stone-900 ${t.victim === 'w' ? 'bg-white shadow-[inset_0_0_0_1px_#a8a29e]' : 'bg-stone-800'}`} />

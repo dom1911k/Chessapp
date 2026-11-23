@@ -47,7 +47,7 @@ export function TurningList() {
     <div className="card !p-0" data-testid="turning-list">
       <div className="px-3.5 pt-3 section-title">Where did it turn? <span className="font-normal text-stone-500">(10 s each)</span></div>
       {list.map((g) => (
-        <button key={String(g.id)} className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm active:bg-stone-100 dark:active:bg-white/5" onClick={() => push({ name: 'turning', gameId: g.id! })}>
+        <button key={String(g.id)} className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm press" onClick={() => push({ name: 'turning', gameId: g.id! })}>
           <Crosshair size={15} className="shrink-0 text-brand-700" />
           <span className="flex-1 truncate">Lost vs {who(g)} · {when(g.endedAt)}</span>
           <span className="text-xs font-semibold text-brand-700 dark:text-brand-500">Try</span>

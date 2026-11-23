@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Header } from '../components/ui';
+import { Arrive, Header, SkelText } from '../components/ui';
 import { kvGet } from '../lib/db';
 import { DRILLS } from '../lib/endgames';
 import { TRAPS } from '../lib/traps';
@@ -21,7 +21,7 @@ import type { ReactNode } from 'react';
 /** A row inside a grouped card: icon, title, one line, optional badge. */
 function Row({ icon, tint, title, sub, onClick, right }: { icon: string; tint?: 'green' | 'gold' | 'rose' | 'blue' | 'violet' | 'stone'; title: string; sub: string; onClick: () => void; right?: ReactNode }) {
   return (
-    <button className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors active:bg-stone-100 dark:active:bg-white/5" onClick={onClick}>
+    <button className="flex w-full items-center gap-3 px-3.5 py-3 text-left press" onClick={onClick}>
       <Medallion name={icon} tint={tint} size={38} />
       <span className="min-w-0 flex-1">
         <span className="block font-semibold leading-tight">{title}</span>
@@ -91,8 +91,8 @@ export function LearnScreen() {
             <div className="flex items-center gap-3.5 bg-brand-700 px-4 py-4 text-white">
               <LevelBadge level={lv?.level ?? 1} tier={cur} pips={0} size={62} className="drop-shadow-[0_6px_10px_rgba(0,0,0,0.35)]" />
               <div className="min-w-0 flex-1">
-                <div className="text-[11px] font-bold tracking-[0.1em] text-white/70 uppercase">{RANKS[cur]} · level {lv?.level ?? '…'} of {lv?.total ?? '…'}</div>
-                <div className="truncate font-display text-[21px] leading-tight font-semibold">{lv ? (lv.finished ? 'Course complete' : lv.chapter.title) : '…'}</div>
+                <div className="text-[11px] font-bold tracking-[0.1em] text-white/70 uppercase">{RANKS[cur]} · level {lv?.level ?? <SkelText w="1.2em" className="skel-light" />} of {lv?.total ?? <SkelText w="1.6em" className="skel-light" />}</div>
+                <div className="truncate font-display text-[21px] leading-tight font-semibold"><Arrive inline className="max-w-full truncate align-bottom" ready={!!lv} skeleton={<SkelText w="9em" className="skel-light" />}>{lv ? (lv.finished ? 'Course complete' : lv.chapter.title) : null}</Arrive></div>
                 {lv && !lv.finished && (
                   <div className="mt-2 flex items-center gap-1.5">
                     {lv.chapter.steps.map((s) => (
@@ -108,7 +108,7 @@ export function LearnScreen() {
             <div className="flex items-center gap-3 p-3">
               <span className="min-w-0 flex-1">
                 <span className="block text-[11px] font-bold tracking-wider text-stone-500 uppercase">Up next</span>
-                <span className="block truncate font-semibold">{nextStep ? nextStep.label : st ? 'Everything is ticked off — well done!' : '…'}</span>
+                <span className="block truncate font-semibold"><Arrive inline className="max-w-full truncate align-bottom" ready={!!st} skeleton={<SkelText w="11em" />}>{nextStep ? nextStep.label : 'Everything is ticked off — well done!'}</Arrive></span>
               </span>
               {nextStep && <button className="btn-primary !px-5" onClick={openNext}>{nextStep.kind === 'game' ? 'Show' : 'Continue'}</button>}
             </div>
@@ -179,7 +179,7 @@ export function LearnScreen() {
                 const open = openGroup === g;
                 return (
                   <div key={g}>
-                    <button className="flex w-full items-center gap-3 px-3.5 py-3 text-left active:bg-stone-100 dark:active:bg-white/5" aria-expanded={open} onClick={() => setOpenGroup(open ? null : g)}>
+                    <button className="flex w-full items-center gap-3 px-3.5 py-3 text-left press" aria-expanded={open} onClick={() => setOpenGroup(open ? null : g)}>
                       <Medallion name={ds[0].icon} tint="gold" size={38} />
                       <span className="min-w-0 flex-1">
                         <span className="block font-semibold leading-tight">{g}</span>
@@ -195,7 +195,7 @@ export function LearnScreen() {
                         {ds.map((d) => {
                           const p = progress[d.id];
                           return (
-                            <button key={d.id} className="flex w-full items-center gap-3 py-2.5 pr-3.5 pl-5 text-left active:bg-stone-100 dark:active:bg-white/5" onClick={() => push({ name: 'endgame', drillId: d.id })}>
+                            <button key={d.id} className="flex w-full items-center gap-3 py-2.5 pr-3.5 pl-5 text-left press" onClick={() => push({ name: 'endgame', drillId: d.id })}>
                               <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${p?.completed ? 'bg-brand-700 text-white' : 'ring-2 ring-stone-300 dark:ring-stone-600'}`}>{p?.completed ? <Check size={12} strokeWidth={4} /> : null}</span>
                               <span className="min-w-0 flex-1">
                                 <span className="block text-[15px] font-semibold leading-tight">{d.title}</span>

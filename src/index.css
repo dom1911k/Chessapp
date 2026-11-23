@@ -182,28 +182,63 @@ time {
 @utility btn-primary {
   @apply btn bg-brand-500 font-bold text-white;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
-  /* chess.com's "dimensional" button: a darker lip under it that it presses into. */
+  /* chess.com's "dimensional" button: a darker lip under it that it presses into (60ms; data-down
+     holds the press 80ms after a quick tap, see lib/press.ts). */
   box-shadow: 0 4px 0 var(--color-brand-800), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   margin-bottom: 4px;
-  transition-duration: 80ms;
-  &:active:not(:disabled) {
+  transition-duration: 60ms;
+  &:active:not(:disabled),
+  &[data-down]:not(:disabled) {
     translate: 0 3px;
     box-shadow: 0 1px 0 var(--color-brand-800), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   }
 }
-/* A card or tile you can press: dims a touch instead of shrinking. */
+/* A card or tile you can press: dims a touch instead of shrinking (held 80ms after a quick tap). */
 @utility tile {
   @apply transition-[filter] duration-[80ms] active:brightness-95 dark:active:brightness-125;
+  &[data-down] {
+    filter: brightness(0.95);
+  }
+  @variant dark {
+    &[data-down] {
+      filter: brightness(1.25);
+    }
+  }
+}
+/* A list row: a soft background on press, no scaling, held 80ms after a quick tap. */
+@utility press {
+  &:active,
+  &[data-down] {
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+  @variant dark {
+    &:active,
+    &[data-down] {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+  }
 }
 @utility btn-secondary {
-  @apply btn bg-white text-stone-800 ring-1 ring-black/10 active:bg-stone-100 dark:bg-stone-800 dark:text-white dark:ring-0;
+  @apply btn bg-white text-stone-800 ring-1 ring-black/10 dark:bg-stone-800 dark:text-white dark:ring-0;
+  /* A 2px lip it sinks into (3px in dark). */
+  --tw-shadow: 0 2px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000), var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+  margin-bottom: 2px;
+  transition-duration: 60ms;
+  &:active:not(:disabled),
+  &[data-down]:not(:disabled) {
+    translate: 0 2px;
+    --tw-shadow: 0 0 0 rgba(0, 0, 0, 0);
+    background-color: var(--color-stone-100);
+  }
   @variant dark {
     box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
     margin-bottom: 3px;
-    transition-duration: 80ms;
-    &:active:not(:disabled) {
+    &:active:not(:disabled),
+    &[data-down]:not(:disabled) {
       translate: 0 2px;
       box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+      background-color: var(--color-stone-800);
     }
   }
 }
@@ -226,32 +261,6 @@ time {
   @apply px-1 text-[11px] font-bold tracking-[0.06em] text-stone-500 uppercase;
 }
 
-@keyframes slide-in {
-  from {
-    transform: translateX(28px);
-    opacity: 0;
-  }
-  to {
-    transform: none;
-    opacity: 1;
-  }
-}
-.animate-slide-in {
-  animation: slide-in var(--dur-slow) var(--ease-standard);
-}
-@keyframes slide-out {
-  from {
-    transform: none;
-    opacity: 1;
-  }
-  to {
-    transform: translateX(36px);
-    opacity: 0;
-  }
-}
-.animate-slide-out {
-  animation: slide-out var(--dur-standard) cubic-bezier(0.4, 0, 1, 1) forwards;
-}
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -580,3 +589,5 @@ time {
 .dark .skel { background-image: linear-gradient(100deg, #3a3734 30%, #4a4743 50%, #3a3734 70%); }
 @keyframes ppshimmer { from { background-position: 120% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+/* A skeleton on a coloured header (the Learn hero): a translucent white shimmer. */
+.skel.skel-light, .dark .skel.skel-light { background-image: linear-gradient(100deg, rgba(255, 255, 255, 0.16) 30%, rgba(255, 255, 255, 0.3) 50%, rgba(255, 255, 255, 0.16) 70%); }

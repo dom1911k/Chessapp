@@ -253,7 +253,7 @@ function Nav({ children, onClick, disabled, label, primary }: { children: React.
 
 function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
   return (
-    <button className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left font-semibold active:bg-stone-100 dark:active:bg-stone-800" onClick={onClick}>
+    <button className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left font-semibold press" onClick={onClick}>
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">{icon}</span>
       {label}
     </button>

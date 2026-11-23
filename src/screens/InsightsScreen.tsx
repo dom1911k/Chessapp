@@ -1,7 +1,7 @@
 // Insights, chess.com style: where your games are won and lost — accuracy by phase, results by
 // colour and opening, by time of day and by playing speed. App games and chess.com imports.
 import { useEffect, useState } from 'react';
-import { EmptyState, Header, Segmented, Skeleton } from '../components/ui';
+import { Arrive, EmptyState, Header, Segmented, Skeleton } from '../components/ui';
 import { Lightbulb } from 'lucide-react';
 import { useNav } from '../lib/nav';
 import { allGames } from '../lib/games';
@@ -24,7 +24,7 @@ export function InsightsScreen() {
       <Header title="Insights" back subtitle={r ? `${r.games} games` : undefined} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
         <Segmented value={src} onChange={setSrc} options={[{ value: 'all', label: 'All games' }, { value: 'app', label: 'In this app' }, { value: 'chess.com', label: 'chess.com' }]} />
-        {!r && <Skeleton rows={4} />}
+        <Arrive ready={!!r} skeleton={<Skeleton rows={4} kind="charts" />} className="space-y-4">
         {r && r.games === 0 && (
           <EmptyState
             icon={<Lightbulb size={26} />}
@@ -65,6 +65,7 @@ export function InsightsScreen() {
             </Section>
           </>
         )}
+        </Arrive>
       </div>
     </div>
   );
