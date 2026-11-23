@@ -92,6 +92,8 @@ export const ideaRules: Rule[] = [
         text: t(key, { move: c.bestGer, doMove: c.bestInf, piece: c.name(saves.piece), sq: c.sq(saves.sq), to: c.bestUci?.slice(2, 4) ?? '' }, c.seed),
         arrows: bestArrow(c),
         highlights: [{ sq: c.sq(saves.sq), tone: 'info' }],
+        // The escape sentences point at the move itself ("…a safe square on e2"), so "Better:" would repeat it.
+        namesBest: key !== 'savePiece' || undefined,
       };
     },
   },

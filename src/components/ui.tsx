@@ -159,7 +159,8 @@ export function FadeScroll({ children, className = '', testId, onMore }: { child
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const check = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+    // At least a line hidden (padding alone overflows by a few px).
+    const check = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 16);
     check();
     el.addEventListener('scroll', check, { passive: true });
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null;

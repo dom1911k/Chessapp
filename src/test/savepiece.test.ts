@@ -27,4 +27,10 @@ describe('save-piece wording', () => {
     const r = savePiece('rnbqkbnr/pp1ppp1p/2p3p1/7Q/4P3/8/PPPP1PPP/RNB1KBNR w KQkq - 0 3', 'h5h6', 'h5h4');
     expect(r?.text).toBe('Your queen had a safe square on h4 instead.');
   });
+
+  it('the escape sentences count as naming the better move (no "Better:" under them); defending does not', () => {
+    expect(savePiece('rnbqkbnr/pp1ppp1p/2p3p1/7Q/4P3/8/PPPP1PPP/RNB1KBNR w KQkq - 0 3', 'h5h6', 'h5h4')?.namesBest).toBe(true);
+    expect(savePiece('r1bqkbnr/pppp1ppp/2n5/4p3/1p2P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 0 5', 'h2h3', 'c3d5')?.namesBest).toBe(true);
+    expect(savePiece('4k3/8/5n2/3B4/8/8/P1P5/4K3 w - - 0 1', 'a2a3', 'c2c4')?.namesBest).toBeUndefined();
+  });
 });
