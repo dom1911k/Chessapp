@@ -140,7 +140,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
       <Header
         title={title}
         back
-        leading={path ? <LiveCrest size={32} /> : undefined}
+        leading={path ? <LiveCrest size={32} onClick={pt.openPath} /> : undefined}
         right={
           <div className="flex items-center gap-3 pr-2">
             {pathSource !== 'none' && <LiveDots />}

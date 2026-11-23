@@ -91,6 +91,8 @@ export function pointsAtLevel(board: number, level: number): number {
 }
 /** Ladder position: board × 20 + level − 1 (0 … 159 on the eight boards). */
 export const ladderPos = (pos: Pick<LevelPos, 'board' | 'level'>) => pos.board * LEVELS_PER_BOARD + pos.level - 1;
+/** The pawn has tiles to walk: the Path last showed an earlier level than the one you're on (the green dot). */
+export const pathBehind = (seen: number, points: number) => ladderPos(levelAt(seen)) < ladderPos(levelAt(points));
 
 // ---------- Difficulty: a ladder by path position ----------
 

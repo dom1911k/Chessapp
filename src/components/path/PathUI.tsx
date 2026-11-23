@@ -132,15 +132,22 @@ export function PathCard({ points, gain, streak, rating, ratingDelta, extra }: {
   );
 }
 
+/** "Your pawn has tiles to walk": on the Path's entry points while `seen` is behind your level. */
+export function GreenDot({ className = '' }: { className?: string }) {
+  return <span className={`absolute h-2.5 w-2.5 rounded-full bg-[#81b64c] ring-2 ring-white dark:ring-[#262522] ${className}`} data-testid="path-dot" />;
+}
+
 // ---------- Live pieces: they follow the tally's beats (usePathUi) ----------
 
 /** The header badge (flips when the bar crosses a level). */
 export function LiveCrest({ size = 32, onClick }: { size?: number; onClick?: () => void }) {
   const points = usePathUi((s) => s.points);
+  const behind = usePathUi((s) => s.behind);
   const pos = levelAt(points);
   return (
-    <button ref={reg('crest')} className="block [perspective:400px]" onClick={onClick} aria-label="Puzzle path" data-testid="path-crest">
+    <button ref={reg('crest')} className="relative block [perspective:400px]" onClick={onClick} aria-label="Puzzle path" data-testid="path-crest">
       <PathBadge tier={pos.tier} level={pos.level} size={size} />
+      {behind && <GreenDot className="-top-0.5 -right-1" />}
     </button>
   );
 }

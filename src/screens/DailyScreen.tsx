@@ -147,7 +147,7 @@ function Session({ onExit }: { onExit: () => void }) {
     <div className="flex h-full flex-col">
       <Header
         title={finished ? 'Session complete' : `Daily · ${d.index + 1}/${d.items.length}`}
-        leading={pt.path ? <LiveCrest size={32} /> : undefined}
+        leading={pt.path ? <LiveCrest size={32} onClick={pt.openPath} /> : undefined}
         right={
           <div className="flex items-center gap-3">
             <LiveDots />

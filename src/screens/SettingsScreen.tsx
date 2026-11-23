@@ -164,6 +164,37 @@ export function SettingsScreen() {
           <Toggle checked={s.safetyOverlay} onChange={(v) => s.set({ safetyOverlay: v })} label="Safety overlay (hanging pieces & threats)" />
           <Toggle checked={s.showEvalBar} onChange={(v) => s.set({ showEvalBar: v })} label="Show evaluation bar" />
         </div>
+        <div className="card divide-y divide-stone-100 dark:divide-stone-800" data-testid="settings-puzzles">
+          <div className="pb-1 section-title">Puzzles</div>
+          <div className="py-2">
+            <div className="mb-1.5 text-sm">Difficulty</div>
+            <Segmented
+              value={s.puzzleDifficulty ?? 'standard'}
+              onChange={(v) => s.set({ puzzleDifficulty: v })}
+              options={[
+                { value: 'standard', label: 'Standard' },
+                { value: 'hard', label: 'Hard' },
+                { value: 'extraHard', label: 'Extra hard' },
+              ]}
+            />
+            <p className="mt-1.5 text-xs text-stone-500">Harder puzzles on the puzzle path, for more points: ×1.3 on Hard, ×1.6 on Extra hard.</p>
+          </div>
+          <Toggle checked={s.puzzleShowRating ?? true} onChange={(v) => s.set({ puzzleShowRating: v })} label="Show puzzle rating while solving" />
+          <Toggle checked={(s.puzzleTallySpeed ?? 'normal') === 'fast'} onChange={(v) => s.set({ puzzleTallySpeed: v ? 'fast' : 'normal' })} label="Fast tally" />
+          <div className="py-2">
+            <div className="mb-1.5 text-sm">Reduce animations</div>
+            <Segmented
+              value={s.reduceAnimations ?? 'system'}
+              onChange={(v) => s.set({ reduceAnimations: v })}
+              options={[
+                { value: 'system', label: 'Like my phone' },
+                { value: 'on', label: 'On' },
+                { value: 'off', label: 'Off' },
+              ]}
+            />
+            <p className="mt-1.5 text-xs text-stone-500">On: no flights, particles or path panel after a solve, just a quick "Level 5" banner. "Like my phone" follows Android's "Remove animations".</p>
+          </div>
+        </div>
         <ChessComCard />
         <ReminderCard />
         <UpdateCard />

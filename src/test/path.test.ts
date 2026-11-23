@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   boardName, boardTotal, BOARD_TOTALS, drawPrompt, ladderStartFor, ladderTarget, levelAt, levelCosts, newPathState, nextPuzzleSpec,
-  PATH_TOTAL, pointsAtLevel, prevDay, promptMix, scoreEvent, scorePuzzle, type PathState, type SolveInput,
+  PATH_TOTAL, pathBehind, pointsAtLevel, prevDay, promptMix, scoreEvent, scorePuzzle, type PathState, type SolveInput,
 } from '../lib/puzzles/path';
 
 const DAY = '2026-11-23';
@@ -249,5 +249,15 @@ describe('recovery', () => {
     for (let i = 0; i < 10; i++) s = scorePuzzle(s, base(s, { success: false })).state;
     expect(s.ease).toBe(-400);
     expect(s.points).toBe(0);
+  });
+});
+
+describe('the green dot', () => {
+  it('shows while the Path last showed an earlier level, not for points within the same level', () => {
+    expect(pathBehind(0, 50)).toBe(false); // Wood 1 still (level 1 costs 110)
+    expect(pathBehind(0, 110)).toBe(true); // Wood 2
+    expect(pathBehind(pointsAtLevel(1, 1), pointsAtLevel(1, 1) + 5)).toBe(false);
+    expect(pathBehind(2990, 3000)).toBe(true); // into Stone
+    expect(pathBehind(3000, 2990)).toBe(false); // never behind when ahead
   });
 });

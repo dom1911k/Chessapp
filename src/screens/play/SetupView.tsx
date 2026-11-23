@@ -6,7 +6,7 @@ import { courseLevel, courseState } from '../../lib/course';
 import { kvGet } from '../../lib/db';
 import { useRunFlag } from '../../cups/flag';
 import { TUNING as CUPS_T } from '../../cups/tuning';
-import { getRating as getPuzzleRating } from '../../lib/puzzles/rating';
+import { boardName, getPathState, levelAt } from '../../lib/puzzles/path';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Flame, Puzzle, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, History, Lock, MessageCircleHeart, Settings, Share, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../../lib/bot';
@@ -242,10 +242,12 @@ function HomeLinks() {
   const setTab = useNav((s) => s.setTab);
   const [due, setDue] = useState(0);
   const [pz, setPz] = useState<number | null>(null);
+  const depth = useNav((st) => st.stack.length);
   useEffect(() => void dueCount().then(setDue), []);
-  useEffect(() => void getPuzzleRating().then((r) => setPz(r.rating)), []);
   const [lvl, setLvl] = useState<ReturnType<typeof courseLevel> | null>(null);
   const tabNow = useNav((st) => st.tab);
+  // The puzzle path: "Wood 4 · 1,240 pts" (refreshed when you come back from a puzzle).
+  useEffect(() => void getPathState().then((p) => setPz(p.points)), [depth, tabNow]);
   useEffect(() => {
     if (tabNow === 'play') void courseState().then((c) => setLvl(courseLevel(c)));
   }, [tabNow]);
@@ -269,7 +271,7 @@ function HomeLinks() {
   );
   return (
     <div className="card divide-y divide-black/5 overflow-hidden !p-0 dark:divide-white/[0.06]">
-      {row(<Puzzle size={20} />, 'text-hue-orange-500', 'Puzzles', pz === null ? 'Solve and climb' : <>Rating <b className="text-stone-700 tabular-nums dark:text-stone-200">{pz}</b></>, () => push({ name: 'puzzle', mode: { kind: 'rated' } }))}
+      {row(<Puzzle size={20} />, 'text-hue-orange-500', 'Puzzles', pz === null ? 'Solve and climb' : <><b className="text-stone-700 dark:text-stone-200">{boardName(levelAt(pz).board)} {levelAt(pz).level}</b> · <span className="tabular-nums">{pz.toLocaleString('en-US')} pts</span></>, () => push({ name: 'puzzle', mode: { kind: 'rated' } }))}
       {row(<CalendarCheck size={20} />, 'text-hue-sky-500', 'Daily training', due ? `${due} to review today` : 'Picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-danger-700 text-white">{due}</span> : null)}
       {row(<BookOpen size={20} />, 'text-brand-700', 'Course', lvl ? <>Level <b className="text-stone-700 tabular-nums dark:text-stone-200">{lvl.level}</b> · {lvl.stepsDone}/{lvl.steps} done</> : 'Learn step by step', () => setTab('learn'))}
       {row(<History size={20} />, 'text-hue-violet-500', 'Past games', 'Reviews of your games', () => push({ name: 'history' }))}

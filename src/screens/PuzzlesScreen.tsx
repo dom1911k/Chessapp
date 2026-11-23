@@ -1,11 +1,13 @@
-// The Puzzles hub, chess.com style: your rating with its graph and one big "Solve Puzzles" button,
-// then the modes as tiles (Rush, Daily Puzzle, Custom, Learning, your games) and your records.
+// The Puzzles hub, chess.com style: the puzzle path card (your level, points, the bar, a window
+// onto the world) with one big "Solve Puzzles" button and the difficulty, then the modes as tiles
+// (Rush, Daily Puzzle, Custom, Learning, your games) and your records.
 import { useEffect, useState, type ReactNode } from 'react';
 import { CalendarCheck, CalendarDays, ChevronRight, Flame, GraduationCap, Puzzle, Shield, SlidersHorizontal, Swords, Timer, Trophy, Zap } from 'lucide-react';
-import { Header } from '../components/ui';
-import { LevelBadge } from '../components/PuzzleProgress';
-import { puzzleLevel } from '../lib/puzzles/level';
-import { LineChart } from '../components/Charts';
+import { Header, Segmented } from '../components/ui';
+import { GreenDot, PathBadge, SolverDots, StreakFlame } from '../components/path/PathUI';
+import { PathWindow } from '../components/path/PathWorld';
+import { boardName, getPathState, levelAt, pathBehind, type PathState } from '../lib/puzzles/path';
+import { useSettings } from '../lib/settings';
 import { db, kvGet, today } from '../lib/db';
 import { useNav, type RushMode } from '../lib/nav';
 import { getRating } from '../lib/puzzles/rating';
@@ -31,12 +33,15 @@ interface HubData {
   weak?: string;
   total: number;
   due: number;
+  path: PathState;
 }
 
 export function PuzzlesScreen() {
   const push = useNav((s) => s.push);
   const tab = useNav((s) => s.tab);
   const [d, setD] = useState<HubData | null>(null);
+  // Refreshed when you come back from a puzzle or the Path.
+  const depth = useNav((s) => s.stack.length);
 
   useEffect(() => {
     if (tab !== 'puzzles') return;
@@ -56,52 +61,24 @@ export function PuzzlesScreen() {
         ratingDates: rows.map((x) => x.at),
         solved: attempts.filter((a) => a.success).length,
         played: attempts.length,
-        bestStreak: await kvGet<number>('puzzleBestStreak', 0),
+        bestStreak: (await getPathState()).bestStreak,
         rush,
         dailySolved: daily.solved.includes(today()),
         dailyStreak: dailyStreak(daily.solved),
         weak: attempts.length >= 5 ? weak : undefined,
         due: await dueCount(),
         total: (await loadIndex().catch(() => ({ total: 0 }))).total,
+        path: await getPathState(),
       });
     })();
-  }, [tab]);
+  }, [tab, depth]);
 
   return (
     <div className="flex h-full flex-col">
       <Header title="Puzzles" right={<SettingsButton />} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-3 overflow-y-auto p-4">
-        {/* Rating + Solve */}
-        <div className="card !p-4">
-          <div className="flex items-center gap-3.5">
-            <LevelBadge level={puzzleLevel(d?.rating ?? 800).level} size={58} />
-            <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">Puzzle rating</div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-display text-[40px] leading-none font-semibold tabular-nums">{d?.rating ?? '…'}</span>
-                <span className="text-xs text-stone-500">best <b className="text-stone-800 tabular-nums dark:text-stone-100">{d?.peak ?? '…'}</b></span>
-              </div>
-              {d && (
-                <div className="mt-1.5 flex items-center gap-2">
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
-                    <div className="h-full rounded-full bg-gradient-to-r from-hue-lime-400 to-brand-500" style={{ width: `${Math.max(3, puzzleLevel(d.rating).pct * 100)}%` }} />
-                  </div>
-                  <span className="text-[11px] font-semibold text-stone-500 tabular-nums">{puzzleLevel(d.rating).next - d.rating} to level {puzzleLevel(d.rating).level + 1}</span>
-                </div>
-              )}
-            </div>
-          </div>
-          {d && d.played > 0 && <p className="mt-2 text-xs text-stone-500">{d.solved} of {d.played} solved</p>}
-          {d && d.ratings.length > 1 && (
-            <div className="mt-2">
-              <LineChart values={d.ratings} dates={d.ratingDates} height={78} />
-            </div>
-          )}
-          <button className="btn-primary mt-3 w-full !rounded-[10px] !py-4 font-display text-xl" onClick={() => push({ name: 'puzzle', mode: { kind: 'rated' } })}>
-            <Puzzle size={20} /> Solve Puzzles
-          </button>
-          {d && d.total > 0 && <p className="mt-1.5 text-center text-[11px] text-stone-500">{d.total.toLocaleString()} puzzles from the Lichess database, all offline</p>}
-        </div>
+        {/* The puzzle path + Solve */}
+        <PathHubCard d={d} onOpen={() => push({ name: 'puzzlePath' })} onSolve={() => push({ name: 'puzzle', mode: { kind: 'rated' } })} />
 
         {/* Daily Puzzle */}
         <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'puzzle', mode: { kind: 'dailyPuzzle' } })}>
@@ -191,6 +168,70 @@ function Record({ icon, label, value }: { icon: ReactNode; label: string; value:
     <div>
       <div className="font-display flex items-center justify-center gap-1 text-[22px] font-semibold tabular-nums">{icon}{value}</div>
       <div className="text-[11px] text-stone-500">{label}</div>
+    </div>
+  );
+}
+
+/** The hub's top card: the path at a glance; tapping it opens the Path (a green dot while the pawn has tiles to walk). */
+function PathHubCard({ d, onOpen, onSolve }: { d: HubData | null; onOpen: () => void; onSolve: () => void }) {
+  const difficulty = useSettings((s) => s.puzzleDifficulty) ?? 'standard';
+  const set = useSettings((s) => s.set);
+  const p = d?.path;
+  const pos = levelAt(p?.points ?? 0);
+  const next = pos.level === 20 ? { tier: Math.min(7, pos.board + 1), level: 1 } : { tier: pos.tier, level: pos.level + 1 };
+  const daily = p && p.dailyDay === today() ? p.dailyCount : 0;
+  return (
+    <div className="card !p-4" data-testid="hub-path">
+      <div role="button" tabIndex={0} className="flex cursor-pointer gap-3" onClick={onOpen} onKeyDown={(e) => e.key === 'Enter' && onOpen()} aria-label="Open the puzzle path">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-3">
+            <span className="relative">
+              <PathBadge tier={pos.tier} level={pos.level} size={58} />
+              {p && pathBehind(p.seen, p.points) && <GreenDot className="top-0 right-0" />}
+            </span>
+            <div className="min-w-0">
+              <div className="text-[13px]">
+                <b>{boardName(pos.board)}</b> <span className="text-stone-500">· Level {pos.level}</span>
+              </div>
+              <div className="text-[26px] leading-tight font-extrabold tabular-nums">{p ? p.points.toLocaleString('en-US') : '…'}</div>
+              <div className="flex items-center gap-2">
+                <SolverDots count={daily} />
+                <StreakFlame streak={p?.streak ?? 0} size={16} />
+              </div>
+            </div>
+          </div>
+          <div className="relative mt-3 mr-3">
+            <div className="h-3 overflow-hidden rounded-full bg-[#dcd9d4] dark:bg-[#43403d]">
+              <div className="h-full rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]" style={{ width: `${Math.max(2, (pos.into / pos.cost) * 100)}%`, background: 'linear-gradient(180deg,#fbae63,#f3913f 60%,#ec8231)' }} />
+            </div>
+            <PathBadge tier={next.tier} level={next.level} size={34} className="absolute top-1/2 -right-4 -translate-y-1/2" />
+          </div>
+          <div className="mt-1.5 text-right text-xs text-stone-500 tabular-nums">
+            {pos.into.toLocaleString('en-US')} / {pos.cost.toLocaleString('en-US')}
+          </div>
+        </div>
+        {p && <PathWindow points={p.points} width={96} height={118} className="shrink-0 self-start rounded-xl ring-1 ring-black/10 dark:ring-white/10" />}
+      </div>
+      <button className="btn-primary mt-3 w-full !rounded-[10px] !py-4 font-display text-xl" onClick={onSolve}>
+        <Puzzle size={20} /> Solve Puzzles
+      </button>
+      <div className="mt-2.5">
+        <Segmented
+          value={difficulty}
+          onChange={(v) => set({ puzzleDifficulty: v })}
+          options={[
+            { value: 'standard', label: 'Standard' },
+            { value: 'hard', label: 'Hard' },
+            { value: 'extraHard', label: 'Extra hard' },
+          ]}
+        />
+      </div>
+      {d && (
+        <p className="mt-2 text-center text-[11px] text-stone-500">
+          Puzzle rating {d.rating} · best {d.peak}
+          {d.total > 0 ? ` · ${d.total.toLocaleString()} puzzles, all offline` : ''}
+        </p>
+      )}
     </div>
   );
 }

@@ -7,20 +7,19 @@ import { today } from '../../lib/db';
 import { useCelebrate } from '../../lib/celebrate';
 import { buzz, reduced, token, type Token } from '../../lib/motion';
 import { endMoments, momentSplit, runMoments, type MomToken } from '../../lib/puzzles/moments';
-import { getPathState, type PathAward, type PathState } from '../../lib/puzzles/path';
+import { getPathState, levelAt, markPathSeen, pathBehind, type PathAward, type PathState } from '../../lib/puzzles/path';
 import { usePathUi } from '../../lib/puzzles/pathUi';
 import { barAt, boardMark, boardRing, clearBoardFx, flameOut, runTally, type BoardRef } from '../../lib/puzzles/tally';
 import { sfx } from '../../lib/sfx';
+import { useNav } from '../../lib/nav';
 import { LevelBanner, LevelUpPanel, TierUpCard } from './LevelUp';
 
 /** Show a saved state in the header and card. */
-export const syncPathUi = (st: PathState, gain = 0) => usePathUi.getState().set({ points: st.points, streak: st.streak, daily: st.dailyDay === today() ? st.dailyCount : 0, gain });
+export const syncPathUi = (st: PathState, gain = 0) => usePathUi.getState().set({ points: st.points, streak: st.streak, daily: st.dailyDay === today() ? st.dailyCount : 0, gain, behind: pathBehind(st.seen, st.points) });
 
 export interface PathTallyOpts {
   /** After an award has landed with no level-up: e.g. a streak banner. */
   onLanded?: (a: PathAward) => void;
-  /** Tapping the level-up panel or "See your new board". */
-  onOpenPath?: () => void;
 }
 
 export function usePathTally(opts: PathTallyOpts = {}) {
@@ -59,6 +58,9 @@ export function usePathTally(opts: PathTallyOpts = {}) {
     useCelebrate.getState().setHold(false);
     if (quiet) return;
     if (a.levelsCrossed.length) {
+      // The panel (or the banner) shows these hops, so the Path won't replay them.
+      void markPathSeen(levelAt(a.after).start);
+      usePathUi.getState().set({ behind: false });
       if (reduced()) {
         setBanner(a.after);
         if (a.boardUp !== undefined) setTimeout(() => setTierCard(a.boardUp!), 900);
@@ -125,6 +127,16 @@ export function usePathTally(opts: PathTallyOpts = {}) {
     else skipTally();
   };
 
+  /** The header badge, the level-up panel or "See your new board": land everything, open the Path. */
+  const openPath = () => {
+    if (tally.current) skipTally(true);
+    stopMoments();
+    setLevelUp(null);
+    setBanner(null);
+    setTierCard(null);
+    useNav.getState().push({ name: 'puzzlePath' });
+  };
+
   /** Before a new puzzle (Next): everything stops, the numbers land, the board is cleared. */
   const reset = () => {
     if (tally.current) skipTally(true);
@@ -175,10 +187,10 @@ export function usePathTally(opts: PathTallyOpts = {}) {
   /** Rendered at the screen's root: the level-up panel and the new-board card. */
   const panels: ReactNode = (
     <>
-      {levelUp && board.current && <LevelUpPanel key={`${levelUp.from}-${levelUp.to}`} from={levelUp.from} to={levelUp.to} board={board.current.el} instant={levelUp.instant} onTierCard={setTierCard} onOpenPath={opts.onOpenPath} />}
-      {tierCard !== null && <TierUpCard board={tierCard} onClose={() => setTierCard(null)} onOpenPath={opts.onOpenPath} />}
+      {levelUp && board.current && <LevelUpPanel key={`${levelUp.from}-${levelUp.to}`} from={levelUp.from} to={levelUp.to} board={board.current.el} instant={levelUp.instant} onTierCard={setTierCard} onOpenPath={openPath} />}
+      {tierCard !== null && <TierUpCard board={tierCard} onClose={() => setTierCard(null)} onOpenPath={openPath} />}
     </>
   );
 
-  return { path, award, onBoard, show, reset, tap, active, boardOverlay, panels };
+  return { path, award, onBoard, show, reset, tap, active, boardOverlay, panels, openPath };
 }

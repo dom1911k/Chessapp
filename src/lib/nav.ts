@@ -34,6 +34,7 @@ export type Screen =
   | { name: 'journey' }
   | { name: 'skills' }
   | { name: 'collection' }
+  | { name: 'puzzlePath' }
   | { name: 'settings' }
   | { name: 'daily' }
   | { name: 'profile' }

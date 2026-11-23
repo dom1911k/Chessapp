@@ -17,6 +17,8 @@ import { useSettings } from '../lib/settings';
 import { rushBestKey } from './RushScreen';
 import type { ImportedGame } from '../lib/store/types';
 import { getRating, START_RATING } from '../lib/puzzles/rating';
+import { boardName, getPathState, levelAt, type PathState } from '../lib/puzzles/path';
+import { PathBadge } from '../components/path/PathUI';
 import { themeStats, type ThemeStat } from '../lib/puzzles/select';
 import { themeLabel } from '../lib/puzzles/themes';
 import { bestStreak, currentStreak } from '../lib/stats';
@@ -32,6 +34,7 @@ interface Data {
   blunders: number[];
   accuracy: number[];
   puzzles: { total: number; solved: number };
+  path: PathState;
   streak: number;
   best: number;
   themes: ThemeStat[];
@@ -89,6 +92,7 @@ export function ProfileScreen() {
         blunders: games.slice(-15).map((g) => g.summary.counts.blunder),
         accuracy: games.slice(-20).map((g) => g.summary.accuracy),
         puzzles: { total: attempts.length, solved: attempts.filter((a) => a.success).length },
+        path: await getPathState(),
         streak: await currentStreak(),
         best: await bestStreak(),
         themes: (await themeStats()).filter((t) => t.attempts >= 3).sort((a, b) => b.score - a.score),
@@ -226,6 +230,7 @@ export function ProfileScreen() {
         )}
         {view === 'puzzles' && (
           <>
+            <PathSummary path={d.path} onOpen={() => push({ name: 'puzzlePath' })} />
             <div className="card !p-3">
               <div className="mb-1 section-title">Puzzle rating over time</div>
               <LineChart values={d.ratings} />
@@ -352,5 +357,32 @@ function WeekCard({ week }: { week: { thisWeek: WeekStats; lastWeek: WeekStats }
         </div>
       ))}
     </div>
+  );
+}
+
+/** The puzzle path at a glance: board, level, points, boards completed, best streak. */
+function PathSummary({ path, onOpen }: { path: PathState; onOpen: () => void }) {
+  const pos = levelAt(path.points);
+  return (
+    <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={onOpen} data-testid="profile-path">
+      <PathBadge tier={pos.tier} level={pos.level} size={52} />
+      <div className="min-w-0 flex-1">
+        <div className="section-title">Puzzle path</div>
+        <div className="font-bold">
+          {boardName(pos.board)} · Level {pos.level}
+        </div>
+        <div className="mt-0.5 grid grid-cols-3 gap-2 text-xs text-stone-500">
+          <span>
+            <b className="block text-[15px] text-stone-800 tabular-nums dark:text-stone-100">{path.points.toLocaleString('en-US')}</b>points
+          </span>
+          <span>
+            <b className="block text-[15px] text-stone-800 tabular-nums dark:text-stone-100">{pos.board}</b>boards done
+          </span>
+          <span>
+            <b className="block text-[15px] text-stone-800 tabular-nums dark:text-stone-100">{path.bestStreak}</b>best streak
+          </span>
+        </div>
+      </div>
+    </button>
   );
 }

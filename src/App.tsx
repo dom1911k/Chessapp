@@ -39,6 +39,7 @@ import { PracticeScreen } from './screens/PracticeScreen';
 import { JourneyScreen } from './screens/JourneyScreen';
 import { SkillTreeScreen } from './screens/SkillTreeScreen';
 import { CollectionScreen } from './screens/CollectionScreen';
+import { PuzzlePathScreen } from './screens/PuzzlePathScreen';
 import { PieceDefs } from './components/PieceDefs';
 import { WebUpdateBanner } from './components/UpdatePanel';
 import { ModelGameScreen } from './screens/ModelGameScreen';
@@ -160,6 +161,8 @@ function StackScreen({ screen }: { screen: Screen }) {
       return <SkillTreeScreen />;
     case 'collection':
       return <CollectionScreen />;
+    case 'puzzlePath':
+      return <PuzzlePathScreen />;
   }
 }
 
