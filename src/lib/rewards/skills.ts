@@ -1,14 +1,16 @@
 // The skill tree: your chess skills, each growing from puzzles you solve, tactics
-// you play in real games and lessons you finish. Bronze → Silver → Gold.
+// you play in real games and lessons you finish. Solid → Strong → Mastered (so "Bronze" and
+// "Silver" only ever mean puzzle path boards, and Cups).
+
 import { db, kvGet } from '../db';
 import { getCareer, type TacticCounts } from './career';
 
 export type Tier = 0 | 1 | 2 | 3;
 export const TIERS = [
   { name: 'Not started', points: 0, color: '#a8a29e' },
-  { name: 'Bronze', points: 10, color: '#c27c3e' },
-  { name: 'Silver', points: 30, color: '#94a3b8' },
-  { name: 'Gold', points: 75, color: '#eab308' },
+  { name: 'Solid', points: 10, color: '#c27c3e' },
+  { name: 'Strong', points: 30, color: '#94a3b8' },
+  { name: 'Mastered', points: 75, color: '#eab308' },
 ] as const;
 
 export interface Skill {
@@ -50,10 +52,13 @@ export const SKILLS: Skill[] = [
   { id: 'endgames', name: 'Endgames', icon: 'flag', branch: 'endgame', description: 'Win when only a few pieces are left.', puzzles: ['endgame', 'rookEndgame', 'queenEndgame'], train: 'endgame' },
 ];
 
+/** The skill a puzzle trains: the first whose puzzle themes include one of the puzzle's. */
+export const skillForThemes = (themes: string[]): Skill | undefined => SKILLS.find((k) => k.puzzles.some((t) => themes.includes(t)));
+
 export interface SkillState {
   points: number;
   tier: Tier;
-  /** Progress towards the next tier, 0..1 (1 at gold). */
+  /** Progress towards the next tier, 0..1 (1 when mastered). */
   toNext: number;
 }
 

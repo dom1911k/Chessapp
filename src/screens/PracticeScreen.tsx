@@ -63,7 +63,7 @@ export function PracticeScreen({ theme }: { theme: Theme }) {
             n={lesson ? 2 : 1}
             icon={THEME_SETS.find((t) => t.id === set)!.icon}
             title={`${DRILL_COUNT} ${label.toLowerCase()} puzzles`}
-            sub={drillDone ? 'Done — tap for more' : 'A little easier than usual, to build the habit.'}
+            sub={drillDone ? 'Done — tap for more' : 'A little easier than usual. Earns path points.'}
             done={drillDone}
             onClick={() => push({ name: 'puzzle', mode: { kind: 'drill', theme: set, count: DRILL_COUNT, label, doneKey } })}
           />

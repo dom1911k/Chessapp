@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { difficultyFor, puzzleLevel, solvePrompt, solvedPrompt } from '../lib/puzzles/level';
+import { difficultyFor, solvePrompt, solvedPrompt } from '../lib/puzzles/level';
 
-describe('puzzle levels', () => {
-  it('cuts levels from the rating in 100-point bands', () => {
-    expect(puzzleLevel(880)).toEqual({ level: 8, into: 80, span: 100, next: 900, pct: 0.8 });
-    expect(puzzleLevel(900).level).toBe(9);
-    expect(puzzleLevel(899).level).toBe(8);
-    expect(puzzleLevel(40).level).toBe(1);
-  });
+describe('puzzle helpers', () => {
   it('rates difficulty against your rating', () => {
     expect(difficultyFor(600, 880)).toBe('easy');
     expect(difficultyFor(900, 880)).toBe('medium');
@@ -28,16 +22,6 @@ describe('win streak', () => {
     expect(winStreak(['win', 'win', 'loss', 'win'])).toBe(2);
     expect(winStreak(['draw', 'win'])).toBe(0);
     expect(winStreak([])).toBe(0);
-  });
-});
-
-import { mastery } from '../lib/puzzles/level';
-describe('theme mastery', () => {
-  it('climbs Bronze, Silver, Gold, Master by clean solves', () => {
-    expect(mastery(0)).toEqual({ tier: 0, name: 'Novice', pos: 0, next: 5 });
-    expect(mastery(5)).toMatchObject({ tier: 1, name: 'Bronze', pos: 1, next: 15 });
-    expect(mastery(10).pos).toBeCloseTo(1.5);
-    expect(mastery(100)).toMatchObject({ tier: 4, name: 'Master', pos: 4, next: undefined });
   });
 });
 

@@ -30,7 +30,7 @@ const lg = (a: string, b: string, c = a) => `linear-gradient(135deg, ${a}, ${b} 
 
 export const FRAMES: Frame[] = [
   { id: 'none', name: 'No frame', ring: '', unlock: { kind: 'free' } },
-  { id: 'bronze', name: 'Bronze', ring: lg('#eab583', '#8a5a2c', '#d99a63'), unlock: { kind: 'level', n: 3 } },
+  { id: 'bronze', name: 'Copper', ring: lg('#eab583', '#8a5a2c', '#d99a63'), unlock: { kind: 'level', n: 3 } },
   { id: 'silver', name: 'Silver', ring: lg('#f4f6f8', '#8d96a0', '#dfe4e9'), unlock: { kind: 'level', n: 6 } },
   { id: 'gold', name: 'Gold', ring: lg('#fff0a8', '#d19a16', '#ffe07a'), unlock: { kind: 'level', n: 10 } },
   { id: 'emerald', name: 'Emerald', ring: lg('#8ff5bd', '#12805a', '#5fe0a0'), unlock: { kind: 'rating', n: 1000 } },

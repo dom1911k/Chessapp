@@ -34,6 +34,8 @@ export function usePathTally(opts: PathTallyOpts = {}) {
   const [levelUp, setLevelUp] = useState<{ from: number; to: number; instant: boolean } | null>(null);
   const [banner, setBanner] = useState<number | null>(null);
   const [tierCard, setTierCard] = useState<number | null>(null);
+  // The award has landed (after the tally and moments): the skill strip may show.
+  const [landed, setLanded] = useState(false);
   const lastSquare = useRef<string | undefined>(undefined);
   // The latest values, for callbacks memoised by the screens (load, Next).
   const live = useRef({ award, path, opts });
@@ -57,6 +59,7 @@ export function usePathTally(opts: PathTallyOpts = {}) {
     barAt(saved.points);
     useCelebrate.getState().setHold(false);
     if (quiet) return;
+    if (a.parts.length) setLanded(true);
     if (a.levelsCrossed.length) {
       // The panel (or the banner) shows these hops, so the Path won't replay them.
       void markPathSeen(levelAt(a.after).start);
@@ -146,6 +149,7 @@ export function usePathTally(opts: PathTallyOpts = {}) {
     setBanner(null);
     setTierCard(null);
     setAward(null);
+    setLanded(false);
     usePathUi.getState().set({ gain: 0 });
   };
 
@@ -192,5 +196,5 @@ export function usePathTally(opts: PathTallyOpts = {}) {
     </>
   );
 
-  return { path, award, onBoard, show, reset, tap, active, boardOverlay, panels, openPath };
+  return { path, award, onBoard, show, reset, tap, active, landed, boardOverlay, panels, openPath };
 }

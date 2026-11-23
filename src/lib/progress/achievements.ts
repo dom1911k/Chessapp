@@ -8,6 +8,7 @@ import { OPPONENTS } from '../people';
 import { getOpponentRecords, MAX_STARS, starsOf } from '../people/record';
 import { add, BEST_GAME, getCareer, maxOf, type TacticCounts } from '../rewards/career';
 import { skillStates } from '../rewards/skills';
+import { getPathState, levelAt } from '../puzzles/path';
 import { awardXp, getXp, levelFor, XP } from './xp';
 import { weeksMet } from './weekly';
 
@@ -38,6 +39,9 @@ export interface Stats {
   weeksMet: number;
   level: number;
   chaptersDone: number;
+  /** The puzzle path: the board you're on (0 = Wood … 7 = Legend) and your best streak. */
+  pathBoard: number;
+  pathBestStreak: number;
 }
 
 export interface Achievement {
@@ -91,11 +95,17 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'great-10', icon: 'zap', title: 'Sharp eye', description: 'Play 10 great moves.', ...count(10, (s) => s.career.great ?? 0) },
   { id: 'comeback', icon: 'repeat', title: 'Comeback kid', description: 'Win a game after being clearly worse.', ...count(1, (s) => s.comebacks) },
   { id: 'spotless', icon: 'shield', title: 'Spotless', description: 'Win without a single mistake or blunder.', ...count(1, (s) => s.spotlessWins) },
-  { id: 'skill-gold', icon: 'medal', title: 'Gold medal', description: 'Bring a skill to gold in the skill tree.', ...count(1, (s) => s.goldSkills) },
+  { id: 'skill-gold', icon: 'medal', title: 'Mastered', description: 'Master a skill in the skill tree.', ...count(1, (s) => s.goldSkills) },
   { id: 'collector-10', icon: 'palette', title: 'Collector', description: 'Unlock 10 items for your collection.', ...count(10, (s) => s.collected) },
   { id: 'puzzles-10', icon: 'sparkles', title: 'Puzzler', description: 'Solve 10 puzzles.', ...count(10, (s) => s.puzzlesSolved) },
   { id: 'puzzles-100', icon: 'brain', title: 'Pattern spotter', description: 'Solve 100 puzzles.', ...count(100, (s) => s.puzzlesSolved) },
   { id: 'puzzles-500', icon: 'gem', title: 'Puzzle master', description: 'Solve 500 puzzles.', ...count(500, (s) => s.puzzlesSolved) },
+  { id: 'path-stone', icon: 'castle', title: 'Stone board', description: 'Reach the Stone board on the puzzle path.', ...count(1, (s) => s.pathBoard) },
+  { id: 'path-silver', icon: 'shield', title: 'Silver board', description: 'Reach the Silver board on the puzzle path.', ...count(3, (s) => s.pathBoard) },
+  { id: 'path-crystal', icon: 'gem', title: 'Crystal board', description: 'Reach the Crystal board on the puzzle path.', ...count(4, (s) => s.pathBoard) },
+  { id: 'path-legend', icon: 'crown', title: 'Legend board', description: 'Reach the Legend board on the puzzle path.', ...count(7, (s) => s.pathBoard) },
+  { id: 'streak-15', icon: 'lightning', title: '15 in a row', description: 'Solve 15 puzzles in a row without a miss.', ...count(15, (s) => s.pathBestStreak) },
+  { id: 'streak-30', icon: 'star', title: '30 in a row', description: 'Solve 30 puzzles in a row without a miss.', ...count(30, (s) => s.pathBestStreak) },
   { id: 'rush-10', icon: 'zap', title: 'Quick eyes', description: 'Solve 10 in one Puzzle Rush.', ...count(10, (s) => s.rushBest) },
   { id: 'rush-20', icon: 'lightning', title: 'Lightning', description: 'Solve 20 in one Puzzle Rush.', ...count(20, (s) => s.rushBest) },
   { id: 'reviews-25', icon: 'repeat', title: 'It stuck!', description: 'Pass 25 reviews of old mistakes.', ...count(25, (s) => s.reviewsPassed) },
@@ -151,7 +161,12 @@ export async function gatherStats(extra: TacticCounts = {}): Promise<Stats> {
     weeksMet: (await weeksMet()).length,
     level: levelFor(await getXp()).level,
     chaptersDone: Object.values(course).filter(Boolean).length,
+    ...(await pathStats()),
   };
+}
+async function pathStats() {
+  const p = await getPathState();
+  return { pathBoard: levelAt(p.points).board, pathBestStreak: p.bestStreak };
 }
 
 /**

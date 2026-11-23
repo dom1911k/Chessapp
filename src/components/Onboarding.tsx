@@ -68,7 +68,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               {[
                 [<Swords size={19} key="a" />, 'Play opponents who make human mistakes', `${castSummary()}, with a coach at your side.`],
                 [<BookOpen size={19} key="b" />, 'Follow a course, level by level', 'From the first checkmate to about 1800.'],
-                [<Puzzle size={19} key="c" />, 'Train with 100,000 puzzles', 'And with the mistakes from your own games.'],
+                [<Puzzle size={19} key="c" />, 'Climb the puzzle path with 100,000 puzzles', 'And with the mistakes from your own games.'],
               ].map(([icon, t, s], k) => (
                 <div key={k} className="card flex items-center gap-3 !p-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[32%] bg-brand-100 text-brand-700 dark:bg-brand-700/25 dark:text-brand-100">{icon}</span>

@@ -1,5 +1,5 @@
-// Puzzle progress pieces still in use: the old rating-level emblem (until the path's badge
-// replaces it everywhere), the theme medal, and the solve timer handed to the card.
+// The course's level emblem (a shield; puzzles use the path's puzzle-piece badge instead) and
+// the solve timer handed to the path card.
 import { createContext, type ReactNode } from 'react';
 
 /** Emblem colours climb every four levels: bronze, emerald, sapphire, amethyst, ruby, gold, diamond. */
@@ -46,20 +46,3 @@ export function LevelBadge({ level, size = 30, className = '', dim = false, tier
 
 /** The solve timer, handed down by the puzzle player so the rating card can show it (top right). */
 export const PuzzleTimer = createContext<ReactNode>(null);
-
-const TIER_STYLE = [
-  'from-stone-300 to-stone-400 text-stone-700',
-  'from-hue-amber-600 to-hue-amber-800 text-hue-amber-50',
-  'from-slate-200 to-slate-400 text-slate-800',
-  'from-hue-amber-300 to-hue-yellow-500 text-hue-amber-950',
-  'from-hue-fuchsia-400 to-hue-violet-600 text-white',
-];
-
-/** A small medal for a mastery tier. */
-export function TierMedal({ tier, size = 26, className = '' }: { tier: number; size?: number; className?: string }) {
-  return (
-    <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-b font-black shadow-sm ring-2 ring-white/70 dark:ring-black/30 ${TIER_STYLE[tier]} ${className}`} style={{ width: size, height: size, fontSize: size * 0.42 }}>
-      {tier === 0 ? '·' : ['I', 'II', 'III', 'IV'][tier - 1]}
-    </span>
-  );
-}

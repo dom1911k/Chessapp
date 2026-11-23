@@ -1,27 +1,5 @@
-// The puzzle progression you see while solving (chess.com style): puzzle levels cut from your
-// rating, the difficulty of a puzzle for you, the Daily Solver award, and what Coach Sam says.
-// Pure helpers; the screen keeps the state.
-
-/** Each puzzle level spans this many rating points (level 8 = 800–899). */
-export const LEVEL_SPAN = 100;
-
-export interface PuzzleLevel {
-  level: number;
-  /** Rating points into the level, and the level's span. */
-  into: number;
-  span: number;
-  /** Rating at which the next level starts. */
-  next: number;
-  /** 0..1 progress to the next level. */
-  pct: number;
-}
-
-export function puzzleLevel(rating: number): PuzzleLevel {
-  const level = Math.max(1, Math.floor(rating / LEVEL_SPAN));
-  const start = level * LEVEL_SPAN;
-  const into = Math.max(0, rating - start);
-  return { level, into, span: LEVEL_SPAN, next: start + LEVEL_SPAN, pct: Math.min(1, into / LEVEL_SPAN) };
-}
+// Small puzzle helpers: how hard a puzzle is for you, and what Coach Sam says while you solve it.
+// (Levels come from the puzzle path now: see path.ts.)
 
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert' };
@@ -56,18 +34,4 @@ export function solvedPrompt(o: { clean: boolean; lightning: boolean; streak: nu
   if (o.lightning) return pick(['Lightning fast!', 'You saw that instantly. Brilliant.', 'That was quick — great eyes.'], o.seed);
   if (o.streak >= 5) return pick(['Unstoppable!', 'Five in a row and counting!', 'You’re on fire — keep it rolling.'], o.seed);
   return pick(['Fantastic!', 'Excellent play! You solved it.', 'Clean and correct. Nice.', 'That’s the move. Well found!'], o.seed);
-}
-
-/** Theme mastery: clean solves needed for each tier of a theme (Bronze → Silver → Gold → Master). */
-export const MASTERY_TIERS = [5, 15, 40, 100];
-export const MASTERY_NAMES = ['Novice', 'Bronze', 'Silver', 'Gold', 'Master'];
-
-/** Tier (0..4) and position as "levels" for a fill bar (1.6 = tier 1, 60% of the way to tier 2). */
-export function mastery(solved: number): { tier: number; name: string; pos: number; next?: number } {
-  let tier = 0;
-  while (tier < MASTERY_TIERS.length && solved >= MASTERY_TIERS[tier]) tier++;
-  const lo = tier === 0 ? 0 : MASTERY_TIERS[tier - 1];
-  const hi = MASTERY_TIERS[tier];
-  const pos = hi === undefined ? tier : tier + (solved - lo) / (hi - lo);
-  return { tier, name: MASTERY_NAMES[tier], pos, next: hi };
 }

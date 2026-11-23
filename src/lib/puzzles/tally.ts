@@ -38,8 +38,9 @@ export function boardMark(b: BoardRef, sq: string, kind: 'good' | 'bad') {
   const el = document.createElement('div');
   el.className = `pp-mark ${kind}`;
   el.dataset.testid = `pp-mark-${kind}`;
-  el.style.left = `${p.left + 12.5 - 1}%`;
-  el.style.top = `${p.top + 1}%`;
+  // On the square's top-right corner, but kept on the board on the h-file (the board is full-bleed).
+  el.style.left = `${Math.min(p.left + 12.5 - 1, 100 - 3.6)}%`;
+  el.style.top = `${Math.max(p.top + 1, 3.6)}%`;
   el.innerHTML = kind === 'good' ? CHECK : CROSS;
   b.el.appendChild(el);
   void animate(el, [{ transform: 'translate(-50%,-50%) scale(0) rotate(-60deg)' }, { transform: 'translate(-50%,-50%) scale(1) rotate(0)' }], BOUNCE);

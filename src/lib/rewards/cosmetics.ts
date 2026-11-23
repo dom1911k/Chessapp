@@ -119,7 +119,7 @@ export function unlockText(u: Unlock): string {
       return `Complete ${o?.name}'s challenge`;
     }
     case 'gold':
-      return u.n === 1 ? 'Get a skill to gold' : `Get ${u.n} skills to gold`;
+      return u.n === 1 ? 'Master a skill' : `Master ${u.n} skills`;
     case 'cup':
       return `Win the ${u.tier[0].toUpperCase()}${u.tier.slice(1)} Cup`;
     case 'laurel':

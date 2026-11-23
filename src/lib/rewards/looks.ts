@@ -40,7 +40,7 @@ export const PIECE_SETS: Record<string, PieceSet> = {
     fill: { w: '#e6fdff', b: '#2b0f3d' },
     filter: { w: 'drop-shadow(0 0 3px rgba(34,211,238,0.9))', b: 'drop-shadow(0 0 3px rgba(236,72,153,0.9))' },
   },
-  bronze: { label: 'Bronze', fill: { w: 'url(#pg-bronze)', b: '#3b2412' }, filter: { w: shadow, b: shadow } },
+  bronze: { label: 'Copper', fill: { w: 'url(#pg-bronze)', b: '#3b2412' }, filter: { w: shadow, b: shadow } },
 };
 
 /** Last-move highlight colours (an rgb triplet; both squares get it at 50%). */

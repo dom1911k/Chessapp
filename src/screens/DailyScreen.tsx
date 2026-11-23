@@ -7,6 +7,7 @@ import { useNav } from '../lib/nav';
 import { recordAttempt, type AttemptOutcome } from '../lib/puzzles/record';
 import { awardPath, type PathAward } from '../lib/puzzles/path';
 import { usePathTally } from '../components/path/usePathTally';
+import { SkillStrip } from '../components/path/SkillStrip';
 import { LiveCrest, LiveDots, LiveFlame, LivePathCard } from '../components/path/PathUI';
 import { useSettings } from '../lib/settings';
 import { progress } from '../lib/progress';
@@ -196,7 +197,7 @@ function Session({ onExit }: { onExit: () => void }) {
               pathMode
               onBoard={pt.onBoard}
               overlay={pt.boardOverlay}
-              progress={pt.path ? <LivePathCard rating={showRating ? (outcome?.ratingAfter ?? null) : null} ratingDelta={showRating && outcome?.ratingAfter !== undefined && outcome.ratingBefore !== undefined ? outcome.ratingAfter - outcome.ratingBefore : null} onTap={pt.active ? pt.tap : undefined} /> : undefined}
+              progress={pt.path ? <LivePathCard rating={showRating ? (outcome?.ratingAfter ?? null) : null} ratingDelta={showRating && outcome?.ratingAfter !== undefined && outcome.ratingBefore !== undefined ? outcome.ratingAfter - outcome.ratingBefore : null} onTap={pt.active ? pt.tap : undefined} extra={pt.landed ? <SkillStrip key={d.index} themes={item.spec.themes} /> : undefined} /> : undefined}
             />
           )
         )}

@@ -15,6 +15,7 @@ import { DRILLS_KEY } from './PracticeScreen';
 import { ComboBanner } from '../components/PuzzleFx';
 import { LiveCrest, LiveDots, LiveFlame, LivePathCard } from '../components/path/PathUI';
 import { usePathTally } from '../components/path/usePathTally';
+import { SkillStrip } from '../components/path/SkillStrip';
 import type { PathSource } from '../lib/puzzles/path';
 import { useSettings } from '../lib/settings';
 import { useContext } from 'react';
@@ -178,7 +179,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
               pathSource === 'none' ? (
                 <PracticeCard />
               ) : path ? (
-                <LivePathCard rating={showRating ? rating : null} ratingDelta={showRating ? delta : null} onTap={pt.active ? pt.tap : undefined} />
+                <LivePathCard rating={showRating ? rating : null} ratingDelta={showRating ? delta : null} onTap={pt.active ? pt.tap : undefined} extra={pt.landed && spec ? <SkillStrip key={spec.id + n} themes={spec.themes} /> : undefined} />
               ) : null
             }
             footer={
