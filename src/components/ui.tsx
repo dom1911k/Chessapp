@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronLeft } from 'lucide-react';
 import { addBackHandler, useNav } from '../lib/nav';
 import type { Score } from '../lib/chess/evaluation';
+import { SOFT } from '../lib/motion';
 
 /** Register an Android back-button handler while `active`. */
 export function useBackHandler(fn: () => boolean | void, active = true) {
@@ -112,7 +113,8 @@ export function EvalBar({ whitePct, orientation, score, width = 14 }: { whitePct
       style={{ width }}
       data-testid="eval-bar"
     >
-      <div className="bg-white transition-[height] duration-300 ease-[cubic-bezier(0.2,0,0,1)]" style={{ height: `${pct}%` }} />
+      {/* The white share springs to its new value (transform only). */}
+      <div className={`absolute inset-x-0 h-full bg-white ${orientation === 'white' ? 'bottom-0 origin-bottom' : 'top-0 origin-top'}`} style={{ transform: `scaleY(${pct / 100})`, transition: `transform ${SOFT.d + 120}ms ${SOFT.e}` }} />
       {score && (
         <span
           className={`absolute inset-x-0 text-center text-[10px] leading-none font-extrabold tracking-tight tabular-nums ${whiteAhead ? 'text-[#403d39]' : 'text-white'}`}

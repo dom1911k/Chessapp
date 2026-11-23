@@ -21,9 +21,10 @@ import { getEngine } from '../../lib/engine';
 import { goodWhy, looseWhy, missedThreat, planWhy, repeatedTips, reviewNotes } from '../../lib/reviewText';
 import { ArrowOverlay, type OverlayArrow } from '../../components/ArrowOverlay';
 import { isBad, moveNo, punishInfo, punishment, RC, type Review, type ReviewClass } from '../../lib/review';
-import { playSound } from '../../lib/sound';
+import { sfx, sfxCls } from '../../lib/sfx';
+import { animate, haptic } from '../../lib/motion';
 import type { AnyGame, ImportedGame } from '../../lib/store/types';
-import { SquareIcon, oppName, timesOf } from './shared';
+import { SquareFlash, SquareIcon, oppName, timesOf } from './shared';
 
 type Retry = { state: 'try' | 'checking' | 'right' | 'ok' | 'wrong'; fen: string; last?: { from: string; to: string }; reply?: string };
 
@@ -71,13 +72,26 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
   const rp = i >= 0 ? r.plies[i] : null;
   const [flipped, setFlipped] = useState(false);
   const orientation = (g.userColor === 'w') !== flipped ? 'white' : 'black';
+  // Stepping forward one move plays its moment (the class sound, a badge popping, a flare); going
+  // back or jumping just sets the position.
+  const prevI = useRef(i);
+  const fwdStep = i === prevI.current + 1;
   useEffect(() => {
+    const fwd = i === prevI.current + 1;
+    prevI.current = i;
     setBest(false);
     setRetry(null);
     setThreatSeen(null);
     setLineK(null);
     strip.current?.querySelector(`[data-ply="${i}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
-  }, [i]);
+    // The coach card swaps with a short crossfade.
+    void animate(document.querySelector('[data-testid="review-coach"] > *'), [{ opacity: 0.3, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { d: 200, e: 'ease-out' });
+    const c = i >= 0 ? r.plies[i]?.cls : undefined;
+    if (!fwd || !c) return;
+    sfxCls(c);
+    if (c === 'brilliant') haptic('success');
+    if (c === 'blunder') haptic('warn');
+  }, [i]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => getEngine().cancelAll('review'), []);
   const go = (k: number) => setI(Math.max(-1, Math.min(n - 1, k)));
   // Swipe on the board to step: left = forward, right = back (not while retrying a move).
@@ -156,7 +170,7 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
     const uci = res.move.lan;
     setRetry({ state: 'checking', fen: res.fen, last: { from: res.move.from, to: res.move.to } });
     if (uci === p.comment?.bestUci) {
-      playSound('success');
+      sfx('correct');
       setRetry({ state: 'right', fen: res.fen, last: { from: res.move.from, to: res.move.to } });
       return true;
     }
@@ -166,7 +180,7 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
         const [b, a] = await Promise.all([e.analyze(p.fenBefore, { depth: 11, owner: 'review' }), e.analyze(res.fen, { depth: 11, owner: 'review' })]);
         const cls = classify(winPct(povScore(b.lines[0].score, p.color)), winPct(povScore(a.lines[0].score, p.color)), uci === b.bestMove);
         const good = cls === 'best' || cls === 'good';
-        playSound(good ? 'success' : 'error');
+        sfx(good ? 'correct' : 'fail');
         setRetry({ state: good ? 'ok' : 'wrong', fen: res.fen, last: { from: res.move.from, to: res.move.to }, reply: good ? undefined : a.bestMove ?? undefined });
       } catch {
         setRetry({ state: 'wrong', fen: res.fen, last: { from: res.move.from, to: res.move.to } });
@@ -193,9 +207,10 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
         <div className="flex gap-1 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0 land:self-start">
           <EvalBar whitePct={evalNow} orientation={orientation} score={p?.evalAfter ?? { type: 'cp', value: 0 }} width={20} />
           <div className="relative min-w-0 flex-1" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} data-testid="review-board">
-            <Board fen={fen} orientation={orientation} movable={retry?.state === 'try' ? g.userColor : null} onMove={onRetryMove} arrows={arrows} lastMove={lastMove} lastMoveColor={moveTint} kingBadges={endBadges} />
+            <Board fen={fen} orientation={orientation} movable={retry?.state === 'try' ? g.userColor : null} onMove={onRetryMove} arrows={arrows} lastMove={lastMove} lastMoveColor={moveTint} kingBadges={endBadges} quiet={!retry && !frame && !(fwdStep && rp?.cls === 'book')} />
+            {fwdStep && p && rp && !best && !retry && !frame && FLASH[rp.cls] && <SquareFlash key={`f${i}`} sq={p.uci.slice(2, 4)} orientation={orientation} color={FLASH[rp.cls]!.color} stars={FLASH[rp.cls]!.stars} />}
             <ArrowOverlay arrows={dotted} orientation={orientation} />
-            {moveTint && p && rp && !(endBadges && Object.values(kingSquares(fen)).includes(p.uci.slice(2, 4))) && <SquareIcon sq={p.uci.slice(2, 4)} cls={rp.cls} orientation={orientation} />}
+            {moveTint && p && rp && !(endBadges && Object.values(kingSquares(fen)).includes(p.uci.slice(2, 4))) && <SquareIcon key={i} sq={p.uci.slice(2, 4)} cls={rp.cls} orientation={orientation} pop={fwdStep} />}
           </div>
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -332,6 +347,13 @@ function EvalDelta({ g, i }: { g: AnyGame; i: number }) {
 
 /** Classes worth a badge on the board and the move strip; quiet good moves don't get one every turn. */
 const NOTABLE = new Set<ReviewClass>(['brilliant', 'great', 'inaccuracy', 'mistake', 'miss', 'blunder']);
+/** Stepping onto these, the square flares: teal (with stars) for a brilliant, red for a blunder, orange for a mistake or miss. */
+const FLASH: Partial<Record<ReviewClass, { color: string; stars?: string[] }>> = {
+  brilliant: { color: 'rgba(27,172,166,.75)', stars: ['#7ff0ea', '#1baca6', '#ffffff'] },
+  blunder: { color: 'rgba(250,65,45,.6)' },
+  mistake: { color: 'rgba(255,164,89,.55)' },
+  miss: { color: 'rgba(255,164,89,.55)' },
+};
 
 /** Coach Sam on the move being viewed: a one-line verdict, why, and the concrete lines. */
 function CoachText({ g, r, i, best, retry, cause, threat, onSeenThreat }: { g: AnyGame; r: Review; i: number; best: boolean; retry: Retry | null; cause?: MistakeCause; threat?: { san: string; text: string } | null; onSeenThreat?: () => void }) {

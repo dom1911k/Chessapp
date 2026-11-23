@@ -35,7 +35,8 @@ export function PlayerBar({ me }: { me: boolean }) {
   return (
     <div className="relative flex h-11 items-center gap-2 px-2">
       {!me && <ChatBubble />}
-      <span className="relative">
+      {/* The versus intro's portraits fly into this avatar (it measures it by data-pb-avatar). */}
+      <span className="relative" data-pb-avatar={me ? 'me' : 'op'}>
         {me ? (
           <UserAvatar size={36} />
         ) : o ? (

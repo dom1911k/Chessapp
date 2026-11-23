@@ -58,6 +58,8 @@ interface PlayStore {
   /** The opponent's latest chat line. */
   chat: { text: string; mood: Mood; ply: number } | null;
   over: { result: GameResult; reason: string; gameId: number; stars?: number; firstWin?: boolean; practice?: Theme } | null;
+  /** Set the moment a game ends (before it's recorded): the board marks the kings from it. */
+  ending: { result: GameResult; reason: string; at: number } | null;
   /** The results screen after a game (null once closed). */
   rewards: GameRewards | null;
   closeRewards(): void;
@@ -243,11 +245,11 @@ export const usePlay = create<PlayStore>((set, get) => {
     if (!g || get().phase === 'over') return;
     token++;
     getEngine().cancelAll('play');
-    set({ phase: 'over', hint: null });
+    // The game screen takes it from here: the kings are marked, the stinger, then the results sheet.
+    set({ phase: 'over', hint: null, ending: { result, reason, at: Date.now() } });
     playSound('gameEnd');
     const botWon = result !== '1/2-1/2' && (result === '1-0') !== (g.userColor === 'w');
     say(reason === 'resignation' && botWon ? 'userResigned' : result === '1/2-1/2' ? 'draw' : botWon ? 'botWins' : 'botLoses');
-    if (!botWon && result !== '1/2-1/2') setTimeout(() => playSound('win'), 350);
     // The results screen shows the rewards; keep the usual toasts quiet meanwhile.
     useCelebrate.getState().setMuted(true);
     const info = await finishGame(g, result, reason);
@@ -526,6 +528,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     precheck: null,
     flash: null,
     rewards: null,
+    ending: null,
     away: false,
     lowTime: false,
     intro: null,
@@ -564,7 +567,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       token++;
       // A coached game's clock was paused while the app was closed; Match conditions kept running.
       if (saved.clock && !saved.match) saved.clock = { ...saved.clock, turnStart: Date.now() };
-      set({ game: saved, over: null, hint: null, message: null, comment: null, lowTime: false });
+      set({ game: saved, over: null, ending: null, hint: null, message: null, comment: null, lowTime: false });
       if (saved.clock) startTicker();
       const last = saved.plies[saved.plies.length - 1];
       const lastUser = [...saved.plies].reverse().findIndex((p) => p.isUser);
@@ -607,7 +610,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         rematch: opts.rematch,
       };
       lastBestTag = -99;
-      set({ game, over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: Date.now(), lowTime: false });
+      set({ game, over: null, ending: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: Date.now(), lowTime: false });
       awayAt = null;
       if (game.clock) startTicker();
       useCelebrate.getState().setMuted(false);
@@ -811,7 +814,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     leaveGame() {
       token++;
       getEngine().cancelAll('play');
-      set({ game: null, phase: 'setup', over: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: null });
+      set({ game: null, phase: 'setup', over: null, ending: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: null });
       useCelebrate.getState().setMuted(false);
     },
   };

@@ -13,7 +13,6 @@ import { classify, povScore, winPct } from '../lib/chess/evaluation';
 import { getEngine } from '../lib/engine';
 import { chooseMaiaMove, maiaLogits, maiaTemperature } from '../lib/maia';
 import { loadRange } from '../lib/puzzles/data';
-import { playSound } from '../lib/sound';
 import { fmtClock } from '../lib/clock';
 import { CONVERT_SECONDS, QUICK_COUNT, QUICK_LABEL, QUICK_MAX_RATING, QUICK_SECONDS, convertPositions, quickCorrect, quickSet, type QuickItem } from '../lib/timedrills';
 import { sfx } from '../lib/sfx';
@@ -187,7 +186,7 @@ function QuickDrill() {
   const finish = (ok: boolean, secs: number, why: string) => {
     setResults((r) => [...r, { ok, secs }]);
     setShown({ ok, why });
-    playSound(ok ? 'success' : 'error');
+    sfx(ok ? 'correct' : 'fail');
   };
   useEffect(() => {
     if (!done || !items) return;

@@ -1,88 +1,168 @@
-// The short "versus" splash at the start of a game: you on one side, your opponent on the other.
+// The "versus" splash at the start of a game, rebuilt on the motion kit (docs/polish-3-prototype.html,
+// scene 1). The halves sweep in, the green slash draws with a glint, you and your opponent spring in,
+// VS stamps with a thud, a ring and a shake, their line pops. Then the hand-off: both portraits fly
+// into their player-bar avatars while the intro fades and the board rises in under it; 520ms later
+// the first coach line arrives with a two-bell chime. A tap leaves straight away.
 import { UserAvatar, useMyName } from './UserAvatar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PieceIcon } from './PieceIcon';
 import { Star } from 'lucide-react';
 import { opponentById } from '../lib/people';
 import { getXp, levelFor } from '../lib/progress/xp';
-import { playSound } from '../lib/sound';
+import { BOUNCE, POP, SOFT, UI_EASE, animate, crossfade, haptic, sleep, token } from '../lib/motion';
+import { centre, emit } from '../lib/fx';
+import { sfx } from '../lib/sfx';
 import { Portrait } from './Coach';
-
-const SHOW_MS = 1900;
 
 /** A 2px ring in the player's piece colour (black gets a hairline so it shows on charcoal). */
 const ringFor = (c: 'w' | 'b') =>
   `${c === 'w' ? '0 0 0 2px #ffffff' : '0 0 0 2px #262421, 0 0 0 3px rgba(255,255,255,0.28)'}, 0 12px 30px rgba(0,0,0,0.45)`;
 
+/** Where the green slash runs: the 160° gradient's 60% line through a w × h screen. */
+function slashAt(w: number, h: number) {
+  const a = (160 * Math.PI) / 180;
+  const dx = Math.sin(a);
+  const dy = -Math.cos(a);
+  const len = Math.abs(w * dx) + Math.abs(h * dy);
+  return { x: w / 2 + 0.1 * len * dx, y: h / 2 + 0.1 * len * dy, len: Math.hypot(w, h) * 1.2 };
+}
+
+/** Fly a portrait from the intro into its player-bar avatar; the real avatar pops when it lands. */
+function flyPortrait(from: Element | null, to: HTMLElement | null) {
+  if (!from || !to) return;
+  const ra = from.getBoundingClientRect();
+  const rb = to.getBoundingClientRect();
+  if (!ra.width || !rb.width) return;
+  const clone = from.cloneNode(true) as HTMLElement;
+  Object.assign(clone.style, { position: 'fixed', left: `${ra.left}px`, top: `${ra.top}px`, width: `${ra.width}px`, height: `${ra.height}px`, margin: '0', zIndex: '81', borderRadius: '9px', overflow: 'hidden', boxShadow: '0 10px 26px rgba(0,0,0,.5)', transformOrigin: '0 0', pointerEvents: 'none' });
+  document.body.appendChild(clone);
+  (from as HTMLElement).style.visibility = 'hidden';
+  to.style.visibility = 'hidden';
+  const s = rb.width / ra.width;
+  void animate(clone, [{ transform: 'none', borderRadius: '9px' }, { transform: `translate(${rb.left - ra.left}px,${rb.top - ra.top}px) scale(${s})`, borderRadius: `${5 / s}px` }], { d: 460, e: 'cubic-bezier(.3,.75,.25,1)', fill: 'forwards' }).then(() => {
+    clone.remove();
+    to.style.visibility = '';
+    void animate(to, [{ transform: 'scale(1.18)' }, { transform: 'scale(1)' }], POP);
+  });
+}
+
 export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { opponentId?: string; elo: number; userColor: 'w' | 'b'; line?: string; onDone: () => void }) {
   const o = opponentById(opponentId);
   const [level, setLevel] = useState<number | null>(null);
-  const [leaving, setLeaving] = useState(false);
-  useEffect(() => void getXp().then((x) => setLevel(levelFor(x).level)), []);
-  useEffect(() => {
-    playSound('versus');
-    const t1 = setTimeout(() => setLeaving(true), SHOW_MS - 350);
-    const t2 = setTimeout(onDone, SHOW_MS);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [onDone]);
-  const skip = () => {
-    setLeaving(true);
-    setTimeout(onDone, 250);
-  };
   const name = useMyName();
+  const root = useRef<HTMLButtonElement>(null);
+  const r = useRef<Record<string, HTMLElement | null>>({});
+  const ref = (k: string) => (el: HTMLElement | null) => {
+    r.current[k] = el;
+  };
+  const leaveRef = useRef<() => void>(() => {});
+  useEffect(() => void getXp().then((x) => setLevel(levelFor(x).level)), []);
 
+  useEffect(() => {
+    const q = r.current;
+    const tk = token();
+    let left = false;
+    // The game screen sits under the intro from the start; its coach card waits for the hand-off.
+    const coach = document.querySelector<HTMLElement>('[data-testid="coach-panel"]');
+    if (coach) coach.style.opacity = '0';
+    const leave = () => {
+      if (left) return;
+      left = true;
+      tk.skip = true;
+      flyPortrait(q.meImg, document.querySelector('[data-pb-avatar="me"]'));
+      flyPortrait(q.opImg, document.querySelector('[data-pb-avatar="op"]'));
+      void animate(root.current, [{ opacity: 1 }, { opacity: 0 }], { d: 300 }).then(onDone);
+      void animate(document.querySelector('[data-testid="game-board"]'), [{ opacity: 0, transform: 'scale(.965)' }, { opacity: 1, transform: 'none' }], { d: 420, delay: 80, e: UI_EASE });
+      // The first coach line: a two-bell chime, the card rises in and its existing typewriter runs.
+      setTimeout(() => {
+        sfx('start');
+        if (coach) {
+          coach.style.opacity = '';
+          void crossfade(coach);
+        }
+      }, 520);
+    };
+    leaveRef.current = leave;
+    void (async () => {
+      void animate(root.current, [{ opacity: 0 }, { opacity: 1 }], { d: 120 });
+      sfx('swish', -0.5);
+      void animate(q.half1, [{ transform: 'translate(-60%,-30%)' }, { transform: 'none' }], { d: 520, e: 'cubic-bezier(.2,.8,.2,1)' });
+      void animate(q.half2, [{ transform: 'translate(60%,30%)' }, { transform: 'none' }], { d: 520, e: 'cubic-bezier(.2,.8,.2,1)' });
+      void animate(q.slash, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { d: 380, delay: 180, e: 'cubic-bezier(.3,.8,.3,1)' });
+      void animate(q.glint, [{ transform: 'translateX(-10%)', opacity: 1 }, { transform: 'translateX(110%)', opacity: 1 }], { d: 700, delay: 300, e: 'ease-in-out' });
+      void animate(q.me, [{ opacity: 0, transform: 'translateX(-90px) rotate(-6deg)' }, { opacity: 1, transform: 'none' }], { ...BOUNCE, delay: 240 });
+      void animate(q.op, [{ opacity: 0, transform: 'translateX(90px) rotate(6deg)' }, { opacity: 1, transform: 'none' }], { ...BOUNCE, delay: 360 });
+      void animate(q.meChip, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { ...SOFT, delay: 420 });
+      void animate(q.opChip, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { ...SOFT, delay: 540 });
+      void animate(q.vs, [{ opacity: 0, transform: 'scale(2.6)' }, { opacity: 1, transform: 'scale(.92)', offset: 0.7 }, { opacity: 1, transform: 'scale(1)' }], { d: 300, delay: 560, e: 'cubic-bezier(.5,0,.6,1)' });
+      void animate(q.line, [{ opacity: 0, transform: 'translateY(8px) scale(.92)' }, { opacity: 1, transform: 'none' }], { ...POP, delay: 1070 });
+      await sleep(770, tk);
+      if (tk.skip) return;
+      // VS lands.
+      sfx('stamp');
+      haptic('select');
+      void animate(q.ring, [{ opacity: 0.9, transform: 'translate(-50%,-50%) scale(.5)' }, { opacity: 0, transform: 'translate(-50%,-50%) scale(2.4)' }], { d: 600, e: 'cubic-bezier(.2,.8,.3,1)' });
+      void animate(q.card, [{ transform: 'none' }, { transform: 'translate(-4px,2px)' }, { transform: 'translate(4px,-2px)' }, { transform: 'translate(-2px,1px)' }, { transform: 'none' }], { d: 180, fill: 'none' });
+      if (q.vs) {
+        const c = centre(q.vs);
+        emit({ x: c.x, y: c.y, n: 14, shape: 'spark', colors: ['#ffffff', '#dcf7b0'], speed: [180, 360], life: [0.2, 0.4], size: [1.5, 2.5] });
+      }
+      await sleep(1230, tk);
+      if (!tk.skip) leave();
+    })();
+    return () => {
+      tk.skip = true;
+      if (coach) coach.style.opacity = '';
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sl = slashAt(typeof innerWidth === 'number' ? innerWidth : 390, typeof innerHeight === 'number' ? innerHeight : 844);
   return (
-    <button
-      aria-label="Start the game"
-      onClick={skip}
-      className={`fixed inset-0 z-50 overflow-hidden text-white transition-opacity duration-300 ${leaving ? 'opacity-0' : 'opacity-100'}`}
-      style={{ background: '#262421' }}
-    >
+    <button ref={root} aria-label="Start the game" onClick={() => leaveRef.current()} className="fixed inset-0 z-50 overflow-hidden text-white opacity-0" style={{ background: '#262421' }} data-testid="versus">
       {/* Two charcoal halves sweep in from opposite corners, split by a green slash. */}
-      <div className="animate-vs-left absolute inset-0" style={{ background: 'linear-gradient(160deg, #262421 0%, #262421 60%, transparent 60%)' }} />
-      <div className="animate-vs-right absolute inset-0" style={{ background: 'linear-gradient(160deg, transparent 60%, #3c3a37 60%, #3c3a37 100%)' }} />
-      <div
-        className="animate-vs-flash absolute inset-0"
-        style={{ background: 'linear-gradient(160deg, transparent calc(60% - 1.5px), #81b64c calc(60% - 1.5px), #81b64c calc(60% + 1.5px), transparent calc(60% + 1.5px))' }}
-      />
+      <div ref={ref('half1')} className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #262421 0%, #262421 60%, transparent 60%)' }} />
+      <div ref={ref('half2')} className="absolute inset-0" style={{ background: 'linear-gradient(160deg, transparent 60%, #3c3a37 60%, #3c3a37 100%)' }} />
+      <div className="pointer-events-none absolute" style={{ left: sl.x, top: sl.y, transform: 'rotate(-20deg)' }}>
+        <div ref={ref('slash')} className="absolute top-[-1.5px] h-[3px] origin-left overflow-hidden bg-[#81b64c]" style={{ left: -sl.len / 2, width: sl.len, transform: 'scaleX(0)' }}>
+          <i ref={ref('glint')} className="absolute inset-y-0 left-0 w-[14%] bg-[linear-gradient(90deg,transparent,rgba(255,255,255,.95),transparent)] opacity-0" />
+        </div>
+      </div>
 
-      <div className="relative mx-auto flex h-full max-w-md flex-col justify-between px-6 py-[18vh]">
+      <div ref={ref('card')} className="relative mx-auto flex h-full max-w-md flex-col justify-between px-6 py-[18vh]">
         {/* You */}
-        <div className="animate-vs-in-left flex items-center gap-4 self-start">
+        <div ref={ref('me')} className="flex items-center gap-4 self-start opacity-0">
           <span className="relative rounded-[8px]" style={{ boxShadow: ringFor(userColor) }}>
-            <UserAvatar size={96} className="block" />
+            <span ref={ref('meImg')} className="block overflow-hidden rounded-[8px]">
+              <UserAvatar size={96} className="block" />
+            </span>
             <span className="absolute -right-2 -bottom-2 h-9 w-9 rounded-full bg-white/95 p-1 shadow"><PieceIcon code={userColor === 'w' ? 'wK' : 'bK'} /></span>
           </span>
           <span className="text-left">
             <span className="block max-w-[46vw] truncate font-display text-3xl font-semibold">{name}</span>
-            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-black/30 px-2 py-0.5 text-xs font-semibold">
-              <Star size={11} className="fill-gold-400 text-gold-400" /> Level {level ?? '…'} · {userColor === 'w' ? 'White' : 'Black'}
+            <span ref={ref('meChip')} className="mt-1 inline-flex items-center gap-1 rounded-full bg-black/30 px-2 py-0.5 text-xs font-semibold opacity-0">
+              <Star size={11} className="fill-gold-400 text-gold-400" /> Level {level ?? <span className="skel inline-block h-3 w-4 rounded-[3px] align-middle" />} · {userColor === 'w' ? 'White' : 'Black'}
             </span>
           </span>
         </div>
 
-        <div className="animate-vs-stamp self-center font-display text-[64px] leading-none font-black tracking-tight text-white drop-shadow-[0_4px_14px_rgba(0,0,0,0.5)]">VS</div>
+        <div className="relative self-center">
+          <i ref={ref('ring')} className="pointer-events-none absolute top-1/2 left-1/2 h-24 w-24 rounded-full border-[3px] border-white opacity-0" />
+          <div ref={ref('vs')} className="font-display text-[64px] leading-none font-black tracking-tight text-white opacity-0 drop-shadow-[0_4px_14px_rgba(0,0,0,0.5)]">VS</div>
+        </div>
 
         {/* Opponent */}
-        <div className="animate-vs-in-right flex flex-col items-end gap-3 self-end">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col items-end gap-3 self-end">
+          <div ref={ref('op')} className="flex items-center gap-4 opacity-0">
             <span className="text-right">
               <span className="block font-display text-3xl font-semibold">{o ? o.name : 'Bot'}</span>
-              <span className="mt-1 inline-flex rounded-full bg-black/30 px-2 py-0.5 text-xs font-semibold">{elo}{o ? ` · ${o.tagline}` : ''}</span>
+              <span ref={ref('opChip')} className="mt-1 inline-flex rounded-full bg-black/30 px-2 py-0.5 text-xs font-semibold opacity-0">{elo}{o ? ` · ${o.tagline}` : ''}</span>
             </span>
-            {o ? (
-              <span className="block rounded-[8px]" style={{ boxShadow: ringFor(userColor === 'w' ? 'b' : 'w') }}>
-                <Portrait id={o.id} size={96} mood="happy" className="block" />
-              </span>
-            ) : (
-              <span className="h-24 w-24 rounded-[8px] bg-stone-700" style={{ boxShadow: ringFor(userColor === 'w' ? 'b' : 'w') }} />
-            )}
+            <span ref={ref('opImg')} className="block overflow-hidden rounded-[8px]" style={{ boxShadow: ringFor(userColor === 'w' ? 'b' : 'w') }}>
+              {o ? <Portrait id={o.id} size={96} mood="happy" className="block" /> : <span className="block h-24 w-24 bg-stone-700" />}
+            </span>
           </div>
           {line && (
-            <span className="animate-vs-line max-w-[85%] rounded-[10px] rounded-tr-[3px] bg-white px-3 py-2 text-left text-sm font-medium text-[#312e2b] shadow-lg">{line}</span>
+            <span ref={ref('line')} className="max-w-[85%] rounded-[10px] rounded-tr-[3px] bg-white px-3 py-2 text-left text-sm font-medium text-[#312e2b] opacity-0 shadow-lg">{line}</span>
           )}
         </div>
       </div>

@@ -5,7 +5,7 @@ import { Chessboard, defaultArrowOptions } from 'react-chessboard';
 import { isPromotion, tryMove, type MoveInput } from '../lib/chess/game';
 import { BOARD_THEMES, useSettings } from '../lib/settings';
 import { playSound } from '../lib/sound';
-import { buzz, haptic } from '../lib/motion';
+import { animate, buzz, haptic } from '../lib/motion';
 import { HAPTIC_PATTERN, moveHaptic, moveSound, premoveTargets as premoveTargetsFor, squareAtPoint } from '../lib/chess/boardfeel';
 import type { CoachArrow, CoachHighlight, Tone } from '../lib/coach/types';
 import { AlarmClock, Check, Crown, Flag, X } from 'lucide-react';
@@ -51,6 +51,8 @@ interface Props {
   lastMoveColor?: string;
   /** Once the game is over: the result marker on each king (crown, flag, #, clock, ½). */
   kingBadges?: KingBadges | null;
+  /** No move sound or haptic when the position changes (Game Review steps play their class sound instead). */
+  quiet?: boolean;
 }
 
 /** Animation length per speed setting (ms). */
@@ -61,12 +63,12 @@ const PREMOVE_COLOR = '#e05050';
 const LONG_PRESS_MS = 420;
 
 /** Plays a sound whenever the position changes by one move (yours and the opponent's differ). */
-function useMoveSounds(fen: string, lastMove: { from: string; to: string } | null | undefined, orientation: 'white' | 'black') {
+function useMoveSounds(fen: string, lastMove: { from: string; to: string } | null | undefined, orientation: 'white' | 'black', quiet = false) {
   const prev = useRef(fen);
   useEffect(() => {
     const before = prev.current;
     prev.current = fen;
-    if (before === fen || !lastMove) return;
+    if (before === fen || !lastMove || quiet) return;
     try {
       playSound(moveSound(before, fen, lastMove, orientation === 'white' ? 'w' : 'b'));
       if (useSettings.getState().haptics) {
@@ -131,7 +133,7 @@ class BoardErrorBoundary extends Component<{ children: ReactNode; onError: () =>
   }
 }
 
-function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove: realOnMove, arrows = [], highlights = [], lastMove: realLast, showCoordinates = true, confirm = false, premoveColor = null, lastMoveColor, kingBadges }: Props & { animate?: boolean }) {
+function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove: realOnMove, arrows = [], highlights = [], lastMove: realLast, showCoordinates = true, confirm = false, premoveColor = null, lastMoveColor, kingBadges, quiet = false }: Props & { animate?: boolean }) {
   // Each board needs its own id: the library looks squares up by id across the whole page.
   const [boardId] = useState(() => `board${++boardCount}`);
   const [selected, setSelected] = useState<string | null>(null);
@@ -171,7 +173,7 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
   // With confirmation on, show the move on the board but only submit it after a tap on ✓.
   const fen = pending ? pending.fen : realFen;
   const lastMove = pending ? { from: pending.move.from, to: pending.move.to } : realLast;
-  useMoveSounds(fen, lastMove, orientation);
+  useMoveSounds(fen, lastMove, orientation, quiet);
   const onMove = (m: MoveInput): boolean => {
     if (!realOnMove) return false;
     if (!confirm) return realOnMove(m);
@@ -287,6 +289,13 @@ function BoardInner({ animate = true, fen: realFen, orientation, movable, onMove
       if (mate) shadows[k.square] = 'inset 0 0 0 3px rgba(185,28,28,0.85)';
     }
   }
+  // The game is over and the loser resigned or ran out of time: their king's square glows red too.
+  if (kingBadges)
+    for (const c of ['w', 'b'] as const)
+      if (kingBadges[c] === 'resign' || kingBadges[c] === 'time') {
+        const sq = kingSquares(fen)[c];
+        if (sq) add(sq, 'radial-gradient(circle at center, rgba(250,65,45,0.85) 0%, rgba(231,30,30,0.5) 36%, rgba(169,0,0,0) 78%)');
+      }
   if (premove) {
     add(premove.from, tint('rgba(220, 60, 60, 0.45)'));
     add(premove.to, tint('rgba(220, 60, 60, 0.55)'));
@@ -495,13 +504,16 @@ const BADGE: Record<KingBadge, { bg: string; label: string }> = {
   draw: { bg: '#989795', label: 'Draw' },
 };
 
-/** chess.com's result marker on a king's square (top-right corner, kept inside the board). */
+/** chess.com's result marker on a king's square (top-right corner, kept inside the board). It pops with a twist when it appears. */
 function KingResult({ kind, sq, orientation }: { kind: KingBadge; sq: string; orientation: 'white' | 'black' }) {
   const b = BADGE[kind];
   const icon = { size: 13, strokeWidth: 2.6, color: '#fff' };
+  const el = useRef<HTMLSpanElement>(null);
+  useEffect(() => void animate(el.current, [{ transform: 'scale(0) rotate(-40deg)' }, { transform: 'scale(1.25) rotate(6deg)', offset: 0.6 }, { transform: 'scale(1)' }], { d: 380, e: 'ease-out' }), []);
   return (
     <span
-      className="animate-pop pointer-events-none absolute z-10 flex items-center justify-center rounded-full font-extrabold leading-none text-white shadow-[0_1px_2px_rgba(0,0,0,.3)] ring-2 ring-white/90"
+      ref={el}
+      className="pointer-events-none absolute z-10 flex items-center justify-center rounded-full font-extrabold leading-none text-white shadow-[0_1px_2px_rgba(0,0,0,.3)] ring-2 ring-white/90"
       style={{ ...cornerPos(sq, orientation, BADGE_SIZE), width: BADGE_SIZE, height: BADGE_SIZE, background: b.bg, fontSize: 14 }}
       role="img"
       aria-label={b.label}

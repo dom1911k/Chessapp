@@ -10,7 +10,7 @@ import { useSettings } from './settings';
 
 export type SoundName =
   | 'move' | 'moveOpp' | 'capture' | 'check' | 'castle' | 'promote' | 'gameStart' | 'gameEnd' | 'illegal' | 'premove'
-  | 'success' | 'error' | 'notify' | 'win' | 'brilliant' | 'reward' | 'type' | 'versus' | 'combo';
+  | 'notify' | 'type' | 'combo';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -356,45 +356,17 @@ export function renderSound(c: BaseAudioContext, out: AudioNode, name: SoundName
       tock(c, out, t, 1, 0.9);
       marimba(c, out, t + 0.04, 659.3, 0.16, 0.3); // E5
       break;
-    case 'success':
-      marimba(c, out, t, 523.3, 0.22); // C5
-      marimba(c, out, t + 0.11, 784, 0.2, 0.5); // G5
-      break;
-    case 'error':
-      marimba(c, out, t, 329.6, 0.2, 0.25); // E4
-      marimba(c, out, t + 0.12, 261.6, 0.2, 0.35); // C4
-      break;
     case 'notify':
       marimba(c, out, t, 440, 0.2, 0.4);
-      break;
-    case 'brilliant':
-      // A bright, rising arpeggio with a soft shimmer on top.
-      [523.3, 659.3, 784, 1046.5].forEach((f, i) => marimba(c, out, t + i * 0.07, f, 0.2, i === 3 ? 0.8 : 0.35));
-      marimba(c, out, t + 0.3, 2093, 0.05, 0.9);
-      break;
-    case 'reward':
-      marimba(c, out, t, 784, 0.18, 0.3);
-      marimba(c, out, t + 0.08, 1174.7, 0.16, 0.5);
       break;
     case 'type':
       // The coach "typing": a tiny, high, very quiet wooden tick.
       tock(c, out, t, 2.4, 0.1, 0.4);
       break;
-    case 'versus':
-      // Two heavy pieces set down, then a low, bright chord.
-      tock(c, out, t, 0.8, 1, 1.4);
-      tock(c, out, t + 0.16, 0.7, 1, 1.6);
-      [261.6, 392, 523.3].forEach((f) => marimba(c, out, t + 0.34, f, 0.14, 0.9));
-      break;
     case 'combo':
       // A quick rising run that lands on a high chime.
       [523.3, 659.3, 784, 1046.5, 1318.5].forEach((f, i) => marimba(c, out, t + i * 0.055, f, 0.16, i === 4 ? 0.9 : 0.25));
       marimba(c, out, t + 0.3, 2093, 0.06, 1);
-      break;
-    case 'win':
-      marimba(c, out, t, 523.3, 0.2);
-      marimba(c, out, t + 0.1, 659.3, 0.2);
-      marimba(c, out, t + 0.2, 784, 0.22, 0.7);
       break;
   }
 }

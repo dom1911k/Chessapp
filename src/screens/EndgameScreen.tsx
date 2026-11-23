@@ -15,7 +15,7 @@ import { drillById, type Drill } from '../lib/endgames';
 import { getEngine } from '../lib/engine';
 import { useSettings } from '../lib/settings';
 import { progress } from '../lib/progress';
-import { playSound } from '../lib/sound';
+import { sfx } from '../lib/sfx';
 import { Lightbulb, Target } from 'lucide-react';
 
 type Status = 'playing' | 'thinking' | 'won' | 'lost';
@@ -57,7 +57,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
   }, [startFen, evaluate]);
 
   const finish = async (won: boolean, msg: string) => {
-    playSound(won ? 'success' : 'error');
+    sfx(won ? 'correct' : 'fail');
     setStatus(won ? 'won' : 'lost');
     setTip(msg);
     if (won) {

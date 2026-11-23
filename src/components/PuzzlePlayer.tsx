@@ -132,7 +132,8 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
       return;
     }
     setBurst({ id: Date.now(), sq });
-    playSound(combo >= 2 ? 'combo' : 'success');
+    if (combo >= 2) playSound('combo');
+    else sfx('correct');
   };
   useEffect(() => {
     if (boardBox.current) onBoard?.({ el: boardBox.current, orientation: userColor === 'w' ? 'white' : 'black' });
@@ -194,7 +195,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     lastSq.current = m.to;
     // Path mode: the tally shows the ✗, the red ring and the friendly "bonk".
     if (!pathMode) {
-      playSound('error');
+      sfx('fail');
       setMark({ id: Date.now(), sq: m.to, ok: false });
     }
     setShake((n) => n + 1);

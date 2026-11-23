@@ -3,9 +3,9 @@
 // - values are written straight to the DOM each animation frame (no React re-render per frame);
 // - bars fill with transform: scaleX (GPU-composited), never width;
 // - ease-out (fast start, gentle settle), optional overshoot for pops;
-// - one beat at a time (useSequence), and a tap skips to the end;
+// - a tap skips to the end;
 // - "reduce motion" on the phone shows the final state at once.
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 
 export const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 export const easeOutCubic = (k: number) => 1 - Math.pow(1 - k, 3);
@@ -163,26 +163,6 @@ export function FillBar({
   );
 }
 
-/**
- * Steps through a reward sequence: step 0, then 1 after delays[0] ms, 2 after delays[1]… Returns
- * the current step and skip(), which jumps to the end (and tells components to finish instantly).
- */
-export function useSequence(delays: number[], opts: { run?: boolean } = {}) {
-  const { run = true } = opts;
-  const last = delays.length;
-  const [step, setStep] = useState(reducedMotion() ? last : 0);
-  const [skipped, setSkipped] = useState(reducedMotion());
-  useEffect(() => {
-    if (!run || step >= last) return;
-    const t = setTimeout(() => setStep((s) => s + 1), delays[step]);
-    return () => clearTimeout(t);
-  }, [run, step, last, delays]);
-  const skip = useCallback(() => {
-    setSkipped(true);
-    setStep(last);
-  }, [last]);
-  return { step, skip, skipped, done: step >= last };
-}
 
 /** Wraps content that should pop in (scale with a little overshoot) when `show` turns true. */
 export function PopIn({ show, delay = 0, children, className = '' }: { show: boolean; delay?: number; children: React.ReactNode; className?: string }) {

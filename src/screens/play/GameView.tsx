@@ -29,6 +29,9 @@ import { THEMES } from '../../lib/themes';
 import { CoachCard, CoachHistory } from './CoachCard';
 import { type ActionKind, GameActions, rematch } from './GameActions';
 import { PlayerBar } from './PlayerBar';
+import { haptic, reduced } from '../../lib/motion';
+import { sfx } from '../../lib/sfx';
+import { END_BEATS, END_STALE_MS, endStinger } from '../../lib/endBeats';
 
 /** Slim top row: back to menu, the opening (or the mode), game menu. */
 function GameTopBar({ onMenu }: { onMenu: () => void }) {
@@ -74,6 +77,27 @@ export function GameView() {
   const [view, setView] = useState<number | null>(null);
   useEffect(() => setView(null), [g.startedAt]);
   const viewing = view !== null && view < g.plies.length - 1;
+  // The game ends on the board, chess.com style: the loser's king glows, the king badges pop
+  // (260ms, with a knock), the win / loss / draw stinger (+160ms), then the results sheet (+950ms).
+  const ended = s.ending ?? s.over;
+  const [endBeat, setEndBeat] = useState(0);
+  useEffect(() => {
+    const e = s.ending;
+    const sting = e ? endStinger(e.result, g.userColor) : null;
+    if (!e || !sting) return setEndBeat(0);
+    // Opened later (or the screen came back): the final state, no sounds.
+    if (Date.now() - e.at > END_STALE_MS) return setEndBeat(2);
+    const rm = reduced();
+    const t1 = setTimeout(() => {
+      setEndBeat(1);
+      sfx('mate');
+      haptic('success');
+    }, rm ? 0 : END_BEATS.badges);
+    const t2 = setTimeout(() => sfx(sting), rm ? 0 : END_BEATS.stinger);
+    const t3 = setTimeout(() => setEndBeat(2), rm ? 300 : END_BEATS.sheet);
+    return () => [t1, t2, t3].forEach(clearTimeout);
+  }, [s.ending?.at]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sheetReady = !s.ending || endBeat >= 2;
   // Swipe on the board to step through the game (right = back, left = forward), like Game Review.
   // A gesture that starts on one of your pieces is a drag, a slow one a drawing — both left alone.
   const swipe = useRef<{ x: number; y: number; t: number; fen: string } | null>(null);
@@ -196,7 +220,7 @@ export function GameView() {
                 showCoordinates={settings.showCoordinates}
                 confirm={settings.confirmMoves}
                 premoveColor={!viewing && (s.phase === 'analyzing' || s.phase === 'botThinking') ? g.userColor : null}
-                kingBadges={s.over && !s.rewards && !viewing ? kingBadges(s.over.result, s.over.reason) : null}
+                kingBadges={ended && !viewing && (!s.ending || endBeat >= 1) ? kingBadges(ended.result, ended.reason) : null}
               />
               {viewing && (
                 <button
@@ -263,7 +287,7 @@ export function GameView() {
         </div>
       </div>
       {s.intro && <VersusIntro opponentId={g.opponentId} elo={g.elo} userColor={g.userColor} line={s.chat?.text} onDone={s.endIntro} />}
-      {s.rewards && (
+      {s.rewards && sheetReady && (
         <RewardsOverlay
           r={s.rewards}
           onClose={s.closeRewards}

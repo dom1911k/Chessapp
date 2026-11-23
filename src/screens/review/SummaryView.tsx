@@ -7,7 +7,11 @@ import { CAUSE_LESSON } from '../../lib/course';
 import { lessonById } from '../../lib/lessons/data';
 import { GraduationCap, Swords } from 'lucide-react';
 import { UserAvatar } from '../../components/UserAvatar';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { BOUNCE, SOFT, animate, reduced, sleep, token, type Token } from '../../lib/motion';
+import { GREENS, centre, emit } from '../../lib/fx';
+import { sfx } from '../../lib/sfx';
+import { countTo } from '../../lib/numbers';
 import { ChevronRight, Sparkles, TriangleAlert, Lightbulb } from 'lucide-react';
 import { Board } from '../../components/Board';
 import { EvalGraph } from '../../components/Charts';
@@ -28,6 +32,25 @@ import { THEMES } from '../../lib/themes';
 import { trapById } from '../../lib/traps';
 import type { AnyGame } from '../../lib/store/types';
 import { SquareIcon, oppName, pending, timesOf } from './shared';
+
+// The reveal plays the first time a game's review opens (remembered on this device).
+const REVEALED = 'reviewsRevealed';
+const revealedKey = (g: AnyGame) => `${g.source ?? 'app'}:${g.id ?? g.endedAt}`;
+function wasRevealed(k: string) {
+  try {
+    return (JSON.parse(localStorage.getItem(REVEALED) ?? '[]') as string[]).includes(k);
+  } catch {
+    return true;
+  }
+}
+function markRevealed(k: string) {
+  try {
+    const list = JSON.parse(localStorage.getItem(REVEALED) ?? '[]') as string[];
+    localStorage.setItem(REVEALED, JSON.stringify([...list.filter((x) => x !== k), k].slice(-300)));
+  } catch {
+    /* no storage: it will play again */
+  }
+}
 
 /** Start a rematch against a chess.com opponent's stand-in (same colours and clock). */
 async function startRematch(g: AnyGame) {
@@ -83,15 +106,108 @@ export function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; tr
   const rows = REVIEW_ORDER.filter((c) => allRows || r.me.counts[c] + r.them.counts[c] > 0);
   const resultTone = g.userResult === 'win' ? 'bg-brand-700 text-white' : g.userResult === 'loss' ? 'bg-stone-700 text-white dark:bg-stone-800' : 'bg-stone-500 text-white';
   // chess.com's accuracy boxes: the white player's white, the black player's charcoal.
-  const accNum = (acc: number, white: boolean) => (
-    <span className={`inline-flex w-[84px] justify-center rounded-[6px] py-1.5 text-[24px] leading-none font-extrabold tabular-nums ${white ? 'bg-white text-[#312e2b] ring-1 ring-black/10' : 'bg-[#403d39] text-white'}`}>
+  const accNum = (acc: number, white: boolean, mine: boolean) => (
+    <span ref={mine ? accMe : accThem} className={`inline-flex w-[84px] justify-center rounded-[6px] py-1.5 text-[24px] leading-none font-extrabold tabular-nums ${white ? 'bg-white text-[#312e2b] ring-1 ring-black/10' : 'bg-[#403d39] text-white'}`} data-testid={mine ? 'review-acc-me' : undefined}>
       {acc.toFixed(1)}
     </span>
   );
+
+  // ---------- The reveal (first open of this game's review) ----------
+  // Games played in the app are analysed during play, so the summary is ready at once: no fake wait.
+  const rvKey = revealedKey(g);
+  const [reveal] = useState(() => !pending(g) && !reduced() && !wasRevealed(rvKey));
+  const [rvDone, setRvDone] = useState(!reveal);
+  const [typed, setTyped] = useState<number | null>(reveal ? 0 : null);
+  const accMe = useRef<HTMLSpanElement>(null);
+  const accThem = useRef<HTMLSpanElement>(null);
+  const verdictBox = useRef<HTMLDivElement>(null);
+  const movesBox = useRef<HTMLDivElement>(null);
+  const startBar = useRef<HTMLDivElement>(null);
+  const rvTk = useRef<Token>(token());
+  const finishReveal = () => {
+    rvTk.current.skip = true;
+    for (const [el, v] of [[accMe.current, r.me.accuracy], [accThem.current, r.them.accuracy]] as const) {
+      if (!el) continue;
+      el.classList.remove('skel');
+      el.textContent = v.toFixed(1);
+    }
+    [verdictBox.current, movesBox.current, startBar.current].forEach((el) => el?.getAnimations({ subtree: true }).forEach((a) => a.cancel()));
+    setTyped(null);
+    setRvDone(true);
+  };
+  useLayoutEffect(() => {
+    if (!reveal) return;
+    for (const el of [accMe.current, accThem.current]) {
+      if (!el) continue;
+      el.textContent = '\u00a0';
+      el.classList.add('skel');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!reveal) return;
+    markRevealed(rvKey);
+    const tk = token();
+    rvTk.current = tk;
+    void (async () => {
+      // 1 · A shimmer, then both accuracies count up from 0 and land with a chord.
+      await sleep(250, tk);
+      if (tk.skip) return;
+      accMe.current?.classList.remove('skel');
+      accThem.current?.classList.remove('skel');
+      await Promise.all([countTo(accMe.current, 0, r.me.accuracy, 950, 1, tk), countTo(accThem.current, 0, r.them.accuracy, 950, 1, tk)]);
+      if (tk.skip) return;
+      sfx('accLand');
+      void animate(accMe.current, [{ transform: 'scale(1.12)' }, { transform: 'none' }], BOUNCE);
+      void animate(accThem.current, [{ transform: 'scale(1.05)' }, { transform: 'none' }], BOUNCE);
+      if (accMe.current) {
+        const c = centre(accMe.current);
+        emit({ x: c.x, y: c.y, n: 10, shape: 'star', colors: GREENS.concat(['#ffffff']), speed: [50, 150], life: [0.35, 0.6], size: [2, 4] });
+      }
+      // 2 · Sam's verdict rises in and types at 60 characters a second.
+      void animate(verdictBox.current, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], SOFT);
+      for (let i = 1; i <= verdict.length && !tk.skip; i++) {
+        setTyped(i);
+        await sleep(1000 / 60, tk);
+      }
+      if (tk.skip) return;
+      setTyped(null);
+      // 3 · The move-count rows tick in from the left; the Brilliant row gets its moment.
+      const rowsEls = [...(movesBox.current?.querySelectorAll<HTMLElement>('[data-rv-row]') ?? [])];
+      let k = 0;
+      for (const row of rowsEls) {
+        if (tk.skip) return;
+        void animate(row, [{ opacity: 0, transform: 'translateX(-10px)' }, { opacity: 1, transform: 'none' }], SOFT);
+        void animate(row.querySelector('.rv-ic'), [{ transform: 'scale(0)' }, { transform: 'scale(1.3)', offset: 0.6 }, { transform: 'none' }], { d: 340, delay: 60, e: 'ease-out' });
+        const brilliant = row.dataset.rvRow === 'brilliant' && Number(row.dataset.n) > 0;
+        if (brilliant) {
+          setTimeout(() => {
+            if (tk.skip) return;
+            sfx('clsBrilliant');
+            void animate(row, [{ backgroundColor: 'rgba(27,172,166,0)' }, { backgroundColor: 'rgba(27,172,166,.18)', offset: 0.3 }, { backgroundColor: 'rgba(27,172,166,.08)' }], { d: 1200, fill: 'forwards' });
+            void animate(row.querySelector('.rv-shine'), [{ transform: 'translateX(0) skewX(-20deg)', opacity: 1 }, { transform: 'translateX(700%) skewX(-20deg)', opacity: 1 }], { d: 900, e: 'ease-in-out' });
+            const ic = row.querySelector('.rv-ic');
+            if (ic) {
+              const c = centre(ic);
+              emit({ x: c.x, y: c.y, n: 12, shape: 'star', colors: ['#7ff0ea', '#1baca6', '#ffffff'], speed: [60, 200], life: [0.4, 0.8], size: [2.5, 5] });
+            }
+          }, 120);
+        } else if (Number(row.dataset.n) > 0) sfx('land', k);
+        k++;
+        await sleep(brilliant ? 260 : 110, tk);
+      }
+      if (tk.skip) return;
+      // 4 · Start Review rises in last.
+      await animate(startBar.current, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], SOFT);
+      if (!tk.skip) finishReveal();
+    })();
+    return () => {
+      tk.skip = true;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="flex h-full flex-col">
       <Header title="Game Review" back subtitle={`vs ${oppName(g)} · ${shortDate(g.endedAt)}`} />
-      <div className="mx-auto w-full max-w-xl flex-1 space-y-5 overflow-y-auto p-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+      <div className="mx-auto w-full max-w-xl flex-1 space-y-5 overflow-y-auto p-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))]" onClick={rvDone ? undefined : finishReveal}>
         {/* Hero: result, players and accuracy, and Coach Sam's take */}
         <div className="card overflow-hidden !p-0">
           <div className="flex items-center justify-center gap-2 pt-3.5">
@@ -103,12 +219,12 @@ export function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; tr
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pt-3 pb-4">
             <div className="flex flex-col items-center gap-2">
               <PlayerChip g={g} me />
-              {!pending(g) && accNum(r.me.accuracy, meWhite)}
+              {!pending(g) && accNum(r.me.accuracy, meWhite, true)}
             </div>
             <span className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase">{pending(g) ? 'vs' : 'Accuracy'}</span>
             <div className="flex flex-col items-center gap-2">
               <PlayerChip g={g} me={false} />
-              {!pending(g) && accNum(r.them.accuracy, !meWhite)}
+              {!pending(g) && accNum(r.them.accuracy, !meWhite, false)}
             </div>
             {perf && (
               <>
@@ -120,10 +236,12 @@ export function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; tr
           </div>
           <div className="flex gap-3 border-t border-stone-100 bg-stone-50/70 px-4 py-3.5 dark:border-white/[0.06] dark:bg-white/[0.02]">
             <CoachAvatar mood={g.userResult === 'loss' ? 'concerned' : 'happy'} size={36} />
-            <div className="min-w-0 flex-1 text-[14.5px] leading-snug">
+            <div ref={verdictBox} className={`min-w-0 flex-1 text-[14.5px] leading-snug ${rvDone ? '' : 'opacity-0'}`}>
               {pending(g) ? <p>I haven't analysed this chess.com game yet — it's in the queue. You can already step through the moves.</p> : (
                 <>
-                  <p className="text-[18px] leading-snug font-bold tracking-[-0.01em]" data-testid="verdict">{verdict}</p>
+                  <p className="text-[18px] leading-snug font-bold tracking-[-0.01em]" data-testid="verdict">
+                    {typed === null ? verdict : <>{verdict.slice(0, typed)}<span className="invisible">{verdict.slice(typed)}</span></>}
+                  </p>
                   {samOpen ? r.summary.map((t, i) => <p key={i} className="mt-1.5 text-stone-600 dark:text-stone-300">{t}</p>) : null}
                   {r.summary.length > 0 && (
                     <button className="mt-1.5 text-[13px] font-bold text-brand-700 dark:text-brand-500" onClick={() => setSamOpen(!samOpen)}>{samOpen ? 'Less' : 'More from Sam'}</button>
@@ -184,12 +302,15 @@ export function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; tr
         {!pending(g) && (
           <Sec title="Moves" fold startOpen remember="reviewMoves" preview={badCounts.length ? badCounts.join(' · ') : 'No mistakes from you'}>
             <div className="card !px-3 !py-2">
-              <div className="divide-y divide-stone-100 dark:divide-white/[0.05]">
+              <div ref={movesBox} className="divide-y divide-stone-100 dark:divide-white/[0.05]">
                 {rows.map((c) => (
-                  <div key={c} className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center py-1.5 text-[14px]">
+                  <div key={c} data-rv-row={c} data-n={r.me.counts[c] + r.them.counts[c]} className={`relative grid grid-cols-[2.5rem_1fr_2.5rem] items-center overflow-hidden rounded-[6px] py-1.5 text-[14px] ${rvDone ? '' : 'opacity-0'}`}>
+                    <span className="rv-shine pointer-events-none absolute inset-y-0 -left-1/4 w-1/6 skew-x-[-20deg] bg-white/40 opacity-0" />
                     <span className={`text-center font-bold tabular-nums ${r.me.counts[c] ? classInk(c).className : 'opacity-25'}`} style={r.me.counts[c] ? classInk(c).style : undefined}>{r.me.counts[c]}</span>
                     <span className="flex items-center justify-center gap-2">
-                      <ReviewIcon cls={c} size={18} />
+                      <span className="rv-ic inline-flex">
+                        <ReviewIcon cls={c} size={18} />
+                      </span>
                       <span className="w-24">{RC[c].label}</span>
                     </span>
                     <span className={`text-center font-bold tabular-nums ${r.them.counts[c] ? classInk(c).className : 'opacity-25'}`} style={r.them.counts[c] ? classInk(c).style : undefined}>{r.them.counts[c]}</span>
@@ -293,7 +414,7 @@ export function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; tr
           </div>
         )}
       </div>
-      <div className="safe-bottom fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.08] bg-white px-4 pt-2.5 pb-2 dark:border-white/[0.06] dark:bg-stone-900">
+      <div ref={startBar} className={`safe-bottom fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.08] bg-white px-4 pt-2.5 pb-2 dark:border-white/[0.06] dark:bg-stone-900 ${rvDone ? '' : 'opacity-0'}`}>
         <div className="mx-auto flex max-w-xl gap-2">
           <button className="btn-primary !min-h-14 flex-1 text-[17px] !font-extrabold" onClick={() => onStart(-1)}>
             <Sparkles size={18} /> Start Review
