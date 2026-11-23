@@ -184,6 +184,7 @@ function Session({ onExit }: { onExit: () => void }) {
               spec={item.spec}
               onFinish={async (r) => {
                 d.markResult(d.index, r.success);
+                pt.begin();
                 const o = await recordAttempt(item.spec, r.success, r.hintsUsed, item.source, { seconds: r.seconds, correctMoves: r.correctMoves, path: item.source === 'review' ? 'review' : 'full' });
                 setOutcome(o);
                 await pt.show(o.path, r.success, r.square);
@@ -196,6 +197,7 @@ function Session({ onExit }: { onExit: () => void }) {
               nextLabel={d.index === d.items.length - 1 ? 'Finish' : 'Next puzzle'}
               pathMode
               onBoard={pt.onBoard}
+              onAgain={pt.reset}
               overlay={pt.boardOverlay}
               progress={pt.path ? <LivePathCard rating={showRating ? (outcome?.ratingAfter ?? null) : null} ratingDelta={showRating && outcome?.ratingAfter !== undefined && outcome.ratingBefore !== undefined ? outcome.ratingAfter - outcome.ratingBefore : null} onTap={pt.active ? pt.tap : undefined} extra={pt.landed ? <SkillStrip key={d.index} themes={item.spec.themes} /> : undefined} /> : undefined}
             />

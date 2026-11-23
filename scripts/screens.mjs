@@ -13,6 +13,9 @@
 // step), match (clocks: start, mid-game, low time, a premove, a flag), puzzle (hint, solution),
 // rated (the Puzzle Path card, and after a solve's tally),
 // promotion (Analysis), settings, collection, tabs (Puzzles, Learn, More, Cups).
+// Puzzle path QA (opt-in, slow: --only=path, or by name): tally, levelup, tierup, moments, fail,
+// warmup, prompts, hint, pathscreen, worlds, howpoints, hub, dailytally, rush. They put the path
+// where they need it with the dev-only window.__path setter.
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
@@ -390,6 +393,177 @@ async function run([W, H], scheme) {
       }
       await shot('puzzle-rated-solved');
     }
+    await home();
+  }
+
+  // ---- Puzzle path QA (opt-in: --only=path, or any of these names) ----
+  const P = (k) => !!ONLY && (ONLY.includes(k) || ONLY.includes('path'));
+  /** Put the path anywhere: a fresh state plus the patch; `at: [board, level, offset]` sets the points, `seenAt` the last-seen. */
+  const setPath = (patch) =>
+    p.evaluate(async (patch) => {
+      const find = (n) => performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n) && !x.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n));
+      const db = await import(find('/src/lib/db.ts'));
+      const path = await import(find('/src/lib/puzzles/path.ts'));
+      const T = db.today();
+      const o = JSON.parse(patch.replaceAll('TODAY', T).replaceAll('YESTERDAY', path.prevDay(T)));
+      if (o.at) {
+        o.points = path.pointsAtLevel(o.at[0], o.at[1]) + (o.at[2] ?? 0);
+        o.seen = o.seen ?? o.points;
+        delete o.at;
+      }
+      if (o.seenAt) {
+        o.seen = path.pointsAtLevel(o.seenAt[0], o.seenAt[1]) + (o.seenAt[2] ?? 0);
+        delete o.seenAt;
+      }
+      await window.__path({ ...path.newPathState(null), ladderStart: 650, ...o });
+    }, JSON.stringify(patch));
+  /** Solve the open puzzle by tapping its moves (or play one wrong move). Resolves when the last move is in. */
+  const solveOpen = async ({ wrong = false } = {}) => {
+    const plan = await p.evaluate(async (wrong) => {
+      const find = (n) => performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n) && !x.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n));
+      const { tryMove } = await import(find('/src/lib/chess/game.ts'));
+      const s = window.__puzzle;
+      if (!s) return null;
+      const fen = s.setup ? tryMove(s.fen, s.setup).fen : s.fen;
+      const side = fen.split(' ')[1];
+      if (!wrong) return { moves: s.solution.filter((_, i) => i % 2 === 0), side };
+      const F = 'abcdefgh';
+      for (const a of F) for (let r = 1; r <= 8; r++) for (const b of F) for (let q = 1; q <= 8; q++) {
+        const u = `${a}${r}${b}${q}`;
+        const m = u !== s.solution[0].slice(0, 4) && tryMove(fen, u);
+        if (m && !m.move.promotion) return { moves: [u], side };
+      }
+      return null;
+    }, wrong);
+    if (!plan) return false;
+    const o = plan.side === 'w' ? 'white' : 'black';
+    for (const [i, u] of plan.moves.entries()) {
+      await tap(p, u.slice(0, 2), o);
+      await p.waitForTimeout(250);
+      await tap(p, u.slice(2, 4), o);
+      if (u.length === 5) {
+        await p.waitForTimeout(400);
+        await tap(p, u.slice(2, 4), o);
+      }
+      if (i < plan.moves.length - 1) await p.waitForTimeout(1600);
+    }
+    return true;
+  };
+  /** Screenshots at times (ms) after `t0`. */
+  const shotsAt = async (t0, list) => {
+    for (const [ms, name] of list) {
+      const wait = t0 + ms - Date.now();
+      if (wait > 0) await p.waitForTimeout(wait);
+      await shot(name);
+    }
+  };
+  const rated = async (patch, list, opts = {}) => {
+    await setPath(patch);
+    await push({ name: 'puzzle', mode: { kind: 'rated' } });
+    await p.waitForTimeout(3500);
+    if (opts.hint) {
+      const h = p.getByRole('button', { name: /^Hint/ });
+      if (await h.count()) await h.first().click();
+      await p.waitForTimeout(800);
+    }
+    if (opts.before) await shot(opts.before);
+    if (await solveOpen({ wrong: opts.wrong })) await shotsAt(Date.now(), list);
+    await home();
+    await p.waitForTimeout(400);
+  };
+  if (P('tally')) await rated({ at: [0, 3, 0], streak: 2 }, [[1850, 'path-tally-impact'], [2450, 'path-tally-orb'], [5200, 'path-tally-done']]);
+  if (P('levelup')) await rated({ at: [0, 5, -5] }, [[4700, 'path-levelup-open'], [5850, 'path-levelup-hop'], [7600, 'path-levelup-overlay']]);
+  if (P('tierup')) await rated({ at: [1, 1, -5] }, [[5800, 'path-tierup-clouds'], [8000, 'path-tierup-overlay'], [10000, 'path-tierup-card']]);
+  if (P('moments')) {
+    await rated({ at: [0, 6, 0], dailyDay: 'TODAY', dailyCount: 2 }, [[5500, 'path-mom-daily3'], [7400, 'path-mom-daily3-orb']]);
+    await rated({ at: [0, 6, 0], dailyDay: 'TODAY', dailyCount: 9 }, [[5700, 'path-mom-daily10'], [7600, 'path-mom-daily10-orb']]);
+    await rated({ at: [0, 6, 0], streak: 14 }, [[6200, 'path-mom-streak15'], [8000, 'path-mom-streak15-orb']]);
+    await rated({ at: [0, 6, 0], cleanSolved: 99 }, [[5800, 'path-mom-solved100'], [7600, 'path-mom-solved100-orb']]);
+    await rated({ at: [0, 6, 0], dailyDay: 'TODAY', dailyCount: 2, weekRun: 6, weekDay: 'YESTERDAY' }, [[8700, 'path-mom-week-chained'], [10600, 'path-mom-week']]);
+  }
+  if (P('fail')) await rated({ at: [0, 3, 0], streak: 5 }, [[1300, 'path-fail-streak-ended']], { wrong: true });
+  if (P('warmup')) {
+    // Three misses in a row: the next puzzle opens with the warm-up line and a more helpful prompt.
+    await setPath({ at: [0, 8, 0], missesInARow: 3, ease: -150 });
+    await push({ name: 'puzzle', mode: { kind: 'rated' } });
+    await p.waitForTimeout(3500);
+    await shot('path-warmup');
+    await home();
+  }
+  if (P('prompts')) {
+    for (const [name, at] of [['wood', [0, 3, 0]], ['silver', [3, 5, 0]], ['champion', [6, 5, 0]]]) {
+      await setPath({ at });
+      await push({ name: 'puzzle', mode: { kind: 'rated' } });
+      await p.waitForTimeout(3500);
+      await shot(`path-prompt-${name}`);
+      await home();
+    }
+  }
+  if (P('hint')) await rated({ at: [0, 3, 0], streak: 3 }, [[2600, 'path-hint-solve']], { hint: true });
+  if (P('pathscreen')) {
+    await setPath({ at: [0, 4, 0], seenAt: [0, 1, 0] });
+    await push({ name: 'puzzlePath' });
+    await shotsAt(Date.now(), [[1250, 'path-screen-walk'], [4200, 'path-screen-wood4']]);
+    await home();
+    await setPath({ at: [1, 1, 10], seenAt: [0, 19, 0] });
+    await push({ name: 'puzzlePath' });
+    await shotsAt(Date.now(), [[1200, 'path-screen-crossing'], [1900, 'path-screen-newboard'], [4500, 'path-screen-stone1']]);
+    await home();
+  }
+  if (P('worlds')) {
+    for (const [b, name] of ['wood', 'stone', 'bronze', 'silver', 'crystal', 'elite', 'champion', 'legend'].entries()) {
+      await setPath({ at: [b, 6, 0] });
+      await push({ name: 'puzzlePath' });
+      await p.waitForTimeout(1500);
+      await shot(`path-world-${name}`);
+      await home();
+    }
+  }
+  if (P('howpoints')) {
+    await setPath({ at: [1, 4, 0] });
+    await push({ name: 'puzzlePath' });
+    await p.waitForTimeout(1200);
+    await p.locator('[data-testid=how-points]').click();
+    await p.waitForTimeout(600);
+    await shot('path-how-points');
+    await home();
+  }
+  if (P('hub')) {
+    await setPath({ at: [0, 4, 30], seenAt: [0, 2, 0], streak: 4, dailyDay: 'TODAY', dailyCount: 2 });
+    await p.evaluate(() => window.__nav.getState().setTab('puzzles'));
+    await p.waitForTimeout(1800);
+    await shot('path-hub');
+    await home();
+    await p.waitForTimeout(1200);
+    await p.locator('text=/Wood 4/').first().scrollIntoViewIfNeeded().catch(() => {});
+    await p.waitForTimeout(400);
+    await shot('path-home-row');
+  }
+  if (P('dailytally')) {
+    await setPath({ at: [0, 3, 0] });
+    await push({ name: 'daily' });
+    await p.waitForTimeout(2000);
+    await p.locator('button:has-text("Start training"), button:has-text("Train some more"), button:has-text("Continue session")').first().click();
+    await p.waitForTimeout(3500);
+    if (await solveOpen()) await shotsAt(Date.now(), [[2400, 'path-daily-tally'], [6000, 'path-daily-done']]);
+    await home();
+  }
+  if (P('rush')) {
+    // Survival: one solve, then three misses end it; a first best earns "Rush record".
+    await setPath({ at: [0, 3, 0] });
+    await push({ name: 'rush', mode: 'survival' });
+    await p.waitForTimeout(3000);
+    const start = p.locator('button:has-text("Start")');
+    if (await start.count()) await start.first().click();
+    await p.waitForTimeout(2500);
+    await solveOpen();
+    await p.waitForTimeout(1500);
+    for (let i = 0; i < 3; i++) {
+      await solveOpen({ wrong: true });
+      await p.waitForTimeout(1500);
+    }
+    await p.waitForTimeout(2500);
+    await shot('path-rush-record');
     await home();
   }
 

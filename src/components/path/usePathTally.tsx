@@ -153,6 +153,10 @@ export function usePathTally(opts: PathTallyOpts = {}) {
     usePathUi.getState().set({ gain: 0 });
   };
 
+  /** Before recordAttempt: hold toasts (player level, achievements) until the tally has landed. */
+  const begin = () => useCelebrate.getState().setHold(true, { queue: true });
+  const release = () => useCelebrate.getState().setHold(false);
+
   /** After recordAttempt: show what was awarded (already saved). */
   const show = async (a: PathAward | undefined, success: boolean, square: string | undefined) => {
     lastSquare.current = square;
@@ -161,7 +165,10 @@ export function usePathTally(opts: PathTallyOpts = {}) {
     setPath(saved);
     live.current = { ...live.current, award: a ?? null, path: saved };
     const b = board.current;
-    if (!a || !b || !square) return syncPathUi(saved, a?.total ?? 0);
+    if (!a || !b || !square) {
+      release();
+      return syncPathUi(saved, a?.total ?? 0);
+    }
     if (!success) {
       // A miss: a red ✗ and ring, the friendly "bonk"; the flame goes out. The bar doesn't move.
       boardMark(b, square, 'bad');
@@ -169,9 +176,13 @@ export function usePathTally(opts: PathTallyOpts = {}) {
       sfx('fail');
       buzz(40);
       if (a.streakLost) flameOut();
+      release();
       return syncPathUi(saved, 0);
     }
-    if (!a.parts.length) return syncPathUi(saved, 0);
+    if (!a.parts.length) {
+      release();
+      return syncPathUi(saved, 0);
+    }
     const tk = token();
     tally.current = tk;
     setTallying(true);
@@ -196,5 +207,5 @@ export function usePathTally(opts: PathTallyOpts = {}) {
     </>
   );
 
-  return { path, award, onBoard, show, reset, tap, active, landed, boardOverlay, panels, openPath };
+  return { path, award, onBoard, begin, show, reset, tap, active, landed, boardOverlay, panels, openPath };
 }

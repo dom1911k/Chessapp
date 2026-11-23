@@ -105,6 +105,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
 
   const onFinish = async (r: PuzzleResult) => {
     if (!spec) return;
+    if (pathSource !== 'none') pt.begin();
     const o = await recordAttempt(spec, r.success, r.hintsUsed, source, { seconds: r.seconds, correctMoves: r.correctMoves, path: pathSource });
     if (mode.kind === 'yours' && r.success) void kvGet<string[]>(YOURS_KEY, []).then((d) => kvSet(YOURS_KEY, [...d, spec.id].slice(-2000)));
     if (mode.kind === 'dailyPuzzle' && r.success) {
@@ -165,6 +166,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
             solvedStreak={streak}
             pathMode={pathSource !== 'none'}
             onBoard={pt.onBoard}
+            onAgain={pt.reset}
             overlay={
               <>
                 {banner && <ComboBanner key={banner.id} id={banner.id} streak={banner.streak} />}

@@ -51,6 +51,8 @@ interface Props {
   pathMode?: boolean;
   /** The board element and orientation, for the tally's chips. */
   onBoard?: (b: BoardRef) => void;
+  /** "Again" after the puzzle: the screen clears what the last attempt left (tally, level-up). */
+  onAgain?: () => void;
   /** Solved in how many puzzles in a row (for the coach's line). */
   solvedStreak?: number;
   /** Puzzle Rush: no hints or explanations, a wrong move ends the puzzle, auto-advance. */
@@ -63,7 +65,7 @@ interface Props {
   failOnWrong?: boolean;
 }
 
-export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle', footer, progress, markDelayMs = 0, pathMode = false, onBoard, solvedStreak = 0, fast = false, combo = 0, overlay, failOnWrong = false }: Props) {
+export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle', footer, progress, markDelayMs = 0, pathMode = false, onBoard, onAgain, solvedStreak = 0, fast = false, combo = 0, overlay, failOnWrong = false }: Props) {
   const push = useNav((n) => n.push);
   const startFen = useMemo(() => (spec.setup ? tryMove(spec.fen, spec.setup)!.fen : spec.fen), [spec]);
   const userColor = startFen.split(' ')[1] as 'w' | 'b';
@@ -263,6 +265,8 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
   };
 
   const again = () => {
+    onAgain?.();
+    boardBox.current?.querySelectorAll('.pp-mark,.pp-chip,.pp-ring').forEach((e) => e.remove());
     setFailed(false); setHints(0); setHint(null); setMark(null); setBurst(null); setIdx(0); setFen(startFen); setLast(null); setWhy(false);
     startedAt.current = Date.now(); setSecs(0); setState('solving');
   };
