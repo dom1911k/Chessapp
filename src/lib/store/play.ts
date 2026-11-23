@@ -19,7 +19,7 @@ import { CancelledError, getEngine, type AnalysisResult } from '../engine';
 import { analysisLimits } from '../engine/speed';
 import { useSettings } from '../settings';
 import { playSound } from '../sound';
-import { opponentById, pickLine, type ChatEvent, type Mood } from '../people';
+import { opponentById, pickLine, wantsSummaryLine, type ChatEvent, type Mood } from '../people';
 import { bookMove, REPERTOIRES } from '../people/openings';
 import { detectOpening } from '../openings';
 import { useCelebrate } from '../celebrate';
@@ -265,7 +265,8 @@ export const usePlay = create<PlayStore>((set, get) => {
     post({ kind: 'result', text: lines, mood: userResult === 'loss' ? 'concerned' : 'happy' });
     // The opponent's take on the game.
     const o = opponentById(g.opponentId);
-    if (o && rec) {
+    // Not after a game too short to judge (resigned early, or fewer than 10 of your moves).
+    if (o && rec && wantsSummaryLine(rec.plies.filter((p) => p.isUser).length)) {
       const big = rec.summary.biggestMistakePly !== null ? rec.plies[rec.summary.biggestMistakePly] : null;
       const event = big ? 'summaryMistake' : 'summaryGood';
       sayLater(cap(pickLine(o, event).replace('{move}', big ? moveWords(big.fenBefore, big.uci, 'you', 'ger', false) : '')), big ? 'neutral' : 'happy', 2600);

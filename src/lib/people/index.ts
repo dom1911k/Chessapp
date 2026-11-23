@@ -350,3 +350,7 @@ export function portraitColors(id: string): [string, string] {
   const c = (looks as Record<string, { bg?: { colors?: string[] } }>)[id]?.bg?.colors;
   return c && c.length >= 2 ? [c[0], c[1]] : ['#e7e5e4', '#a8a29e'];
 }
+
+/** The opponent's summary line ("A nice, careful game from you") only fits a game with at least 10 of your moves. */
+export const SUMMARY_MIN_MOVES = 10;
+export const wantsSummaryLine = (userMoves: number) => userMoves >= SUMMARY_MIN_MOVES;

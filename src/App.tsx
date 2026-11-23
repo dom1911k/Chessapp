@@ -56,6 +56,7 @@ import { CupsTab } from './cups/screens/CupsTab';
 import { useRunFlag } from './cups/flag';
 import { startImports } from './lib/chesscom/store';
 import { preloadSounds } from './lib/sound';
+import { ISO } from './lib/puzzles/world';
 
 const TABS: { tab: Tab; label: string; icon: LucideIcon }[] = [
   { tab: 'play', label: 'Home', icon: House },
@@ -328,6 +329,10 @@ export function App() {
       <WebUpdateBanner />
       <CelebrationLayer />
       <FxCanvas />
+      {/* The puzzle path world's shared gradients (clouds, soft shadows, hedges, the pawn), once for every world on screen. */}
+      <svg width="0" height="0" aria-hidden="true" style={{ position: 'absolute' }}>
+        <defs dangerouslySetInnerHTML={{ __html: ISO.defs() as string }} />
+      </svg>
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 bottom-20 flex justify-center">
           <div className="rounded-full bg-stone-800 px-4 py-2 text-sm text-white shadow-lg">Press back again to exit — your game is saved</div>

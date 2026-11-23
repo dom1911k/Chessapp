@@ -500,7 +500,12 @@ async function run([W, H], scheme) {
     }
   }
   if (P('hint')) await rated({ at: [0, 3, 0], streak: 3 }, [[2600, 'path-hint-solve']], { hint: true });
+  /** The world's shared gradients are mounted once at the app root (hedge tops, clouds, shadows). */
+  const checkDefs = async (name) => {
+    if (!(await p.evaluate(() => !!document.getElementById('hedgeTop')))) errors.push(`${name}: the path world's shared gradients (#hedgeTop) are missing`);
+  };
   if (P('pathscreen')) {
+    await checkDefs('pathscreen');
     await setPath({ at: [0, 4, 0], seenAt: [0, 1, 0] });
     await push({ name: 'puzzlePath' });
     await shotsAt(Date.now(), [[1250, 'path-screen-walk'], [4200, 'path-screen-wood4']]);
@@ -511,6 +516,7 @@ async function run([W, H], scheme) {
     await home();
   }
   if (P('worlds')) {
+    await checkDefs('worlds');
     for (const [b, name] of ['wood', 'stone', 'bronze', 'silver', 'crystal', 'elite', 'champion', 'legend'].entries()) {
       await setPath({ at: [b, 6, 0] });
       await push({ name: 'puzzlePath' });
