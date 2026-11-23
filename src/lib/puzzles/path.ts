@@ -453,3 +453,12 @@ export async function markPathSeen(points: number): Promise<void> {
     if (points > s.seen) await savePathState({ ...s, seen: Math.min(points, s.points) });
   }).catch(() => undefined));
 }
+
+// Dev only: put the path anywhere (just below a level or a board) for screenshots and testing.
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  (window as unknown as { __path: (p: Partial<PathState>) => Promise<PathState> }).__path = async (p) => {
+    const s = { ...(await getPathState()), ...p };
+    await savePathState(s);
+    return s;
+  };
+}

@@ -527,3 +527,30 @@ time {
 .odo .st { display: block; transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.25, 1); }
 .odo .st i { display: block; height: 1em; font-style: normal; }
 .pp-sweep { position: absolute; top: 0; bottom: 0; left: 0; width: 45%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent); transform: translateX(-150%); pointer-events: none; }
+
+/* ---------- Puzzle Path world (ported from the prototype): ambient life, transform/opacity only ---------- */
+.isoW .cloud{animation:ppdrift 9s ease-in-out infinite}
+@keyframes ppdrift{0%,100%{transform:translateX(0)}50%{transform:translateX(var(--dx,8px))}}
+.isoW .smoke{animation:ppsmoke 3s ease-in-out infinite;transform-box:fill-box}
+@keyframes ppsmoke{0%,100%{transform:translateY(0);opacity:1}50%{transform:translateY(-3px);opacity:.8}}
+.isoW .wave{animation:ppwave 1.6s ease-in-out infinite;transform-box:fill-box;transform-origin:0 50%}
+@keyframes ppwave{0%,100%{transform:skewY(0)}50%{transform:skewY(-6deg)}}
+.isoW .tin{transform-box:fill-box;transform-origin:50% 50%}
+.isoW .chk{transform-box:fill-box;transform-origin:50% 60%}
+/* the next tile breathes a ring: "you're going here" */
+.isoW .nring{fill:none;stroke:#fff;stroke-width:2;transform-box:fill-box;transform-origin:50% 50%;animation:nring 1.9s ease-out infinite}
+@keyframes nring{0%{transform:scale(.92);opacity:.85}100%{transform:scale(1.4);opacity:0}}
+/* the pawn breathes, its tag bobs, pollen drifts */
+.isoW .pb{transform-box:fill-box;transform-origin:50% 100%;animation:breathe 2.6s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.02,1.035)}}
+.isoW .tb{animation:ppbob 2.2s ease-in-out infinite}
+@keyframes ppbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
+.isoW .pollen{fill:#fffbe6;transform-box:fill-box;animation:pollen 7s ease-in-out infinite;opacity:0}
+@keyframes pollen{0%{transform:translate(0,0);opacity:0}25%{opacity:.85}100%{transform:translate(var(--px,10px),-34px);opacity:0}}
+.isoW .rip{fill:none;stroke:#fff;stroke-width:2;transform-box:fill-box;transform-origin:50% 50%}
+/* soft light over the world: warm from the top left, a gentle vignette */
+.wlight{position:absolute;inset:0;pointer-events:none;background:linear-gradient(140deg,rgba(255,236,190,.16),rgba(255,236,190,0) 45%),radial-gradient(ellipse 120% 90% at 45% 40%,transparent 58%,rgba(10,20,8,.32))}
+/* level overlay: slow rays behind the badge */
+@media (prefers-reduced-motion: reduce) { .isoW * { animation: none !important; } }
+.pp-reduced .isoW * { animation: none !important; }
+@keyframes ppspin { to { transform: rotate(360deg); } }

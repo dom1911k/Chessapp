@@ -16,7 +16,8 @@ import { ComboBanner } from '../components/PuzzleFx';
 import { LiveCrest, LiveDots, LiveFlame, LivePathCard } from '../components/path/PathUI';
 import { usePathUi } from '../lib/puzzles/pathUi';
 import { barAt, boardMark, boardRing, clearBoardFx, flameOut, runTally, type BoardRef } from '../lib/puzzles/tally';
-import { buzz, token, type Token } from '../lib/motion';
+import { buzz, reduced, token, type Token } from '../lib/motion';
+import { LevelBanner, LevelUpPanel, TierUpCard } from '../components/path/LevelUp';
 import { sfx } from '../lib/sfx';
 import { getPathState, type PathAward, type PathSource, type PathState } from '../lib/puzzles/path';
 import { useSettings } from '../lib/settings';
@@ -62,6 +63,10 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   const onBoard = useCallback((b: BoardRef) => (board.current = b), []);
   const tally = useRef<Token | null>(null);
   const [tallying, setTallying] = useState(false);
+  // After the tally: the level-up panel (or a banner when animations are reduced), then a new-board card.
+  const [levelUp, setLevelUp] = useState<{ from: number; to: number; instant: boolean } | null>(null);
+  const [banner2, setBanner2] = useState<number | null>(null);
+  const [tierCard, setTierCard] = useState<number | null>(null);
   /** Show the saved state in the header and card (no gain). */
   const syncUi = (st: PathState, gain = 0) => usePathUi.getState().set({ points: st.points, streak: st.streak, daily: st.dailyDay === today() ? st.dailyCount : 0, gain });
   useEffect(() => {
@@ -82,6 +87,9 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   const load = useCallback(async () => {
     endTally();
     clearBoardFx(board.current);
+    setLevelUp(null);
+    setBanner2(null);
+    setTierCard(null);
     setSpec(null);
     setOutcome(null);
     setBanner(null);
@@ -164,8 +172,8 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
         setTallying(true);
         useCelebrate.getState().setHold(true, { queue: true });
         const sq = r.square;
-        await runTally(a, b, sq, tk, { onMark: () => boardMark(b, sq, 'good') });
-        if (tally.current === tk) finishTally(a, saved, sq);
+        const natural = await runTally(a, b, sq, tk, { onMark: () => boardMark(b, sq, 'good') });
+        if (tally.current === tk) finishTally(a, saved, sq, !natural);
       }
     } else syncUi(saved, a?.total ?? 0);
     const streakNow = a?.streak ?? 0;
@@ -173,7 +181,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   };
 
   /** End the tally where it stands: chips gone, final numbers, the ✓, celebrations released. */
-  const finishTally = (a: PathAward, saved: PathState, sq: string) => {
+  const finishTally = (a: PathAward, saved: PathState, sq: string, skipped = true) => {
     if (tally.current) tally.current.skip = true;
     tally.current = null;
     setTallying(false);
@@ -186,6 +194,12 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
     syncUi(saved, a.total);
     barAt(saved.points);
     useCelebrate.getState().setHold(false);
+    if (a.levelsCrossed.length) {
+      if (reduced()) {
+        setBanner2(a.after);
+        if (a.boardUp !== undefined) setTimeout(() => setTierCard(a.boardUp!), 900);
+      } else setLevelUp({ from: a.before, to: a.after, instant: skipped });
+    }
   };
   // The latest award and saved state, for skipping from memoised callbacks (Next).
   const live = useRef<{ award: PathAward | null; path: PathState | null }>({ award: null, path: null });
@@ -244,6 +258,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
                 {banner && <ComboBanner key={banner.id} id={banner.id} streak={banner.streak} />}
                 {/* A tap on the board during the tally finishes it. */}
                 {tallying && <div className="absolute inset-0 z-40" onClick={skipTally} data-testid="tally-skip" />}
+                {banner2 !== null && <LevelBanner points={banner2} onDone={() => setBanner2(null)} />}
               </>
             }
             failOnWrong={rated}
@@ -266,6 +281,8 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
           />
         )}
       </div>
+      {levelUp && board.current && <LevelUpPanel key={`${levelUp.from}-${levelUp.to}`} from={levelUp.from} to={levelUp.to} board={board.current.el} instant={levelUp.instant} onTierCard={setTierCard} />}
+      {tierCard !== null && <TierUpCard board={tierCard} onClose={() => setTierCard(null)} />}
     </div>
   );
 }
