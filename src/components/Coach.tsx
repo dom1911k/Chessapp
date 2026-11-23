@@ -69,6 +69,7 @@ export function CoachBubble({
   icon,
   className = '',
   corner,
+  round = false,
 }: {
   children: ReactNode;
   mood?: 'happy' | 'concerned' | 'thinking';
@@ -85,10 +86,18 @@ export function CoachBubble({
   className?: string;
   /** A small control in the top-right corner (e.g. "this explanation seems wrong"). */
   corner?: ReactNode;
+  /** chess.com's puzzle coach: a 46px round avatar with a white ring and a soft shadow. */
+  round?: boolean;
 }) {
   return (
     <div className={`flex items-start gap-2.5 ${compact ? 'opacity-75' : 'animate-pop'}`}>
-      <CoachAvatar mood={mood} size={compact ? 32 : 40} />
+      {round ? (
+        <div className="h-[46px] w-[46px] shrink-0 overflow-hidden rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.3)] ring-2 ring-white">
+          <CoachAvatar mood={mood} size={46} />
+        </div>
+      ) : (
+        <CoachAvatar mood={mood} size={compact ? 32 : 40} />
+      )}
       <div
         className={`surface-light relative min-w-0 flex-1 rounded-[10px] bg-white text-[#312e2b] shadow-[0_1px_2px_rgba(0,0,0,0.14)] ring-1 ring-black/[0.06] ${compact ? 'px-3 py-2 text-sm' : 'px-3.5 py-3 text-[15px]'} leading-snug ${className}`}
       >

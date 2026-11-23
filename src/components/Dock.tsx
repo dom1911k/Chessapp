@@ -28,7 +28,7 @@ export function DockButton({ label, icon, onClick, disabled, primary, ariaLabel 
 }
 
 /** The main action of the screen: wide, on the right, the green chess.com button. */
-export function DockMain({ children, onClick, disabled, quiet, ariaLabel }: { children: ReactNode; onClick: () => void; disabled?: boolean; /** A secondary look, for when the main action is not the recommended one. */ quiet?: boolean; ariaLabel?: string }) {
+export function DockMain({ children, onClick, disabled, quiet, chess, ariaLabel }: { children: ReactNode; onClick: () => void; disabled?: boolean; /** A secondary look, for when the main action is not the recommended one. */ quiet?: boolean; /** chess.com's Next button: a green gradient on a 4px lip it sinks into. */ chess?: boolean; ariaLabel?: string }) {
   return (
     <button
       disabled={disabled}
@@ -37,7 +37,9 @@ export function DockMain({ children, onClick, disabled, quiet, ariaLabel }: { ch
       className={`flex flex-[2.2] items-center justify-center gap-1.5 rounded-[10px] px-4 text-[15px] font-bold transition duration-75 disabled:opacity-35 ${
         quiet
           ? 'bg-stone-100 text-stone-800 active:bg-stone-200 dark:bg-stone-800 dark:text-stone-100'
-          : 'bg-brand-500 text-white [text-shadow:0_1px_0_rgba(0,0,0,0.18)] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_3px_0_var(--color-brand-800)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_0_var(--color-brand-800)]'
+          : chess
+            ? 'mb-[4px] bg-[linear-gradient(#8fc45a,#81b64c_55%,#78ad44)] text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.25)] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_4px_0_#45753c] active:translate-y-[3px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_1px_0_#45753c]'
+            : 'bg-brand-500 text-white [text-shadow:0_1px_0_rgba(0,0,0,0.18)] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_3px_0_var(--color-brand-800)] active:translate-y-[2px] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_0_var(--color-brand-800)]'
       }`}
     >
       {children}

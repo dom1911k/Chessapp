@@ -11,6 +11,7 @@
 // Scenarios: home, coached (versus intro, start, 1.e4, a selected piece, 2.Qh5, the pre-check,
 // the coached mistake, game over, the board after the results, the ⋯ sheet), review (summary and a
 // step), match (clocks: start, mid-game, low time, a premove, a flag), puzzle (hint, solution),
+// rated (the Puzzle Path card, and after a solve's tally),
 // promotion (Analysis), settings, collection, tabs (Puzzles, Learn, More, Cups).
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
@@ -360,6 +361,35 @@ async function run([W, H], scheme) {
       await p.waitForTimeout(2500);
     }
     await shot('puzzle-solution');
+    await home();
+  }
+
+  if (want('rated')) {
+    // The Puzzle Path: a rated puzzle with the path card, then after the tally (points saved first).
+    await push({ name: 'puzzle', mode: { kind: 'rated' } });
+    await p.waitForTimeout(3500);
+    await shot('puzzle-rated');
+    const plan = await p.evaluate(async () => {
+      const find = (n) => performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n) && !x.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n));
+      const { tryMove } = await import(find('/src/lib/chess/game.ts'));
+      const s = window.__puzzle;
+      if (!s) return null;
+      return { sol: s.solution, side: (s.setup ? tryMove(s.fen, s.setup).fen : s.fen).split(' ')[1] };
+    });
+    if (plan) {
+      const o = plan.side === 'w' ? 'white' : 'black';
+      for (let i = 0; i < plan.sol.length; i += 2) {
+        await tap(p, plan.sol[i].slice(0, 2), o);
+        await p.waitForTimeout(250);
+        await tap(p, plan.sol[i].slice(2, 4), o);
+        if (plan.sol[i].length === 5) {
+          await p.waitForTimeout(400);
+          await tap(p, plan.sol[i].slice(2, 4), o);
+        }
+        await p.waitForTimeout(i + 2 < plan.sol.length ? 1600 : 7000);
+      }
+      await shot('puzzle-rated-solved');
+    }
     await home();
   }
 

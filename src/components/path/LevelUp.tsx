@@ -191,7 +191,7 @@ export function TierUpCard({ board, onClose, onOpenPath }: { board: number; onCl
   }, [t]);
   const name = `${boardName(board)} board`;
   return (
-    <div ref={root} className="fixed inset-0 z-[70] flex flex-col items-center justify-center overflow-hidden px-6 text-center text-white" style={{ background: `radial-gradient(circle at 50% 38%, ${MAT[t][1]}55, #141210 62%)` }} data-testid="tierup-card">
+    <div ref={root} className="fixed inset-0 z-[70] flex flex-col items-center justify-center overflow-hidden px-6 text-center text-white" style={{ background: `radial-gradient(circle at 50% 24%, color-mix(in srgb, ${MAT[t][1]} 38%, #161412), #141210 62%)` }} data-testid="tierup-card">
       <div className="tc-rays pointer-events-none absolute top-[30%] left-1/2 h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: 'repeating-conic-gradient(rgba(255,236,190,.22) 0 7deg,transparent 7deg 18deg)', animation: 'ppspin 30s linear infinite' }} />
       <div className="tc-lab relative mb-2 text-[11px] font-extrabold tracking-[0.14em] text-[#f7c631] uppercase">New board unlocked</div>
       <div ref={crest} className="relative">

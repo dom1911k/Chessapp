@@ -4,8 +4,11 @@ import { PuzzlePlayer } from '../components/PuzzlePlayer';
 import { Header, Spinner, useBackHandler } from '../components/ui';
 import { db, today } from '../lib/db';
 import { useNav } from '../lib/nav';
-import { recordAttempt } from '../lib/puzzles/record';
-import { awardPath } from '../lib/puzzles/path';
+import { recordAttempt, type AttemptOutcome } from '../lib/puzzles/record';
+import { awardPath, type PathAward } from '../lib/puzzles/path';
+import { usePathTally } from '../components/path/usePathTally';
+import { LiveCrest, LiveDots, LiveFlame, LivePathCard } from '../components/path/PathUI';
+import { useSettings } from '../lib/settings';
 import { progress } from '../lib/progress';
 import { weakestThemes } from '../lib/puzzles/select';
 import { themeLabel } from '../lib/puzzles/themes';
@@ -118,6 +121,11 @@ function Session({ onExit }: { onExit: () => void }) {
   const d = useDaily();
   const item = d.items[d.index];
   const finished = d.index >= d.items.length;
+  // The Puzzle Path: the same card, tally and level-up as the puzzle screen.
+  const pt = usePathTally();
+  const [outcome, setOutcome] = useState<AttemptOutcome | null>(null);
+  const [doneAward, setDoneAward] = useState<PathAward | null>(null);
+  const showRating = useSettings((st) => st.puzzleShowRating) ?? true;
 
   useEffect(() => {
     if (finished && d.items.length) {
@@ -128,7 +136,8 @@ function Session({ onExit }: { onExit: () => void }) {
         await db.activity.put({ ...row, dailyDone: true });
         if (first) await progress({ kind: 'daily' });
         // Puzzle Path: finishing the session earns points once a day.
-        await awardPath({ event: 'dailyTrainingDone', today: day });
+        const a = await awardPath({ event: 'dailyTrainingDone', today: day });
+        if (a.total) setDoneAward(a);
       })();
     }
   }, [finished, d.items.length]);
@@ -138,7 +147,14 @@ function Session({ onExit }: { onExit: () => void }) {
     <div className="flex h-full flex-col">
       <Header
         title={finished ? 'Session complete' : `Daily · ${d.index + 1}/${d.items.length}`}
-        right={<button className="btn-ghost" onClick={onExit}>Close</button>}
+        leading={pt.path ? <LiveCrest size={32} /> : undefined}
+        right={
+          <div className="flex items-center gap-3">
+            <LiveDots />
+            <LiveFlame size={20} />
+            <button className="btn-ghost" onClick={onExit}>Close</button>
+          </div>
+        }
       />
       <div className="mx-auto mb-1 flex w-full max-w-xl gap-1 px-3">
         {d.items.map((x, i) => (
@@ -151,6 +167,13 @@ function Session({ onExit }: { onExit: () => void }) {
             <CoachBubble actions={<button className="btn-primary" onClick={onExit}>Done</button>}>
               <p className="font-semibold">Great work today!</p>
               <p>You solved {solved} of {d.items.length}. The ones you missed will come back tomorrow.</p>
+              {doneAward && (
+                <p className="mt-1.5">
+                  <span className="animate-reveal rounded-full bg-[#81b64c] px-2 py-0.5 text-xs font-extrabold text-white" data-testid="daily-done-points">
+                    Daily training +{doneAward.total}
+                  </span>
+                </p>
+              )}
             </CoachBubble>
           </div>
         ) : (
@@ -158,16 +181,27 @@ function Session({ onExit }: { onExit: () => void }) {
             <PuzzlePlayer
               key={d.index}
               spec={item.spec}
-              onFinish={(r) => {
+              onFinish={async (r) => {
                 d.markResult(d.index, r.success);
-                void recordAttempt(item.spec, r.success, r.hintsUsed, item.source, { seconds: r.seconds, correctMoves: r.correctMoves, path: item.source === 'review' ? 'review' : 'full' });
+                const o = await recordAttempt(item.spec, r.success, r.hintsUsed, item.source, { seconds: r.seconds, correctMoves: r.correctMoves, path: item.source === 'review' ? 'review' : 'full' });
+                setOutcome(o);
+                await pt.show(o.path, r.success, r.square);
               }}
-              onNext={d.next}
-              nextLabel={d.index === d.items.length - 1 ? 'Finish' : 'Next'}
+              onNext={() => {
+                pt.reset();
+                setOutcome(null);
+                d.next();
+              }}
+              nextLabel={d.index === d.items.length - 1 ? 'Finish' : 'Next puzzle'}
+              pathMode
+              onBoard={pt.onBoard}
+              overlay={pt.boardOverlay}
+              progress={pt.path ? <LivePathCard rating={showRating ? (outcome?.ratingAfter ?? null) : null} ratingDelta={showRating && outcome?.ratingAfter !== undefined && outcome.ratingBefore !== undefined ? outcome.ratingAfter - outcome.ratingBefore : null} onTap={pt.active ? pt.tap : undefined} /> : undefined}
             />
           )
         )}
       </div>
+      {pt.panels}
     </div>
   );
 }

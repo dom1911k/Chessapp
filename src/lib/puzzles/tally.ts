@@ -169,7 +169,10 @@ function makeChip(b: BoardRef, sq: string, p: Part) {
   el.style.left = `${pos.left}%`;
   el.style.top = `${pos.top}%`;
   el.style.setProperty('--c', colorOf(p));
-  // On the top rank the pill would leave the board: it sits just inside the square instead.
+  // On the top rank the pill would leave the board: it sits just inside the square instead. On the
+  // edge files it lines up with the board's edge rather than centring on the square.
+  if (pos.left === 0) el.style.cssText += ';--lx:2px;--tx:0%';
+  if (pos.left === 87.5) el.style.cssText += ';--lx:calc(100% - 2px);--tx:-100%';
   const lab = pos.top === 0 ? ' style="bottom:auto;top:2px"' : '';
   el.innerHTML = `<div class="csq"><span>+${p.points}</span></div><div class="clab"${lab}>${p.label}</div>`;
   b.el.appendChild(el);
@@ -177,7 +180,8 @@ function makeChip(b: BoardRef, sq: string, p: Part) {
 }
 function popChip(el: HTMLElement, p: Part) {
   void animate(el.querySelector('.csq'), [{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], POP);
-  void animate(el.querySelector('.clab'), [{ transform: 'translate(-50%,10px) scale(.5)', opacity: 0 }, { transform: 'translate(-50%,0) scale(1)', opacity: 1 }], { ...POP, delay: 70 });
+  const tx = el.style.getPropertyValue('--tx') || '-50%';
+  void animate(el.querySelector('.clab'), [{ transform: `translate(${tx},10px) scale(.5)`, opacity: 0 }, { transform: `translate(${tx},0) scale(1)`, opacity: 1 }], { ...POP, delay: 70 });
   if (p.gold)
     requestAnimationFrame(() => {
       const r = centre(el.querySelector('.csq')!);
@@ -185,7 +189,8 @@ function popChip(el: HTMLElement, p: Part) {
     });
 }
 async function collapse(el: HTMLElement) {
-  void animate(el.querySelector('.clab'), [{ opacity: 1 }, { opacity: 0, transform: 'translate(-50%,-8px) scale(.8)' }], { d: 200 });
+  const tx = el.style.getPropertyValue('--tx') || '-50%';
+  void animate(el.querySelector('.clab'), [{ opacity: 1 }, { opacity: 0, transform: `translate(${tx},-8px) scale(.8)` }], { d: 200 });
   await animate(el.querySelector('.csq'), [{ transform: 'translate(0,0) scale(1)', borderRadius: '0%' }, { transform: 'translate(36%,-36%) scale(.46)', borderRadius: '50%' }], { d: 300, e: 'cubic-bezier(.55,0,.3,1)' });
 }
 /** A circle flying into the total along a bowed curve. Resolves on landing. */

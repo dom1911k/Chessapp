@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Board } from './Board';
 import { Spinner } from './ui';
 import { CoachBubble } from './Coach';
@@ -16,7 +16,7 @@ import { solvePrompt, solvedPrompt } from '../lib/puzzles/level';
 import { promptFor, WARM_UP_LINE } from '../lib/puzzles/prompts';
 import { boardRing, type BoardRef } from '../lib/puzzles/tally';
 import { sfx } from '../lib/sfx';
-import { buzz } from '../lib/motion';
+import { buzz, reduced } from '../lib/motion';
 import { analysisLimits } from '../lib/engine/speed';
 import type { PuzzleSpec } from '../lib/puzzles/spec';
 import { themeLabel } from '../lib/puzzles/themes';
@@ -309,10 +309,19 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
               : solvePrompt(spec.themes, side, spec.id),
         tone: 'neutral' as const,
       };
-    if (state === 'wrong') return { head: 'Not quite', text: failOnWrong ? 'That isn’t it. Retry to learn it, or see the solution.' : 'That’s not the best move. Try again!', tone: 'bad' as const };
+    if (state === 'wrong') return { head: pathMode ? 'Incorrect' : 'Not quite', text: failOnWrong ? 'That isn’t it. Retry to learn it, or see the solution.' : 'That’s not the best move. Try again!', tone: 'bad' as const };
     if (state === 'failed') return { head: 'Solution', text: 'Watch how it goes — then it’s yours.', tone: 'bad' as const };
+    if (pathMode && hints > 0 && !failed) return { head: 'Solved with a hint', text: note ?? solvedPrompt({ clean, lightning, streak: solvedStreak, seed: spec.id }), tone: 'hint' as const };
     return { head: 'Solved', text: note ?? solvedPrompt({ clean, lightning, streak: solvedStreak, seed: spec.id }), tone: 'good' as const };
   })();
+  // Path mode, chess.com style: while the move resolves the bubble greys briefly, then the verdict rises in.
+  const [greyed, setGreyed] = useState(false);
+  useLayoutEffect(() => {
+    if (!pathMode || reduced() || (state !== 'solved' && state !== 'wrong')) return;
+    setGreyed(true);
+    const t = setTimeout(() => setGreyed(false), 300);
+    return () => clearTimeout(t);
+  }, [state, pathMode]);
 
   return (
     <div className="board-split flex min-h-full flex-col">
@@ -340,21 +349,25 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
         <div className="space-y-2.5 px-3 pt-2.5">
           {/* Coach Sam: whose move, then the verdict. Steady height so nothing jumps. */}
           <CoachBubble
-            key={bubble.head}
+            key={pathMode ? 'coach' : bubble.head}
+            round={pathMode}
             mood={bubble.tone === 'bad' ? 'concerned' : bubble.tone === 'neutral' && state !== 'solving' ? 'thinking' : 'happy'}
-            className={`min-h-[72px] !py-2.5 ${bubble.tone === 'good' ? '!ring-2 !ring-brand-500/50' : bubble.tone === 'bad' ? '!ring-2 !ring-danger-500/50' : ''}`}
+            className={`min-h-[72px] !py-2.5 transition-colors duration-200 ${greyed ? '!bg-[#e3e0dc]' : ''} ${bubble.tone === 'good' && !pathMode ? '!ring-2 !ring-brand-500/50' : bubble.tone === 'bad' && !pathMode ? '!ring-2 !ring-danger-500/50' : ''}`}
           >
-            <p className="flex items-center gap-2 font-semibold">
+            <div key={bubble.head} className={pathMode ? (greyed ? 'invisible' : 'pp-rise') : ''}>
+            <p className={`flex items-center gap-2 ${pathMode ? 'text-[13.5px] font-bold' : 'font-semibold'}`}>
               {bubble.tone === 'good' ? (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white"><Check size={13} strokeWidth={3.5} /></span>
+                <span className={`flex items-center justify-center rounded-full bg-brand-500 text-white ${pathMode ? 'h-4 w-4' : 'h-5 w-5'}`}><Check size={pathMode ? 11 : 13} strokeWidth={3.5} /></span>
               ) : bubble.tone === 'bad' ? (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-danger-700 text-white"><X size={13} strokeWidth={3.5} /></span>
+                <span className={`flex items-center justify-center rounded-full bg-danger-700 text-white ${pathMode ? 'h-4 w-4' : 'h-5 w-5'}`}><X size={pathMode ? 11 : 13} strokeWidth={3.5} /></span>
+              ) : bubble.tone === 'hint' ? (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#f0a92c] text-[11px] leading-none font-black text-white">!</span>
               ) : state === 'checking' ? (
                 <Spinner className="!h-4 !w-4" />
               ) : (
                 <span className={`h-4 w-4 rounded-[4px] ring-1 ${userColor === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-500'}`} />
               )}
-              <span className={bubble.tone === 'good' ? 'text-brand-700' : bubble.tone === 'bad' ? 'text-danger-700' : ''}>{bubble.head}</span>
+              <span className={bubble.tone === 'good' ? 'text-brand-700' : bubble.tone === 'bad' ? 'text-danger-700' : bubble.tone === 'hint' ? 'text-[#b5740a]' : ''}>{bubble.head}</span>
               {hint && state === 'solving' && <span className="ml-auto text-xs font-semibold text-[#946a00]">Hint {hint.level}/3</span>}
             </p>
             <p className="text-[14.5px] leading-snug text-stone-700">{bubble.text}</p>
@@ -364,6 +377,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
               </button>
             )}
             {why && spec.kind === 'mistake' && spec.explanation?.length ? <p className="mt-1 text-[13px] text-stone-500">In the game: {spec.explanation[0]}</p> : null}
+            </div>
             {footer}
           </CoachBubble>
 
@@ -398,7 +412,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
             <>
               <DockButton label="Again" ariaLabel="Try the puzzle again" icon={<RotateCcw size={22} />} onClick={again} />
               <DockButton label="Analyse" ariaLabel="Analyse this position" icon={<Microscope size={22} />} onClick={() => push({ name: 'explore', fen: startFen, orientation, title: 'Puzzle analysis' })} />
-              {onNext && <DockMain onClick={onNext}>{nextLabel} <ChevronRight size={18} /></DockMain>}
+              {onNext && <DockMain onClick={onNext} chess={pathMode} ariaLabel={nextLabel}>{nextLabel} <ChevronRight size={18} strokeWidth={2.75} /></DockMain>}
             </>
           )}
         </Dock>

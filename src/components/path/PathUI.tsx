@@ -65,8 +65,8 @@ export function SolverDots({ count }: { count: number }) {
         const on = i < count;
         return (
           <svg key={i} width="17" height="17" viewBox="0 0 60 60" className={on ? 'drop-shadow-[0_0_3px_rgba(247,198,49,0.55)]' : ''}>
-            <path d={PZ} fill={on ? '#c98608' : '#2b2927'} transform="translate(0,3)" />
-            <path d={PZ} fill={on ? '#f7c631' : '#4b4847'} />
+            <path d={PZ} fill={on ? '#c98608' : '#2b2927'} className={on ? '' : 'fill-[#b3ada6] dark:fill-[#2b2927]'} transform="translate(0,3)" />
+            <path d={PZ} fill={on ? '#f7c631' : '#4b4847'} className={on ? '' : 'fill-[#d3cec8] dark:fill-[#4b4847]'} />
           </svg>
         );
       })}
@@ -114,7 +114,7 @@ export function PathCard({ points, gain, streak, rating, ratingDelta, extra }: {
         </span>
       </div>
       <div className="relative mt-2.5 mr-3">
-        <div className="h-3 overflow-hidden rounded-full bg-[#43403d]">
+        <div className="h-3 overflow-hidden rounded-full bg-[#dcd9d4] dark:bg-[#43403d]">
           <div className="h-full rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]" style={{ width: `${Math.max(2, (pos.into / pos.cost) * 100)}%`, background: 'linear-gradient(90deg,#fbae63,#f3913f 55%,#ec8231)' }} />
         </div>
         <PathBadge tier={next.tier} level={next.level} size={34} className="absolute top-1/2 -right-4 -translate-y-1/2" />
@@ -152,8 +152,8 @@ export function LiveDots() {
         const on = i < daily;
         return (
           <svg key={i} width="17" height="17" viewBox="0 0 60 60" className={on ? 'drop-shadow-[0_0_3px_rgba(247,198,49,0.55)]' : ''}>
-            <path d={PZ} fill={on ? '#c98608' : '#2b2927'} transform="translate(0,3)" />
-            <path d={PZ} fill={on ? '#f7c631' : '#4b4847'} />
+            <path d={PZ} fill={on ? '#c98608' : '#2b2927'} className={on ? '' : 'fill-[#b3ada6] dark:fill-[#2b2927]'} transform="translate(0,3)" />
+            <path d={PZ} fill={on ? '#f7c631' : '#4b4847'} className={on ? '' : 'fill-[#d3cec8] dark:fill-[#4b4847]'} />
           </svg>
         );
       })}
@@ -203,7 +203,7 @@ export function LivePathCard({ rating, ratingDelta, onTap, extra }: { rating?: n
         </span>
       </div>
       <div className="relative mt-2.5 mr-3">
-        <div ref={reg('track')} className="relative h-3 overflow-hidden rounded-full bg-[#43403d]">
+        <div ref={reg('track')} className="relative h-3 overflow-hidden rounded-full bg-[#dcd9d4] dark:bg-[#43403d]">
           <div ref={reg('fill')} className="relative h-full overflow-hidden rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]" style={{ width: `${Math.max(2, (pos.into / pos.cost) * 100)}%`, background: 'linear-gradient(180deg,#fbae63,#f3913f 60%,#ec8231)' }}>
             <span ref={reg('sweep')} className="pp-sweep" />
           </div>
