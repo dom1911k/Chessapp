@@ -28,6 +28,8 @@ import { canAbort, finishGame, gameTactics, type GameRewards } from './finish';
 import type { FeedItem, SavedGame } from './types';
 import { cap, moveWords } from '../chess/words';
 import { specialMove, tacticsOfMove, TACTIC_KEYS, type Special, type TacticCounts, type TacticKey } from '../rewards/career';
+import { endVerdict, resultLines } from '../coach/endLine';
+export { resultLines };
 import { checkAchievements } from '../progress/achievements';
 import { setPlayActiveCheck } from '../chesscom/store';
 import { aidsFor } from '../coach/level';
@@ -136,6 +138,8 @@ const CHAT_MOOD: Partial<Record<ChatEvent, Mood>> = {
 
 /** Ply of the last 'Best move' tag (they're spaced out so they stay special). */
 let lastBestTag = -99;
+/** The verdict on the user's game-ending move, folded into the result message (one message at the end). */
+let endVerdictText: string | null = null;
 
 export const usePlay = create<PlayStore>((set, get) => {
   /** Adds a message to Coach Sam's conversation (saved with the game). */
@@ -263,7 +267,8 @@ export const usePlay = create<PlayStore>((set, get) => {
     const practice = rec?.summary.pattern?.theme ?? rec?.summary.lessonTheme;
     set({ over: { result, reason, gameId: info.gameId, stars: info.stars, firstWin: info.firstWin, practice }, rewards: info.rewards });
     const userResult = result === '1/2-1/2' ? 'draw' : botWon ? 'loss' : 'win';
-    const lines = resultLines(userResult, reason, info.stars, opponentById(g.opponentId)?.name);
+    const lines = resultLines(userResult, reason, info.stars, opponentById(g.opponentId)?.name, endVerdictText ?? undefined);
+    endVerdictText = null;
     if (practice) lines.push(`${THEMES[practice].label} tripped you up this game. Want to practise it for 2 minutes?`);
     post({ kind: 'result', text: lines, mood: userResult === 'loss' ? 'concerned' : 'happy' });
     // The opponent's take on the game.
@@ -287,6 +292,8 @@ export const usePlay = create<PlayStore>((set, get) => {
       const depth = Math.max(analysisLimits().depth, params.depth);
       const before = await analyze(ply.fenBefore, 3);
       const gameOver = !!gameOverInfo(ply.fenAfter);
+      // Does this move end the game (mate, stalemate, repetition…)? Then the coach says one thing: the result.
+      const ends = !!gameOverInfo(ply.fenAfter, [g.startFen, ...g.plies.slice(0, i + 1).map((p) => p.fenAfter)]);
       const after = gameOver ? null : await analyze(ply.fenAfter, params.multipv, depth);
       if (my !== token) return;
       const history = g.plies.slice(0, i).map((p) => p.uci);
@@ -344,7 +351,8 @@ export const usePlay = create<PlayStore>((set, get) => {
         ? comment.ruleIds.some((r) => r.startsWith('praise-') && r !== 'praise-generic')
         : !comment.ruleIds.every((r) => r === 'praise-generic');
       const notable = special || (slip || cls === 'inaccuracy' ? (gentle ? hurts : true) : praiseWorthy && praiseDue);
-      if (notable && !quiet) {
+      if (ends && !quiet) endVerdictText = endVerdict(ply.san, cls ?? 'good', special, TACTIC_KEYS.find((k) => tactics[k] && FLASHY.has(k)) as TacticKey | undefined);
+      if (notable && !quiet && !ends) {
         let text = special ? [SPECIAL_TEXT[special], ...comment.text.filter((t) => !/best move|exactly right|engine's choice/i.test(t))] : comment.text;
         if (gentle && hurts) text = [pick(GENTLE_OPENERS), ...text.slice(0, 2).map((t, k) => (k ? t : cap(t.replace(/^(Oops|Ouch|Careful)\s*[!,—–-]*\s*/, ''))))];
         post({
@@ -610,6 +618,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         rematch: opts.rematch,
       };
       lastBestTag = -99;
+      endVerdictText = null;
       set({ game, over: null, ending: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: Date.now(), lowTime: false });
       awayAt = null;
       if (game.clock) startTicker();
@@ -835,19 +844,6 @@ function terminalScore(fen: string): Score {
 }
 
 export { other };
-
-/** Coach Sam's words at the end of a game. */
-export function resultLines(userResult: 'win' | 'loss' | 'draw', reason: string, stars: number, opponent?: string): string[] {
-  const who = opponent ?? 'the bot';
-  if (userResult === 'win')
-    return [
-      `You won against ${who}${reason === 'checkmate' ? ' by checkmate' : reason === 'resignation' ? ` — ${opponent ?? 'the bot'} resigned` : ''}! 🎉`,
-      ...(opponent ? [stars >= 5 ? `That's all 5 stars with ${who}!` : `Star ${stars} of 5 with ${who}. Five stars open ${who}'s special challenge.`] : []),
-    ];
-  if (userResult === 'draw') return [`A draw (${reason}). That's a solid result!`];
-  if (reason === 'resignation') return ['Game over. Every game teaches us something — let\'s look at the report together.'];
-  return [`${who} got you this time. Let's learn from it — the report shows the turning point.`];
-}
 
 const SPECIAL_TEXT: Record<Special, string> = {
   brilliant: 'Brilliant move!! You gave something up on purpose — and it works. That takes real vision.',

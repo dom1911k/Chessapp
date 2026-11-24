@@ -4,7 +4,7 @@
 // into their player-bar avatars while the intro fades and the board rises in under it; 520ms later
 // the first coach line arrives with a two-bell chime. A tap leaves straight away.
 import { UserAvatar, useMyName } from './UserAvatar';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { PieceIcon } from './PieceIcon';
 import { Star } from 'lucide-react';
 import { opponentById } from '../lib/people';
@@ -27,19 +27,23 @@ function slashAt(w: number, h: number) {
   return { x: w / 2 + 0.1 * len * dx, y: h / 2 + 0.1 * len * dy, len: Math.hypot(w, h) * 1.2 };
 }
 
-/** Fly a portrait from the intro into its player-bar avatar; the real avatar pops when it lands. */
-function flyPortrait(from: Element | null, to: HTMLElement | null) {
+/**
+ * Fly a portrait from the intro into its player-bar avatar; the real avatar pops when it lands.
+ * `frame` is the whole portrait on the intro (wrapper and ring): it hides while the clone flies,
+ * and the clone carries the same ring, so nothing is left behind and the flight keeps its edge.
+ */
+function flyPortrait(from: Element | null, to: HTMLElement | null, frame: HTMLElement | null, ring: string) {
   if (!from || !to) return;
   const ra = from.getBoundingClientRect();
   const rb = to.getBoundingClientRect();
   if (!ra.width || !rb.width) return;
   const clone = from.cloneNode(true) as HTMLElement;
-  Object.assign(clone.style, { position: 'fixed', left: `${ra.left}px`, top: `${ra.top}px`, width: `${ra.width}px`, height: `${ra.height}px`, margin: '0', zIndex: '81', borderRadius: '9px', overflow: 'hidden', boxShadow: '0 10px 26px rgba(0,0,0,.5)', transformOrigin: '0 0', pointerEvents: 'none' });
+  Object.assign(clone.style, { position: 'fixed', left: `${ra.left}px`, top: `${ra.top}px`, width: `${ra.width}px`, height: `${ra.height}px`, margin: '0', zIndex: '81', borderRadius: '8px', overflow: 'hidden', boxShadow: ring, transformOrigin: '0 0', pointerEvents: 'none' });
   document.body.appendChild(clone);
-  (from as HTMLElement).style.visibility = 'hidden';
+  (frame ?? (from as HTMLElement)).style.visibility = 'hidden';
   to.style.visibility = 'hidden';
   const s = rb.width / ra.width;
-  void animate(clone, [{ transform: 'none', borderRadius: '9px' }, { transform: `translate(${rb.left - ra.left}px,${rb.top - ra.top}px) scale(${s})`, borderRadius: `${5 / s}px` }], { d: 460, e: 'cubic-bezier(.3,.75,.25,1)', fill: 'forwards' }).then(() => {
+  void animate(clone, [{ transform: 'none', borderRadius: '8px' }, { transform: `translate(${rb.left - ra.left}px,${rb.top - ra.top}px) scale(${s})`, borderRadius: `${5 / s}px` }], { d: 460, e: 'cubic-bezier(.3,.75,.25,1)', fill: 'forwards' }).then(() => {
     clone.remove();
     to.style.visibility = '';
     void animate(to, [{ transform: 'scale(1.18)' }, { transform: 'scale(1)' }], POP);
@@ -58,7 +62,9 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
   const leaveRef = useRef<() => void>(() => {});
   useEffect(() => void getXp().then((x) => setLevel(levelFor(x).level)), []);
 
-  useEffect(() => {
+  // Before the first paint: the halves start off-screen and the coach card is hidden in the same
+  // frame the intro mounts, so nothing of the game screen (or a resting layout) shows first.
+  useLayoutEffect(() => {
     const q = r.current;
     const tk = token();
     let left = false;
@@ -69,8 +75,8 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
       if (left) return;
       left = true;
       tk.skip = true;
-      flyPortrait(q.meImg, document.querySelector('[data-pb-avatar="me"]'));
-      flyPortrait(q.opImg, document.querySelector('[data-pb-avatar="op"]'));
+      flyPortrait(q.meImg, document.querySelector('[data-pb-avatar="me"]'), q.meFrame, ringFor(userColor));
+      flyPortrait(q.opImg, document.querySelector('[data-pb-avatar="op"]'), q.opImg, ringFor(userColor === 'w' ? 'b' : 'w'));
       void animate(root.current, [{ opacity: 1 }, { opacity: 0 }], { d: 300 }).then(onDone);
       void animate(document.querySelector('[data-testid="game-board"]'), [{ opacity: 0, transform: 'scale(.965)' }, { opacity: 1, transform: 'none' }], { d: 420, delay: 80, e: UI_EASE });
       // The first coach line: a two-bell chime, the card rises in and its existing typewriter runs.
@@ -84,7 +90,6 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
     };
     leaveRef.current = leave;
     void (async () => {
-      void animate(root.current, [{ opacity: 0 }, { opacity: 1 }], { d: 120 });
       sfx('swish', -0.5);
       void animate(q.half1, [{ transform: 'translate(-60%,-30%)' }, { transform: 'none' }], { d: 520, e: 'cubic-bezier(.2,.8,.2,1)' });
       void animate(q.half2, [{ transform: 'translate(60%,30%)' }, { transform: 'none' }], { d: 520, e: 'cubic-bezier(.2,.8,.2,1)' });
@@ -118,7 +123,7 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
 
   const sl = slashAt(typeof innerWidth === 'number' ? innerWidth : 390, typeof innerHeight === 'number' ? innerHeight : 844);
   return (
-    <button ref={root} aria-label="Start the game" onClick={() => leaveRef.current()} className="fixed inset-0 z-50 overflow-hidden text-white opacity-0" style={{ background: '#262421' }} data-testid="versus">
+    <button ref={root} aria-label="Start the game" onClick={() => leaveRef.current()} className="fixed inset-0 z-50 overflow-hidden text-white" style={{ background: '#262421' }} data-testid="versus">
       {/* Two charcoal halves sweep in from opposite corners, split by a green slash. */}
       <div ref={ref('half1')} className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #262421 0%, #262421 60%, transparent 60%)' }} />
       <div ref={ref('half2')} className="absolute inset-0" style={{ background: 'linear-gradient(160deg, transparent 60%, #3c3a37 60%, #3c3a37 100%)' }} />
@@ -131,7 +136,7 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
       <div ref={ref('card')} className="relative mx-auto flex h-full max-w-md flex-col justify-between px-6 py-[18vh]">
         {/* You */}
         <div ref={ref('me')} className="flex items-center gap-4 self-start opacity-0">
-          <span className="relative rounded-[8px]" style={{ boxShadow: ringFor(userColor) }}>
+          <span ref={ref('meFrame')} className="relative rounded-[8px]" style={{ boxShadow: ringFor(userColor) }}>
             <span ref={ref('meImg')} className="block overflow-hidden rounded-[8px]">
               <UserAvatar size={96} className="block" />
             </span>

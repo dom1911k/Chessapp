@@ -3,7 +3,7 @@ import { recordRematch } from '../rematch';
 import { START_FEN, type GameResult } from '../chess/game';
 import { bumpActivity, db, kvGet, kvSet } from '../db';
 import { detectOpening } from '../openings';
-import { recurringPattern, summarize } from '../report';
+import { hasAccuracy, recurringPattern, summarize } from '../report';
 import { recordOpponentGame } from '../people/record';
 import { progress } from '../progress';
 import { newCardDue, type Card } from '../srs';
@@ -54,6 +54,8 @@ export interface GameRewards {
   reason: string;
   opponentId?: string;
   accuracy: number;
+  /** None of your moves were analysed (resigned before moving): the sheet shows "—". */
+  noMoves?: boolean;
   starsBefore: number;
   starsAfter: number;
   /** Rivalry points and badges from this game. */
@@ -172,6 +174,7 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     reason,
     opponentId: g.opponentId,
     accuracy: summary.accuracy,
+    noMoves: !hasAccuracy(summary) || undefined,
     starsBefore: rec?.starsBefore ?? 0,
     starsAfter: rec?.stars ?? 0,
     challengeOpened: (rec?.starsBefore ?? 0) < MAX_STARS && (rec?.stars ?? 0) >= MAX_STARS,

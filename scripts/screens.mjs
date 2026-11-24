@@ -704,6 +704,8 @@ async function run([W, H], scheme) {
     await shot('p3-home-delta');
   }
   if (Q('path-hedges')) {
+    // Wood level 6: five tiles done (their hedges) and the next board's clouds in frame.
+    await setPath({ at: [0, 6, 0] });
     await push({ name: 'puzzlePath' });
     await p.waitForTimeout(2500);
     if (!(await p.evaluate(() => !!document.getElementById('hedgeTop')))) errors.push('path-hedges: the shared gradients are missing');

@@ -46,6 +46,8 @@ export interface ReviewPly {
 }
 export interface SideStats {
   accuracy: number;
+  /** Moves of this side that were analysed (0: no accuracy to show, "—"). */
+  moves: number;
   counts: Record<ReviewClass, number>;
   /** Average accuracy per phase (null = no moves in that phase), and its class icon. */
   phases: Record<Phase, { accuracy: number; cls: ReviewClass } | null>;
@@ -163,7 +165,7 @@ export function reviewGame(g: Pick<AnyGame, 'plies' | 'userColor' | 'startFen' |
         return [ph, acc === null ? null : { accuracy: acc, cls: gradeOf(acc) }];
       }),
     ) as SideStats['phases'];
-    return { accuracy: blend(idx.map(({ r }) => r.accuracy)), counts, phases };
+    return { accuracy: blend(idx.map(({ r }) => r.accuracy)), moves: idx.length, counts, phases };
   };
   const me = side(true);
   const them = side(false);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { accuracyText, hasAccuracy } from '../lib/report';
 import { TurningList } from '../components/TurningCards';
 import { History } from 'lucide-react';
 import { Arrive, EmptyState, Header, Segmented, Skeleton } from '../components/ui';
@@ -78,7 +79,7 @@ export function HistoryScreen() {
                   <span className="block text-xs text-stone-500">not analysed yet</span>
                 ) : (
                   <>
-                    <span className="block font-bold tabular-nums">{g.summary.accuracy}%</span>
+                    <span className="block font-bold tabular-nums">{accuracyText(g.summary.accuracy, hasAccuracy(g.summary))}</span>
                     <span className="block text-[11px] text-stone-500">
                       {g.summary.counts.blunder ? `${g.summary.counts.blunder} blunder${g.summary.counts.blunder === 1 ? '' : 's'}` : 'accuracy'}
                     </span>

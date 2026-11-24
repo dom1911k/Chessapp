@@ -1,3 +1,4 @@
+import { hasAccuracy } from './report';
 import { db } from './db';
 
 export interface WeekStats {
@@ -14,7 +15,8 @@ const DAY = 864e5;
 async function statsBetween(from: number, to: number): Promise<WeekStats> {
   const attempts = await db.attempts.where('at').between(from, to).toArray();
   const games = (await db.games.where('endedAt').between(from, to).toArray());
-  const acc = games.length ? games.reduce((a, g) => a + g.summary.accuracy, 0) / games.length : null;
+  const withAcc = games.filter((g) => hasAccuracy(g.summary));
+  const acc = withAcc.length ? withAcc.reduce((a, g) => a + g.summary.accuracy, 0) / withAcc.length : null;
   const bl = games.length ? games.reduce((a, g) => a + g.summary.counts.blunder, 0) / games.length : null;
   const days = new Set([...attempts.map((a) => new Date(a.at).toDateString()), ...games.map((g) => new Date(g.endedAt).toDateString())]);
   return {

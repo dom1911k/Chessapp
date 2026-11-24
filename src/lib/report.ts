@@ -28,6 +28,12 @@ export function recurringPattern(games: PlyRecord[][]): GameSummary['pattern'] {
   return theme && count && count >= 3 ? { theme, count, of: games.length } : undefined;
 }
 
+/** True when the game has analysed moves of yours (else there's no accuracy: show "—"). */
+export const hasAccuracy = (summary: Pick<GameSummary, 'counts'>): boolean => Object.values(summary.counts).some((n) => n > 0);
+
+/** Accuracy as text: "84%" (or "84.0%" with `digits`), "—" when none of your moves were analysed. */
+export const accuracyText = (accuracy: number, moves: boolean, digits = 0): string => (moves ? `${accuracy.toFixed(digits)}%` : '—');
+
 export function summarize(plies: PlyRecord[]): GameSummary {
   const mine = plies.map((p, i) => ({ p, i })).filter(({ p }) => p.isUser && p.classification);
   const counts = emptyCounts();

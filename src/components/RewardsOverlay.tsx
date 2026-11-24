@@ -1,21 +1,23 @@
-// The results screen after a game, as a tally (docs/polish-3-prototype.html, scene 2). Same rows and
-// information as before; they arrive in beats on the motion kit: the sheet springs up, the title pops
-// (a win throws a short confetti burst upwards from the sheet's top edge, never onto the numbers),
-// the crown pops on the winner, the stat tiles rise and their numbers land together (the rating rolls
-// on an odometer and its delta pops, accuracy and XP count up, stars light one by one), then each row
-// slides in and does its thing (bars fill with a sweep, a level-up flips its badge, new things pop
-// with a shine). The buttons rise last. A tap on the sheet skips to the end: every value final, every
-// row visible. It plays once; with "Reduce animations" the numbers just set.
+// The results screen after a game, as a tally (docs/polish-3-prototype.html, scene 2). The rows are
+// grouped by kind, five at most: the rivalry (its new badges pop in a strip), the level, the
+// achievements (one row, their icons in a strip), the new looks (one row, with a preview) and what's
+// next (the opponent this win unlocked, or the next stop on the Journey). Tap a group for its list.
+// They arrive in beats on the motion kit: the sheet springs up, the title pops (a win throws a short
+// confetti burst upwards from the sheet's top edge, never onto the numbers), the crown pops on the
+// winner, the stat tiles rise and their numbers land together, then each row slides in and does its
+// thing. The header and buttons stay put; only the rows scroll (on a small phone), and the sheet never
+// scrolls itself. The buttons rise last. A tap on the sheet skips to the end: every value final, every
+// row visible. It plays once (about 4s with a level-up); with "Reduce animations" the numbers just set.
 import { BADGES, rivalryLevel, rivalryRank } from '../lib/people/rivalry';
 import { UserAvatar, useMyName } from './UserAvatar';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Check, Crown, Flame, RotateCcw, Star, Trophy, Users, X } from 'lucide-react';
+import { BadgeIcon } from './BadgeIcon';
+import { ChevronRight, Crown, Flame, RotateCcw, Star, Trophy, Users, X } from 'lucide-react';
 import { MILESTONES, START_RATING, type Milestone } from '../lib/rewards/rating';
 import { opponentById } from '../lib/people';
 import { challengeFor } from '../lib/people/challenges';
 import { MAX_STARS } from '../lib/people/record';
 import { levelFor } from '../lib/progress/xp';
-import { TACTIC_KEYS, TACTIC_LABEL } from '../lib/rewards/career';
 import { cosmeticTitle, KIND_LABEL } from '../lib/rewards/cosmetics';
 import { SKILLS, TIERS } from '../lib/rewards/skills';
 import { BOUNCE, POP, SOFT, UI_EASE, animate, eo3, haptic, reduced, sleep, token, tween, type Token } from '../lib/motion';
@@ -26,20 +28,38 @@ import type { GameRewards } from '../lib/store/finish';
 import { CoachAvatar, Portrait } from './Coach';
 import { CosmeticPreview } from './CosmeticPreview';
 import { Medallion } from './Glyph';
-import { sheetExit, useSheetDrag } from './Sheet';
+import { Sheet, sheetExit, useSheetDrag } from './Sheet';
 
-/** One compact 48px reward row: icon, title, a short progress bar or a line, and a "New!" chip. */
-function RewardRow({ icon, title, sub, bar, right, kind = 'plain' }: { icon: ReactNode; title: ReactNode; sub?: ReactNode; bar?: ReactNode; right?: ReactNode; /** 'new': it pops its icon and chip with a shine and a chime as it lands. */ kind?: 'plain' | 'new' | 'rivalry' | 'journey' | 'level' }) {
+/**
+ * One compact 48px reward row: icon, title, a short progress bar, a strip of icons or a line, and a
+ * "New!" chip. `onOpen`: the row opens its list (once the tally is done), with a chevron.
+ */
+function RewardRow({ icon, title, sub, bar, strip, right, kind = 'plain', onOpen, testId }: { icon: ReactNode; title: ReactNode; sub?: ReactNode; bar?: ReactNode; strip?: ReactNode; right?: ReactNode; /** 'new': it pops its icon and chip with a shine and a chime as it lands. */ kind?: 'plain' | 'new' | 'rivalry' | 'journey' | 'level' | 'group'; onOpen?: () => void; testId?: string }) {
   return (
-    <div className="pp-row relative flex min-h-12 items-center gap-3 overflow-hidden py-1.5" data-row={kind}>
+    <div className={`pp-row relative flex min-h-12 items-center gap-3 overflow-hidden py-1.5 ${onOpen ? 'press -mx-2 rounded-[8px] px-2' : ''}`} data-row={kind} data-testid={testId} onClick={onOpen ? (e) => (e.stopPropagation(), onOpen()) : undefined} role={onOpen ? 'button' : undefined}>
       <span className="pp-shine pointer-events-none absolute inset-y-0 -left-1/3 w-1/4 skew-x-[-20deg] bg-white/50 opacity-0 dark:bg-white/10" />
       <span className="pp-ic flex h-8 w-8 shrink-0 items-center justify-center">{icon}</span>
       <div className="min-w-0 flex-1 text-left leading-tight">
         <div className="truncate text-[14px] font-bold">{title}</div>
         {sub && <div className="truncate text-[12px] font-medium text-stone-500">{sub}</div>}
+        {strip && <div className="pp-strip mt-1 flex items-center gap-1">{strip}</div>}
         {bar}
       </div>
       <span className="pp-right shrink-0">{right}</span>
+      {onOpen && <ChevronRight size={16} className="-ml-1 shrink-0 text-stone-400" />}
+    </div>
+  );
+}
+
+/** One line of a group's list (the sheet a grouped row opens). */
+function ListItem({ icon, title, sub }: { icon: ReactNode; title: ReactNode; sub?: ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 py-2">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center">{icon}</span>
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="text-[14px] font-bold">{title}</div>
+        {sub && <div className="text-[12px] font-medium text-stone-500">{sub}</div>}
+      </div>
     </div>
   );
 }
@@ -114,7 +134,6 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
   const lvAfter = levelFor(r.xpAfter);
   // Once all five stars are in, the rivalry carries the progression.
   const hasStars = !!o && r.starsBefore < MAX_STARS;
-  const tactics = TACTIC_KEYS.filter((k) => r.tactics[k]);
   const streak = r.winStreak ?? 0;
   const won = r.userResult === 'win';
   const delta = r.ratingAfter - r.ratingBefore;
@@ -128,6 +147,26 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
   const reached = MILESTONES.filter((m) => m.rating > r.ratingBefore && m.rating <= r.ratingAfter).pop();
   const meWon = r.userResult === 'win' ? true : r.userResult === 'loss' ? false : null;
   const theyWon = meWon === null ? null : !meWon;
+  const accText = (v: number) => (r.noMoves ? '—' : `${v.toFixed(1)}%`);
+
+  // ---- The rows, grouped by kind (five at most): rivalry, level, achievements, unlocks, next ----
+  const newBadges = o ? (r.rivalry?.newBadges ?? []) : [];
+  const rivalUp = !!r.rivalry && r.rivalry.levelAfter > r.rivalry.levelBefore;
+  const challengeLine = (r.challengeOpened || r.challengeDone) && ch ? (r.challengeDone ? `Challenge complete: ${ch.title}` : 'Special challenge unlocked') : null;
+  const nextOpp = r.unlocked ? opponentById(r.unlocked) : undefined;
+  // The last slot: the opponent this win unlocked (with Play), else the Journey. A milestone reached
+  // while the slot shows the opponent joins the achievements.
+  type Item = { key: string; icon: ReactNode; title: ReactNode; sub?: ReactNode };
+  const achItems: Item[] = [
+    ...r.achievements.map((a) => ({ key: a.id, icon: a.portrait ? <Portrait id={a.portrait} size={28} /> : <Medallion name={a.icon} tint="gold" size={28} />, title: a.title, sub: a.description })),
+    ...r.skillsUp.map((sk) => {
+      const k = SKILLS.find((x) => x.id === sk.id)!;
+      return { key: `skill:${sk.id}`, icon: <Medallion name={k.icon} tint="blue" size={28} />, title: k.name, sub: `Skill · ${TIERS[sk.tier].name} — your skill tree grew` };
+    }),
+    ...(nextOpp ? r.milestones.map((m) => ({ key: `ms:${m.rating}`, icon: <Medallion name="map" tint="gold" size={28} />, title: m.title, sub: `Journey · ${m.rating} · ${m.line}` })) : []),
+  ];
+  const unlockItems: Item[] = r.unlocks.map((c) => ({ key: c.id, icon: <CosmeticPreview c={c} size={28} />, title: cosmeticTitle(c), sub: `New ${KIND_LABEL[c.kind].one.toLowerCase()} · equip it in your Collection` }));
+  const [detail, setDetail] = useState<null | 'rivalry' | 'ach' | 'unlocks'>(null);
 
   // What changes in discrete steps (the rest is driven frame by frame on the elements).
   const [done, setDone] = useState(false);
@@ -137,7 +176,6 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
   const [milestoneHit, setMilestoneHit] = useState(false);
   const sheet = useRef<HTMLDivElement>(null);
   const back = useRef<HTMLDivElement>(null);
-  const scroller = useRef<HTMLDivElement>(null);
   // Closing slides the sheet away (×, the backdrop, Continue, or a drag down by its handle).
   const closing = useRef(false);
   const close = (from = 0) => {
@@ -146,7 +184,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
     tkRef.current.skip = true;
     void sheetExit(sheet.current, back.current, from).then(onClose);
   };
-  const drag = useSheetDrag(sheet, back, close);
+  const drag = useSheetDrag(sheet, back, close, !detail);
   const q = useRef<Record<string, HTMLElement | null>>({});
   const ref = (k: string) => (el: HTMLElement | null) => {
     q.current[k] = el;
@@ -164,7 +202,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
     sh.style.transform = 'none';
     if (back.current) back.current.style.opacity = '1';
     odo(q.current.rating, r.ratingAfter);
-    if (q.current.acc) q.current.acc.textContent = `${r.accuracy.toFixed(1)}%`;
+    if (q.current.acc) q.current.acc.textContent = accText(r.accuracy);
     if (q.current.xp) q.current.xp.textContent = `+${r.xpAfter - r.xpBefore}`;
     sh.querySelectorAll<HTMLElement>('.pp-hide').forEach((e) => {
       e.getAnimations().forEach((a) => a.cancel());
@@ -190,7 +228,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
   // The numbers start where they were (the tweens own their text from here).
   useLayoutEffect(() => {
     odo(q.current.rating, r.ratingBefore);
-    if (q.current.acc) q.current.acc.textContent = '0.0%';
+    if (q.current.acc) q.current.acc.textContent = r.noMoves ? '—' : '0.0%';
     if (q.current.xp) q.current.xp.textContent = '+0';
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -207,10 +245,19 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
     }
     const rows = [...sh.querySelectorAll<HTMLElement>('.pp-row')];
     const over = () => tk.skip;
+    /** A strip's icons pop in one after another (90ms apart), each with a rising note. */
+    const popStrip = (row: HTMLElement, base = 0) => {
+      [...row.querySelectorAll<HTMLElement>('.pp-strip > *')].forEach((el, j) => {
+        void animate(el, [{ opacity: 0, transform: 'scale(0)' }, { opacity: 1, transform: 'scale(1.3)', offset: 0.6 }, { opacity: 1, transform: 'none' }], { ...POP, delay: j * 90 });
+        setTimeout(() => !over() && sfx('land', base + j), j * 90);
+      });
+      return row.querySelectorAll('.pp-strip > *').length;
+    };
     void (async () => {
       // 1 · The sheet springs up; the backdrop fades in.
       void animate(back.current, [{ opacity: 0 }, { opacity: 1 }], { d: 300 });
-      await animate(sh, [{ transform: 'translateY(105%)' }, { transform: 'none' }], SOFT);
+      void animate(sh, [{ transform: 'translateY(105%)' }, { transform: 'none' }], SOFT);
+      await sleep(320, tk);
       if (over()) return;
       // 2 · The header: a glow, the title pops; a win throws confetti up from the sheet's top edge.
       void animate($.glow, [{ opacity: 0 }, { opacity: 1 }], { d: 500 });
@@ -219,7 +266,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
         const s = sh.getBoundingClientRect();
         emit({ x: s.left + s.width / 2, y: s.top - 4, jx: 120, n: 46, shape: 'confetti', colors: ['#81b64c', '#b6e27a', '#f7c631', '#ffffff', '#5aa9e6'], speed: [220, 460], angle: -90, spread: 70, gravity: 700, drag: 0.975, life: [0.6, 1], size: [3.5, 6] });
       }
-      await sleep(220, tk);
+      await sleep(140, tk);
       if (over()) return;
       // 3 · The crown pops on the winner (and the "Beaten" stamp on a first win).
       const cr = $.crown;
@@ -229,25 +276,25 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
         const c = centre(cr);
         emit({ x: c.x, y: c.y, n: 10, shape: 'star', colors: GOLDS, speed: [50, 150], life: [0.35, 0.6], size: [2, 4] });
       }
-      void animate($.beaten, [{ opacity: 0, transform: 'rotate(-12deg) scale(2.2)' }, { opacity: 1, transform: 'rotate(-12deg) scale(.92)', offset: 0.7 }, { opacity: 1, transform: 'rotate(-12deg) scale(1)' }], { d: 320, delay: 260, e: 'cubic-bezier(.5,0,.6,1)' });
-      // 4 · The stat tiles rise in, 90ms apart.
-      sh.querySelectorAll('.pp-stat').forEach((s, k) => void animate(s.parentElement, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { ...SOFT, delay: 120 + k * 90 }));
-      await sleep(300, tk);
+      void animate($.beaten, [{ opacity: 0, transform: 'rotate(-12deg) scale(2.2)' }, { opacity: 1, transform: 'rotate(-12deg) scale(.92)', offset: 0.7 }, { opacity: 1, transform: 'rotate(-12deg) scale(1)' }], { d: 320, delay: 200, e: 'cubic-bezier(.5,0,.6,1)' });
+      // 4 · The stat tiles rise in, 70ms apart.
+      sh.querySelectorAll('.pp-stat').forEach((s, k) => void animate(s.parentElement, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { ...SOFT, delay: 60 + k * 70 }));
+      await sleep(180, tk);
       if (over()) return;
-      // 5 · The numbers land together.
+      // 5 · The numbers land together (the rows start while they finish).
       const pRating = (async () => {
         const from = r.ratingBefore;
-        await tween(900, (k) => odo($.rating, from + (r.ratingAfter - from) * eo3(k)), tk);
+        await tween(750, (k) => odo($.rating, from + (r.ratingAfter - from) * eo3(k)), tk);
         if (over()) return;
         odo($.rating, r.ratingAfter);
         void animate($.delta, [{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'none' }], POP);
         sfx('land', delta >= 0 ? 6 : 1);
       })();
-      const pAcc = countTo($.acc, 0, r.accuracy, 800, 1, tk, (s) => `${s}%`);
-      const pXp = countTo($.xp, 0, r.xpAfter - r.xpBefore, 700, 0, tk, (s) => `+${s}`);
+      const pAcc = r.noMoves ? Promise.resolve() : countTo($.acc, 0, r.accuracy, 700, 1, tk, (s) => `${s}%`);
+      const pXp = countTo($.xp, 0, r.xpAfter - r.xpBefore, 650, 0, tk, (s) => `+${s}`);
       const pStars = (async () => {
         if (!hasStars) return;
-        await sleep(420, tk);
+        await sleep(360, tk);
         for (let n = r.starsBefore + 1; n <= r.starsAfter && !over(); n++) {
           setStarsLit(n);
           await sleep(30, tk);
@@ -259,36 +306,33 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
             const c = centre(st);
             emit({ x: c.x, y: c.y, n: 12, shape: 'star', colors: GOLDS, speed: [60, 170], life: [0.35, 0.65], size: [2, 4.5] });
           }
-          await sleep(280, tk);
+          await sleep(220, tk);
         }
       })();
-      await Promise.all([pRating, pAcc, pXp, pStars]);
+      await sleep(480, tk);
       if (over()) return;
-      // 6 · The rows slide in one at a time and each does its thing.
-      let k = 0;
+      // 6 · The rows slide in one at a time and each does its thing (the sheet never scrolls itself).
       for (const row of rows) {
         if (over()) return;
-        // On a small phone the rows run past the fold: bring each one into view as it lands.
-        const sc = scroller.current;
         const wrap = row.parentElement;
-        if (sc && wrap) {
-          const below = wrap.getBoundingClientRect().bottom - sc.getBoundingClientRect().bottom;
-          if (below > 0) sc.scrollTo({ top: sc.scrollTop + below + 8, behavior: 'smooth' });
-        }
         void animate(wrap, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], SOFT);
-        await sleep(200, tk);
+        await sleep(120, tk);
         const kind = row.dataset.row;
         if (kind === 'rivalry') {
-          await fillBar($.rvBar, rvFrom, rvTo, 520, tk, (l) => setRivalNow(l));
+          const n = popStrip(row, 3);
+          if (!n) await fillBar($.rvBar, rvFrom, rvTo, 420, tk, (l) => setRivalNow(l));
+          else {
+            setRivalNow(r.rivalry?.levelAfter ?? 1);
+            await sleep(Math.min(300, n * 90 + 120), tk);
+          }
           void animate(row.querySelector('.pp-right'), [{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'none' }], POP);
-          sfx('land', 4 + k);
         } else if (kind === 'journey') {
-          await fillBar($.jBar, jb.pos, ja.pos, 520, tk, () => {
+          await fillBar($.jBar, jb.pos, ja.pos, 420, tk, () => {
             setMilestoneHit(true);
             sfx('achieve');
           });
         } else if (kind === 'level') {
-          await fillBar($.lvBar, xpFrom, xpTo, 600, tk, async (l) => {
+          await fillBar($.lvBar, xpFrom, xpTo, 420, tk, async (l) => {
             sfx('unlock');
             haptic('big');
             const b = $.lvBadge;
@@ -299,22 +343,29 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               const c = centre(b);
               emit({ x: c.x, y: c.y, n: 14, shape: 'star', colors: GOLDS, speed: [60, 180], life: [0.4, 0.75], size: [2.5, 5] });
             }
-            await sleep(420, tk);
+            await sleep(300, tk);
           });
+        } else if (kind === 'group') {
+          const n = popStrip(row, 2);
+          void animate(row.querySelector('.pp-right'), [{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'none' }], { ...POP, delay: 80 });
+          void animate(row.querySelector('.pp-shine'), [{ transform: 'translateX(0) skewX(-20deg)', opacity: 1 }, { transform: 'translateX(560%) skewX(-20deg)', opacity: 1 }], { d: 900, e: 'ease-in-out' });
+          if (n <= 1) sfx('achieve');
+          await sleep(Math.min(300, n * 90 + 120), tk);
         } else if (kind === 'new') {
           void animate(row.querySelector('.pp-ic'), [{ transform: 'scale(0)' }, { transform: 'scale(1.3)', offset: 0.6 }, { transform: 'none' }], { d: 340, e: 'ease-out' });
           void animate(row.querySelector('.pp-right'), [{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'none' }], { ...POP, delay: 120 });
           void animate(row.querySelector('.pp-shine'), [{ transform: 'translateX(0) skewX(-20deg)', opacity: 1 }, { transform: 'translateX(560%) skewX(-20deg)', opacity: 1 }], { d: 900, e: 'ease-in-out' });
           sfx('achieve');
+          await sleep(240, tk);
         }
-        k++;
-        await sleep(60, tk);
+        await sleep(40, tk);
       }
+      await Promise.all([pRating, pAcc, pXp, pStars]);
       if (over()) return;
       // 7 · The buttons rise in last; the coach on Game Review nods.
       void animate($.btns, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], SOFT);
       void animate($.coach, [{ transform: 'rotate(-14deg) scale(.8)' }, { transform: 'none' }], { ...BOUNCE, delay: 160 });
-      await sleep(400, tk);
+      await sleep(260, tk);
       if (!over()) finish();
     })();
     return () => {
@@ -330,6 +381,13 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
   );
   // Rows start hidden; finish() shows them all.
   const hide = done ? '' : 'pp-hide opacity-0';
+  // A strip icon starts hidden too (it pops in as its row lands).
+  const stripIcon = (key: string, icon: ReactNode) => (
+    <span key={key} className={`${hide} inline-flex`}>
+      {icon}
+    </span>
+  );
+  const open = (k: 'rivalry' | 'ach' | 'unlocks') => (done ? () => setDetail(k) : undefined);
 
   return (
     <div ref={back} className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" style={{ opacity: 0 }} onClick={() => close()}>
@@ -347,7 +405,8 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
         <button className="absolute top-1.5 right-1.5 z-20 rounded-full p-1.5 text-stone-500 active:bg-stone-100 dark:active:bg-stone-800" onClick={(e) => (e.stopPropagation(), close())} aria-label="Close">
           <X size={18} />
         </button>
-        <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 pt-5 pb-3">
+        {/* The header and the stats stay put; only the rows below them scroll. */}
+        <div className="shrink-0 px-4 pt-5" data-testid="results-header">
           {/* Header: the result between the two players; the winner ringed in green with a crown. */}
           <div className="relative flex items-center justify-between gap-3 px-3">
             <i
@@ -369,6 +428,12 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
                 {r.userResult === 'win' ? 'You won' : r.userResult === 'draw' ? 'Draw' : 'You lost'}
               </div>
               <div className="mt-0.5 text-[13px] font-medium text-stone-500">{reasonText(r.reason)}</div>
+              {streak >= 2 && (
+                <div className="mt-0.5 inline-flex items-center gap-0.5 text-[12px] font-bold text-hue-orange-600 dark:text-hue-orange-400" data-testid="results-streak">
+                  <Flame size={13} className={streak >= 5 ? 'fill-hue-rose-400 text-hue-rose-500' : 'fill-hue-orange-400 text-hue-orange-500'} />
+                  {streak} in a row{r.newBestStreak ? ' · best ever' : ''}
+                </div>
+              )}
             </div>
             <div className="relative flex w-[84px] shrink-0 flex-col items-center gap-1">
               <span className={`relative rounded-md ${ring(theyWon)}`}>
@@ -428,37 +493,30 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               <Stat value={<span ref={ref('xp')} data-testid="results-xp" />} label="XP" />
             </div>
           </div>
+        </div>
 
-          {/* Compact rows, one after another. */}
-          <div className="mt-3 divide-y divide-black/5 dark:divide-white/[0.06]">
-            {o && r.rivalry && (
+        {/* The rows, grouped (five at most); on a small phone they scroll under the fixed header. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-2 pb-3" data-testid="results-rows">
+          <div className="divide-y divide-black/5 dark:divide-white/[0.06]">
+            {o && (r.rivalry || challengeLine) && (
               <div className={hide}>
                 <RewardRow
                   kind="rivalry"
+                  testId="row-rivalry"
+                  onOpen={newBadges.length || challengeLine ? open('rivalry') : undefined}
                   icon={<span className="flex h-8 w-8 flex-col items-center justify-center rounded-md bg-hue-rose-600 text-white"><span className="text-[11px] leading-none font-bold uppercase">Lv</span><span className="text-[13px] leading-none font-extrabold tabular-nums">{rivalNow}</span></span>}
-                  title={<>Rivalry with {o.name} · {rivalryRank(rivalNow)}</>}
-                  bar={<Bar barRef={ref('rvBar')} frac={done ? frac(rvTo) : frac(rvFrom)} fill="bg-hue-rose-500" />}
-                  right={r.rivalry.levelAfter > r.rivalry.levelBefore && rivalNow >= r.rivalry.levelAfter ? <span className="chip shrink-0 bg-hue-rose-600 text-white">Level up · +{r.rivalry.xp} XP</span> : <span className="shrink-0 text-xs font-bold text-hue-rose-600 tabular-nums dark:text-hue-rose-400">+{r.rivalry.gained}</span>}
+                  title={<>Rivalry with {o.name} · {rivalUp ? 'Level up' : rivalryRank(rivalNow)}</>}
+                  sub={challengeLine ?? undefined}
+                  strip={newBadges.length ? newBadges.map((id) => stripIcon(id, <BadgeIcon id={id} size={18} />)) : undefined}
+                  bar={newBadges.length ? undefined : <Bar barRef={ref('rvBar')} frac={done ? frac(rvTo) : frac(rvFrom)} fill="bg-hue-rose-500" />}
+                  right={r.rivalry && !rivalUp ? <span className="shrink-0 text-xs font-bold text-hue-rose-600 tabular-nums dark:text-hue-rose-400">+{r.rivalry.gained}</span> : undefined}
                 />
               </div>
             )}
-            {o && r.rivalry?.newBadges.map((id) => (
-              <div key={id} className={hide}>
-                <RewardRow kind="new" icon={<span className="flex h-8 w-8 items-center justify-center rounded-md bg-hue-rose-600 text-white"><Check size={16} strokeWidth={3} /></span>} title={BADGES.find((b) => b.id === id)?.label ?? 'Badge'} sub={`Rivalry badge with ${o.name}`} right={NEW} />
-              </div>
-            ))}
-            <div className={hide}>
-              <RewardRow
-                kind="journey"
-                icon={<Medallion name="map" tint="blue" size={32} />}
-                title={milestoneHit && reached ? <>{reached.title} reached!</> : ja.next ? <>Next: {ja.next.title} at {ja.next.rating}</> : 'Top of the journey!'}
-                bar={<Bar barRef={ref('jBar')} frac={done ? frac(ja.pos) : frac(jb.pos)} fill="bg-hue-sky-500" />}
-                right={milestoneHit ? NEW : undefined}
-              />
-            </div>
             <div className={hide}>
               <RewardRow
                 kind="level"
+                testId="row-level"
                 icon={
                   <span ref={ref('lvBadge')} className="flex h-8 w-8 items-center justify-center rounded-md bg-[#f7c045] text-[13px] font-extrabold text-[#3a2a00] [backface-visibility:hidden]">
                     {levelNow}
@@ -469,65 +527,61 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
                 right={levelNow > lvBefore.level ? NEW : undefined}
               />
             </div>
-            {streak >= 2 && (
+            {achItems.length > 0 && (
               <div className={hide}>
                 <RewardRow
-                  icon={<Flame size={26} className={streak >= 5 ? 'fill-hue-rose-400 text-hue-rose-500' : 'fill-hue-orange-400 text-hue-orange-500'} />}
-                  title={`${streak} wins in a row`}
-                  sub={r.newBestStreak ? 'Your best streak ever!' : `Best: ${r.bestWinStreak ?? streak}`}
-                  right={r.newBestStreak ? <span className="chip shrink-0 bg-[#f7c045] text-[#3a2a00]">New best</span> : undefined}
+                  kind="group"
+                  testId="row-achievements"
+                  onOpen={open('ach')}
+                  icon={<Medallion name="trophy" tint="gold" size={32} />}
+                  title={achItems.length === 1 ? achItems[0].title : `${achItems.length} achievements`}
+                  strip={achItems.slice(0, 8).map((a) => stripIcon(a.key, <span className="inline-flex scale-[.64] origin-left -mr-2.5">{a.icon}</span>))}
+                  right={NEW}
                 />
               </div>
             )}
-            {r.unlocked && opponentById(r.unlocked) && (
+            {unlockItems.length > 0 && (
+              <div className={hide}>
+                <RewardRow
+                  kind="group"
+                  testId="row-unlocks"
+                  onOpen={unlockItems.length > 1 ? open('unlocks') : undefined}
+                  icon={<CosmeticPreview c={r.unlocks[0]} size={32} />}
+                  title={unlockItems.length === 1 ? <>New {KIND_LABEL[r.unlocks[0].kind].one.toLowerCase()}: {cosmeticTitle(r.unlocks[0])}</> : `${unlockItems.length} new looks`}
+                  sub={unlockItems.length === 1 ? 'Equip it in your Collection' : undefined}
+                  strip={unlockItems.length > 1 ? r.unlocks.slice(0, 8).map((c) => stripIcon(c.id, <CosmeticPreview c={c} size={18} />)) : undefined}
+                  right={NEW}
+                />
+              </div>
+            )}
+            {nextOpp ? (
               <div className={hide}>
                 <RewardRow
                   kind="new"
-                  icon={<Portrait id={r.unlocked} size={32} />}
-                  title={<>New opponent: {opponentById(r.unlocked)!.name}</>}
-                  sub={`Rating ${opponentById(r.unlocked)!.elo}`}
-                  right={onPlayNext ? <button className="btn-primary !mb-[3px] !min-h-8 shrink-0 !px-3 !py-1 text-sm" onClick={(e) => (e.stopPropagation(), onPlayNext(r.unlocked!))}>Play</button> : NEW}
+                  testId="row-next"
+                  icon={<Portrait id={nextOpp.id} size={32} />}
+                  title={<>New opponent: {nextOpp.name}</>}
+                  sub={`Rating ${nextOpp.elo}`}
+                  right={onPlayNext ? <button className="btn-primary !mb-[3px] !min-h-8 shrink-0 !px-3 !py-1 text-sm" onClick={(e) => (e.stopPropagation(), onPlayNext(nextOpp.id))}>Play</button> : NEW}
+                />
+              </div>
+            ) : (
+              <div className={hide}>
+                <RewardRow
+                  kind="journey"
+                  testId="row-next"
+                  icon={<Medallion name="map" tint="blue" size={32} />}
+                  title={milestoneHit && reached ? <>{reached.title} reached!</> : ja.next ? <>Next: {ja.next.title} at {ja.next.rating}</> : 'Top of the journey!'}
+                  bar={<Bar barRef={ref('jBar')} frac={done ? frac(ja.pos) : frac(jb.pos)} fill="bg-hue-sky-500" />}
+                  right={milestoneHit ? NEW : undefined}
                 />
               </div>
             )}
-            {tactics.length > 0 && (
-              <div className={hide}>
-                <RewardRow icon={<Medallion name="zap" tint="gold" size={32} />} title="Tactics you played" sub={tactics.map((k) => `${r.tactics[k]}× ${r.tactics[k] === 1 ? TACTIC_LABEL[k].one : TACTIC_LABEL[k].many}`).join(' · ')} />
-              </div>
-            )}
-            {r.milestones.map((m) => (
-              <div key={m.rating} className={hide}>
-                <RewardRow kind="new" icon={<Medallion name="map" tint="gold" size={32} />} title={m.title} sub={`Journey · ${m.rating} · ${m.line}`} right={NEW} />
-              </div>
-            ))}
-            {(r.challengeOpened || r.challengeDone) && ch && (
-              <div className={hide}>
-                <RewardRow kind="new" icon={<Medallion name="flag" tint="gold" size={32} />} title={<>{r.challengeDone ? 'Challenge complete' : 'Challenge unlocked'}: {ch.title}</>} sub={r.challengeDone ? 'You did it!' : `${ch.description} Try it next game against ${o?.name}.`} right={NEW} />
-              </div>
-            )}
-            {r.unlocks.map((c) => (
-              <div key={c.id} className={hide}>
-                <RewardRow kind="new" icon={<CosmeticPreview c={c} size={32} />} title={cosmeticTitle(c)} sub={`New ${KIND_LABEL[c.kind].one.toLowerCase()} · equip it in your Collection`} right={NEW} />
-              </div>
-            ))}
-            {r.achievements.map((a) => (
-              <div key={a.id} className={hide}>
-                <RewardRow kind="new" icon={a.portrait ? <Portrait id={a.portrait} size={32} /> : <Medallion name={a.icon} tint="gold" size={32} />} title={a.title} sub={`Achievement · ${a.description}`} right={NEW} />
-              </div>
-            ))}
-            {r.skillsUp.map((sk) => {
-              const k = SKILLS.find((x) => x.id === sk.id)!;
-              return (
-                <div key={sk.id} className={hide}>
-                  <RewardRow kind="new" icon={<Medallion name={k.icon} tint="blue" size={32} />} title={k.name} sub={`Skill · ${TIERS[sk.tier].name} — your skill tree grew`} right={NEW} />
-                </div>
-              );
-            })}
           </div>
           {!done && <p className="mt-2 text-center text-xs text-stone-500">Tap to skip</p>}
         </div>
 
-        {/* Actions: they rise in last; the sheet scrolls above them. */}
+        {/* Actions: they rise in last and stay put under the rows. */}
         <div ref={ref('btns')} className={`${hide} shrink-0 space-y-2 border-t border-black/[0.06] px-4 pt-3 pb-3 dark:border-white/[0.06]`}>
           {onReport ? (
             <button className="btn-primary !min-h-14 w-full text-[17px] !font-extrabold" onClick={onReport}>
@@ -556,6 +610,55 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
             </div>
           )}
         </div>
+      </div>
+
+      {/* A group's list, over the results (its own taps and drags stay inside it). */}
+      <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+        <Sheet open={!!detail} onClose={() => setDetail(null)} z={60} panelClass="card safe-bottom w-full max-w-md !rounded-t-[14px] !rounded-b-none !px-5 !pt-0 !pb-5 sm:!rounded-[14px]" testId="results-detail">
+          {(closeDetail) => (
+            <>
+              <div data-sheet-handle className="-mx-5 mb-1 flex cursor-grab touch-none justify-center pt-2 pb-3" aria-hidden>
+                <span className="h-1 w-10 rounded-full bg-stone-300 dark:bg-stone-600" />
+              </div>
+              {detail === 'rivalry' && o && (
+                <>
+                  <h3 className="text-[17px] font-extrabold">Rivalry with {o.name}</h3>
+                  {r.rivalry && <p className="text-[13px] text-stone-500">Level {r.rivalry.levelAfter} · {rivalryRank(r.rivalry.levelAfter)} · +{r.rivalry.gained} points this game</p>}
+                  <div className="mt-2 divide-y divide-black/5 dark:divide-white/[0.06]">
+                    {newBadges.map((id) => {
+                      const b = BADGES.find((x) => x.id === id);
+                      return <ListItem key={id} icon={<BadgeIcon id={id} size={28} />} title={b?.label ?? 'Badge'} sub={b?.hint} />;
+                    })}
+                    {challengeLine && ch && <ListItem icon={<Medallion name="flag" tint="gold" size={28} />} title={challengeLine} sub={r.challengeDone ? 'You did it!' : `${ch.title}: ${ch.description} Try it next game against ${o.name}.`} />}
+                  </div>
+                </>
+              )}
+              {detail === 'ach' && (
+                <>
+                  <h3 className="text-[17px] font-extrabold">{achItems.length === 1 ? 'New achievement' : `${achItems.length} achievements`}</h3>
+                  <div className="mt-2 divide-y divide-black/5 dark:divide-white/[0.06]">
+                    {achItems.map((a) => (
+                      <ListItem key={a.key} icon={a.icon} title={a.title} sub={a.sub} />
+                    ))}
+                  </div>
+                </>
+              )}
+              {detail === 'unlocks' && (
+                <>
+                  <h3 className="text-[17px] font-extrabold">{unlockItems.length} new looks</h3>
+                  <div className="mt-2 divide-y divide-black/5 dark:divide-white/[0.06]">
+                    {unlockItems.map((a) => (
+                      <ListItem key={a.key} icon={a.icon} title={a.title} sub={a.sub} />
+                    ))}
+                  </div>
+                </>
+              )}
+              <button className="btn-secondary mt-3 w-full" onClick={closeDetail}>
+                Done
+              </button>
+            </>
+          )}
+        </Sheet>
       </div>
     </div>
   );

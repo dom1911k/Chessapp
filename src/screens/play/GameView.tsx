@@ -125,7 +125,10 @@ export function GameView() {
   const coachOff = !aids.comments;
   const feed = g.feed ?? [];
   const latestFeed = feed[feed.length - 1];
-  const actionKind: ActionKind | null = s.precheck ? 'precheck' : s.over ? 'over' : s.phase === 'paused' && latestFeed?.kind === 'comment' ? 'paused' : null;
+  // The game-over actions (Game Review · Rematch · ⋯) are what you use after closing the results
+  // sheet, so they appear only once it's closed; until then the Dock stays.
+  const sheetPending = !!s.rewards;
+  const actionKind: ActionKind | null = s.precheck ? 'precheck' : s.over && !sheetPending ? 'over' : s.phase === 'paused' && latestFeed?.kind === 'comment' ? 'paused' : null;
   // With the coach off, only what you asked for (hints, threats, the result…) shows, and only while it's fresh.
   const coachFresh = !!s.precheck || !!s.over || (!!latestFeed && latestFeed.ply >= g.plies.length - 1);
 
@@ -208,7 +211,10 @@ export function GameView() {
           <div className="flex gap-1">
             {aids.evalBar && <EvalBar whitePct={whitePct} orientation={orientation} />}
             <div ref={boardBox} className="relative flex-1" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} data-testid="game-board">
-              <BoardFlash flash={s.flash} orientation={orientation} />
+              {/* The tactic label stays through the end, and fades out as the results sheet opens. */}
+              <div className={`pointer-events-none absolute inset-0 z-20 transition-opacity duration-200 ${s.rewards && sheetReady ? 'opacity-0' : ''}`}>
+                <BoardFlash flash={s.flash} orientation={orientation} />
+              </div>
               <Board
                 fen={viewing ? (viewPly ? viewPly.fenAfter : g.startFen) : fen}
                 orientation={orientation}
@@ -261,7 +267,7 @@ export function GameView() {
           {/* Choices (a paused mistake, the pre-check, game over) take the Dock's place, so they're never scrolled away. */}
           {actionKind ? (
             <GameActions kind={actionKind} onMore={() => setOverMenu(true)} />
-          ) : !s.over && (
+          ) : (!s.over || sheetPending) && (
             <Dock>
                 {aids.requests ? (
                   <>

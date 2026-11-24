@@ -106,9 +106,11 @@ export function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; tr
   const rows = REVIEW_ORDER.filter((c) => allRows || r.me.counts[c] + r.them.counts[c] > 0);
   const resultTone = g.userResult === 'win' ? 'bg-brand-700 text-white' : g.userResult === 'loss' ? 'bg-stone-700 text-white dark:bg-stone-800' : 'bg-stone-500 text-white';
   // chess.com's accuracy boxes: the white player's white, the black player's charcoal.
-  const accNum = (acc: number, white: boolean, mine: boolean) => (
+  // No analysed moves on a side (resigned before moving): "—", no count-up.
+  const accShown = (side: { accuracy: number; moves: number }) => (side.moves ? side.accuracy.toFixed(1) : '—');
+  const accNum = (white: boolean, mine: boolean) => (
     <span ref={mine ? accMe : accThem} className={`inline-flex w-[84px] justify-center rounded-[6px] py-1.5 text-[24px] leading-none font-extrabold tabular-nums ${white ? 'bg-white text-[#312e2b] ring-1 ring-black/10' : 'bg-[#403d39] text-white'}`} data-testid={mine ? 'review-acc-me' : undefined}>
-      {acc.toFixed(1)}
+      {accShown(mine ? r.me : r.them)}
     </span>
   );
 
@@ -126,10 +128,10 @@ export function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; tr
   const rvTk = useRef<Token>(token());
   const finishReveal = () => {
     rvTk.current.skip = true;
-    for (const [el, v] of [[accMe.current, r.me.accuracy], [accThem.current, r.them.accuracy]] as const) {
+    for (const [el, v] of [[accMe.current, r.me], [accThem.current, r.them]] as const) {
       if (!el) continue;
       el.classList.remove('skel');
-      el.textContent = v.toFixed(1);
+      el.textContent = accShown(v);
     }
     [verdictBox.current, movesBox.current, startBar.current].forEach((el) => el?.getAnimations({ subtree: true }).forEach((a) => a.cancel()));
     setTyped(null);
@@ -154,7 +156,7 @@ export function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; tr
       if (tk.skip) return;
       accMe.current?.classList.remove('skel');
       accThem.current?.classList.remove('skel');
-      await Promise.all([countTo(accMe.current, 0, r.me.accuracy, 950, 1, tk), countTo(accThem.current, 0, r.them.accuracy, 950, 1, tk)]);
+      await Promise.all([r.me.moves ? countTo(accMe.current, 0, r.me.accuracy, 950, 1, tk) : null, r.them.moves ? countTo(accThem.current, 0, r.them.accuracy, 950, 1, tk) : null]);
       if (tk.skip) return;
       sfx('accLand');
       void animate(accMe.current, [{ transform: 'scale(1.12)' }, { transform: 'none' }], BOUNCE);
@@ -219,12 +221,12 @@ export function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; tr
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pt-3 pb-4">
             <div className="flex flex-col items-center gap-2">
               <PlayerChip g={g} me />
-              {!pending(g) && accNum(r.me.accuracy, meWhite, true)}
+              {!pending(g) && accNum(meWhite, true)}
             </div>
             <span className="text-[11px] font-semibold tracking-wider text-stone-500 uppercase">{pending(g) ? 'vs' : 'Accuracy'}</span>
             <div className="flex flex-col items-center gap-2">
               <PlayerChip g={g} me={false} />
-              {!pending(g) && accNum(r.them.accuracy, !meWhite, false)}
+              {!pending(g) && accNum(!meWhite, false)}
             </div>
             {perf && (
               <>

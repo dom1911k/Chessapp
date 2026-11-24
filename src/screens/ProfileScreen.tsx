@@ -1,5 +1,6 @@
 // Profile & stats, chess.com style: your ratings per mode, your record, accuracy over time and
 // best wins up top; then games, puzzles and activity.
+import { hasAccuracy } from '../lib/report';
 import { RematchRecords, TurningStat } from '../components/TurningCards';
 import { AvatarPicker, UserAvatar, useMyTitle } from '../components/UserAvatar';
 import { Pencil } from 'lucide-react';
@@ -91,7 +92,8 @@ export function ProfileScreen() {
           l: games.filter((g) => g.userResult === 'loss').length,
         },
         blunders: games.slice(-15).map((g) => g.summary.counts.blunder),
-        accuracy: games.slice(-20).map((g) => g.summary.accuracy),
+        // Games without an analysed move of yours have no accuracy (not 0%).
+        accuracy: games.filter((g) => hasAccuracy(g.summary)).slice(-20).map((g) => g.summary.accuracy),
         puzzles: { total: attempts.length, solved: attempts.filter((a) => a.success).length },
         path: await getPathState(),
         streak: await currentStreak(),
