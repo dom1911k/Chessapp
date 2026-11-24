@@ -55,7 +55,8 @@ export function BadgeLine({ opponentId, rec }: { opponentId: string; rec?: Oppon
         <BadgeIcons held={held} size={16} />
         <span className="min-w-0 flex-1 truncate text-stone-500 dark:text-stone-400">
           <b className="font-bold text-stone-800 tabular-nums dark:text-stone-100">{n}/8</b>
-          {next ? <> · Next: {next.label}</> : ' · all eight'}
+          {/* A small phone drops "Next:" so the badge's name fits. */}
+          {next ? <> · <span className="max-[380px]:hidden">Next: </span>{next.label}</> : ' · all eight'}
         </span>
         <ChevronRight size={16} className="shrink-0 text-stone-400" />
       </button>

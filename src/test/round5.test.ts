@@ -27,7 +27,8 @@ describe('round 5 · 1.1–1.3 badges: gold, readable, one place on Home', async
   });
   it('the opponent card line reads "5/8 · Next: With Black" with 16px icons', () => {
     const html = renderToStaticMarkup(createElement(BadgeLine, { opponentId: 'tom', rec }));
-    expect(html.replace(/<!-- -->/g, '')).toContain('5/8</b> · Next: With Black');
+    expect(html.replace(/<[^>]+>|<!-- -->/g, '')).toContain('5/8 · Next: With Black');
+    expect(html).toContain('<span class="max-[380px]:hidden">Next: </span>');
     expect(html.match(/width:16px/g)).toHaveLength(8);
     expect(html).toContain('data-testid="badge-line"');
   });

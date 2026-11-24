@@ -516,7 +516,7 @@ const moveLabel = (g: AnyGame, ply: number) => `${moveNo(g.plies, ply)}${g.plies
 
 const CHIP: Record<FixResult | 'current' | 'next', string> = {
   current: 'ring-[1.5px] ring-stone-400 text-stone-800 dark:ring-stone-500 dark:text-stone-100',
-  fixed: 'bg-brand-500/15 text-brand-700 ring-1 ring-brand-500 dark:text-brand-400',
+  fixed: 'bg-brand-500/15 text-brand-700 ring-1 ring-brand-500 dark:text-brand-500',
   shown: 'bg-stone-200 text-stone-600 dark:bg-white/10 dark:text-stone-300',
   skipped: 'bg-stone-200 text-stone-600 dark:bg-white/10 dark:text-stone-300',
   next: 'bg-stone-100 text-stone-500 dark:bg-white/[0.05] dark:text-stone-400',
@@ -566,7 +566,7 @@ const FixDone = forwardRef<HTMLDivElement, { g: AnyGame; plies: number[]; result
                 <ArrowRight size={13} className="mx-1 inline align-[-1px] text-stone-400" />
                 <b>{g.plies[ply].comment?.bestSan}</b>
               </span>
-              <span className={`shrink-0 text-[13px] font-semibold ${res === 'fixed' ? 'text-brand-700 dark:text-brand-400' : 'text-stone-500 dark:text-stone-400'}`}>{LABEL[res]}</span>
+              <span className={`shrink-0 text-[13px] font-semibold ${res === 'fixed' ? 'text-brand-700 dark:text-brand-500' : 'text-stone-500 dark:text-stone-400'}`}>{LABEL[res]}</span>
             </div>
           );
         })}
