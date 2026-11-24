@@ -1,28 +1,39 @@
 import { describe, expect, it } from 'vitest';
-import { endVerdict, resultLines } from '../lib/coach/endLine';
+import { endVerdict, resultLine, resultLines } from '../lib/coach/endLine';
 import { accuracyText, hasAccuracy, summarize } from '../lib/report';
 import { emptyCounts } from '../lib/report';
 
-describe('one message at the end of a game', () => {
-  it('folds the last move’s verdict into the result', () => {
+describe('one short line at the end of a game', () => {
+  it('a win keeps the verdict on your last move', () => {
     const v = endVerdict('Ra8#', 'best', undefined, 'backRankMates');
     expect(v).toBe('Ra8# — back-rank mate.');
-    expect(resultLines('win', 'checkmate', undefined, undefined, v)[0]).toBe('Ra8# — back-rank mate. You won by checkmate!');
+    expect(resultLines('win', 'checkmate', { opponent: 'Grandpa Tom', verdict: v })).toEqual(['Ra8# — back-rank mate. Well played.']);
   });
-  it('reads naturally without a tactic, and for a draw', () => {
+  it('reads the last move naturally', () => {
     expect(endVerdict('Qh7#', 'best')).toBe('Qh7# is best.');
     expect(endVerdict('Qxe5', 'good', 'brilliant')).toBe('Qxe5 — brilliant!');
     expect(endVerdict('Kf3', 'mistake')).toBe('Kf3 — a mistake.');
     expect(endVerdict('Kf3', 'inaccuracy')).toBe('Kf3 — an inaccuracy.');
-    expect(resultLines('draw', 'stalemate', undefined, 'Tom', 'Kf3 — a mistake.')).toEqual(["Kf3 — a mistake. It's a draw (stalemate)."]);
   });
-  it('keeps the usual words when the game ended some other way', () => {
-    expect(resultLines('win', 'resignation', undefined, 'Tom')[0]).toBe('You won against Tom — Tom resigned!');
+  it('a win without a verdict names how', () => {
+    expect(resultLine('win', 'checkmate', { opponent: 'Grandpa Tom' })).toBe('You beat Grandpa Tom by checkmate.');
+    expect(resultLine('win', 'time', { opponent: 'Grandpa Tom' })).toBe('You beat Grandpa Tom on time.');
+    expect(resultLine('win', 'resignation', { opponent: 'Grandpa Tom' })).toBe('You beat Grandpa Tom.');
   });
-  it('mentions new badges, not stars', () => {
-    expect(resultLines('win', 'checkmate', { fresh: 2, held: 3 }, 'Tom')[1]).toBe('2 new badges with Tom: 3/8.');
-    expect(resultLines('win', 'checkmate', { fresh: 1, held: 5, opened: true }, 'Tom')[1]).toBe("A new badge with Tom: 5/8. That opens Tom's special challenge!");
-    expect(resultLines('win', 'checkmate', { fresh: 0, held: 5 }, 'Tom')).toHaveLength(1);
+  it('a draw keeps the reason', () => {
+    expect(resultLine('draw', 'stalemate', { opponent: 'Tom' })).toBe('A draw (stalemate). Solid.');
+  });
+  it('a loss points at the moments to fix, or at the review', () => {
+    expect(resultLine('loss', 'checkmate', { opponent: 'Grandpa Tom', toFix: 2 })).toBe('Grandpa Tom got you this time. 2 moments to fix in the review.');
+    expect(resultLine('loss', 'checkmate', { opponent: 'Grandpa Tom', toFix: 1 })).toBe('Grandpa Tom got you this time. 1 moment to fix in the review.');
+    expect(resultLine('loss', 'checkmate', { opponent: 'Grandpa Tom' })).toBe('Grandpa Tom got you this time. The review shows where it turned.');
+    expect(resultLine('loss', 'resignation', { opponent: 'Grandpa Tom' })).toBe('Game over. The review shows where it turned.');
+  });
+  it('is one line: no badges, no practice question, no emoji', () => {
+    for (const l of [resultLines('win', 'checkmate', { opponent: 'Tom' }), resultLines('loss', 'checkmate', { opponent: 'Tom', toFix: 2 }), resultLines('draw', 'repetition')]) {
+      expect(l).toHaveLength(1);
+      expect(l[0]).not.toMatch(/badge|practise|challenge|[\u{1F300}-\u{1FAFF}]/u);
+    }
   });
 });
 
@@ -47,7 +58,11 @@ describe('Home: Up next', async () => {
   it('1 · your last game’s key moments first, until you’ve fixed them', () => {
     const u = chooseUpNext({ ...base, dailyDone: false, last: { gameId: 7, opponent: 'Grandpa Tom', moments: 2, fixed: false } });
     expect(u).toEqual({ kind: 'review', gameId: 7, opponent: 'Grandpa Tom', moments: 2 });
-    expect(upNextText(u)).toEqual({ title: 'Review your game vs Grandpa Tom', detail: '2 key moments' });
+    // Round 5: it names the action it opens.
+    expect(upNextText(u)).toEqual({ title: 'Fix 2 moments', detail: 'From your game vs Grandpa Tom' });
+    expect(upNextText({ kind: 'review', gameId: 7, opponent: 'Grandpa Tom', moments: 1 }).title).toBe('Fix 1 moment');
+    const cc = chooseUpNext({ ...base, last: { gameId: 'cc:1', opponent: 'anna_k', moments: 1, fixed: false, cc: true } });
+    expect(upNextText(cc)).toEqual({ title: 'Fix 1 moment', detail: 'From your chess.com game vs anna_k' });
     expect(chooseUpNext({ ...base, dailyDone: false, last: { gameId: 7, opponent: 'Tom', moments: 2, fixed: true } }).kind).toBe('daily');
     expect(chooseUpNext({ ...base, dailyDone: false, last: { gameId: 7, opponent: 'Tom', moments: 0, fixed: false } }).kind).toBe('daily');
   });

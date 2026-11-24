@@ -12,7 +12,7 @@ import { BOUNCE, SOFT, animate, reduced, sleep, token, type Token } from '../../
 import { GREENS, centre, emit } from '../../lib/fx';
 import { sfx } from '../../lib/sfx';
 import { countTo } from '../../lib/numbers';
-import { ChevronRight, Crosshair, Sparkles, Lightbulb } from 'lucide-react';
+import { ChevronRight, Sparkles, Lightbulb, Target } from 'lucide-react';
 import { Board } from '../../components/Board';
 import { EvalGraph } from '../../components/Charts';
 import { CoachAvatar, Portrait } from '../../components/Coach';
@@ -422,7 +422,7 @@ export function SummaryView({ g, r, trap, onStart, fix }: { g: AnyGame; r: Revie
           </button>
           {fix && !pending(g) && (
             <button className="btn-secondary !min-h-14 text-[14px]" onClick={fix.start} data-testid="fix-moments">
-              <Crosshair size={16} />{' '}
+              <Target size={16} />{' '}
               {fix.again ? (
                 <>
                   {/* "Start Review" keeps one line on a 360px phone. */}

@@ -92,15 +92,17 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
       sfx('swish', -0.5);
       void animate(q.half1, [{ transform: 'translate(-60%,-30%)' }, { transform: 'none' }], { d: 520, e: 'cubic-bezier(.2,.8,.2,1)' });
       void animate(q.half2, [{ transform: 'translate(60%,30%)' }, { transform: 'none' }], { d: 520, e: 'cubic-bezier(.2,.8,.2,1)' });
-      void animate(q.slash, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { d: 380, delay: 180, e: 'cubic-bezier(.3,.8,.3,1)' });
-      void animate(q.glint, [{ transform: 'translateX(-10%)', opacity: 1 }, { transform: 'translateX(110%)', opacity: 1 }], { d: 700, delay: 300, e: 'ease-in-out' });
-      void animate(q.me, [{ opacity: 0, transform: 'translateX(-90px) rotate(-6deg)' }, { opacity: 1, transform: 'none' }], { ...BOUNCE, delay: 240 });
-      void animate(q.op, [{ opacity: 0, transform: 'translateX(90px) rotate(6deg)' }, { opacity: 1, transform: 'none' }], { ...BOUNCE, delay: 360 });
-      void animate(q.meChip, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { ...SOFT, delay: 420 });
-      void animate(q.opChip, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { ...SOFT, delay: 540 });
-      void animate(q.vs, [{ opacity: 0, transform: 'scale(2.6)' }, { opacity: 1, transform: 'scale(.92)', offset: 0.7 }, { opacity: 1, transform: 'scale(1)' }], { d: 300, delay: 560, e: 'cubic-bezier(.5,0,.6,1)' });
-      void animate(q.line, [{ opacity: 0, transform: 'translateY(8px) scale(.92)' }, { opacity: 1, transform: 'none' }], { ...POP, delay: 1070 });
-      await sleep(770, tk);
+      // The card is never empty for long: the slash and "You" start almost at once (same order and
+      // springs as before); VS and the line keep their gaps from the opponent.
+      void animate(q.slash, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { d: 380, delay: 40, e: 'cubic-bezier(.3,.8,.3,1)' });
+      void animate(q.glint, [{ transform: 'translateX(-10%)', opacity: 1 }, { transform: 'translateX(110%)', opacity: 1 }], { d: 700, delay: 160, e: 'ease-in-out' });
+      void animate(q.me, [{ opacity: 0, transform: 'translateX(-90px) rotate(-6deg)' }, { opacity: 1, transform: 'none' }], { ...BOUNCE, delay: 80 });
+      void animate(q.op, [{ opacity: 0, transform: 'translateX(90px) rotate(6deg)' }, { opacity: 1, transform: 'none' }], { ...BOUNCE, delay: 200 });
+      void animate(q.meChip, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { ...SOFT, delay: 260 });
+      void animate(q.opChip, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { ...SOFT, delay: 380 });
+      void animate(q.vs, [{ opacity: 0, transform: 'scale(2.6)' }, { opacity: 1, transform: 'scale(.92)', offset: 0.7 }, { opacity: 1, transform: 'scale(1)' }], { d: 300, delay: 400, e: 'cubic-bezier(.5,0,.6,1)' });
+      void animate(q.line, [{ opacity: 0, transform: 'translateY(8px) scale(.92)' }, { opacity: 1, transform: 'none' }], { ...POP, delay: 910 });
+      await sleep(610, tk);
       if (tk.skip) return;
       // VS lands.
       sfx('stamp');

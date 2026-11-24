@@ -22,6 +22,8 @@ export function MoveMark({ mark, orientation, delayMs = 0 }: { mark: SquareMark;
         mark.ok ? 'bg-brand-500' : 'bg-hue-rose-500'
       }`}
       style={{ left: `calc(${p.left} + 3.6%)`, top: `calc(${p.top} - 3.6%)`, animationDelay: delayMs ? `${delayMs}ms` : undefined }}
+      data-testid="move-mark"
+      data-ok={mark.ok ? 'true' : 'false'}
     >
       {mark.ok ? '✓' : '✕'}
     </span>

@@ -41,8 +41,8 @@ export async function checkWeeklyGoal(): Promise<boolean> {
   const key = weekKey();
   if (met.includes(key)) return false;
   await kvSet(MET_KEY, [...met, key]);
+  // A toast, no confetti (confetti is for wins).
   const c = useCelebrate.getState();
-  c.confetti();
   c.toast({ icon: 'sprout', title: 'Weekly goal reached!', text: `${w.goal} training days this week. Enjoy the rest days!` });
   return true;
 }

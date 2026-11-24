@@ -177,8 +177,8 @@ export async function checkChapters(): Promise<void> {
   if (!fresh.length) return;
   for (const ch of fresh) st.chapters[ch.id] = true;
   await kvSet(CHAPTER_KEY, st.chapters);
+  // A toast per level, no confetti (confetti is for wins).
   const c = useCelebrate.getState();
-  c.confetti();
   for (const ch of fresh) {
     c.toast({ icon: ch.icon, title: `Level ${CHAPTERS.indexOf(ch) + 1} complete: ${ch.title}`, text: CHAPTERS.indexOf(ch) + 1 < CHAPTERS.length ? `Level ${CHAPTERS.indexOf(ch) + 2} is open.` : 'You finished the whole course!' });
     await progress({ kind: 'chapter' });

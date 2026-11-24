@@ -1,13 +1,13 @@
 // Home's one "Up next" row (see src/lib/upNext.ts for the rules): a 36px icon, a title, one muted
 // line and a chevron. It recomputes whenever Home shows again.
 import { useEffect, useState } from 'react';
-import { BookOpen, CalendarCheck, ChevronRight, Crosshair, Puzzle } from 'lucide-react';
+import { BookOpen, CalendarCheck, ChevronRight, Puzzle, Target } from 'lucide-react';
 import { loadUpNext, upNextText, type UpNext } from '../lib/upNext';
 import { useNav } from '../lib/nav';
 import type { CourseStep } from '../lib/course';
 
 const ICON = {
-  review: { el: <Crosshair size={20} />, tint: 'bg-brand-100 text-brand-700 dark:bg-brand-700/25 dark:text-brand-100' },
+  review: { el: <Target size={20} />, tint: 'bg-brand-100 text-brand-700 dark:bg-brand-700/25 dark:text-brand-100' },
   daily: { el: <CalendarCheck size={20} />, tint: 'bg-hue-sky-100 text-hue-sky-700 dark:bg-hue-sky-900/40 dark:text-hue-sky-200' },
   course: { el: <BookOpen size={20} />, tint: 'bg-gold-300/45 text-[#8a6416] dark:bg-gold-500/20 dark:text-gold-300' },
   puzzles: { el: <Puzzle size={20} />, tint: 'bg-hue-orange-100 text-hue-orange-700 dark:bg-hue-orange-900/40 dark:text-hue-orange-200' },

@@ -10,7 +10,7 @@ import { getOpponentRecords } from '../people/record';
 import { explainMove, explainTakeback, getHint, type CoachComment } from '../coach';
 import type { Hint } from '../coach/hints';
 import type { Theme } from '../coach/types';
-import { THEMES } from '../themes';
+import { fixMoments, reviewGame } from '../review';
 import { botMoveNote, describeThreat, nullMoveFen, type ThreatInfo } from '../coach/threats';
 import { explainPosition } from '../coach/position';
 import { preMoveCheck, type PreCheck } from '../coach/precheck';
@@ -267,10 +267,17 @@ export const usePlay = create<PlayStore>((set, get) => {
     const practice = rec?.summary.pattern?.theme ?? rec?.summary.lessonTheme;
     set({ over: { result, reason, gameId: info.gameId, firstWin: info.firstWin, practice }, rewards: info.rewards });
     const userResult = result === '1/2-1/2' ? 'draw' : botWon ? 'loss' : 'win';
-    const rv = info.rewards.rivalry;
-    const lines = resultLines(userResult, reason, rv ? { fresh: rv.newBadges.length, held: rv.badges, opened: info.rewards.challengeOpened } : undefined, opponentById(g.opponentId)?.name, endVerdictText ?? undefined);
+    // One short line about the game: the sheet shows the badges, the ⋯ menu offers the practice.
+    let toFix = 0;
+    if (userResult === 'loss' && rec) {
+      try {
+        toFix = fixMoments(rec, reviewGame(rec)).length;
+      } catch {
+        toFix = 0;
+      }
+    }
+    const lines = resultLines(userResult, reason, { opponent: opponentById(g.opponentId)?.name, verdict: endVerdictText ?? undefined, toFix });
     endVerdictText = null;
-    if (practice) lines.push(`${THEMES[practice].label} tripped you up this game. Want to practise it for 2 minutes?`);
     post({ kind: 'result', text: lines, mood: userResult === 'loss' ? 'concerned' : 'happy' });
     // The opponent's take on the game.
     const o = opponentById(g.opponentId);

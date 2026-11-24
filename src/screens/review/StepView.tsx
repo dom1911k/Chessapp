@@ -1,9 +1,11 @@
 // Game Review's step-through: eval bar + board, the move strip, Coach Sam on the move shown,
 // Best / Retry / Next mistake, and the step arrows. With `fix`, the short "Fix your key moments"
 // mode: Retry already on at each of your key mistakes in turn ("Find a better move for White."),
-// Show me, "Next moment ›", and a small done card.
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ChartLine, Play, Square, FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope, Check } from 'lucide-react';
+// Show me or Skip, the puzzle marks on the board, a strip of the moments, "Next moment ›", and a
+// done card with one row per moment.
+import { forwardRef, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ChartLine, Play, Square, FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope, Check, Eye, Minus, ArrowRight, SkipForward } from 'lucide-react';
+import { MoveMark, type SquareMark } from '../../components/PuzzleFx';
 import { Board } from '../../components/Board';
 import { EvalGraph } from '../../components/Charts';
 import { CoachBubble } from '../../components/Coach';
@@ -24,18 +26,23 @@ import { goodWhy, looseWhy, missedThreat, planWhy, repeatedTips, reviewNotes } f
 import { ArrowOverlay, type OverlayArrow } from '../../components/ArrowOverlay';
 import { isBad, moveNo, punishInfo, punishment, RC, type Review, type ReviewClass } from '../../lib/review';
 import { sfx, sfxCls } from '../../lib/sfx';
-import { POP, SOFT, animate, haptic } from '../../lib/motion';
+import { POP, SOFT, animate, haptic, reduced } from '../../lib/motion';
 import { practiseMoment } from '../../lib/upNext';
+import { useCelebrate } from '../../lib/celebrate';
 import type { AnyGame, ImportedGame } from '../../lib/store/types';
 import { SquareFlash, SquareIcon, oppName, timesOf } from './shared';
 
 /** 'shown': Show me played the better move for you (fix mode). */
 type Retry = { state: 'try' | 'checking' | 'right' | 'ok' | 'wrong' | 'shown'; fen: string; last?: { from: string; to: string }; reply?: string };
-/** Fix mode: the plies of your key mistakes, in order, and what to do once they're all done. */
+/** Fix mode: the plies of your key mistakes, in order; `onDone` when the last one is settled (saved
+ *  first), `onFinish` for the done card's button (back where the flow started). */
 export interface FixMode {
   plies: number[];
   onDone: () => void;
+  onFinish: () => void;
 }
+/** How a moment ended: found it, after Show me, or skipped. */
+type FixResult = 'fixed' | 'shown' | 'skipped';
 
 export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Review; start: number; onSummary: () => void; fix?: FixMode }) {
   const [i, setI] = useState(start);
@@ -44,7 +51,9 @@ export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Revie
   // Fix mode: which moment, how each ended ('fixed' found it, 'shown' after Show me), wrong tries
   // on this one, and the done card.
   const [fk, setFk] = useState(0);
-  const [fixRes, setFixRes] = useState<('fixed' | 'shown')[]>([]);
+  const [fixRes, setFixRes] = useState<FixResult[]>([]);
+  // The puzzle mark on the square you moved to: a green check for the right move, a red cross for a wrong one.
+  const [mark, setMark] = useState<SquareMark | null>(null);
   const [fixDone, setFixDone] = useState(false);
   const wrongTries = useRef(0);
   const [explain, setExplain] = useState(false);
@@ -97,6 +106,7 @@ export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Revie
     setBest(false);
     // Fix mode lands on each moment with Retry already on.
     setRetry(fix && fix.plies[fk] === i ? { state: 'try', fen: g.plies[i].fenBefore } : null);
+    setMark(null);
     setThreatSeen(null);
     setLineK(null);
     strip.current?.querySelector(`[data-ply="${i}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
@@ -194,6 +204,7 @@ export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Revie
     if (uci === p.comment?.bestUci) {
       sfx('correct');
       setRetry({ state: 'right', fen: res.fen, last: { from: res.move.from, to: res.move.to } });
+      if (fix) setMark({ id: Date.now(), sq: res.move.to, ok: true, stay: true });
       resolveMoment('fixed');
       return true;
     }
@@ -205,10 +216,13 @@ export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Revie
         const good = cls === 'best' || cls === 'good';
         sfx(good ? 'correct' : 'fail');
         setRetry({ state: good ? 'ok' : 'wrong', fen: res.fen, last: { from: res.move.from, to: res.move.to }, reply: good ? undefined : a.bestMove ?? undefined });
+        // The mark stays while the reply's arrow shows (and until Try again).
+        if (fix) setMark({ id: Date.now(), sq: res.move.to, ok: good, stay: true });
         if (good) resolveMoment('fixed');
         else wrongTries.current++;
       } catch {
         setRetry({ state: 'wrong', fen: res.fen, last: { from: res.move.from, to: res.move.to } });
+        if (fix) setMark({ id: Date.now(), sq: res.move.to, ok: false, stay: true });
         wrongTries.current++;
       }
     })();
@@ -218,23 +232,26 @@ export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Revie
   // ---------- Fix mode ----------
   const fixMode = !!fix && !!p && fix.plies[fk] === i;
   const lastMoment = !!fix && fk === fix.plies.length - 1;
-  /** A moment is settled once: save the practice first, then the line and "Next moment ›" show. */
-  function resolveMoment(kind: 'fixed' | 'shown') {
+  /** A moment is settled once: save the practice first, then the line and "Next moment ›" show.
+   *  A skipped one isn't practice, so nothing is recorded for it. */
+  function resolveMoment(kind: FixResult) {
     if (!fix || fixRes[fk]) return;
     setFixRes((x) => Object.assign([...x], { [fk]: kind }));
-    void practiseMoment(g, i, kind === 'fixed', wrongTries.current + (kind === 'shown' ? 1 : 0));
+    if (kind !== 'skipped') void practiseMoment(g, i, kind === 'fixed', wrongTries.current + (kind === 'shown' ? 1 : 0));
   }
   const showMe = () => {
     const u = p?.comment?.bestUci;
     const m = u ? tryMove(p!.fenBefore, u) : null;
     if (!m) return;
     sfx('move');
+    setMark(null);
     setRetry({ state: 'shown', fen: m.fen, last: { from: m.move.from, to: m.move.to } });
     resolveMoment('shown');
   };
   const nextMoment = () => {
     if (!fix) return;
     wrongTries.current = 0;
+    setMark(null);
     if (lastMoment) {
       setFixDone(true);
       fix.onDone();
@@ -243,15 +260,31 @@ export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Revie
     setFk(fk + 1);
     setI(fix.plies[fk + 1]);
   };
+  /** Skip: on to the next moment; this one counts as not fixed. */
+  const skipMoment = () => {
+    resolveMoment('skipped');
+    nextMoment();
+  };
+  // Nothing pops over a moment: toasts (an achievement from the practice) wait for the done card.
+  useEffect(() => {
+    if (!fix) return;
+    useCelebrate.getState().setHold(true, { queue: true });
+    return () => useCelebrate.getState().setHold(false);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (fixDone) useCelebrate.getState().setHold(false);
+  }, [fixDone]);
   const fixedCount = fixRes.filter((x) => x === 'fixed').length;
+  const allFixed = !!fix && fixedCount === fix.plies.length;
   const doneCard = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!fixDone) return;
-    const all = !!fix && fixedCount === fix.plies.length;
-    sfx(all ? 'accLand' : 'land', 2);
     void animate(doneCard.current, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], SOFT);
-    // Overshoot only when every moment was found (a small celebration); otherwise it just settles.
-    void animate(doneCard.current?.querySelector('[data-done-icon]'), [{ transform: 'scale(0.4)' }, { transform: 'none' }], all ? POP : SOFT);
+    // Every moment found: one chord and the check pops (POP; no confetti, no pop with reduced animations).
+    if (allFixed) {
+      sfx('accLand');
+      if (!reduced()) void animate(doneCard.current?.querySelector('[data-done-icon]'), [{ transform: 'scale(0.4)' }, { transform: 'none' }], POP);
+    }
   }, [fixDone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The reviewed move's squares in its class colour (for the moves that matter), else yellow.
@@ -280,6 +313,7 @@ export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Revie
             {fwdStep && p && rp && !best && !retry && !frame && FLASH[rp.cls] && <SquareFlash key={`f${i}`} sq={p.uci.slice(2, 4)} orientation={orientation} color={FLASH[rp.cls]!.color} stars={FLASH[rp.cls]!.stars} />}
             <ArrowOverlay arrows={dotted} orientation={orientation} />
             {moveTint && p && rp && !(endBadges && Object.values(kingSquares(fen)).includes(p.uci.slice(2, 4))) && <SquareIcon key={i} sq={p.uci.slice(2, 4)} cls={rp.cls} orientation={orientation} pop={fwdStep} />}
+            {fix && mark && <MoveMark key={`m${mark.id}`} mark={mark} orientation={orientation} />}
           </div>
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -323,16 +357,14 @@ export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Revie
           {fix ? (
             <FadeScroll className="px-3 pt-2.5 pb-2" testId="review-coach">
               {fixDone ? (
-                <div ref={doneCard} className="card flex flex-col items-center gap-1.5 !px-4 !py-4 text-center" data-testid="fix-done">
-                  <span data-done-icon className={`flex h-11 w-11 items-center justify-center rounded-full ${fixedCount === fix.plies.length ? 'bg-brand-500 text-white' : 'bg-stone-100 text-stone-600 dark:bg-white/[0.08] dark:text-stone-300'}`}><Check size={24} strokeWidth={3} /></span>
-                  <p className="text-[18px] font-extrabold tracking-[-0.01em]">{fixedCount} of {fix.plies.length} fixed</p>
-                  <p className="text-[13px] text-stone-600 dark:text-stone-300">{fixedCount === fix.plies.length ? 'Every key moment fixed. They count as practice for your skills.' : 'They count as practice. Try the ones you missed again from the summary.'}</p>
-                  <button className="btn-primary mt-1.5 !min-h-11 w-full" onClick={onSummary} data-testid="fix-back">Back to summary</button>
-                </div>
+                <FixDone ref={doneCard} g={g} plies={fix.plies} results={fixRes} allFixed={allFixed} onFinish={fix.onFinish} />
               ) : (
-                <CoachBubble mood={retry?.state === 'wrong' ? 'concerned' : 'happy'}>
-                  <FixText g={g} i={i} retry={retry} />
-                </CoachBubble>
+                <>
+                  <CoachBubble mood={retry?.state === 'wrong' ? 'concerned' : 'happy'}>
+                    <FixText g={g} i={i} retry={retry} />
+                  </CoachBubble>
+                  <FixStrip g={g} plies={fix.plies} results={fixRes} current={fk} />
+                </>
               )}
             </FadeScroll>
           ) : (
@@ -374,9 +406,16 @@ export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Revie
                       <button className="btn-secondary flex-1 !min-h-11" disabled={!fixMode || retry?.state === 'checking'} onClick={showMe} data-testid="fix-show">
                         <Lightbulb size={16} /> Show me
                       </button>
-                      <button className="btn-secondary flex-1 !min-h-11 disabled:opacity-35" disabled={retry?.state !== 'wrong'} onClick={() => setRetry({ state: 'try', fen: p!.fenBefore })} data-testid="fix-again">
-                        <RotateCcw size={16} /> Try again
-                      </button>
+                      {/* Before a try: Skip (no dead button); after a wrong try: Try again. */}
+                      {retry?.state === 'wrong' ? (
+                        <button className="btn-secondary flex-1 !min-h-11" onClick={() => (setMark(null), setRetry({ state: 'try', fen: p!.fenBefore }))} data-testid="fix-again">
+                          <RotateCcw size={16} /> Try again
+                        </button>
+                      ) : (
+                        <button className="btn-secondary flex-1 !min-h-11" disabled={!fixMode || retry?.state === 'checking'} onClick={skipMoment} data-testid="fix-skip">
+                          <SkipForward size={16} /> Skip
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
@@ -472,6 +511,71 @@ const FLASH: Partial<Record<ReviewClass, { color: string; stars?: string[] }>> =
   mistake: { color: 'rgba(255,164,89,.55)' },
   miss: { color: 'rgba(255,164,89,.55)' },
 };
+
+/** "4…g6": a move with its number (no space after the dots). */
+const moveLabel = (g: AnyGame, ply: number) => `${moveNo(g.plies, ply)}${g.plies[ply].san}`;
+
+const CHIP: Record<FixResult | 'current' | 'next', string> = {
+  current: 'ring-[1.5px] ring-stone-400 text-stone-800 dark:ring-stone-500 dark:text-stone-100',
+  fixed: 'bg-brand-500/15 text-brand-700 ring-1 ring-brand-500 dark:text-brand-400',
+  shown: 'bg-stone-200 text-stone-600 dark:bg-white/10 dark:text-stone-300',
+  skipped: 'bg-stone-200 text-stone-600 dark:bg-white/10 dark:text-stone-300',
+  next: 'bg-stone-100 text-stone-500 dark:bg-white/[0.05] dark:text-stone-400',
+};
+const CHIP_ICON: Partial<Record<FixResult, ReactNode>> = { fixed: <Check size={13} strokeWidth={3} />, shown: <Eye size={13} />, skipped: <Minus size={13} strokeWidth={3} /> };
+
+/** The moments as a row of chips under the coach: current outlined, found green, shown or skipped grey, the rest muted. */
+function FixStrip({ g, plies, results, current }: { g: AnyGame; plies: number[]; results: FixResult[]; current: number }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-2 pl-[52px]" data-testid="fix-strip">
+      {plies.map((ply, k) => {
+        const res = results[k];
+        const state = res ?? (k === current ? 'current' : 'next');
+        return (
+          <span key={ply} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[13px] font-semibold tabular-nums ${CHIP[state]}`} data-state={state}>
+            {res && CHIP_ICON[res]}
+            {moveLabel(g, ply)}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/** The done card: "1 of 2 fixed" (or "Both fixed"), one row per moment, and Done. */
+const FixDone = forwardRef<HTMLDivElement, { g: AnyGame; plies: number[]; results: FixResult[]; allFixed: boolean; onFinish: () => void }>(function FixDone({ g, plies, results, allFixed, onFinish }, ref) {
+  const n = plies.length;
+  const found = results.filter((x) => x === 'fixed').length;
+  const head = allFixed ? (n === 1 ? 'Fixed' : n === 2 ? 'Both fixed' : `All ${n} fixed`) : `${found} of ${n} fixed`;
+  const LABEL: Record<FixResult, string> = { fixed: 'Found it', shown: 'Shown', skipped: 'Skipped' };
+  return (
+    <div ref={ref} className="card !px-4 !py-4" data-testid="fix-done" data-all={allFixed || undefined}>
+      <div className="flex flex-col items-center gap-2">
+        <span data-done-icon className={`flex h-11 w-11 items-center justify-center rounded-full ${allFixed ? 'bg-brand-500 text-white' : 'bg-stone-100 text-stone-600 dark:bg-white/[0.08] dark:text-stone-300'}`}>
+          <Check size={24} strokeWidth={3} />
+        </span>
+        <p className="text-[18px] font-extrabold tracking-[-0.01em]">{head}</p>
+      </div>
+      <div className="mt-3 divide-y divide-stone-100 border-t border-stone-100 dark:divide-white/[0.06] dark:border-white/[0.06]">
+        {plies.map((ply, k) => {
+          const res = results[k] ?? 'skipped';
+          return (
+            <div key={ply} className="flex items-center gap-2.5 py-2.5 text-[14px]" data-testid="fix-done-row" data-state={res}>
+              <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${res === 'fixed' ? 'bg-brand-500 text-white' : 'bg-stone-100 text-stone-500 dark:bg-white/[0.08] dark:text-stone-400'}`}>{CHIP_ICON[res]}</span>
+              <span className="min-w-0 flex-1 truncate">
+                <span className="text-stone-500 dark:text-stone-400">{moveLabel(g, ply)}</span>
+                <ArrowRight size={13} className="mx-1 inline align-[-1px] text-stone-400" />
+                <b>{g.plies[ply].comment?.bestSan}</b>
+              </span>
+              <span className={`shrink-0 text-[13px] font-semibold ${res === 'fixed' ? 'text-brand-700 dark:text-brand-400' : 'text-stone-500 dark:text-stone-400'}`}>{LABEL[res]}</span>
+            </div>
+          );
+        })}
+      </div>
+      <button className="btn-primary mt-3 !min-h-11 w-full" onClick={onFinish} data-testid="fix-finish">Done</button>
+    </div>
+  );
+});
 
 /** Fix mode's coach line: the task, then one short line once it's found or shown. */
 function FixText({ g, i, retry }: { g: AnyGame; i: number; retry: Retry | null }) {

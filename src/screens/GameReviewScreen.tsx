@@ -10,6 +10,7 @@ import { db } from '../lib/db';
 import { reviewGame } from '../lib/review';
 import { trapById, trapCard, trapForLoss } from '../lib/traps';
 import { fixMoments, isFixed, markFixed } from '../lib/upNext';
+import { useNav } from '../lib/nav';
 import type { AnyGame, ImportedGame } from '../lib/store/types';
 import { StepView } from './review/StepView';
 import { SummaryView } from './review/SummaryView';
@@ -18,6 +19,9 @@ export function GameReviewScreen({ gameId, ply, fix }: { gameId: number | string
   const [g, setG] = useState<AnyGame | null | undefined>(undefined);
   const [step, setStep] = useState<number | null>(ply ?? null);
   const [fixing, setFixing] = useState(!!fix);
+  // Where the flow started, so its Done goes back there: Home (Up next) or this game's summary.
+  const [fixFrom, setFixFrom] = useState<'home' | 'summary'>(fix ? 'home' : 'summary');
+  const pop = useNav((s) => s.pop);
   // Whether this game's key moments were already fixed once (the button then reads "again").
   const [fixed, setFixed] = useState(false);
   useEffect(() => void loadAnyGame(gameId).then(setG), [gameId]);
@@ -49,6 +53,10 @@ export function GameReviewScreen({ gameId, ply, fix }: { gameId: number | string
             setFixed(true);
             void markFixed(g);
           },
+          onFinish: () => {
+            if (fixFrom === 'home') pop();
+            else setFixing(false);
+          },
         }}
         onSummary={() => {
           setFixing(false);
@@ -58,5 +66,5 @@ export function GameReviewScreen({ gameId, ply, fix }: { gameId: number | string
     );
   }
   if (step !== null) return <StepView g={g} r={review} start={step} onSummary={() => setStep(null)} />;
-  return <SummaryView g={g} r={review} trap={trap?.id} onStart={(i) => setStep(i)} fix={moments.length ? { count: moments.length, again: fixed, start: () => setFixing(true) } : undefined} />;
+  return <SummaryView g={g} r={review} trap={trap?.id} onStart={(i) => setStep(i)} fix={moments.length ? { count: moments.length, again: fixed, start: () => (setFixFrom('summary'), setFixing(true)) } : undefined} />;
 }

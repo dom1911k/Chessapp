@@ -1,6 +1,6 @@
 // Home's "Up next": the single most useful thing to do after (or instead of) a game, by these
 // rules in order:
-//  1. your last game has key moments you haven't fixed → "Fix your key moments" for that game
+//  1. your last game has key moments you haven't fixed → "Fix 2 moments" (the fix flow) for that game
 //     (chess.com imports count once analysed);
 //  2. Daily training isn't done today → Daily training;
 //  3. the course has a next step → that step;
@@ -8,7 +8,7 @@
 // It recomputes whenever Home shows again, so acting on it moves it on.
 import { db, kvGet, kvSet, today } from './db';
 import { allGames, opponentLabel } from './games';
-import { reviewGame, type Review } from './review';
+import { fixMoments, reviewGame } from './review';
 import { CHAPTERS, courseLevel, courseState, type CourseStep } from './course';
 import { boardName, getPathState, levelAt } from './puzzles/path';
 import { dueCount } from './store/daily';
@@ -32,15 +32,7 @@ export async function markFixed(g: GameRef): Promise<void> {
 }
 export const isFixed = async (g: GameRef) => (await kvGet<string[]>(FIXED, [])).includes(gameKey(g));
 
-/** The key moments of yours worth fixing in a game: the ones where you slipped and the better move
- *  is known (at most 3), in move order. */
-export const fixMoments = (g: Pick<AnyGame, 'plies'>, r: Pick<Review, 'moments'>) =>
-  r.moments
-    .filter((m) => {
-      const p = g.plies[m.ply];
-      return m.by === 'you' && !!p?.comment?.bestUci && p.comment.bestUci !== p.uci;
-    })
-    .slice(0, 3);
+export { fixMoments } from './review';
 
 /** A fixed moment as a practice puzzle: its mistake card when the game made one, else the same
  *  shape on the fly (no card, so nothing new is scheduled). */
@@ -67,13 +59,14 @@ export async function practiseMoment(g: Pick<AnyGame, 'id' | 'plies'>, ply: numb
 }
 
 export type UpNext =
-  | { kind: 'review'; gameId: number | string; opponent: string; moments: number }
+  /** "Fix 2 moments": opens the fix flow for that game (`cc`: a chess.com game). */
+  | { kind: 'review'; gameId: number | string; opponent: string; moments: number; cc?: boolean }
   | { kind: 'daily'; due: number }
   | { kind: 'course'; step: CourseStep; level: number; chapter: string }
   | { kind: 'puzzles'; board: string; level: number; toNext: number };
 
 export interface UpNextInput {
-  last?: { gameId: number | string; opponent: string; moments: number; fixed: boolean };
+  last?: { gameId: number | string; opponent: string; moments: number; fixed: boolean; cc?: boolean };
   dailyDone: boolean;
   due: number;
   course?: { step: CourseStep; level: number; chapter: string } | null;
@@ -82,7 +75,7 @@ export interface UpNextInput {
 
 /** The rules, in order (pure, for the tests). */
 export function chooseUpNext(i: UpNextInput): UpNext {
-  if (i.last && i.last.moments > 0 && !i.last.fixed) return { kind: 'review', gameId: i.last.gameId, opponent: i.last.opponent, moments: i.last.moments };
+  if (i.last && i.last.moments > 0 && !i.last.fixed) return { kind: 'review', gameId: i.last.gameId, opponent: i.last.opponent, moments: i.last.moments, ...(i.last.cc ? { cc: true } : {}) };
   if (!i.dailyDone) return { kind: 'daily', due: i.due };
   if (i.course) return { kind: 'course', ...i.course };
   const pos = levelAt(i.points);
@@ -91,7 +84,7 @@ export function chooseUpNext(i: UpNextInput): UpNext {
 
 /** Title and the one muted line under it. */
 export function upNextText(u: UpNext): { title: string; detail: string } {
-  if (u.kind === 'review') return { title: `Review your game vs ${u.opponent}`, detail: `${u.moments} key moment${u.moments === 1 ? '' : 's'}` };
+  if (u.kind === 'review') return { title: `Fix ${u.moments} moment${u.moments === 1 ? '' : 's'}`, detail: `From your ${u.cc ? 'chess.com ' : ''}game vs ${u.opponent}` };
   if (u.kind === 'daily') return { title: 'Daily training', detail: u.due ? `${u.due} position${u.due === 1 ? '' : 's'} from your mistakes` : 'Puzzles picked for your weak spots' };
   if (u.kind === 'course') return { title: `Continue: ${u.step.label}`, detail: `Course · level ${u.level}, ${u.chapter}` };
   return { title: 'Solve puzzles', detail: `${u.board} ${u.level}, ${u.toNext.toLocaleString('en-US')} points to level ${u.level === 20 ? 1 : u.level + 1}` };
@@ -109,7 +102,7 @@ export async function loadUpNext(): Promise<UpNext> {
     } catch {
       moments = 0;
     }
-    last = { gameId: g.id!, opponent: opponentLabel(g, opponentById(g.opponentId)?.name), moments, fixed: await isFixed(g) };
+    last = { gameId: g.id!, opponent: opponentLabel(g, opponentById(g.opponentId)?.name), moments, fixed: await isFixed(g), cc: g.source === 'chess.com' };
   }
   const lv = courseLevel(st);
   const step = lv.finished ? undefined : lv.chapter.steps.find((s) => !st.done[s.id]);

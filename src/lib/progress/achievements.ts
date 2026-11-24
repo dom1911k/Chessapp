@@ -184,8 +184,8 @@ export async function checkAchievements(extra: TacticCounts = {}, opts: { quiet?
   for (const a of fresh) have[a.id] = Date.now();
   await kvSet(KEY, have);
   if (!opts.quiet) {
+    // A toast each, no confetti (confetti is for wins).
     const c = useCelebrate.getState();
-    c.confetti();
     for (const a of fresh) c.toast({ icon: a.portrait ? 'trophy' : a.icon, title: `Achievement: ${a.title}`, text: a.description });
   }
   return fresh;

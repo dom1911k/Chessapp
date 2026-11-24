@@ -173,6 +173,16 @@ export function reviewGame(g: Pick<AnyGame, 'plies' | 'userColor' | 'startFen' |
   return { plies, me, them, moments, summary: gameSummary(g, plies, curve, moments), curve };
 }
 
+/** The key moments of yours worth fixing in a game ("Fix 2 moments"): the ones where you slipped
+ *  and the better move is known (at most 3), in move order. */
+export const fixMoments = (g: Pick<AnyGame, 'plies'>, r: Pick<Review, 'moments'>) =>
+  r.moments
+    .filter((m) => {
+      const p = g.plies[m.ply];
+      return m.by === 'you' && !!p?.comment?.bestUci && p.comment.bestUci !== p.uci;
+    })
+    .slice(0, 3);
+
 /** The biggest swings of the game (at most 4, 15+ win% each), in move order. */
 export function keyMoments(ps: PlyRecord[], rs: ReviewPly[]): KeyMoment[] {
   const swings = rs

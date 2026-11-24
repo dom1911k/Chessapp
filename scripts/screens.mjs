@@ -22,8 +22,8 @@
 // step-blunder, tabs-mid, push-mid, sheet-open, home-delta, path-hedges (frames caught mid-flight).
 //
 // Round 4 QA (opt-in: --only=round4, or by name): home-upnext (each Up next rule), more, puzzles-tab,
-// summary-fix, fix-mode, fix-done, over-win-long, opponent-badges, badge-sheet, insights-skills,
-// laurel-shop.
+// summary-fix, fix-mode, fix-done, fix-skip, end-message, over-win-long, opponent-badges,
+// badge-sheet, insights-skills, laurel-shop.
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
@@ -592,7 +592,7 @@ async function run([W, H], scheme) {
     // A fresh profile's first win: four new badges against Tom, the rating up, achievements.
     const t0 = Date.now();
     await p.evaluate((f) => window.__play.getState().newGame('w', 400, f, 'tom'), MATE_IN_1);
-    await shotsAt(t0, [[820, 'p3-versus-stamp'], [2200, 'p3-versus-handoff']]);
+    await shotsAt(t0, [[660, 'p3-versus-stamp'], [2040, 'p3-versus-handoff']]); // round 5: the card starts 160ms sooner
     await waitTurn();
     await p.waitForTimeout(900);
     const t1 = Date.now();
@@ -811,6 +811,10 @@ async function run([W, H], scheme) {
     await p.waitForTimeout(1200);
     const task = await p.locator('[data-testid="fix-task"]').textContent().catch(() => null);
     if (task !== 'Find a better move for Black.') errors.push(`fix-mode: the task reads ${task}`);
+    // Before a try: Show me | Skip (no dead Try again); the strip shows both moments.
+    const before = await p.evaluate(() => ({ skip: !!document.querySelector('[data-testid="fix-skip"]:not([disabled])'), again: !!document.querySelector('[data-testid="fix-again"]'), chips: [...document.querySelectorAll('[data-testid="fix-strip"] [data-state]')].map((c) => `${c.textContent}:${c.getAttribute('data-state')}`).join(',') }));
+    if (!before.skip || before.again) errors.push(`fix-mode: before a try the buttons are ${JSON.stringify(before)}`);
+    if (before.chips !== '4…g6:current,5…Bxd1:next') errors.push(`fix-mode: the strip reads ${before.chips}`);
     await shot('r4-fix-mode');
     // A wrong try (…Qg5?? hangs the queen to Nxg5), checked by the engine, then Try again.
     await tap(p, 'd8', 'black');
@@ -818,6 +822,7 @@ async function run([W, H], scheme) {
     await tap(p, 'g5', 'black');
     const marked = await p.locator('[data-testid="fix-again"]:not([disabled])').waitFor({ timeout: 20000 }).then(() => true, () => false);
     if (!marked) errors.push('fix-mode: a wrong try was not marked');
+    if ((await p.evaluate(() => document.querySelector('[data-testid="move-mark"]')?.getAttribute('data-ok'))) !== 'false') errors.push('fix-mode: no red cross on the wrong move');
     await shot('r4-fix-wrong');
     if (marked) await p.locator('[data-testid="fix-again"]').click();
     await p.waitForTimeout(400);
@@ -828,25 +833,119 @@ async function run([W, H], scheme) {
     await p.waitForTimeout(900);
     const line = await p.locator('[data-testid="fix-line"]').textContent().catch(() => null);
     if (!/Nf6 is the best move/.test(line ?? '')) errors.push(`fix-mode: after the right move the line reads ${line}`);
+    if ((await p.evaluate(() => document.querySelector('[data-testid="move-mark"]')?.getAttribute('data-ok'))) !== 'true') errors.push('fix-mode: no green check on the right move');
+    if ((await p.evaluate(() => document.querySelector('[data-testid="fix-strip"] [data-state]')?.getAttribute('data-state'))) !== 'fixed') errors.push('fix-mode: the found moment is not green in the strip');
     await shot('r4-fix-solved');
     await p.locator('[data-testid="fix-next"]').click();
     await p.waitForTimeout(1200);
     // Moment 2: Show me.
     await p.locator('[data-testid="fix-show"]').click();
     await p.waitForTimeout(900);
+    if (await p.locator('[data-testid="move-mark"]').count()) errors.push('fix-mode: a mark shows after Show me');
     await shot('r4-fix-shown');
     await p.locator('[data-testid="fix-next"]').click();
     await p.waitForTimeout(1200);
-    const done = await p.locator('[data-testid="fix-done"]').textContent().catch(() => null);
-    if (!/1 of 2 fixed/.test(done ?? '')) errors.push(`fix-done: the card reads ${done}`);
+    const done = await p.evaluate(() => ({ head: document.querySelector('[data-testid="fix-done"] p')?.textContent, rows: [...document.querySelectorAll('[data-testid="fix-done-row"]')].map((r) => r.textContent).join(' | '), practice: /count as practice/.test(document.body.textContent ?? '') }));
+    if (done.head !== '1 of 2 fixed' || !/4…g6.*Nf6.*Found it/.test(done.rows) || !/5…Bxd1.*dxe5.*Shown/.test(done.rows) || done.practice) errors.push(`fix-done: ${JSON.stringify(done)}`);
     await shot('r4-fix-done');
-    await p.locator('[data-testid="fix-back"]').click();
+    // Started from the summary, Done goes back to it.
+    await p.locator('[data-testid="fix-finish"]').click();
     await p.waitForTimeout(900);
     const again = await p.locator('[data-testid="fix-moments"]').textContent().catch(() => null);
     if (!/Fix (moments )?again/.test(again ?? '')) errors.push(`fix-done: back on the summary the button reads ${again}`);
     await shot('r4-summary-again');
     await home();
     await p.waitForTimeout(600);
+  }
+  // fix-skip: the flow from Up next, both moments skipped; Done goes back Home.
+  if (R('fix-skip')) {
+    legalId = null;
+    const id = await seedLegal();
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await p.evaluate((id) => window.__nav.getState().push({ name: 'report', gameId: id, fix: true }), id);
+    await p.waitForTimeout(1500);
+    await p.locator('[data-testid="fix-skip"]').click();
+    await p.waitForTimeout(900);
+    const chips = await p.evaluate(() => [...document.querySelectorAll('[data-testid="fix-strip"] [data-state]')].map((c) => c.getAttribute('data-state')).join(','));
+    if (chips !== 'skipped,current') errors.push(`fix-skip: the strip reads ${chips}`);
+    await shot('r5-fix-skip');
+    await p.locator('[data-testid="fix-skip"]').click();
+    await p.waitForTimeout(1200);
+    const head = await p.locator('[data-testid="fix-done"] p').first().textContent().catch(() => null);
+    if (head !== '0 of 2 fixed') errors.push(`fix-skip: the done card reads ${head}`);
+    await shot('r5-fix-skip-done');
+    await p.locator('[data-testid="fix-finish"]').click();
+    await p.waitForTimeout(1200);
+    const where = await p.evaluate(() => ({ stack: window.__nav.getState().stack.length, tab: window.__nav.getState().tab }));
+    if (where.stack !== 0 || where.tab !== 'play') errors.push(`fix-skip: Done from Up next went to ${JSON.stringify(where)}`);
+  }
+  // end-message: the coach's one line and the results sheet after a mate, a loss on time with two
+  // moments to fix, and a resignation.
+  if (R('end-message')) {
+    const coachLine = () => p.evaluate(() => (window.__play.getState().game?.feed ?? []).filter((f) => f.kind === 'result').map((f) => f.text.join(' ')).pop() ?? null);
+    const leave = async () => {
+      await p.evaluate(() => (window.__play.getState().closeRewards?.(), window.__play.getState().leaveGame?.()));
+      await home();
+      await p.waitForTimeout(800);
+    };
+    // A mate.
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await p.evaluate(() => window.__play.getState().newGame('w', 400, '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1', 'tom'));
+    await p.waitForTimeout(800);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitFor(p, ['userTurn'], 60000);
+    await p.waitForTimeout(600);
+    await p.evaluate(() => window.__play.getState().userMove({ from: 'a1', to: 'a8' }));
+    await p.waitForTimeout(1100);
+    let line = await coachLine();
+    if (line !== 'Ra8# — back-rank mate. Well played.') errors.push(`end-message: after a mate the coach says ${line}`);
+    await shot('r5-end-mate-coach');
+    await p.waitForTimeout(6000);
+    await shot('r5-end-mate-sheet');
+    await leave();
+    // A loss on time, with two slips of yours (the clock runs out on the board).
+    await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const { db } = await import(find('/src/lib/db.ts'));
+      const { tryMove } = await import(find('/src/lib/chess/game.ts'));
+      // Black keeps a pawn, so running out of time loses (against a bare king it would be a draw).
+      const start = '6k1/1R6/7p/8/8/8/8/R3K3 w - - 0 1';
+      const route = ['e1d1', 'd1c1', 'c1c2', 'c2d2', 'd2e2', 'e2f2', 'f2f3', 'f3e3', 'e3d3', 'd3c3', 'c3c4', 'c4d4'];
+      const SLIP = new Set([3, 9]);
+      let fen = start;
+      const plies = [];
+      route.forEach((u, i) => {
+        const w = tryMove(fen, u);
+        const slip = SLIP.has(i);
+        plies.push({ san: w.move.san, uci: u, fenBefore: fen, fenAfter: w.fen, color: 'w', isUser: true, evalAfter: { type: 'cp', value: slip ? -150 : 300 }, classification: slip ? 'mistake' : 'good', comment: slip ? { text: [], themes: ['backRankMate'], ruleIds: [], arrows: [], highlights: [], bestUci: 'a1a8', bestSan: 'Ra8#', replyLine: [] } : undefined });
+        fen = w.fen;
+        const mv = ['g8h8', 'h8g8'].map((m) => tryMove(fen, m)).find(Boolean);
+        plies.push({ san: mv.move.san, uci: mv.move.lan, fenBefore: fen, fenAfter: mv.fen, color: 'b', isUser: false, evalAfter: { type: 'cp', value: 300 } });
+        fen = mv.fen;
+      });
+      await db.current.put({ id: 'play', userColor: 'w', elo: 400, opponentId: 'tom', startFen: start, startedAt: Date.now() - 400000, plies, takebacks: 0, hintsUsed: 0, told: [], timeControl: '60+0', clock: { w: 1200, b: 50000, turnStart: Date.now() } });
+    });
+    await p.evaluate(() => window.__play.getState().load());
+    await p.waitForTimeout(3200);
+    line = await coachLine();
+    if (line !== 'Grandpa Tom got you this time. 2 moments to fix in the review.') errors.push(`end-message: after a loss with slips the coach says ${line}`);
+    await shot('r5-end-loss-coach');
+    await p.waitForTimeout(6000);
+    await shot('r5-end-loss-sheet');
+    await leave();
+    // A resignation before a move.
+    await p.evaluate(() => window.__play.getState().newGame('w', 400, undefined, 'tom'));
+    await p.waitForTimeout(800);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitFor(p, ['userTurn'], 60000);
+    await p.evaluate(() => window.__play.getState().resign());
+    await p.waitForTimeout(1100);
+    line = await coachLine();
+    if (line !== 'Game over. The review shows where it turned.') errors.push(`end-message: after resigning the coach says ${line}`);
+    await shot('r5-end-resign-coach');
+    await p.waitForTimeout(6000);
+    await shot('r5-end-resign-sheet');
+    await leave();
   }
   if (R('more')) {
     await p.evaluate(() => window.__nav.getState().setTab('more'));

@@ -3,30 +3,34 @@
 import type { Classification } from '../chess/evaluation';
 import { TACTIC_LABEL, type Special, type TacticKey } from '../rewards/career';
 
-/** Badges from the game: how many are new, how many you now hold, and whether the fifth opened the challenge. */
-export interface BadgeNews {
-  fresh: number;
-  held: number;
-  opened?: boolean;
+/** What the coach knows when the game ends. `verdict`: his take on your game-ending move;
+ *  `toFix`: the key moments of yours the review can fix (the summary's "Fix 2 moments"). */
+export interface EndInfo {
+  opponent?: string;
+  verdict?: string;
+  toFix?: number;
 }
 
-/** Coach Sam's words at the end of a game. `verdict`: what he thinks of your game-ending move, said first. */
-export function resultLines(userResult: 'win' | 'loss' | 'draw', reason: string, badges?: BadgeNews, opponent?: string, verdict?: string): string[] {
-  const who = opponent ?? 'the bot';
-  const starLine = opponent && badges?.fresh
-    ? [`${badges.fresh === 1 ? 'A new badge' : `${badges.fresh} new badges`} with ${who}: ${badges.held}/8.${badges.opened ? ` That opens ${who}'s special challenge!` : ''}`]
-    : [];
-  if (verdict && userResult === 'win') return [`${verdict} You won${reason === 'checkmate' ? ' by checkmate' : ''}!`, ...starLine];
-  if (verdict && userResult === 'draw') return [`${verdict} It's a draw (${reason}).`];
-  if (userResult === 'win')
-    return [
-      `You won against ${who}${reason === 'checkmate' ? ' by checkmate' : reason === 'resignation' ? ` — ${opponent ?? 'the bot'} resigned` : ''}!`,
-      ...starLine,
-    ];
-  if (userResult === 'draw') return [`A draw (${reason}). That's a solid result!`];
-  if (reason === 'resignation') return ['Game over. Every game teaches us something — let\'s look at the report together.'];
-  return [`${who} got you this time. Let's learn from it — the report shows the turning point.`];
+const momentsLine = (n: number) => `${n} moment${n === 1 ? '' : 's'} to fix in the review.`;
+
+/**
+ * Coach Sam's one short line at the end of a game, about the game only (the results sheet shows the
+ * badges and the challenge a second later, and the review has the moments to fix).
+ */
+export function resultLine(userResult: 'win' | 'loss' | 'draw', reason: string, e: EndInfo = {}): string {
+  const who = e.opponent ?? 'the bot';
+  if (userResult === 'win') {
+    if (e.verdict) return `${e.verdict} Well played.`;
+    return `You beat ${who}${reason === 'checkmate' ? ' by checkmate' : reason === 'time' ? ' on time' : ''}.`;
+  }
+  if (userResult === 'draw') return `${e.verdict ? `${e.verdict} ` : ''}A draw (${reason}). Solid.`;
+  const then = e.toFix ? momentsLine(e.toFix) : 'The review shows where it turned.';
+  if (reason === 'resignation') return `Game over. ${then}`;
+  return `${who[0].toUpperCase()}${who.slice(1)} got you this time. ${then}`;
 }
+
+/** The end message as the feed posts it (one line). */
+export const resultLines = (userResult: 'win' | 'loss' | 'draw', reason: string, e: EndInfo = {}): string[] => [resultLine(userResult, reason, e)];
 
 /** The short verdict on a game-ending move: "Ra8# — back-rank mate.", "Qh7# is best.", "Kf3 — a mistake." */
 export function endVerdict(san: string, cls: Classification, special?: Special, tactic?: TacticKey): string {
