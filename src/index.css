@@ -481,20 +481,19 @@ time {
 }
 @utility animate-urgent { animation: urgent 0.5s ease-in-out infinite; }
 
-/* Reduced motion: no movement for UI transitions and celebrations (indicators stay as they are). */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 1ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
-  }
-  /* A loading spinner still turns: it says something is happening. */
-  .animate-spin {
-    animation-duration: 1s !important;
-    animation-iteration-count: infinite !important;
-  }
+/* Reduced motion: no movement for UI transitions and celebrations (indicators stay as they are).
+   html.reduce-motion follows the "Reduce animations" setting, which by default follows the phone. */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+}
+/* A loading spinner still turns: it says something is happening. */
+.reduce-motion .animate-spin {
+  animation-duration: 1s !important;
+  animation-iteration-count: infinite !important;
 }
 
 /* ---------- Puzzle Path: the points tally (ported from docs/puzzle-path-prototype.html) ---------- */
@@ -538,7 +537,7 @@ time {
 /* soft light over the world: warm from the top left, a gentle vignette */
 .wlight{position:absolute;inset:0;pointer-events:none;background:linear-gradient(140deg,rgba(255,236,190,.16),rgba(255,236,190,0) 45%),radial-gradient(ellipse 120% 90% at 45% 40%,transparent 58%,rgba(10,20,8,.32))}
 /* level overlay: slow rays behind the badge */
-@media (prefers-reduced-motion: reduce) { .isoW * { animation: none !important; } }
+.reduce-motion .isoW * { animation: none !important; }
 .pp-reduced .isoW * { animation: none !important; }
 @keyframes ppspin { to { transform: rotate(360deg); } }
 
@@ -582,12 +581,12 @@ time {
 /* The coach bubble's verdict rising in after the brief grey (path mode). */
 .pp-rise { animation: pprise 220ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 @keyframes pprise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .pp-rise { animation: none; } }
+.reduce-motion .pp-rise { animation: none !important; }
 
 /* Loading: a skeleton in the content's own shape, a shimmer moving across (1.3s). */
 .skel { background: linear-gradient(100deg, #e4e1dc 30%, #f1efeb 50%, #e4e1dc 70%); background-size: 220% 100%; animation: ppshimmer 1.3s linear infinite; }
 .dark .skel { background-image: linear-gradient(100deg, #3a3734 30%, #4a4743 50%, #3a3734 70%); }
 @keyframes ppshimmer { from { background-position: 120% 0; } to { background-position: -100% 0; } }
-@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+.reduce-motion .skel { animation: none !important; }
 /* A skeleton on a coloured header (the Learn hero): a translucent white shimmer. */
 .skel.skel-light, .dark .skel.skel-light { background-image: linear-gradient(100deg, rgba(255, 255, 255, 0.16) 30%, rgba(255, 255, 255, 0.3) 50%, rgba(255, 255, 255, 0.16) 70%); }

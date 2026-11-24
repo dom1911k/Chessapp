@@ -5,7 +5,7 @@ import { Chessboard, defaultArrowOptions } from 'react-chessboard';
 import { isPromotion, tryMove, type MoveInput } from '../lib/chess/game';
 import { BOARD_THEMES, useSettings } from '../lib/settings';
 import { playSound } from '../lib/sound';
-import { animate, buzz, haptic } from '../lib/motion';
+import { animate, buzz, haptic, reduced } from '../lib/motion';
 import { HAPTIC_PATTERN, moveHaptic, moveSound, premoveTargets as premoveTargetsFor, squareAtPoint } from '../lib/chess/boardfeel';
 import type { CoachArrow, CoachHighlight, Tone } from '../lib/coach/types';
 import { AlarmClock, Check, Crown, Flag, X } from 'lucide-react';
@@ -90,7 +90,7 @@ const PROMO = ['q', 'n', 'r', 'b'] as const;
 let boardCount = 0;
 
 function useReducedMotion() {
-  const [r] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  const [r] = useState(() => reduced());
   return r;
 }
 

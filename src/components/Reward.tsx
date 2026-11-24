@@ -6,8 +6,10 @@
 // - a tap skips to the end;
 // - "reduce motion" on the phone shows the final state at once.
 import { useLayoutEffect, useRef, type CSSProperties } from 'react';
+import { reduced } from '../lib/motion';
 
-export const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+/** "Reduce animations" (the app setting, which by default follows the phone). */
+export const reducedMotion = () => reduced();
 export const easeOutCubic = (k: number) => 1 - Math.pow(1 - k, 3);
 export const easeOutQuint = (k: number) => 1 - Math.pow(1 - k, 5);
 

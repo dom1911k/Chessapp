@@ -1,6 +1,7 @@
 // Coach Sam under the board: the current message (verdict, better move, what it allows) and the
 // whole conversation of the game.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { reduced } from '../../lib/motion';
 import { BookOpen, Crosshair, Flag, Lightbulb, MessagesSquare, ScanSearch, ShieldCheck, Undo2 } from 'lucide-react';
 import { formatScore } from '../../lib/chess/evaluation';
 import { useSettings } from '../../lib/settings';
@@ -36,7 +37,7 @@ function useTypedBaseline(startedAt: number, feed: FeedItem[]) {
 
 /** Reveals a message word by word with a soft tick; tap to show it all. Returns words shown so far. */
 function useTypewriter(key: string, total: number, enabled: boolean) {
-  const [fresh] = useState(() => enabled && !typed.has(key) && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  const [fresh] = useState(() => enabled && !typed.has(key) && !reduced());
   const [shown, setShown] = useState(fresh ? 0 : total);
   useEffect(() => {
     typed.add(key);

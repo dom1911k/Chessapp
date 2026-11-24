@@ -137,6 +137,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
   const [milestoneHit, setMilestoneHit] = useState(false);
   const sheet = useRef<HTMLDivElement>(null);
   const back = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
   // Closing slides the sheet away (×, the backdrop, Continue, or a drag down by its handle).
   const closing = useRef(false);
   const close = (from = 0) => {
@@ -267,7 +268,14 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
       let k = 0;
       for (const row of rows) {
         if (over()) return;
-        void animate(row.parentElement, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], SOFT);
+        // On a small phone the rows run past the fold: bring each one into view as it lands.
+        const sc = scroller.current;
+        const wrap = row.parentElement;
+        if (sc && wrap) {
+          const below = wrap.getBoundingClientRect().bottom - sc.getBoundingClientRect().bottom;
+          if (below > 0) sc.scrollTo({ top: sc.scrollTop + below + 8, behavior: 'smooth' });
+        }
+        void animate(wrap, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], SOFT);
         await sleep(200, tk);
         const kind = row.dataset.row;
         if (kind === 'rivalry') {
@@ -339,7 +347,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
         <button className="absolute top-1.5 right-1.5 z-20 rounded-full p-1.5 text-stone-500 active:bg-stone-100 dark:active:bg-stone-800" onClick={(e) => (e.stopPropagation(), close())} aria-label="Close">
           <X size={18} />
         </button>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-5 pb-3">
+        <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 pt-5 pb-3">
           {/* Header: the result between the two players; the winner ringed in green with a crown. */}
           <div className="relative flex items-center justify-between gap-3 px-3">
             <i
@@ -355,8 +363,9 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               <span className="w-full truncate text-center text-xs font-semibold text-stone-600 dark:text-stone-300">{myName}</span>
             </div>
             <div className="relative min-w-0 flex-1 text-center">
-              <div ref={ref('title')} className="pp-hide flex items-center justify-center gap-1.5 text-[26px] leading-tight font-extrabold tracking-[-0.02em] opacity-0">
-                {won && <Trophy size={20} className="shrink-0 fill-[#f7c631] text-[#e0a800]" />}
+              <div ref={ref('title')} className="pp-hide flex items-center justify-center gap-1.5 text-[clamp(21px,6.6vw,26px)] leading-tight font-extrabold tracking-[-0.02em] whitespace-nowrap opacity-0">
+                {/* The trophy only where there's room for it beside the title (not on a 360px phone). */}
+                {won && <Trophy size={20} className="shrink-0 fill-[#f7c631] text-[#e0a800] max-[380px]:hidden" />}
                 {r.userResult === 'win' ? 'You won' : r.userResult === 'draw' ? 'Draw' : 'You lost'}
               </div>
               <div className="mt-0.5 text-[13px] font-medium text-stone-500">{reasonText(r.reason)}</div>

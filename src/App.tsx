@@ -59,7 +59,7 @@ import { preloadSounds } from './lib/sound';
 import { ISO } from './lib/puzzles/world';
 import { installPress } from './lib/press';
 import { navTrans, runNav, settleNav, staggerOnce, tabKey, type NavPlace, type NavTrans } from './lib/navMotion';
-import { SNAP, UI_EASE, animate, haptic } from './lib/motion';
+import { SNAP, UI_EASE, animate, haptic, reduced } from './lib/motion';
 
 const TABS: { tab: Tab; label: string; icon: LucideIcon }[] = [
   { tab: 'play', label: 'Home', icon: House },
@@ -186,6 +186,18 @@ function useTheme() {
   }, [theme]);
 }
 
+/** html.reduce-motion follows "Reduce animations" (the setting, or the phone's when it's on System), for CSS loops. */
+function useReduceMotionClass() {
+  const pref = useSettings((s) => s.reduceAnimations);
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const apply = () => document.documentElement.classList.toggle('reduce-motion', reduced());
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, [pref]);
+}
+
 function useAndroidBack() {
   const [toast, setToast] = useState(false);
   useEffect(() => {
@@ -224,6 +236,7 @@ export function App() {
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [welcome, setWelcome] = useState(false);
   useTheme();
+  useReduceMotionClass();
   useEffect(() => installPress(), []);
 
   const top = stack[stack.length - 1];

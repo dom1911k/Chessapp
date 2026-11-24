@@ -17,6 +17,10 @@
 // warmup, prompts, hint, pathscreen, worlds, howpoints, hub, dailytally, rush. They put the path
 // where they need it with the dev-only window.__path setter.
 //
+// Polish round 3 QA (opt-in: --only=polish3, or by name): versus-stamp, versus-handoff, end-badges,
+// over-win-mid, over-win-levelup, over-loss-end, review-reveal-mid, review-reveal-end, step-brilliant,
+// step-blunder, tabs-mid, push-mid, sheet-open, home-delta, path-hedges (frames caught mid-flight).
+//
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
 // imports then return a different store instance than the app's.
@@ -570,6 +574,140 @@ async function run([W, H], scheme) {
     }
     await p.waitForTimeout(2500);
     await shot('path-rush-record');
+    await home();
+  }
+
+  // ---- Polish round 3 QA (opt-in: --only=polish3, or any of these names) ----
+  // versus-stamp, versus-handoff, end-badges, over-win-mid, over-win-levelup, over-loss-end,
+  // review-reveal-mid, review-reveal-end, step-brilliant, step-blunder, tabs-mid, push-mid,
+  // sheet-open, home-delta, path-hedges. Each is a frame caught mid-flight at a known beat.
+  const Q = (k) => !!ONLY && (ONLY.includes(k) || ONLY.includes('polish3'));
+  const MATE_IN_1 = '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1';
+  const waitTurn = () => waitFor(p, ['userTurn'], 60000);
+  if (['versus-stamp', 'versus-handoff', 'end-badges', 'over-win-mid', 'over-win-levelup'].some(Q)) {
+    // A fresh profile's first win levels you up (Level 1 → 2).
+    const t0 = Date.now();
+    await p.evaluate((f) => window.__play.getState().newGame('w', 400, f, 'tom'), MATE_IN_1);
+    await shotsAt(t0, [[820, 'p3-versus-stamp'], [2200, 'p3-versus-handoff']]);
+    await waitTurn();
+    await p.waitForTimeout(900);
+    const t1 = Date.now();
+    await p.evaluate(() => window.__play.getState().userMove({ from: 'a1', to: 'a8' }));
+    await shotsAt(t1, [[650, 'p3-end-badges'], [2400, 'p3-over-win-mid']]);
+    // The level row: catch its badge as it flips back in.
+    const flip = await p.evaluate(async () => {
+      const t = Date.now();
+      while (Date.now() - t < 12000) {
+        const sh = document.querySelector('[data-testid="results-sheet"]');
+        if (sh?.getAnimations({ subtree: true }).some((a) => JSON.stringify(a.effect?.getKeyframes?.() ?? []).includes('rotateY(-90deg)'))) return true;
+        await new Promise((r) => setTimeout(r, 30));
+      }
+      return false;
+    });
+    await p.waitForTimeout(140);
+    await shot(flip ? 'p3-over-win-levelup' : 'p3-over-win-levelup-missing');
+    await p.waitForTimeout(3000);
+    await p.evaluate(() => (window.__play.getState().closeRewards?.(), window.__play.getState().leaveGame?.()));
+    await home();
+    await p.waitForTimeout(800);
+  }
+  if (Q('over-loss-end')) {
+    await p.evaluate(() => window.__play.getState().newGame('w', 400, undefined, 'tom'));
+    await p.waitForTimeout(800);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitTurn();
+    await p.evaluate(() => window.__play.getState().resign());
+    await p.waitForTimeout(8000);
+    await shot('p3-over-loss-end');
+    await p.evaluate(() => (window.__play.getState().closeRewards?.(), window.__play.getState().leaveGame?.()));
+    await home();
+    await p.waitForTimeout(800);
+  }
+  if (['review-reveal-mid', 'review-reveal-end', 'step-brilliant', 'step-blunder'].some(Q)) {
+    // A Legal's-mate record: a brilliant (5.Nxe5) and a blunder (5...Bxd1), first seen here.
+    await p.evaluate((f) => window.__play.getState().newGame('w', 400, f, 'tom'), MATE_IN_1);
+    await p.waitForTimeout(800);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitTurn();
+    await p.evaluate(() => window.__play.getState().userMove({ from: 'a1', to: 'a8' }));
+    await p.waitForTimeout(3000);
+    const id = await p.evaluate(async () => {
+      const find = (n) => performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n) && !x.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n));
+      const { db } = await import(find('/src/lib/db.ts'));
+      const { tryMove, START_FEN } = await import(find('/src/lib/chess/game.ts'));
+      const t = (await db.games.toArray()).pop();
+      const LEGAL = ['e2e4', 'e7e5', 'g1f3', 'd7d6', 'f1c4', 'c8g4', 'b1c3', 'g7g6', 'f3e5', 'g4d1', 'c4f7', 'e8e7', 'c3d5'];
+      const CP = [30, 30, 30, 40, 40, 80, 80, 160, 210, 900, 900, 900, null];
+      let fen = START_FEN;
+      const plies = LEGAL.map((u, i) => {
+        const r = tryMove(fen, u);
+        const ply = { san: r.move.san, uci: u, fenBefore: fen, fenAfter: r.fen, color: i % 2 ? 'b' : 'w', isUser: i % 2 === 0, evalAfter: CP[i] === null ? undefined : { type: 'cp', value: CP[i] }, classification: i % 2 === 0 ? 'best' : undefined, special: i === 8 ? 'brilliant' : undefined };
+        fen = r.fen;
+        return ply;
+      });
+      return db.games.add({ ...t, id: undefined, startFen: START_FEN, plies, result: '1-0', reason: 'checkmate', userResult: 'win', endedAt: Date.now() });
+    });
+    await p.evaluate(() => (window.__play.getState().closeRewards?.(), window.__play.getState().leaveGame?.()));
+    await p.waitForTimeout(600);
+    const t0 = Date.now();
+    await push({ name: 'report', gameId: id });
+    await shotsAt(t0, [[1050, 'p3-review-reveal-mid'], [6200, 'p3-review-reveal-end']]);
+    await p.locator('button:has-text("Start Review")').first().click();
+    await p.waitForTimeout(1300);
+    for (let k = 1; k <= 10; k++) {
+      await p.locator('[aria-label=Forward]').first().click();
+      if (k === 9 || k === 10) {
+        await p.waitForTimeout(240);
+        await shot(k === 9 ? 'p3-step-brilliant' : 'p3-step-blunder');
+      }
+      await p.waitForTimeout(650);
+    }
+    await home();
+    await p.waitForTimeout(800);
+  }
+  if (Q('tabs-mid')) {
+    await p.locator('[data-testid="tab-bar"] button:has-text("More")').click();
+    await p.waitForTimeout(140);
+    await shot('p3-tabs-mid');
+    await p.waitForTimeout(800);
+    await home();
+    await p.waitForTimeout(800);
+  }
+  if (Q('push-mid')) {
+    await push({ name: 'settings' });
+    await p.waitForTimeout(150);
+    await shot('p3-push-mid');
+    await p.waitForTimeout(900);
+    await home();
+    await p.waitForTimeout(800);
+  }
+  if (Q('sheet-open')) {
+    await p.locator('button:has-text("Options")').first().click();
+    await p.waitForTimeout(180);
+    await shot('p3-sheet-open');
+    await p.keyboard.press('Escape').catch(() => {});
+    await p.mouse.click(20, 40);
+    await p.waitForTimeout(600);
+  }
+  if (Q('home-delta')) {
+    // Come back to Home with more XP than you last saw: it rolls up and a "+60" chip pops.
+    await p.evaluate(async () => {
+      const find = (n) => performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n) && !x.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n));
+      const db = await import(find('/src/lib/db.ts'));
+      const xp = await import(find('/src/lib/progress/xp.ts'));
+      await db.kvSet('lastSeen:home.xp', await xp.getXp());
+      await xp.awardXp(60, true);
+    });
+    await p.reload();
+    await p.waitForTimeout(3000);
+    await store(p);
+    await shot('p3-home-delta');
+  }
+  if (Q('path-hedges')) {
+    await push({ name: 'puzzlePath' });
+    await p.waitForTimeout(2500);
+    if (!(await p.evaluate(() => !!document.getElementById('hedgeTop')))) errors.push('path-hedges: the shared gradients are missing');
+    await shot('p3-path-hedges');
     await home();
   }
 
