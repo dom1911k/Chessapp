@@ -5,7 +5,7 @@ import { RematchRecords, TurningStat } from '../components/TurningCards';
 import { AvatarPicker, UserAvatar, useMyTitle } from '../components/UserAvatar';
 import { Pencil } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ChevronRight, Lightbulb, Trophy } from 'lucide-react';
+import { ChevronRight, Trophy } from 'lucide-react';
 import { BarChart, LineChart } from '../components/Charts';
 import { Header, Segmented, Skeleton } from '../components/ui';
 import { db, kvGet } from '../lib/db';
@@ -133,7 +133,7 @@ export function ProfileScreen() {
           <span className="min-w-0 flex-1">
             <span className="block truncate text-xl font-bold">{ccUser || 'You'}</span>
             <span className="block text-sm font-semibold text-brand-700 dark:text-brand-500">{title}</span>
-            <span className="block text-sm text-stone-500">{total} games · {d.streak} day{d.streak === 1 ? '' : 's'} in a row</span>
+            <span className="block text-sm text-stone-500">{total ? <>{total} games · {d.streak} day{d.streak === 1 ? '' : 's'} in a row</> : 'Play your first game to see your stats here'}</span>
           </span>
         </div>
         <Segmented
@@ -202,16 +202,6 @@ export function ProfileScreen() {
                 </button>
               ))}
             </div>
-            <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'insights' })}>
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-hue-sky-100 text-hue-sky-700 dark:bg-hue-sky-900/40 dark:text-hue-sky-300">
-                <Lightbulb size={20} />
-              </span>
-              <span className="flex-1">
-                <span className="block font-semibold">Insights</span>
-                <span className="block text-xs text-stone-500">Where you win and lose: phase, opening, colour, time of day, speed</span>
-              </span>
-              <ChevronRight size={18} className="text-stone-400" />
-            </button>
           </>
         )}
         {view === 'games' && (

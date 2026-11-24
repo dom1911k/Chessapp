@@ -25,7 +25,7 @@ export function HistoryScreen() {
   const shown = games ? bySource(games, src) : null;
   return (
     <div className="flex h-full flex-col">
-      <Header title="Past games" back />
+      <Header title="Game history" back />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-2 overflow-y-auto p-4">
         <TurningList />
         {hasImports && (

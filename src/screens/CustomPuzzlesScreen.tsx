@@ -1,11 +1,13 @@
-// Custom Puzzles, chess.com style: pick a difficulty and a theme; unrated.
+// Custom Puzzles, chess.com style: Rated or Unrated (take your time), a difficulty and a theme.
+// Quick picks on top: Mate in 1, your weakest theme, and (unrated) any theme near your rating —
+// what used to be "Learning mode".
 import { useEffect, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { Header, Segmented } from '../components/ui';
 import { Medallion } from '../components/Glyph';
 import { useNav } from '../lib/nav';
 import { kvGet, kvSet } from '../lib/db';
-import { themeStats, type ThemeStat } from '../lib/puzzles/select';
+import { themeStats, weakestThemes, type ThemeStat } from '../lib/puzzles/select';
 import { THEME_GROUPS, THEME_SETS } from '../lib/puzzles/themes';
 import { loadIndex } from '../lib/puzzles/data';
 
@@ -13,14 +15,19 @@ import { loadIndex } from '../lib/puzzles/data';
 export const DIFFICULTY = { easiest: -600, easier: -300, normal: 0, harder: 300, hardest: 600 } as const;
 type Difficulty = keyof typeof DIFFICULTY;
 const KEY = 'customDifficulty';
+const RATED_KEY = 'customRated';
 
 export function CustomPuzzlesScreen() {
   const push = useNav((s) => s.push);
   const [diff, setDiff] = useState<Difficulty>('normal');
   const [stats, setStats] = useState<Record<string, ThemeStat>>({});
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [rated, setRated] = useState(false);
+  const [weak, setWeak] = useState<string | undefined>();
   useEffect(() => {
     void kvGet<Difficulty>(KEY, 'normal').then(setDiff);
+    void kvGet<boolean>(RATED_KEY, false).then(setRated);
+    void weakestThemes(1).then((w) => setWeak(w[0]));
     void themeStats().then((s) => setStats(Object.fromEntries(s.map((x) => [x.id, x]))));
     void loadIndex()
       .then((ix) => {
@@ -34,10 +41,47 @@ export function CustomPuzzlesScreen() {
     setDiff(d);
     void kvSet(KEY, d);
   };
+  const chooseRated = (r: boolean) => {
+    setRated(r);
+    void kvSet(RATED_KEY, r);
+  };
+  const theme = (id: string, offset: number = DIFFICULTY[diff]) => push({ name: 'puzzle', mode: { kind: 'theme', theme: id, difficulty: offset, rated: rated || undefined } });
+  // Your weakest theme, once there's something to judge it by.
+  const weakSet = weak && Object.values(stats).some((x) => x.attempts >= 3) ? THEME_SETS.find((t) => t.id === weak) : undefined;
+  const quick: { id: string; icon: string; label: string; sub: string; go: () => void }[] = [
+    { id: 'mate1', icon: 'target', label: 'Mate in 1', sub: 'Quick warm-up', go: () => theme('mateIn1', DIFFICULTY[diff] - 300) },
+    ...(weakSet && weakSet.id !== 'mateIn1' ? [{ id: 'weak', icon: weakSet.icon, label: weakSet.label, sub: 'Your weakest theme', go: () => theme(weakSet.id) }] : []),
+    ...(!rated ? [{ id: 'any', icon: 'cap', label: 'Any theme', sub: 'Near your rating, no clock, no rating change', go: () => push({ name: 'puzzle', mode: { kind: 'learn' } }) }] : []),
+  ];
   return (
     <div className="flex h-full flex-col">
-      <Header title="Custom Puzzles" back subtitle="Unrated · pick a theme" />
+      <Header title="Custom Puzzles" back subtitle={rated ? 'Rated · pick a theme' : 'Unrated · take your time'} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
+        <div data-testid="custom-rated">
+          <Segmented
+            value={rated ? 'rated' : 'unrated'}
+            onChange={(v) => chooseRated(v === 'rated')}
+            options={[
+              { value: 'rated', label: 'Rated' },
+              { value: 'unrated', label: 'Unrated (take your time)' },
+            ]}
+          />
+        </div>
+        <section>
+          <h2 className="mb-1.5 section-title">Quick start</h2>
+          <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
+            {quick.map((q) => (
+              <button key={q.id} className="flex w-full items-center gap-3 px-3 py-2.5 text-left press" onClick={q.go} data-testid={`custom-${q.id}`}>
+                <Medallion name={q.icon} tint="gold" size={34} />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">{q.label}</span>
+                  <span className="block truncate text-xs text-stone-500 dark:text-stone-400">{q.sub}</span>
+                </span>
+                <ChevronRight size={16} className="text-stone-400" />
+              </button>
+            ))}
+          </div>
+        </section>
         <div>
           <div className="mb-1.5 section-title">Difficulty</div>
           <Segmented
@@ -60,7 +104,7 @@ export function CustomPuzzlesScreen() {
                 const s = stats[t.id];
                 const pct = s && s.attempts ? Math.round((s.solved / s.attempts) * 100) : null;
                 return (
-                  <button key={t.id} className="flex w-full items-center gap-3 px-3 py-2.5 text-left press" onClick={() => push({ name: 'puzzle', mode: { kind: 'theme', theme: t.id, difficulty: DIFFICULTY[diff] } })}>
+                  <button key={t.id} className="flex w-full items-center gap-3 px-3 py-2.5 text-left press" onClick={() => theme(t.id)}>
                     <Medallion name={t.icon} size={34} />
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold">{t.label}</span>

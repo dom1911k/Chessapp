@@ -46,7 +46,8 @@ export type RushMode = '3' | '5' | 'survival';
 
 export type PuzzleMode =
   | { kind: 'rated' }
-  | { kind: 'theme'; theme: string; difficulty?: number }
+  /** A theme from Custom; `rated`: it counts for your puzzle rating (Custom's Rated switch). */
+  | { kind: 'theme'; theme: string; difficulty?: number; rated?: boolean }
   /** Unrated practice near your rating ("learning mode"). */
   | { kind: 'learn' }
   /** Positions from your own games: blunders you could have punished. */

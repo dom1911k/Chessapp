@@ -34,8 +34,9 @@ const isMilestone = (n: number) => n === 3 || n === 5 || (n >= 10 && n % 5 === 0
 /** Endless rated or themed puzzle training. */
 export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   const theme = mode.kind === 'theme' || mode.kind === 'course' || mode.kind === 'drill' ? mode.theme : undefined;
-  // Rated: the classic rated stream (and course/drill sets, as before). Everything else is unrated.
-  const rated = mode.kind === 'rated' || mode.kind === 'course' || mode.kind === 'drill';
+  // Rated: the classic rated stream, course/drill sets, and Custom themes with its Rated switch on.
+  // Everything else is unrated.
+  const rated = mode.kind === 'rated' || mode.kind === 'course' || mode.kind === 'drill' || (mode.kind === 'theme' && !!mode.rated);
   const source = mode.kind === 'rated' ? 'rated' : rated ? 'theme' : 'learn';
   const yours = useRef<PuzzleSpec[] | null>(null);
   const [dailyDone, setDailyDone] = useState(false);

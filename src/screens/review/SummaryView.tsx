@@ -1,5 +1,6 @@
 // Game Review's summary: result, both players' accuracy and game rating, Coach Sam's take, key
 // moments, the move-class table, phases, time and mistakes, and the way into the step-through.
+import { markReviewSeen } from '../../lib/upNext';
 import { appTc, canRematch, rematchInfo } from '../../lib/rematch';
 import { usePlay } from '../../lib/store/play';
 import { isEligible } from '../../lib/turning';
@@ -82,6 +83,8 @@ function PlayerChip({ g, me }: { g: AnyGame; me: boolean }) {
 
 export function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: string; onStart: (ply: number) => void }) {
   const push = useNav((s) => s.push);
+  // Home's "Up next" stops pointing here once you've opened this game's review.
+  useEffect(() => void markReviewSeen(g), [g]);
   const meWhite = g.userColor === 'w';
   const resultText = g.userResult === 'win' ? 'You won' : g.userResult === 'loss' ? 'You lost' : 'Draw';
   const lesson = g.summary.pattern?.theme ?? g.summary.lessonTheme;

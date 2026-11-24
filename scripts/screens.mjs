@@ -21,6 +21,8 @@
 // over-win-mid, over-win-levelup, over-loss-end, review-reveal-mid, review-reveal-end, step-brilliant,
 // step-blunder, tabs-mid, push-mid, sheet-open, home-delta, path-hedges (frames caught mid-flight).
 //
+// Round 4 QA (opt-in: --only=round4, or by name): home-upnext (each Up next rule), more, puzzles-tab.
+//
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
 // imports then return a different store instance than the app's.
@@ -711,6 +713,80 @@ async function run([W, H], scheme) {
     if (!(await p.evaluate(() => !!document.getElementById('hedgeTop')))) errors.push('path-hedges: the shared gradients are missing');
     await shot('p3-path-hedges');
     await home();
+  }
+
+  // ---- Round 4 QA (opt-in: --only=round4, or any of these names) ----
+  // home-upnext (each of the four rules), more, puzzles-tab.
+  const R = (k) => !!ONLY && (ONLY.includes(k) || ONLY.includes('round4'));
+  const inPage = (fn, arg) => p.evaluate(fn, arg);
+  /** Back to Home so it recomputes "Up next", then a shot with the card in view. */
+  const upNextShot = async (name) => {
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(400);
+    await home();
+    await p.waitForTimeout(1500);
+    await p.locator('[data-testid="up-next"]').scrollIntoViewIfNeeded().catch(() => {});
+    const kind = await p.evaluate(() => document.querySelector('[data-testid="up-next"]')?.dataset.kind ?? null);
+    if (!name.endsWith(kind ?? 'none')) errors.push(`${name}: Up next shows ${kind}`);
+    await shot(name);
+    await p.evaluate(() => document.querySelectorAll('.overflow-y-auto').forEach((e) => e.scrollTo(0, 0)));
+  };
+  if (R('home-upnext')) {
+    // Rule 2 on a fresh profile; rule 3 once today's training is done; rule 4 with the course
+    // finished (harness shortcut: the start stage past the last one); rule 1 with a last game
+    // that has a key moment of yours you haven't reviewed (Legal's mate, you as Black).
+    await upNextShot('r4-upnext-daily');
+    await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const path = await import(find('/src/lib/puzzles/path.ts'));
+      const db = await import(find('/src/lib/db.ts'));
+      const st = await path.getPathState();
+      await window.__path({ ...st, flatDays: { ...st.flatDays, dailyTrainingDone: db.today() } });
+    });
+    await upNextShot('r4-upnext-course');
+    const kv = (k, v) => inPage(async ([k, v]) => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      await (await import(find('/src/lib/db.ts'))).kvSet(k, v);
+    }, [k, v]);
+    await kv('courseStartStage', 99);
+    await upNextShot('r4-upnext-puzzles');
+    await kv('courseStartStage', 0);
+    await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const { db } = await import(find('/src/lib/db.ts'));
+      const { tryMove, START_FEN } = await import(find('/src/lib/chess/game.ts'));
+      const LEGAL = ['e2e4', 'e7e5', 'g1f3', 'd7d6', 'f1c4', 'c8g4', 'b1c3', 'g7g6', 'f3e5', 'g4d1', 'c4f7', 'e8e7', 'c3d5'];
+      const CP = [30, 30, 30, 40, 40, 80, 80, 160, 210, 900, 900, 900, null];
+      let fen = START_FEN;
+      const plies = LEGAL.map((u, i) => {
+        const r = tryMove(fen, u);
+        const ply = { san: r.move.san, uci: u, fenBefore: fen, fenAfter: r.fen, color: i % 2 ? 'b' : 'w', isUser: i % 2 === 1, evalAfter: CP[i] === null ? undefined : { type: 'cp', value: CP[i] }, classification: i % 2 === 1 ? (i === 9 ? 'blunder' : 'best') : undefined };
+        fen = r.fen;
+        return ply;
+      });
+      await db.games.add({ userColor: 'b', elo: 400, opponentId: 'tom', startFen: START_FEN, startedAt: Date.now() - 600000, endedAt: Date.now(), plies, takebacks: 0, hintsUsed: 0, told: [], result: '1-0', reason: 'checkmate', userResult: 'loss', summary: { accuracy: 60, counts: { best: 5, good: 0, inaccuracy: 0, mistake: 0, blunder: 1 }, biggestMistakePly: 9 } });
+    });
+    await upNextShot('r4-upnext-review');
+  }
+  if (R('more')) {
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(1500);
+    await shot('r4-more');
+    await home();
+    await p.waitForTimeout(600);
+  }
+  if (R('puzzles-tab')) {
+    await p.evaluate(() => window.__nav.getState().setTab('puzzles'));
+    await p.waitForTimeout(2000);
+    await shot('r4-puzzles-tab');
+    await p.evaluate(() => document.querySelectorAll('.overflow-y-auto').forEach((e) => e.scrollTo(0, 9999)));
+    await p.waitForTimeout(400);
+    await shot('r4-puzzles-tab-bottom');
+    await push({ name: 'customPuzzles' });
+    await p.waitForTimeout(1500);
+    await shot('r4-custom');
+    await home();
+    await p.waitForTimeout(600);
   }
 
   if (want('promotion')) {

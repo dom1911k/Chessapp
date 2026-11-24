@@ -29,3 +29,22 @@ describe('short dates', () => {
     expect(shortDate(new Date(2025, 11, 31).getTime(), now)).toBe('31 Dec 2025');
   });
 });
+
+describe('one name per screen', () => {
+  it('calls the list of your games "Game history" everywhere', async () => {
+    const { readFileSync, readdirSync, statSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const files: string[] = [];
+    const walk = (d: string) => {
+      for (const f of readdirSync(d)) {
+        const p = join(d, f);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (/\.tsx?$/.test(f) && !p.includes('/test/')) files.push(p);
+      }
+    };
+    walk(join(__dirname, '..'));
+    const stale = files.filter((f) => /Past games/.test(readFileSync(f, 'utf8')));
+    expect(stale).toEqual([]);
+    expect(readFileSync(join(__dirname, '../screens/HistoryScreen.tsx'), 'utf8')).toContain('title="Game history"');
+  });
+});

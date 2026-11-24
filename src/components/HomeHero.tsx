@@ -86,18 +86,21 @@ export function HomeHero({ right }: { right?: ReactNode }) {
             {seen.delta && seen.delta.d > 0 && <DeltaChip key={seen.delta.id} d={seen.delta.d} className="!ml-0 text-[11px]" />}
           </div>
         </div>
-        <span
-          title={line}
-          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-bold tabular-nums transition-colors ${
-            streak && doneToday ? 'bg-hue-orange-500/15 text-hue-orange-600 dark:text-hue-orange-400' : 'bg-stone-200 text-stone-600 dark:bg-stone-800 dark:text-stone-300'
-          }`}
-        >
-          <Flame
-            size={15}
-            className={`${streak && doneToday ? 'fill-hue-orange-400 text-hue-orange-500' : streak ? 'fill-hue-orange-300/60 text-hue-orange-400' : ''} ${grew ? 'animate-flame-pop' : streak && !doneToday ? 'animate-flame-breathe' : ''}`}
-          />{' '}
-          {streak}
-        </span>
+        {/* The streak chip once there's a streak (a new profile sees no "0"). */}
+        {streak >= 1 && (
+          <span
+            title={line}
+            className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-bold tabular-nums transition-colors ${
+              streak && doneToday ? 'bg-hue-orange-500/15 text-hue-orange-600 dark:text-hue-orange-400' : 'bg-stone-200 text-stone-600 dark:bg-stone-800 dark:text-stone-300'
+            }`}
+          >
+            <Flame
+              size={15}
+              className={`${streak && doneToday ? 'fill-hue-orange-400 text-hue-orange-500' : streak ? 'fill-hue-orange-300/60 text-hue-orange-400' : ''} ${grew ? 'animate-flame-pop' : streak && !doneToday ? 'animate-flame-breathe' : ''}`}
+            />{' '}
+            {streak}
+          </span>
+        )}
         {week && (
           <span className="hidden shrink-0 gap-0.5 min-[420px]:flex" title={`${week.days}/${week.goal} days this week`}>
             {Array.from({ length: week.goal }, (_, i) => (

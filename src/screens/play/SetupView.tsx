@@ -1,14 +1,10 @@
-// The Play tab's home: opponent card, Coached / Match, game options, Play, and the quiet links
-// under it (resume, training due, past games, challenges, coach-level step down).
+// The Play tab's home: the opponent card with Play (the one primary action), the rivalry row,
+// "This week", and one "Up next" row (the single most useful thing to do next). The rest of the
+// app lives in the tabs.
 import { RivalryCard, RivalryChip } from '../../components/Rivalry';
 import { TurningPrompt } from '../../components/TurningCards';
-import { courseLevel, courseState } from '../../lib/course';
-import { kvGet } from '../../lib/db';
-import { useRunFlag } from '../../cups/flag';
-import { TUNING as CUPS_T } from '../../cups/tuning';
-import { boardName, getPathState, levelAt } from '../../lib/puzzles/path';
-import { useEffect, useState, type ReactNode } from 'react';
-import { Flame, Puzzle, CalendarCheck, ChevronRight, Timer, Swords, BookOpen, Bot, Brain, Check, History, Lock, MessageCircleHeart, Settings, Share, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Flame, ChevronRight, Timer, Swords, Bot, Brain, Check, Lock, MessageCircleHeart, Settings, Share, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../../lib/bot';
 import { getSparring, sparringStep, type SparringState } from '../../lib/sparring';
 import { getPlayerRating } from '../../lib/playerRating';
@@ -28,12 +24,12 @@ import { CosmeticPreview } from '../../components/CosmeticPreview';
 import { WeekRing } from '../../components/Gamification';
 import { currentWinStreak } from '../../lib/stats';
 import { LastChessComGames } from '../../components/ChessCom';
-import { dueCount } from '../../lib/store/daily';
 import { db } from '../../lib/db';
 import { defaultMatchTc, mostCommonTimeControl, offeredTimeControls } from '../../lib/clock';
 import { timeControlLabel } from '../../lib/chesscom/parse';
 import { COACH_LEVELS, nextLevel, stepDownSuggestion } from '../../lib/coach/level';
 import { HomeHero } from '../../components/HomeHero';
+import { UpNextCard } from '../../components/UpNextCard';
 import { OpponentCarousel } from '../../components/OpponentCarousel';
 import { needsHomeScreenHint } from '../../lib/pwa';
 
@@ -144,7 +140,7 @@ export function SetupView() {
         {opp && !locked && stars >= MAX_STARS && !rec?.challengeDone && <ChallengeCard opponentId={opp.id} stars={stars} done={false} />}
         {opp && !locked && <RivalryCard opponentId={opp.id} rec={rec} />}
         <WeekRing />
-        <HomeLinks />
+        <UpNextCard />
         <LastChessComGames />
       </div>
       <Dialog open={sheet === 'opponent'} onClose={() => setSheet(null)} title="Choose your opponent">
@@ -237,49 +233,6 @@ export function SetupView() {
 }
 
 /** Quiet links under the Play card, chess.com style: training due, past games. */
-function HomeLinks() {
-  const push = useNav((s) => s.push);
-  const setTab = useNav((s) => s.setTab);
-  const [due, setDue] = useState(0);
-  const [pz, setPz] = useState<number | null>(null);
-  const depth = useNav((st) => st.stack.length);
-  useEffect(() => void dueCount().then(setDue), []);
-  const [lvl, setLvl] = useState<ReturnType<typeof courseLevel> | null>(null);
-  const tabNow = useNav((st) => st.tab);
-  // The puzzle path: "Wood 4 · 1,240 pts" (refreshed when you come back from a puzzle).
-  useEffect(() => void getPathState().then((p) => setPz(p.points)), [depth, tabNow]);
-  useEffect(() => {
-    if (tabNow === 'play') void courseState().then((c) => setLvl(courseLevel(c)));
-  }, [tabNow]);
-  // A cup in progress: say what is waiting (refreshed when you come back from a game).
-  const [cupLine, setCupLine] = useState<string | null>(null);
-  const phase = usePlay((st) => st.phase);
-  const cupsOn = useRunFlag((f) => f.enabled);
-  // A cup in progress: say which round is waiting (read straight from storage, no Cups code loaded).
-  useEffect(() => void kvGet<{ v?: number; tier: string; rounds: string[][]; place?: string } | null>('cupState', null).then((c) => setCupLine(c && c.v === 2 && !c.place ? `${CUPS_T.ladder.tiers.find((t) => t.id === c.tier)?.name}: your ${['quarter-final', 'semi-final', 'final'][c.rounds.length - 1] ?? 'next match'} is waiting` : null)), [phase]);
-  // One card of rows, chess.com style: a flat tinted icon in each row's own hue.
-  const row = (icon: ReactNode, hue: string, title: string, sub: ReactNode, onClick: () => void, badge?: ReactNode) => (
-    <button className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-[filter] active:brightness-95 dark:active:brightness-125" onClick={onClick}>
-      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-stone-100 dark:bg-white/[0.06] ${hue}`}>{icon}</span>
-      <span className="min-w-0 flex-1 leading-tight">
-        <span className="block font-bold">{title}</span>
-        <span className="mt-0.5 block truncate text-xs text-stone-500">{sub}</span>
-      </span>
-      {badge}
-      <ChevronRight size={18} className="shrink-0 text-stone-400" />
-    </button>
-  );
-  return (
-    <div className="card divide-y divide-black/5 overflow-hidden !p-0 dark:divide-white/[0.06]">
-      {row(<Puzzle size={20} />, 'text-hue-orange-500', 'Puzzles', pz === null ? 'Solve and climb' : <><b className="text-stone-700 dark:text-stone-200">{boardName(levelAt(pz).board)} {levelAt(pz).level}</b> · <span className="tabular-nums">{pz.toLocaleString('en-US')} pts</span></>, () => push({ name: 'puzzle', mode: { kind: 'rated' } }))}
-      {row(<CalendarCheck size={20} />, 'text-hue-sky-500', 'Daily training', due ? `${due} to review today` : 'Picked for your weak spots', () => push({ name: 'daily' }), due ? <span className="chip bg-danger-700 text-white">{due}</span> : null)}
-      {row(<BookOpen size={20} />, 'text-brand-700', 'Course', lvl ? <>Level <b className="text-stone-700 tabular-nums dark:text-stone-200">{lvl.level}</b> · {lvl.stepsDone}/{lvl.steps} done</> : 'Learn step by step', () => setTab('learn'))}
-      {row(<History size={20} />, 'text-hue-violet-500', 'Past games', 'Reviews of your games', () => push({ name: 'history' }))}
-      {cupsOn && row(<Trophy size={20} />, 'text-hue-amber-500', 'Cups', cupLine ?? 'Knockout tournaments in the Cups tab', () => setTab('run'))}
-    </div>
-  );
-}
-
 /** On the menu while a game is running: jump back in. */
 function ResumeCard() {
   const s = usePlay();

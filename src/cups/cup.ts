@@ -22,7 +22,7 @@ export interface RoundRecord {
   accuracy?: number;
   /** Seconds left on your clock at the end. */
   clockLeft?: number;
-  /** The game in the app's history (Past games, rivalry). */
+  /** The game in the app's history (Game history, rivalry). */
   gameId?: number;
   /** Gold this game earned. */
   gold?: number;

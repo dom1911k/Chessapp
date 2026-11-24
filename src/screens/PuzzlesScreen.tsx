@@ -1,8 +1,9 @@
-// The Puzzles hub, chess.com style: the puzzle path card (your level, points, the bar, a window
-// onto the world) with one big "Solve Puzzles" button and the difficulty, then the modes as tiles
-// (Rush, Daily Puzzle, Custom, Learning, your games) and your records.
+// The Puzzles hub, chess.com style, five things: the puzzle path card (your level, points, the bar,
+// a window onto the world) with one big "Solve Puzzles" button and the difficulty; "Today" (the
+// Daily Puzzle and Daily training); Puzzle Rush; Practice (Custom, with Mate in 1 and unrated
+// "take your time" puzzles inside it, and your own games); and your records once you have some.
 import { useEffect, useState, type ReactNode } from 'react';
-import { CalendarCheck, CalendarDays, ChevronRight, Flame, GraduationCap, Puzzle, Shield, SlidersHorizontal, Swords, Timer, Trophy, Zap } from 'lucide-react';
+import { CalendarCheck, CalendarDays, ChevronRight, Flame, Puzzle, Shield, SlidersHorizontal, Swords, Timer, Trophy, Zap } from 'lucide-react';
 import { Arrive, Header, Segmented, SkelText } from '../components/ui';
 import { GreenDot, PathBadge, SolverDots, StreakFlame } from '../components/path/PathUI';
 import { PathWindow } from '../components/path/PathWorld';
@@ -11,7 +12,6 @@ import { useSettings } from '../lib/settings';
 import { db, kvGet, today } from '../lib/db';
 import { useNav, type RushMode } from '../lib/nav';
 import { getRating } from '../lib/puzzles/rating';
-import { weakestThemes } from '../lib/puzzles/select';
 import { THEME_SETS } from '../lib/puzzles/themes';
 import { dailyState, dailyStreak } from '../lib/puzzles/sources';
 import { loadIndex } from '../lib/puzzles/data';
@@ -26,11 +26,12 @@ interface HubData {
   ratingDates: number[];
   solved: number;
   played: number;
+  /** Rated puzzles tried (the records row waits for the first one). */
+  ratedPlayed: number;
   bestStreak: number;
   rush: Record<RushMode, number>;
   dailySolved: boolean;
   dailyStreak: number;
-  weak?: string;
   total: number;
   due: number;
   path: PathState;
@@ -53,7 +54,6 @@ export function PuzzlesScreen() {
       const daily = await dailyState();
       const rush = {} as Record<RushMode, number>;
       for (const m of ['3', '5', 'survival'] as RushMode[]) rush[m] = await kvGet<number>(rushBestKey(m), 0);
-      const weak = (await weakestThemes(1))[0];
       setD({
         rating: r.rating,
         peak: Math.max(r.peak ?? r.rating, r.rating),
@@ -61,11 +61,11 @@ export function PuzzlesScreen() {
         ratingDates: rows.map((x) => x.at),
         solved: attempts.filter((a) => a.success).length,
         played: attempts.length,
+        ratedPlayed: attempts.filter((a) => a.source === 'rated').length,
         bestStreak: (await getPathState()).bestStreak,
         rush,
         dailySolved: daily.solved.includes(today()),
         dailyStreak: dailyStreak(daily.solved),
-        weak: attempts.length >= 5 ? weak : undefined,
         due: await dueCount(),
         total: (await loadIndex().catch(() => ({ total: 0 }))).total,
         path: await getPathState(),
@@ -80,68 +80,69 @@ export function PuzzlesScreen() {
         {/* The puzzle path + Solve */}
         <PathHubCard d={d} onOpen={() => push({ name: 'puzzlePath' })} onSolve={() => push({ name: 'puzzle', mode: { kind: 'rated' } })} />
 
-        {/* Daily Puzzle */}
-        <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'puzzle', mode: { kind: 'dailyPuzzle' } })}>
-          <span className={`flex h-12 w-12 items-center justify-center rounded-[10px] ${d?.dailySolved ? 'bg-brand-600 text-white' : 'bg-hue-amber-100 text-hue-amber-700 dark:bg-hue-amber-900/40 dark:text-hue-amber-300'}`}>
-            <CalendarDays size={24} />
-          </span>
-          <span className="flex-1">
-            <span className="block font-semibold">Daily Puzzle</span>
-            <span className="block text-xs text-stone-500">{d?.dailySolved ? 'Solved today ✓ — come back tomorrow' : 'A new puzzle every day'}</span>
-          </span>
-          {d && d.dailyStreak > 0 && (
-            <span className="flex items-center gap-0.5 font-bold text-hue-orange-600">
-              <Flame size={18} className="fill-hue-orange-400" /> {d.dailyStreak}
-            </span>
-          )}
-          <ChevronRight size={18} className="text-stone-400" />
-        </button>
-
-        {/* Daily training (spaced reviews of positions you missed + weak-spot puzzles) */}
-        <button className="card tile flex w-full items-center gap-3 !p-3 text-left" onClick={() => push({ name: 'daily' })}>
-          <span className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-brand-100 text-brand-700 dark:bg-brand-800/40 dark:text-brand-500">
-            <CalendarCheck size={24} />
-          </span>
-          <span className="flex-1">
-            <span className="block font-semibold">Daily training</span>
-            <span className="block text-xs text-stone-500">{d?.due ? `${d.due} position${d.due === 1 ? '' : 's'} to review, then weak-spot puzzles` : 'Puzzles picked for your weak spots'}</span>
-          </span>
-          {d?.due ? <span className="chip bg-danger-700 text-white">{d.due}</span> : null}
-          <ChevronRight size={18} className="text-stone-400" />
-        </button>
+        {/* Today: the Daily Puzzle and Daily training, one card */}
+        <section>
+          <h2 className="mb-1.5 section-title">Today</h2>
+          <div className="card divide-y divide-black/5 overflow-hidden !p-0 dark:divide-white/[0.06]" data-testid="today-card">
+            <button className="press flex w-full items-center gap-3 px-3.5 py-3 text-left" onClick={() => push({ name: 'puzzle', mode: { kind: 'dailyPuzzle' } })}>
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] ${d?.dailySolved ? 'bg-brand-600 text-white' : 'bg-hue-amber-100 text-hue-amber-700 dark:bg-hue-amber-900/40 dark:text-hue-amber-300'}`}>
+                <CalendarDays size={21} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Daily Puzzle</span>
+                <span className="block truncate text-xs text-stone-500 dark:text-stone-400">{d?.dailySolved ? 'Solved today ✓ — come back tomorrow' : 'A new puzzle every day'}</span>
+              </span>
+              {d && d.dailyStreak > 0 && (
+                <span className="flex items-center gap-0.5 font-bold text-hue-orange-600">
+                  <Flame size={18} className="fill-hue-orange-400" /> {d.dailyStreak}
+                </span>
+              )}
+              <ChevronRight size={18} className="shrink-0 text-stone-400" />
+            </button>
+            <button className="press flex w-full items-center gap-3 px-3.5 py-3 text-left" onClick={() => push({ name: 'daily' })}>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-brand-100 text-brand-700 dark:bg-brand-800/40 dark:text-brand-500">
+                <CalendarCheck size={21} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Daily training</span>
+                <span className="block truncate text-xs text-stone-500 dark:text-stone-400">{d?.due ? `${d.due} position${d.due === 1 ? '' : 's'} to review, then weak-spot puzzles` : 'Puzzles picked for your weak spots'}</span>
+              </span>
+              {d?.due ? <span className="chip bg-danger-700 text-white">{d.due}</span> : null}
+              <ChevronRight size={18} className="shrink-0 text-stone-400" />
+            </button>
+          </div>
+        </section>
 
         {/* Puzzle Rush */}
         <div className="card !p-3">
           <div className="mb-2 flex items-center gap-2">
             <Zap size={18} className="fill-hue-amber-400 text-hue-amber-500" />
             <span className="font-semibold">Puzzle Rush</span>
-            <span className="text-xs text-stone-500">· beat your best</span>
+            <span className="text-xs text-stone-500 dark:text-stone-400">· beat your best</span>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {(['3', '5', 'survival'] as RushMode[]).map((m) => (
-              <button key={m} className="flex flex-col items-center rounded-[10px] bg-stone-100 py-2.5 active:scale-[0.97] dark:bg-stone-800" onClick={() => push({ name: 'rush', mode: m })}>
+              <button key={m} className="flex flex-col items-center rounded-[10px] bg-stone-100 py-2.5 active:scale-[0.97] dark:bg-stone-800" onClick={() => push({ name: 'rush', mode: m })} data-testid={`rush-${m}`}>
                 {m === 'survival' ? <Shield size={20} className="text-hue-sky-600" /> : <Timer size={20} className="text-hue-amber-600" />}
                 <span className="mt-0.5 text-sm font-semibold">{RUSH_LABEL[m]}</span>
-                <span className="text-xs text-stone-500">Best {d?.rush[m] ?? 0}</span>
+                {/* No run yet: an invitation rather than "Best 0". */}
+                <span className="text-xs text-stone-500 dark:text-stone-400">{d?.rush[m] ? `Best ${d.rush[m]}` : 'Try it'}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* More modes */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <Tile icon={<SlidersHorizontal size={22} />} tint="bg-hue-violet-100 text-hue-violet-700 dark:bg-hue-violet-900/40 dark:text-hue-violet-300" title="Custom" text={`${THEME_SETS.length} themes, any difficulty`} onClick={() => push({ name: 'customPuzzles' })} />
-          <Tile icon={<GraduationCap size={22} />} tint="bg-hue-sky-100 text-hue-sky-700 dark:bg-hue-sky-900/40 dark:text-hue-sky-300" title="Learning" text="Unrated — take your time" onClick={() => push({ name: 'puzzle', mode: { kind: 'learn' } })} />
-          <Tile icon={<Swords size={22} />} tint="bg-hue-rose-100 text-hue-rose-700 dark:bg-hue-rose-900/40 dark:text-hue-rose-300" title="From your games" text="Punish the blunders you missed" onClick={() => push({ name: 'puzzle', mode: { kind: 'yours' } })} />
-          {d?.weak ? (
-            <Tile icon={<Puzzle size={22} />} tint="bg-hue-amber-100 text-hue-amber-700 dark:bg-hue-amber-900/40 dark:text-hue-amber-300" title={THEME_SETS.find((t) => t.id === d.weak)?.label ?? 'Weak spot'} text="Your weakest theme" onClick={() => push({ name: 'puzzle', mode: { kind: 'theme', theme: d.weak! } })} />
-          ) : (
-            <Tile icon={<Puzzle size={22} />} tint="bg-hue-amber-100 text-hue-amber-700 dark:bg-hue-amber-900/40 dark:text-hue-amber-300" title="Mate in 1" text="Quick warm-up" onClick={() => push({ name: 'puzzle', mode: { kind: 'theme', theme: 'mateIn1', difficulty: -300 } })} />
-          )}
-        </div>
+        {/* Practice: Custom (themes, Mate in 1, unrated "take your time") and your own games */}
+        <section>
+          <h2 className="mb-1.5 section-title">Practice</h2>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Tile icon={<SlidersHorizontal size={22} />} tint="bg-hue-violet-100 text-hue-violet-700 dark:bg-hue-violet-900/40 dark:text-hue-violet-300" title="Custom" text={`Mate in 1 and ${THEME_SETS.length} themes, rated or not`} onClick={() => push({ name: 'customPuzzles' })} />
+            <Tile icon={<Swords size={22} />} tint="bg-hue-rose-100 text-hue-rose-700 dark:bg-hue-rose-900/40 dark:text-hue-rose-300" title="From your games" text="Punish the blunders you missed" onClick={() => push({ name: 'puzzle', mode: { kind: 'yours' } })} />
+          </div>
+        </section>
 
-        {/* Records */}
-        {d && (
+        {/* Records, once you've solved a rated puzzle */}
+        {d && d.ratedPlayed > 0 && (
           <div className="card grid grid-cols-3 gap-1 !p-3 text-center">
             <Record icon={<Trophy size={16} className="text-gold-500" />} label="Highest" value={d.peak} />
             <Record icon={<Flame size={16} className="text-hue-orange-500" />} label="Best streak" value={d.bestStreak} />

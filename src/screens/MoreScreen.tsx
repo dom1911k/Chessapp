@@ -1,7 +1,8 @@
-// The More tab, chess.com style: your profile on top, then everything else as a plain list.
+// The More tab, chess.com style: your profile (and stats) on top, then everything else as a plain
+// list, one row per screen.
 import { UserAvatar } from '../components/UserAvatar';
 import { type ReactNode } from 'react';
-import { Award, ChartColumn, ChevronRight, CloudDownload, Gem, History, Lightbulb, Map, Microscope, Network, Settings, Target } from 'lucide-react';
+import { Award, ChevronRight, CloudDownload, Gem, History, Lightbulb, Map, Microscope, Network, Settings, Target } from 'lucide-react';
 import { Header } from '../components/ui';
 import { LevelBadge } from '../components/Gamification';
 import { useNav, type Screen } from '../lib/nav';
@@ -18,10 +19,9 @@ const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: 'Your games',
     items: [
-      { icon: <ChartColumn size={19} />, label: 'Stats', sub: 'Ratings, record, accuracy, best wins', to: { name: 'profile' } },
-      { icon: <Lightbulb size={19} />, label: 'Insights', sub: 'Phase, openings, colour, time of day, speed', to: { name: 'insights' } },
       { icon: <History size={19} />, label: 'Game history', sub: 'Every game with its Game Review', to: { name: 'history' } },
       { icon: <Target size={19} />, label: 'My mistakes', sub: 'What keeps going wrong, with positions', to: { name: 'mistakes' } },
+      { icon: <Lightbulb size={19} />, label: 'Insights', sub: 'Phase, openings, colour, time of day, speed', to: { name: 'insights' } },
       { icon: <Microscope size={19} />, label: 'Analysis board', sub: 'Engine lines and your own variations', to: { name: 'explore', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', orientation: 'white', title: 'Analysis' } },
     ],
   },
@@ -51,7 +51,7 @@ export function MoreScreen() {
               <LevelBadge seenKey="more.level" />
             </span>
           </span>
-          <span className="text-sm font-semibold text-brand-700 dark:text-brand-500">Profile</span>
+          <span className="text-sm font-semibold text-brand-700 dark:text-brand-500">Profile and stats</span>
           <ChevronRight size={18} className="text-stone-400" />
         </button>
         {GROUPS.map((g) => (

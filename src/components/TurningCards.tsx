@@ -37,7 +37,7 @@ export function TurningPrompt() {
   );
 }
 
-/** Past games: lost games still waiting for a quick self-review. */
+/** Game history: lost games still waiting for a quick self-review. */
 export function TurningList() {
   const push = useNav((s) => s.push);
   const [list, setList] = useState<AnyGame[]>([]);

@@ -69,7 +69,12 @@ export function CupsTab() {
         ))}
         <div className="mt-4 flex items-center gap-2">
           <Sprite name="crown" size={24} px={14} />
-          <span className="run-title text-lg font-black">{meta.laurels} Laurels</span>
+          {/* Until the first Laurel: what earns them, not "0 Laurels". */}
+          {meta.laurels > 0 || meta.unlocks.length || Object.keys(meta.levels).length ? (
+            <span className="run-title text-lg font-black">{meta.laurels} Laurels</span>
+          ) : (
+            <span className="run-sans text-sm text-[var(--ink-dim)]" data-testid="laurels-empty">Win a cup round to earn Laurels</span>
+          )}
         </div>
         <div className="mt-3 flex w-full max-w-sm gap-2">
           <button className="run-btn ghost flex-1 px-2! py-2! text-sm" onClick={() => setView('shop')}>Laurel shop</button>
