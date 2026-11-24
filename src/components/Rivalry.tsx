@@ -45,7 +45,7 @@ export function RivalryCard({ opponentId, rec }: { opponentId: string; rec?: Opp
               <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-200 dark:bg-white/10">
                 <span className="block h-full rounded-full bg-hue-rose-500 transition-[width] duration-700" style={{ width: `${Math.max(3, (lv.into / lv.span) * 100)}%` }} />
               </span>
-              <span className="shrink-0 text-[11px] font-semibold text-stone-500 tabular-nums">{rec!.w}W · {rec!.d}D · {rec!.l}L</span>
+              <span className="shrink-0 text-[12px] font-semibold text-stone-500 tabular-nums dark:text-stone-400">{rec!.w}W · {rec!.d}D · {rec!.l}L</span>
             </span>
           ) : (
             <span className="mt-0.5 block truncate text-xs text-stone-500">{next ? `Next badge: ${next.label}` : 'All eight badges'}</span>
@@ -61,7 +61,7 @@ export function RivalryCard({ opponentId, rec }: { opponentId: string; rec?: Opp
               return (
                 <span key={b.id} title={b.hint} className={`flex flex-col items-center gap-1 rounded-[8px] px-1 py-1.5 text-center ${on ? 'bg-hue-rose-50 dark:bg-hue-rose-500/10' : 'bg-stone-100 dark:bg-white/[0.04]'}`}>
                   <span className={`flex h-5 w-5 items-center justify-center rounded-full ${on ? 'bg-hue-rose-600 text-white' : 'ring-2 ring-stone-300 dark:ring-stone-600'}`}>{on && <Check size={12} strokeWidth={4} />}</span>
-                  <span className={`text-[11px] leading-tight font-semibold ${on ? 'text-hue-rose-700 dark:text-hue-rose-300' : 'text-stone-500'}`}>{b.label}</span>
+                  <span className={`text-[12px] leading-tight font-semibold ${on ? 'text-hue-rose-700 dark:text-hue-rose-300' : 'text-stone-500 dark:text-stone-400'}`}>{b.label}</span>
                 </span>
               );
             })}

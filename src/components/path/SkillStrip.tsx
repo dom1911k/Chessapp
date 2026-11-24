@@ -47,7 +47,7 @@ export function SkillStrip({ themes }: { themes: string[] }) {
           <span className="block h-full rounded-full transition-[width] duration-700 ease-out" style={{ width: `${Math.max(3, (grown ? s.toNext : before) * 100)}%`, background: TIERS[Math.min(3, s.tier + 1) as Tier].color }} />
         </span>
       </span>
-      <span className="shrink-0 text-[11px] text-stone-500 tabular-nums">{s.tier < 3 ? `${s.points} / ${hi}` : `${s.points}`}</span>
+      <span className="shrink-0 text-[12px] text-stone-500 tabular-nums dark:text-stone-400">{s.tier < 3 ? `${s.points} / ${hi}` : `${s.points}`}</span>
     </button>
   );
 }

@@ -155,7 +155,7 @@ export function ExploreScreen({ fen, orientation: startOrientation, title }: { f
                   <Spinner className="!h-3.5 !w-3.5" /> Thinking…
                 </div>
               )}
-              <div className="flex items-center justify-between px-2.5 py-1 text-[11px] text-stone-500">
+              <div className="flex items-center justify-between px-2.5 py-1 text-[12px] text-stone-500 dark:text-stone-400">
                 <span>{lines ? `Depth ${lines.depth}` : ''}</span>
                 {thinking && lines && <span className="flex items-center gap-1"><Spinner className="!h-2.5 !w-2.5" /> going deeper</span>}
               </div>

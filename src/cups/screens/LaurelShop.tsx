@@ -1,5 +1,6 @@
 // The Laurel shop (between cups): boons and a charm that join the random offers, pixel skins,
-// and an avatar frame per cup tier.
+// and an avatar frame per cup tier. Titles and prices keep the Cups display type; descriptions are
+// in the app font at 12px, in the Cups palette, so they stay readable under the scanlines.
 import { LAUREL_SHOP, canBuy, type ShopKind } from '../laurels';
 import { upgradeCost, useCupsMeta } from '../meta';
 import { boonCard, boonPool, charmCard, charmPool, levelLine, levelName, lv } from '../boons';
@@ -28,7 +29,7 @@ export function LaurelShop({ onBack }: { onBack: () => void }) {
       </div>
       <div className="mt-2 text-center">
         <PixelText text="Laurel shop" size={3} />
-        <div className="run-sans mt-1 text-xs text-[var(--ink-dim)]">Laurels: semi-final 1 · final 2 · cup won 3, plus heat, sponsors, stars, the codex and your nemesis. Boons and charms you buy join the random offers.</div>
+        <div className="run-sans mt-1 text-[12px] leading-[1.4] text-[var(--ink-dim)]">Laurels: semi-final 1 · final 2 · cup won 3, plus heat, sponsors, stars, the codex and your nemesis. Boons and charms you buy join the random offers.</div>
       </div>
       <Upgrades />
       {SECTIONS.map((sec) => (
@@ -43,7 +44,7 @@ export function LaurelShop({ onBack }: { onBack: () => void }) {
                   <Sprite name={item.glyph} size={34} px={14} pal={sec.pal} />
                   <div className="min-w-0 flex-1">
                     <div className="run-title leading-tight font-black">{item.name}</div>
-                    <div className="run-sans text-xs leading-snug text-[var(--ink-dim)]">{item.text}</div>
+                    <div className="run-sans text-[12px] leading-[1.4] text-[var(--ink-dim)]">{item.text}</div>
                   </div>
                   {owned ? (
                     <span className="run-sans text-xs font-black text-[var(--gold-2)]">Owned</span>
@@ -72,7 +73,7 @@ function Upgrades() {
   return (
     <section className="mt-4">
       <div className="run-label mb-1">Upgrades</div>
-      <div className="run-sans mb-2 text-xs text-[var(--ink-dim)]">Everything starts at level I. Level II is the classic strength, level III a step beyond.</div>
+      <div className="run-sans mb-2 text-[12px] leading-[1.4] text-[var(--ink-dim)]">Everything starts at level I. Level II is the classic strength, level III a step beyond.</div>
       <div className="space-y-2">
         {rows.map(({ id, card, pal }) => {
           const l = lv(meta.levels, id);
@@ -83,7 +84,7 @@ function Upgrades() {
               <Sprite name={now.glyph} size={34} px={14} pal={pal} />
               <div className="min-w-0 flex-1">
                 <div className="run-title leading-tight font-black">{now.name} <span className="text-[var(--gold-2)]">{levelName(l)}</span></div>
-                <div className="run-sans text-xs leading-snug text-[var(--ink-dim)]">{levelLine(id, l)}{cost !== null ? <> → <b className="text-[var(--ink)]">{levelLine(id, l + 1)}</b></> : ''}</div>
+                <div className="run-sans text-[12px] leading-[1.4] text-[var(--ink-dim)]">{levelLine(id, l)}{cost !== null ? <> → <b className="font-semibold text-[var(--ink)]">{levelLine(id, l + 1)}</b></> : ''}</div>
               </div>
               {cost === null ? (
                 <span className="run-sans text-xs font-black text-[var(--gold-2)]">Max</span>

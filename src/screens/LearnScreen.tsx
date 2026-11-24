@@ -140,7 +140,7 @@ export function LearnScreen() {
                       {k === cur && !complete && <span className={`rounded-full px-1.5 py-px text-[11px] font-bold tracking-wider uppercase ${on ? 'bg-white/20' : 'bg-hue-amber-100 text-hue-amber-800 dark:bg-hue-amber-500/20 dark:text-hue-amber-300'}`}>You</span>}
                     </span>
                     <span className="mt-2 block text-[15px] leading-tight font-semibold">{sg.title}</span>
-                    <span className={`block text-[11px] ${on ? 'text-white/75' : 'text-stone-500'}`}>{sg.range}</span>
+                    <span className={`block text-[12px] ${on ? 'text-white/80' : 'text-stone-500 dark:text-stone-400'}`}>{sg.range}</span>
                     <span className={`mt-2 block h-1.5 overflow-hidden rounded-full ${on ? 'bg-black/25' : 'bg-stone-200 dark:bg-white/10'}`}>
                       <span className={`block h-full rounded-full ${on ? 'bg-hue-amber-300' : 'bg-brand-500'}`} style={{ width: `${(p.done / p.total) * 100}%` }} />
                     </span>

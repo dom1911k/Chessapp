@@ -49,7 +49,7 @@ export function LevelCard() {
         <div className="mt-1 h-2 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-700">
           <div className="h-full rounded-full bg-hue-amber-400 transition-all" style={{ width: `${(l.into / l.span) * 100}%` }} />
         </div>
-        <div className="mt-0.5 text-xs text-stone-500">
+        <div className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
           {l.into} / {l.span} XP to level {l.level + 1} · {xp} XP total
         </div>
       </div>
@@ -73,7 +73,7 @@ export function WeeklyGoalCard({ editable = false }: { editable?: boolean }) {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-bold">{w.met ? 'Weekly goal reached!' : 'Weekly goal'}</div>
-          <div className="text-xs text-stone-500">
+          <div className="text-xs text-stone-500 dark:text-stone-400">
             {w.days} of {w.goal} training days this week · rest days never reset anything
           </div>
         </div>
@@ -100,7 +100,7 @@ export function WeeklyGoalCard({ editable = false }: { editable?: boolean }) {
             <div key={i} className="flex flex-col items-center gap-0.5">
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
-                  done ? 'bg-brand-700 text-white' : i === todayIdx ? 'ring-2 ring-brand-500 text-brand-700 dark:text-brand-500' : 'bg-stone-100 text-stone-500 dark:bg-stone-800'
+                  done ? 'bg-brand-700 text-white' : i === todayIdx ? 'ring-2 ring-brand-500 text-brand-700 dark:text-brand-500' : 'bg-stone-100 text-stone-500 dark:text-stone-400 dark:bg-stone-800'
                 }`}
               >
                 {done ? <Check size={12} strokeWidth={3} /> : d}
@@ -123,7 +123,7 @@ export function AchievementsPreview() {
       <Medallion name="medal" tint="gold" />
       <span className="flex-1">
         <span className="block font-semibold">Achievements</span>
-        <span className="block text-xs text-stone-500">{n} of {ACHIEVEMENTS.length} collected</span>
+        <span className="block text-xs text-stone-500 dark:text-stone-400">{n} of {ACHIEVEMENTS.length} collected</span>
       </span>
       <ChevronRight size={18} className="text-stone-400" />
     </button>
@@ -145,10 +145,13 @@ export function AchievementsScreen() {
           const got = !!have[a.id];
           const prog = !got && stats && a.progress ? a.progress(stats) : null;
           return (
-            <div key={a.id} className={`card flex flex-col items-center !p-2.5 text-center ${got ? '' : 'opacity-55'}`}>
-              {a.portrait ? <Portrait id={a.portrait} size={40} className={got ? '' : 'grayscale'} /> : <Medallion name={a.icon} tint="gold" size={40} muted={!got} />}
-              <span className="mt-1 text-xs font-bold leading-tight">{a.title}</span>
-              <span className="mt-0.5 text-xs leading-tight text-stone-500">{a.description}</span>
+            <div key={a.id} className="card flex flex-col items-center !p-2.5 text-center" data-got={got || undefined}>
+              {/* Locked: the medal is dimmed, the words stay readable. */}
+              <span className={got ? '' : 'opacity-50'}>
+                {a.portrait ? <Portrait id={a.portrait} size={40} className={got ? '' : 'grayscale'} /> : <Medallion name={a.icon} tint="gold" size={40} muted={!got} />}
+              </span>
+              <span className={`mt-1 text-xs font-bold leading-tight ${got ? '' : 'text-stone-600 dark:text-stone-300'}`}>{a.title}</span>
+              <span className="mt-0.5 text-xs leading-tight text-stone-500 dark:text-stone-400">{a.description}</span>
               {prog && prog[1] > 1 && <span className="mt-1 text-xs font-semibold text-brand-700 dark:text-brand-500">{prog[0]}/{prog[1]}</span>}
             </div>
           );
@@ -203,7 +206,7 @@ export function WeekRing() {
           <circle ref={ring} cx="28" cy="28" r={R} fill="none" strokeWidth="6" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - from)} className={w.met ? 'stroke-hue-amber-400' : 'stroke-brand-500'} />
         </svg>
         <span className={`absolute inset-0 flex items-center justify-center font-display text-lg font-semibold tabular-nums ${grew ? 'animate-count-pop' : ''}`} style={grew ? { animationDelay: '1300ms' } : undefined}>
-          {w.days}<span className="text-xs text-stone-500">/{w.goal}</span>
+          {w.days}<span className="text-xs text-stone-500 dark:text-stone-400">/{w.goal}</span>
         </span>
       </div>
       <div className="min-w-0 flex-1">
@@ -218,7 +221,7 @@ export function WeekRing() {
             return (
               <span
                 key={i}
-                className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${done ? (w.met ? 'bg-hue-amber-400 text-hue-amber-950' : 'bg-brand-700 text-white') : i === todayIdx ? 'text-brand-700 ring-2 ring-brand-500 dark:text-brand-500' : 'bg-stone-100 text-stone-500 dark:bg-white/[0.06]'} ${fresh ? 'animate-badge-pop' : ''}`}
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${done ? (w.met ? 'bg-hue-amber-400 text-hue-amber-950' : 'bg-brand-700 text-white') : i === todayIdx ? 'text-brand-700 ring-2 ring-brand-500 dark:text-brand-500' : 'bg-stone-100 text-stone-500 dark:text-stone-400 dark:bg-white/[0.06]'} ${fresh ? 'animate-badge-pop' : ''}`}
                 style={fresh ? { animationDelay: '1200ms' } : undefined}
               >
                 {done ? <Check size={11} strokeWidth={3.5} /> : d}

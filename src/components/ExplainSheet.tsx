@@ -279,7 +279,7 @@ function ExplainBody({ p, cls, isUser, orientation, onClose, history, rating, ca
                           </div>
                         </div>
                         <Points list={difficultySentence({ bestSan: hard.bestSan, bestShare: hard.best, playedSan: p.san, playedShare: hard.played, rating: hard.rating, isUser, same: hard.same })} />
-                        <p className="mt-1.5 text-[11px] text-stone-500">Estimated with Maia, trained on millions of human games.</p>
+                        <p className="mt-1.5 text-[12px] text-stone-500 dark:text-stone-400">Estimated with Maia, trained on millions of human games.</p>
                       </Block>
                     )}
                     {remember && (

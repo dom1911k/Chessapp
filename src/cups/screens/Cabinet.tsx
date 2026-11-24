@@ -25,7 +25,7 @@ export function Cabinet({ onBack }: { onBack: () => void }) {
       <div className="mt-2 text-center">
         <PixelText text="Trophy cabinet" size={3} />
         <div className="run-sans mt-1 text-xs text-[var(--ink-dim)]">{(history ?? []).length} cups played · {starCount(meta.stars ?? {})}/{allStars()} stars · {meta.contractsDone ?? 0} contracts fulfilled</div>
-        <div className="run-sans mt-1 text-[11px] text-[var(--ink-dim)]">Stars: {STAR_NAMES.join(' · ')}</div>
+        <div className="run-sans mt-1 text-[12px] text-[var(--ink-dim)]">Stars: {STAR_NAMES.join(' · ')}</div>
       </div>
       <div className="mt-4 space-y-2.5">
         {rows.map((r) => (
@@ -62,7 +62,7 @@ export function Cabinet({ onBack }: { onBack: () => void }) {
                 <Sprite name={seen ? q.glyph : 'question'} size={22} px={12} pal={SPIRIT} />
                 <div className="min-w-0 flex-1">
                   <div className="run-title truncate text-xs font-black">{seen ? q.name : '???'}</div>
-                  <div className="run-sans text-[10px] text-[var(--ink-dim)]">{seen ? `${e!.beaten}/${e!.faced} won` : 'not met yet'}</div>
+                  <div className="run-sans text-[11px] text-[var(--ink-dim)]">{seen ? `${e!.beaten}/${e!.faced} won` : 'not met yet'}</div>
                 </div>
                 {beat && <span className="text-[var(--gold-2)]">✓</span>}
               </div>

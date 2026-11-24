@@ -80,7 +80,7 @@ export function HistoryScreen() {
                 ) : (
                   <>
                     <span className="block font-bold tabular-nums">{accuracyText(g.summary.accuracy, hasAccuracy(g.summary))}</span>
-                    <span className="block text-[11px] text-stone-500">
+                    <span className="block text-[12px] text-stone-500 dark:text-stone-400">
                       {g.summary.counts.blunder ? `${g.summary.counts.blunder} blunder${g.summary.counts.blunder === 1 ? '' : 's'}` : 'accuracy'}
                     </span>
                   </>

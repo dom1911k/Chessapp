@@ -168,7 +168,7 @@ function Record({ icon, label, value }: { icon: ReactNode; label: string; value:
   return (
     <div>
       <div className="font-display flex items-center justify-center gap-1 text-[22px] font-semibold tabular-nums">{icon}{value}</div>
-      <div className="text-[11px] text-stone-500">{label}</div>
+      <div className="text-[12px] text-stone-500 dark:text-stone-400">{label}</div>
     </div>
   );
 }
@@ -228,7 +228,7 @@ function PathHubCard({ d, onOpen, onSolve }: { d: HubData | null; onOpen: () => 
         />
       </div>
       {d && (
-        <p className="mt-2 text-center text-[11px] text-stone-500">
+        <p className="mt-2 text-center text-[12px] text-stone-500 dark:text-stone-400">
           Puzzle rating {d.rating} · best {d.peak}
           {d.total > 0 ? ` · ${d.total.toLocaleString()} puzzles, all offline` : ''}
         </p>

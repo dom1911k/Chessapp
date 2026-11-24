@@ -46,10 +46,10 @@ export function CollectionScreen() {
             <button
               key={c.id}
               onClick={() => tap(c)}
-              className={`card flex flex-col items-center gap-2 !p-3 text-center transition active:scale-[0.98] ${on ? '!ring-2 !ring-brand-500' : ''} ${open ? '' : 'opacity-70'}`}
+              className={`card flex flex-col items-center gap-2 !p-3 text-center transition active:scale-[0.98] ${on ? '!ring-2 !ring-brand-500' : ''}`}
             >
               <div className="relative">
-                <div className={open ? '' : 'grayscale-[0.7]'}>
+                <div className={open ? '' : 'opacity-75 grayscale-[0.7]'}>
                   <CosmeticPreview c={c} size={72} />
                 </div>
                 {!open && (
@@ -64,7 +64,7 @@ export function CollectionScreen() {
                 )}
               </div>
               <span className="text-sm leading-tight font-semibold">{c.name}</span>
-              <span className={`text-[11px] leading-tight ${open ? 'text-brand-700 dark:text-brand-500' : 'text-stone-500'}`}>
+              <span className={`text-[12px] leading-tight ${open ? 'text-brand-700 dark:text-brand-500' : 'text-stone-500 dark:text-stone-400'}`}>
                 {on ? 'In use' : open ? (c.unlock.kind === 'free' ? 'Tap to use' : 'Unlocked · tap to use') : unlockText(c.unlock)}
               </span>
             </button>

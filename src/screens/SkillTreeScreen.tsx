@@ -34,7 +34,7 @@ function SkillNode({ skill, st, onClick }: { skill: Skill; st: SkillState; onCli
           </span>
         )}
       </span>
-      <span className="text-center text-[11px] leading-tight font-semibold">{skill.name}</span>
+      <span className="text-center text-[12px] leading-tight font-semibold">{skill.name}</span>
     </button>
   );
 }
@@ -64,7 +64,7 @@ export function SkillTreeScreen() {
                 <Glyph name="medal" size={18} />
               </span>
               <span className="mt-1 text-lg leading-none font-bold">{medals[i]}</span>
-              <span className="text-[11px] text-stone-500">{TIERS[t].name}</span>
+              <span className="text-[12px] text-stone-500 dark:text-stone-400">{TIERS[t].name}</span>
             </div>
           ))}
         </div>
@@ -76,7 +76,7 @@ export function SkillTreeScreen() {
             const list = SKILLS.filter((s) => s.branch === b.id);
             return (
               <div key={b.id} className="relative flex flex-col items-center">
-                <div className="mb-3 w-full rounded-full py-1 text-center text-[11px] font-bold tracking-wide text-white uppercase shadow-sm" style={{ background: b.color }}>
+                <div className="mb-3 w-full rounded-full py-1 text-center text-[11px] font-bold tracking-wide text-white uppercase shadow-sm" style={{ background: b.fill }}>
                   {b.name}
                 </div>
                 <div className="absolute top-10 bottom-10 left-1/2 w-1 -translate-x-1/2 rounded-full opacity-30" style={{ background: b.color }} />
@@ -97,7 +97,7 @@ export function SkillTreeScreen() {
             <div>
               <div className="mb-1 flex justify-between text-sm font-semibold">
                 <span style={{ color: st.tier ? TIERS[st.tier].color : undefined }}>{TIERS[st.tier].name}</span>
-                <span className="text-stone-500">{st.tier === 3 ? `${st.points} points` : `${st.points} / ${TIERS[(st.tier + 1) as 1 | 2 | 3].points} for ${TIERS[(st.tier + 1) as 1 | 2 | 3].name}`}</span>
+                <span className="text-stone-500 dark:text-stone-400">{st.tier === 3 ? `${st.points} points` : `${st.points} / ${TIERS[(st.tier + 1) as 1 | 2 | 3].points} for ${TIERS[(st.tier + 1) as 1 | 2 | 3].name}`}</span>
               </div>
               <div className="h-2.5 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800">
                 <div className="h-full rounded-full" style={{ width: `${st.toNext * 100}%`, background: TIERS[Math.min(3, st.tier + 1) as 1 | 2 | 3].color }} />

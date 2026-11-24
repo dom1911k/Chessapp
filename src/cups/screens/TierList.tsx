@@ -104,7 +104,7 @@ function PrepareSheet({ tier, won, onClose }: { tier: CupTier; won: number; onCl
                   <Sprite name={h.glyph} size={22} px={12} pal={heat.includes(h.id) ? BLOOD : SPIRIT} />
                   <div className="min-w-0 flex-1">
                     <div className="run-title text-sm leading-tight font-black">{h.name}</div>
-                    <div className="run-sans text-[11px] leading-snug text-[var(--ink-dim)]">{h.text}</div>
+                    <div className="run-sans text-[12px] leading-snug text-[var(--ink-dim)]">{h.text}</div>
                   </div>
                   <span className="run-sans shrink-0 text-xs font-black text-[#ff8a98]">{'🔥'.repeat(h.heat)}</span>
                 </button>

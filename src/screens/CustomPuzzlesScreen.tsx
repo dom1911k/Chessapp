@@ -109,7 +109,7 @@ export function CustomPuzzlesScreen() {
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold">{t.label}</span>
                       <span className="block truncate text-xs text-stone-500">{t.description}</span>
-                      {s && s.solved > 0 && <span className="mt-0.5 block text-[11px] font-semibold text-stone-500">{s.solved} solved</span>}
+                      {s && s.solved > 0 && <span className="mt-0.5 block text-[12px] font-semibold text-stone-500 dark:text-stone-400">{s.solved} solved</span>}
                     </span>
                     {pct !== null && <span className={`text-xs font-bold ${pct >= 70 ? 'text-brand-700' : pct < 45 ? 'text-danger-700' : 'text-stone-500'}`}>{pct}%</span>}
                     {counts[t.id] ? <span className="text-xs text-stone-500">{counts[t.id] >= 1000 ? `${(counts[t.id] / 1000).toFixed(1)}k` : counts[t.id]}</span> : null}

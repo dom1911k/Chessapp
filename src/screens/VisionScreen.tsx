@@ -105,7 +105,7 @@ export function VisionScreen() {
               </div>
               <div className="text-right">
                 <div className="font-display text-[28px] leading-none font-semibold tabular-nums">{score}</div>
-                <div className="text-[11px] text-stone-500">{misses ? `${misses} miss${misses === 1 ? '' : 'es'}` : 'correct'}</div>
+                <div className="text-[12px] text-stone-500 dark:text-stone-400">{misses ? `${misses} miss${misses === 1 ? '' : 'es'}` : 'correct'}</div>
               </div>
             </>
           ) : phase === 'done' ? (

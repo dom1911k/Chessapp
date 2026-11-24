@@ -81,7 +81,7 @@ function Stat({ value, label }: { value: ReactNode; label: ReactNode }) {
   return (
     <div className="pp-stat flex flex-col items-center justify-center rounded-[8px] bg-stone-100 px-1 py-2 dark:bg-stone-800">
       <div className="text-[18px] leading-none font-extrabold tabular-nums">{value}</div>
-      <div className="mt-1 text-[11px] font-semibold text-stone-500">{label}</div>
+      <div className="mt-1 text-[12px] font-semibold text-stone-500 dark:text-stone-400">{label}</div>
     </div>
   );
 }

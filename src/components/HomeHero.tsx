@@ -78,7 +78,7 @@ export function HomeHero({ right }: { right?: ReactNode }) {
         <div className="min-w-0 flex-1 leading-tight">
           <div className="truncate text-[12px] font-medium text-stone-500">{GREETING[part]}</div>
           <div className="truncate text-[18px] font-extrabold tracking-[-0.01em]">{name}</div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-stone-500">
+          <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-stone-500 dark:text-stone-400">
             <span className="truncate font-semibold">{title}</span>
             <span className="relative h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-stone-300 dark:bg-stone-800" title={`${l.span - l.into} XP to go`}>
               <span className="absolute inset-y-0 left-0 rounded-full bg-[#f7c045]" style={{ width: `${Math.max(4, (seen.shown === null ? 0 : l.into / l.span) * 100)}%` }} />

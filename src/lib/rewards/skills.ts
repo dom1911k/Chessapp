@@ -29,11 +29,12 @@ export interface Skill {
   train?: string;
 }
 
+/** `fill`: a deeper shade behind the white column label (4.5:1 for small text). */
 export const BRANCHES = [
-  { id: 'safety', name: 'Safety', color: '#0ea5e9' },
-  { id: 'tactics', name: 'Tactics', color: '#f97316' },
-  { id: 'mates', name: 'Checkmates', color: '#e11d48' },
-  { id: 'endgame', name: 'Endgames', color: '#8b5cf6' },
+  { id: 'safety', name: 'Safety', color: '#0ea5e9', fill: '#0369a1' },
+  { id: 'tactics', name: 'Tactics', color: '#f97316', fill: '#c2410c' },
+  { id: 'mates', name: 'Checkmates', color: '#e11d48', fill: '#be123c' },
+  { id: 'endgame', name: 'Endgames', color: '#8b5cf6', fill: '#6d28d9' },
 ] as const;
 
 export const SKILLS: Skill[] = [

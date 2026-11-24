@@ -176,7 +176,7 @@ export function JourneyScreen() {
                   {i === nodes.length - 1 ? <MapPin size={22} /> : reached ? <Star size={24} className="fill-white" /> : isNext ? <span className="text-sm font-black">{n.rating}</span> : <Lock size={18} />}
                 </div>
                 <div className={`absolute top-1/2 w-36 -translate-y-1/2 ${right ? 'left-[66px]' : 'right-[66px] text-right'}`}>
-                  <div className={`text-[11px] font-bold ${reached ? 'text-gold-500' : 'text-stone-500'}`}>{i === nodes.length - 1 ? `${START_RATING}` : n.rating}</div>
+                  <div className={`text-[12px] font-bold ${reached ? 'text-[#8a6416] dark:text-gold-500' : 'text-stone-500 dark:text-stone-400'}`}>{i === nodes.length - 1 ? `${START_RATING}` : n.rating}</div>
                   <div className={`text-sm leading-tight font-semibold ${reached || isNext ? '' : 'text-stone-500'}`}>{n.title}</div>
                   {reward && (
                     <div className={`mt-1 inline-flex items-center gap-1.5 rounded-full bg-white/80 py-0.5 pr-2 pl-0.5 text-[11px] font-semibold shadow-sm dark:bg-stone-800/80 ${right ? '' : 'flex-row-reverse pr-0.5 pl-2'}`}>

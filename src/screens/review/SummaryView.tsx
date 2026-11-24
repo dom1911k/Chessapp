@@ -327,7 +327,7 @@ export function SummaryView({ g, r, trap, onStart, fix }: { g: AnyGame; r: Revie
             <div className="mt-2 grid grid-cols-3 gap-2">
               {PHASES.map((ph) => (
                 <div key={ph} className="card flex flex-col items-center gap-1 !px-2 !py-2.5">
-                  <span className="text-[11px] font-semibold tracking-wide text-stone-500 capitalize">{ph}</span>
+                  <span className="text-[12px] font-semibold text-stone-500 capitalize dark:text-stone-400">{ph}</span>
                   <span className="flex items-center gap-2">
                     {r.me.phases[ph] ? <ReviewIcon cls={r.me.phases[ph]!.cls} size={22} /> : <span className="w-[22px] text-center text-stone-300">–</span>}
                     <span className="text-xs text-stone-500">vs</span>
@@ -344,7 +344,7 @@ export function SummaryView({ g, r, trap, onStart, fix }: { g: AnyGame; r: Revie
             <div className="card !p-3">
               <EvalGraph plies={g.plies} onSelect={onStart} times={times} classes={cls} />
               {times && (
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-stone-500">
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-stone-500 dark:text-stone-400">
                   <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#81b64c]" /> Your time</span>
                   <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#989795]" /> Theirs</span>
                   <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-[#f7c045]" /> Longest thinks</span>

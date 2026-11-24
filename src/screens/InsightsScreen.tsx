@@ -41,7 +41,7 @@ export function InsightsScreen() {
                   <div key={p.phase} className={`rounded-[10px] p-2.5 text-center ${p.phase === r.weakestPhase ? 'bg-danger-50 ring-1 ring-danger-300 dark:bg-danger-900/40 dark:ring-danger-800' : 'bg-stone-100 dark:bg-stone-800'}`}>
                     <div className="text-2xl font-black tabular-nums">{p.accuracy ?? '–'}{p.accuracy !== null && <span className="text-sm">%</span>}</div>
                     <div className="text-xs font-semibold">{PHASE_LABEL[p.phase]}</div>
-                    <div className="text-[11px] text-stone-500">{p.moves} moves</div>
+                    <div className="text-[12px] text-stone-500 dark:text-stone-400">{p.moves} moves</div>
                   </div>
                 ))}
               </div>
@@ -86,7 +86,7 @@ function Section({ title, note, children }: { title: string; note?: string; chil
     <section className="card !p-3">
       <h2 className="mb-2 section-title">{title}</h2>
       <div className="space-y-2">{children}</div>
-      {note && <p className="mt-2 text-xs text-stone-500">{note}</p>}
+      {note && <p className="mt-2 text-xs text-stone-500 dark:text-stone-400">{note}</p>}
     </section>
   );
 }
@@ -97,7 +97,7 @@ function ResultRow({ label, row }: { label: string; row: Row }) {
     <div>
       <div className="flex items-baseline justify-between text-sm">
         <span className="min-w-0 truncate font-semibold">{label}</span>
-        <span className="shrink-0 pl-2 text-xs text-stone-500">
+        <span className="shrink-0 pl-2 text-xs text-stone-500 dark:text-stone-400">
           {row.score.w}W {row.score.d}D {row.score.l}L · <b className={row.pct >= 55 ? 'text-brand-700' : row.pct < 45 ? 'text-danger-700' : 'text-stone-700 dark:text-stone-200'}>{row.pct}%</b>
         </span>
       </div>

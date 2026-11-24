@@ -308,7 +308,7 @@ export function TimeStatsCard({ g, onPly }: { g: AnyGame; onPly: (ply: number) =
           />
         ))}
       </div>
-      <div className="flex justify-between text-[11px] text-stone-500">
+      <div className="flex justify-between text-[12px] text-stone-500 dark:text-stone-400">
         <span>move 1</span>
         <span>move {st.moves[st.moves.length - 1].moveNo}</span>
       </div>

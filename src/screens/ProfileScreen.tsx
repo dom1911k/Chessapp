@@ -133,7 +133,7 @@ export function ProfileScreen() {
           <span className="min-w-0 flex-1">
             <span className="block truncate text-xl font-bold">{ccUser || 'You'}</span>
             <span className="block text-sm font-semibold text-brand-700 dark:text-brand-500">{title}</span>
-            <span className="block text-sm text-stone-500">{total ? <>{total} games · {d.streak} day{d.streak === 1 ? '' : 's'} in a row</> : 'Play your first game to see your stats here'}</span>
+            <span className="block text-sm text-stone-500 dark:text-stone-400">{total ? <>{total} games · {d.streak} day{d.streak === 1 ? '' : 's'} in a row</> : 'Play your first game to see your stats here'}</span>
           </span>
         </div>
         <Segmented
@@ -154,7 +154,7 @@ export function ProfileScreen() {
             <div className="card !p-3">
               <div className="mb-2 flex items-baseline justify-between">
                 <span className="section-title">Record</span>
-                <span className="text-xs text-stone-500">{scorePct(p.score)}% score</span>
+                <span className="text-xs text-stone-500 dark:text-stone-400">{scorePct(p.score)}% score</span>
               </div>
               <div className="flex h-3 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800">
                 {total > 0 && (
@@ -174,25 +174,25 @@ export function ProfileScreen() {
             <div className="card !p-3">
               <div className="mb-1 flex items-baseline justify-between">
                 <span className="section-title">Accuracy by week</span>
-                {p.accuracy !== null && <span className="text-xs text-stone-500">average {p.accuracy}%</span>}
+                {p.accuracy !== null && <span className="text-xs text-stone-500 dark:text-stone-400">average {p.accuracy}%</span>}
               </div>
               {p.accuracyByWeek.length > 1 ? (
                 <LineChart values={p.accuracyByWeek.map((w) => w.accuracy)} labels={[`${p.accuracyByWeek[0].week} wk ago`, 'this week']} color="#3b82f6" height={90} suffix="%" />
               ) : (
-                <p className="text-xs text-stone-500">Play over a couple of weeks to see your trend.</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400">Play over a couple of weeks to see your trend.</p>
               )}
             </div>
             <div className="card !p-0">
               <div className="flex items-center gap-1.5 px-3 pt-3 pb-1 section-title">
                 <Trophy size={15} className="text-gold-500" /> Best wins
               </div>
-              {p.bestWins.length === 0 && <p className="px-3 pb-3 text-xs text-stone-500">Your wins against the strongest opponents show up here.</p>}
+              {p.bestWins.length === 0 && <p className="px-3 pb-3 text-xs text-stone-500 dark:text-stone-400">Your wins against the strongest opponents show up here.</p>}
               {p.bestWins.map((b) => (
                 <button key={String(b.gameId)} className="flex w-full items-center gap-3 px-3 py-2 text-left press" onClick={() => push({ name: 'report', gameId: b.gameId })}>
                   <span className="w-12 text-lg font-black tabular-nums">{b.rating}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{b.opponent}</span>
-                    <span className="block text-xs text-stone-500">
+                    <span className="block text-xs text-stone-500 dark:text-stone-400">
                       {b.source === 'chess.com' ? 'chess.com · ' : ''}
                       {new Date(b.endedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       {b.accuracy !== null ? ` · ${b.accuracy}% accuracy` : ''}
@@ -227,7 +227,7 @@ export function ProfileScreen() {
             <div className="card !p-3">
               <div className="mb-1 section-title">Puzzle rating over time</div>
               <LineChart values={d.ratings} />
-              <div className="text-xs text-stone-500">{d.puzzles.solved} of {d.puzzles.total} puzzles solved</div>
+              <div className="text-xs text-stone-500 dark:text-stone-400">{d.puzzles.solved} of {d.puzzles.total} puzzles solved</div>
             </div>
             <div className="grid grid-cols-2 gap-2.5">
               <ThemeList title="Strongest puzzle themes" list={strong} />
@@ -269,11 +269,11 @@ function RatingRow({ label, sub, value, best, onClick, seenKey }: { label: strin
     <>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold capitalize">{label}</span>
-        <span className="block truncate text-xs text-stone-500">{sub}</span>
+        <span className="block truncate text-xs text-stone-500 dark:text-stone-400">{sub}</span>
       </span>
       <span className="text-right">
         <span className="font-display block text-[22px] leading-tight font-semibold tabular-nums">{seenKey ? <SeenNumber k={seenKey} value={value} chipClass="text-[14px]" /> : value}</span>
-        {best !== undefined && best > value && <span className="block text-[11px] text-stone-500">best {best}</span>}
+        {best !== undefined && best > value && <span className="block text-[12px] text-stone-500 dark:text-stone-400">best {best}</span>}
       </span>
       {onClick && <ChevronRight size={16} className="text-stone-400" />}
     </>
@@ -289,8 +289,8 @@ function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: st
   return (
     <div className="card !p-3 text-center">
       <div className="font-display text-[22px] font-semibold tabular-nums">{value}</div>
-      <div className="text-[11px] text-stone-500">{label}</div>
-      {sub && <div className="text-[11px] text-stone-500">{sub}</div>}
+      <div className="text-[12px] text-stone-500 dark:text-stone-400">{label}</div>
+      {sub && <div className="text-[12px] text-stone-500 dark:text-stone-400">{sub}</div>}
     </div>
   );
 }
@@ -300,12 +300,12 @@ function ThemeList({ title, list }: { title: string; list: ThemeStat[] }) {
     <div className="card !p-3">
       <div className="mb-1.5 text-sm font-semibold">{title}</div>
       {list.length === 0 ? (
-        <div className="text-xs text-stone-500">Solve a few more themed puzzles to see this.</div>
+        <div className="text-xs text-stone-500 dark:text-stone-400">Solve a few more themed puzzles to see this.</div>
       ) : (
         list.map((t) => (
           <div key={t.id} className="flex justify-between text-sm">
             <span>{themeLabel(t.id)}</span>
-            <span className="text-stone-500">{Math.round((t.solved / t.attempts) * 100)}%</span>
+            <span className="text-stone-500 dark:text-stone-400">{Math.round((t.solved / t.attempts) * 100)}%</span>
           </div>
         ))
       )}
@@ -343,7 +343,7 @@ function WeekCard({ week }: { week: { thisWeek: WeekStats; lastWeek: WeekStats }
           <span>{r.label}</span>
           <span>
             <b>{r.now}</b>{' '}
-            <span className={r.better === null ? 'text-stone-500' : r.better ? 'text-brand-700' : 'text-danger-700'}>
+            <span className={r.better === null ? 'text-stone-500 dark:text-stone-400' : r.better ? 'text-brand-700' : 'text-danger-700'}>
               {r.better === null ? '' : r.better ? '▲' : '▼'} {r.before}
             </span>
           </span>
@@ -364,7 +364,7 @@ function PathSummary({ path, onOpen }: { path: PathState; onOpen: () => void }) 
         <div className="font-bold">
           {boardName(pos.board)} · Level {pos.level}
         </div>
-        <div className="mt-0.5 grid grid-cols-3 gap-2 text-xs text-stone-500">
+        <div className="mt-0.5 grid grid-cols-3 gap-2 text-xs text-stone-500 dark:text-stone-400">
           <span>
             <b className="block text-[15px] text-stone-800 tabular-nums dark:text-stone-100">{path.points.toLocaleString('en-US')}</b>points
           </span>

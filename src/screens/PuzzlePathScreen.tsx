@@ -117,7 +117,7 @@ export function PuzzlePathScreen() {
             <PathBadge tier={pos.tier} level={pos.level} size={30} />
             <div>
               <b className="block text-[13px] leading-tight font-extrabold">{boardName(pos.board)} board</b>
-              <small className="block text-[11px] font-semibold text-[#d9d6d1]">
+              <small className="block text-[12px] font-semibold text-[#d9d6d1]">
                 Level {pos.level} of 20 · {st.points.toLocaleString('en-US')} points
               </small>
             </div>
