@@ -35,18 +35,26 @@ const win = (o: Partial<GameRecord> = {}) =>
   }) as unknown as GameRecord;
 
 describe('4.1 · badges are the one track per opponent', () => {
-  it('opens the special challenge at the fifth badge, then counts it from the next game', async () => {
+  it('one clean mate win earns five badges, and the challenge stays closed', async () => {
+    const { kvSet } = await import('../lib/db');
+    const { recordOpponentGame } = await import('../lib/people/record');
+    await kvSet('opponentStats', {});
+    const a = await recordOpponentGame(win({ reason: 'checkmate' }));
+    expect(a!.rivalry.newBadges).toEqual(['white', 'clean', 'sharp', 'quick', 'mate']);
+    expect(a!.challengeOpened).toBe(false);
+  });
+
+  it('opens the special challenge at the seventh badge, then counts it from the next game', async () => {
     const { kvSet } = await import('../lib/db');
     const { getOpponentRecords, recordOpponentGame } = await import('../lib/people/record');
-    await kvSet('opponentStats', {});
-    // First win: four badges at once (White, On your own, Sharp, Quick work).
-    const a = await recordOpponentGame(win());
-    expect(a!.rivalry).toMatchObject({ badges: 4 });
-    expect(a!.rivalry.newBadges).toEqual(['white', 'clean', 'sharp', 'quick']);
+    await kvSet('opponentStats', { tom: { w: 3, l: 1, d: 0, stars: 3, bestAccuracy: 90, badges: ['white', 'clean', 'sharp', 'quick', 'mate'], streak: 0 } });
+    // A win with Black: the sixth badge, still closed.
+    const a = await recordOpponentGame(win({ userColor: 'b' }));
+    expect(a!.rivalry).toMatchObject({ newBadges: ['black'], badges: 6 });
     expect(a!.challengeOpened).toBe(false);
-    // A checkmate win adds the fifth: the challenge opens (Tom's: win without hints or take-backs).
-    const b = await recordOpponentGame(win({ reason: 'checkmate' }));
-    expect(b!.rivalry.newBadges).toEqual(['mate']);
+    // A win under match conditions: the seventh opens Tom's challenge (win without hints or take-backs).
+    const b = await recordOpponentGame(win({ match: true }));
+    expect(b!.rivalry).toMatchObject({ newBadges: ['match'], badges: 7 });
     expect(b!.challengeOpened).toBe(true);
     expect(b!.challengeDone).toBe(false);
     expect((await getOpponentRecords()).tom.challengeOpen).toBe(true);
@@ -78,18 +86,33 @@ describe('4.1 · badges are the one track per opponent', () => {
     const recs = await getOpponentRecords();
     expect(challengeOpen(recs.maya)).toBe(true);
     expect(challengeOpen(recs.lily)).toBe(false);
-    expect(await kvGet('badgeModel', false)).toBe(true);
+    expect(await kvGet('badgeModel', 0)).toBe(2);
     expect(await migrateBadges()).toBe(false);
   });
 
-  it('"Best friends" (stars-3) is five badges against one opponent', async () => {
+  it('round 5: a challenge open at five badges stays open now that seven are needed', async () => {
+    const { kvGet, kvSet } = await import('../lib/db');
+    const { challengeOpen, getOpponentRecords, migrateBadges } = await import('../lib/people/record');
+    // Step 1 (five wins) already ran in round 4; only the five-badge step runs now.
+    await kvSet('badgeModel', true);
+    const five = ['white', 'clean', 'sharp', 'quick', 'mate'];
+    await kvSet('opponentStats', { tom: { w: 3, l: 0, d: 0, stars: 3, bestAccuracy: 90, badges: five }, jonas: { w: 4, l: 0, d: 0, stars: 4, bestAccuracy: 90, badges: five.slice(0, 4) }, lily: { w: 6, l: 0, d: 0, stars: 5, bestAccuracy: 90, badges: ['white'] } });
+    expect(await migrateBadges()).toBe(true);
+    const recs = await getOpponentRecords();
+    expect(recs.tom.challengeOpen).toBe(true);
+    expect(challengeOpen(recs.tom)).toBe(true);
+    expect(challengeOpen(recs.jonas)).toBe(false);
+    expect(challengeOpen(recs.lily)).toBe(false);
+    expect(await kvGet('badgeModel', 0)).toBe(2);
+  });
+
+  it('"Best friends" (stars-3) is all eight badges with one opponent', async () => {
     const { ACHIEVEMENTS } = await import('../lib/progress/achievements');
     const a = ACHIEVEMENTS.find((x) => x.id === 'stars-3')!;
     expect(a.title).toBe('Best friends');
-    expect(a.description).toBe('Earn 5 badges against one opponent.');
-    const s = { maxBadges: 4 } as never;
-    expect(a.check(s)).toBe(false);
-    expect(a.check({ maxBadges: 5 } as never)).toBe(true);
+    expect(a.description).toBe('Collect all 8 badges with one opponent.');
+    expect(a.check({ maxBadges: 7 } as never)).toBe(false);
+    expect(a.check({ maxBadges: 8 } as never)).toBe(true);
   });
 
   it('the opponent card shows the eight badge icons and "3/8 badges"', async () => {

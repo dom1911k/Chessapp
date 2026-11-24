@@ -1,5 +1,5 @@
-// Each opponent's special challenge. It opens once you have all 5 stars with them
-// (five wins) and rewards something unique from their world.
+// Each opponent's special challenge. It opens once you hold 7 of the 8 badges against them
+// (see rivalry.ts) and rewards something unique from their world.
 import type { GameRecord } from '../store/types';
 import { Chess } from 'chess.js';
 

@@ -1,10 +1,10 @@
 // The Play tab's home: the opponent card with Play (the one primary action), the rivalry row,
 // "This week", and one "Up next" row (the single most useful thing to do next). The rest of the
 // app lives in the tabs.
-import { BadgeStrip, RivalryCard } from '../../components/Rivalry';
+import { BadgeLine } from '../../components/Rivalry';
 import { TurningPrompt } from '../../components/TurningCards';
 import { useEffect, useState } from 'react';
-import { Flame, ChevronRight, Timer, Swords, Bot, Brain, Check, Lock, MessageCircleHeart, Settings, Share, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy } from 'lucide-react';
+import { ChevronRight, Timer, Swords, Bot, Brain, Check, Lock, MessageCircleHeart, Settings, Share, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../../lib/bot';
 import { getSparring, sparringStep, type SparringState } from '../../lib/sparring';
 import { getPlayerRating } from '../../lib/playerRating';
@@ -23,7 +23,6 @@ import { challengeFor } from '../../lib/people/challenges';
 import { cosmeticById, type Cosmetic } from '../../lib/rewards/cosmetics';
 import { CosmeticPreview } from '../../components/CosmeticPreview';
 import { WeekRing } from '../../components/Gamification';
-import { currentWinStreak } from '../../lib/stats';
 import { LastChessComGames } from '../../components/ChessCom';
 import { db } from '../../lib/db';
 import { defaultMatchTc, mostCommonTimeControl, offeredTimeControls } from '../../lib/clock';
@@ -63,10 +62,6 @@ export function SetupView() {
   const prevName = opp ? OPPONENTS[OPPONENTS.indexOf(opp) - 1]?.name : undefined;
   const rec = opp ? records[opp.id] : undefined;
   const running = usePlay((s) => (s.game && s.phase !== 'over' && s.phase !== 'setup' ? s.game : null));
-  // Wins in a row against the bots (refreshed whenever the menu shows again).
-  const [winRun, setWinRun] = useState(0);
-  const away = usePlay((s) => s.phase);
-  useEffect(() => void currentWinStreak().then(setWinRun), [away]);
   const start = async () => {
     if (locked) return;
     const color = settings.colorPref === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : settings.colorPref;
@@ -102,12 +97,12 @@ export function SetupView() {
                 <span className="shrink-0 rounded-[4px] bg-stone-800 px-1.5 py-px text-xs font-bold text-white tabular-nums">{botElo}</span>
                 <span className="truncate text-xs text-stone-600 dark:text-stone-400">{opp ? opp.tagline : sparring ? sparringTagline(spar) : eloLabel(settings.botElo)}</span>
               </span>
-              {/* Your badges with them: the one track per opponent. */}
-              {opp && <BadgeStrip rec={rec} className="mt-1.5" />}
             </span>
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200" aria-label="Change opponent"><ChevronRight size={18} /></span>
           </button>
           <div className="space-y-3 px-3">
+          {/* Your badges with them, in one place on Home: a line that opens the badge sheet. */}
+          {opp && !locked && <BadgeLine opponentId={opp.id} rec={rec} />}
           <Segmented
             value={match ? 'match' : 'coached'}
             onChange={(v) => settings.set({ matchMode: v === 'match' })}
@@ -126,12 +121,6 @@ export function SetupView() {
             <span className="ml-auto text-sm font-semibold text-brand-700 dark:text-brand-500">Options</span>
           </button>
           {match && <p className="px-1 text-xs text-stone-500">Like a real chess.com game: clock on, no help until it ends — then the full Game Review.</p>}
-          {winRun >= 2 && (
-            <div className="flex items-center gap-2 rounded-[8px] bg-hue-orange-500/10 px-3 py-2 text-sm">
-              <Flame size={18} className={`animate-flame ${winRun >= 5 ? 'fill-hue-rose-400 text-hue-rose-500' : 'fill-hue-orange-400 text-hue-orange-500'}`} />
-              <span className="flex-1"><b>{winRun} wins in a row</b> <span className="text-stone-500">— keep it going!</span></span>
-            </div>
-          )}
           <button className="btn-primary !min-h-14 w-full text-[18px] !font-extrabold" disabled={locked} onClick={() => void start()}>
             {locked ? <><Lock size={16} /> Beat {prevName} first</> : running ? 'Start a new game' : 'Play'}
           </button>
@@ -139,7 +128,6 @@ export function SetupView() {
           </div>
         </div>
         {opp && !locked && chOpen && !rec?.challengeDone && <ChallengeCard opponentId={opp.id} badges={badgeCount(rec)} open done={false} />}
-        {opp && !locked && <RivalryCard opponentId={opp.id} rec={rec} />}
         <WeekRing />
         <UpNextCard />
         <LastChessComGames />
@@ -306,7 +294,7 @@ function HomeScreenHint() {
   );
 }
 
-/** The opponent's special challenge: opens with five badges, rewards something unique. */
+/** The opponent's special challenge: opens with seven of the eight badges, rewards something unique. */
 function ChallengeCard({ opponentId, badges, open, done }: { opponentId: string; badges: number; open: boolean; done: boolean }) {
   const ch = challengeFor(opponentId);
   if (!ch) return null;

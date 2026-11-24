@@ -38,7 +38,7 @@ function Card({ o, i, rec, open, active, onTap }: { o: Opponent; i: number; rec?
         <div className="font-display text-xl font-semibold">{o.name}</div>
         <div className="text-[12px] text-stone-500 dark:text-stone-400">Rated {o.elo} (chess.com rapid)</div>
         <div className="text-xs font-semibold text-brand-700 dark:text-brand-500">{open ? o.tagline : `Beat ${OPPONENTS[i - 1].name} to unlock`}</div>
-        {open && <BadgeStrip rec={rec} size={14} className="mt-1.5 justify-center" />}
+        {open && <BadgeStrip rec={rec} size={18} stacked className="mt-2" />}
         <p className="mt-2 line-clamp-3 min-h-[3.75em] text-[13px] leading-[1.25em] text-stone-600 dark:text-stone-300">{o.bio}</p>
         <div className="mt-2 flex items-center justify-center gap-3 text-[12px] text-stone-500 dark:text-stone-400">
           {REPERTOIRES[o.id] && (

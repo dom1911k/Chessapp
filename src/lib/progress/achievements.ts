@@ -6,7 +6,6 @@ import { LESSONS } from '../lessons/data';
 import { MATE_PATTERNS } from '../lessons/mates';
 import { OPPONENTS } from '../people';
 import { badgeCount, getOpponentRecords } from '../people/record';
-import { CHALLENGE_BADGES } from '../people/rivalry';
 import { getGameRating } from '../rewards/rating';
 import { add, BEST_GAME, getCareer, maxOf, type TacticCounts } from '../rewards/career';
 import { skillStates } from '../rewards/skills';
@@ -76,7 +75,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     check: (s: Stats) => s.beaten.has(o.id),
   })),
   // Ids kept from before badges and the Journey replaced stars and levels: earned ones stay earned.
-  { id: 'stars-3', icon: 'star', title: 'Best friends', description: `Earn ${CHALLENGE_BADGES} badges against one opponent.`, ...count(CHALLENGE_BADGES, (s) => s.maxBadges) },
+  { id: 'stars-3', icon: 'star', title: 'Best friends', description: 'Collect all 8 badges with one opponent.', ...count(8, (s) => s.maxBadges) },
   { id: 'challenge-1', icon: 'flag', title: 'Challenge accepted', description: "Complete an opponent's special challenge.", ...count(1, (s) => s.challengesDone) },
   { id: 'challenge-5', icon: 'trophy', title: 'Challenge champion', description: 'Complete 5 special challenges.', ...count(5, (s) => s.challengesDone) },
   // Tactics played in real games

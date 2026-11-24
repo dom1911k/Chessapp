@@ -1,5 +1,5 @@
 // Badges: the one track with each opponent. Eight feats you can earn once each against every
-// opponent; five of them open that opponent's special challenge. (Rivalry points and levels from
+// opponent; seven of them open that opponent's special challenge. (Rivalry points and levels from
 // earlier versions stay in the stored records but are no longer shown or written.)
 import { Chess } from 'chess.js';
 import type { GameRecord } from '../store/types';
@@ -36,8 +36,12 @@ export function badgesEarned(g: GameRecord, streak: number): string[] {
   return out;
 }
 
-/** Badges with one opponent that open their special challenge. */
-export const CHALLENGE_BADGES = 5;
+/**
+ * Badges with one opponent that open their special challenge. Seven of eight: a clean win can earn
+ * four or five at once, so it takes at least two of With Black, Match play and Hat-trick (several
+ * games, usually one under real conditions).
+ */
+export const CHALLENGE_BADGES = 7;
 
 /** The next badge to go for: the first one in order you don't hold yet. */
 export const nextBadge = (held: string[] | undefined) => BADGES.find((b) => !(held ?? []).includes(b.id));

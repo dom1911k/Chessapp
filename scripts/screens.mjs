@@ -22,7 +22,8 @@
 // step-blunder, tabs-mid, push-mid, sheet-open, home-delta, path-hedges (frames caught mid-flight).
 //
 // Round 4 QA (opt-in: --only=round4, or by name): home-upnext (each Up next rule), more, puzzles-tab,
-// summary-fix, fix-mode, fix-done, over-win-long, opponent-badges, insights-skills, laurel-shop.
+// summary-fix, fix-mode, fix-done, over-win-long, opponent-badges, badge-sheet, insights-skills,
+// laurel-shop.
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
@@ -908,27 +909,36 @@ async function run([W, H], scheme) {
   }
 
   // opponent-badges, insights-skills, laurel-shop (Phase 4).
-  if (R('opponent-badges')) {
-    // Three of Tom's eight badges: the card's strip, the row, the row opened, and the picker.
+  if (R('opponent-badges') || R('badge-sheet')) {
+    // Three of Tom's eight badges: the card's badge line, its sheet, and the picker.
     await kv('opponentStats', { tom: { w: 3, l: 1, d: 0, stars: 3, bestAccuracy: 80, badges: ['white', 'clean', 'mate'], streak: 1 } });
     await inPage(async () => {
       const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
       (await import(find('/src/lib/changes.ts'))).announceChange('records');
     });
-    await p.evaluate(() => window.__settings.getState().set({ opponentId: 'tom' }));
+    await p.evaluate(() => (window.__play.getState().leaveGame?.(), window.__settings.getState().set({ opponentId: 'tom' })));
     await p.evaluate(() => window.__nav.getState().setTab('more'));
     await p.waitForTimeout(400);
     await home();
     await p.waitForTimeout(1500);
-    const strip = await p.evaluate(() => document.querySelector('[data-testid="badge-strip"]')?.getAttribute('data-held'));
-    if (strip !== '3') errors.push(`opponent-badges: the strip shows ${strip}`);
-    if (await p.evaluate(() => /☆|★/.test(document.body.textContent ?? ''))) errors.push('opponent-badges: stars are still shown');
+    const line = await p.evaluate(() => {
+      const el = document.querySelector('[data-testid="badge-line"]');
+      return el ? { held: el.getAttribute('data-held'), text: el.textContent, gold: el.querySelectorAll('[data-on]').length } : null;
+    });
+    if (!line || line.held !== '3' || line.gold !== 3 || !/3\/8 · Next: With Black/.test(line.text ?? '')) errors.push(`opponent-badges: the badge line reads ${JSON.stringify(line)}`);
+    if (await p.locator('[data-testid="rivalry"]').count()) errors.push('opponent-badges: the separate badge row is still on Home');
+    if (await p.evaluate(() => /in a row — keep it going/.test(document.body.textContent ?? ''))) errors.push('opponent-badges: the win-streak banner is still on Home');
     await shot('r4-opponent-badges');
-    await p.locator('[data-testid="rivalry"]').scrollIntoViewIfNeeded();
-    await p.locator('[data-testid="rivalry"]').click();
-    await p.waitForTimeout(500);
-    await p.locator('[data-badge-tile="streak"]').scrollIntoViewIfNeeded().catch(() => {});
-    await shot('r4-opponent-badges-open');
+    await p.locator('[data-testid="badge-line"]').click();
+    await p.waitForTimeout(900);
+    const sheet = await p.evaluate(() => {
+      const el = document.querySelector('[data-testid="badge-sheet"]');
+      return el ? { tiles: el.querySelectorAll('[data-badge-tile]').length, on: el.querySelectorAll('[data-badge-tile][data-on]').length, challenge: el.querySelector('[data-testid="badge-challenge"]')?.textContent ?? '' } : null;
+    });
+    if (!sheet || sheet.tiles !== 8 || sheet.on !== 3 || !/3 of 7 badges/.test(sheet.challenge)) errors.push(`badge-sheet: ${JSON.stringify(sheet)}`);
+    await shot('r5-badge-sheet');
+    await p.locator('[data-testid="badge-sheet"] button[aria-label="Close"]').click().catch(() => {});
+    await p.waitForTimeout(700);
     await p.evaluate(() => document.querySelectorAll('.overflow-y-auto').forEach((e) => e.scrollTo(0, 0)));
     await p.locator('[aria-label="Change opponent"]').click();
     await p.waitForTimeout(1200);

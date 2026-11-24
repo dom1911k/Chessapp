@@ -82,10 +82,11 @@ describe('badges with each opponent', () => {
     expect(nextBadge(rec.badges)?.label).toBe('With Black');
     expect(nextBadge(BADGES.map((b) => b.id))).toBeUndefined();
   });
-  it('opens the special challenge at five badges, and keeps one already open', () => {
+  it('opens the special challenge at seven badges, and keeps one already open', () => {
     const base = { w: 0, l: 0, d: 0, stars: 0, bestAccuracy: 0 };
-    expect(challengeOpen({ ...base, badges: ['white', 'black', 'clean', 'sharp'] })).toBe(false);
-    expect(challengeOpen({ ...base, badges: ['white', 'black', 'clean', 'sharp', 'quick'] })).toBe(true);
+    expect(challengeOpen({ ...base, badges: ['white', 'black', 'clean', 'sharp', 'quick', 'mate'] })).toBe(false);
+    expect(challengeOpen({ ...base, badges: ['white', 'black', 'clean', 'sharp', 'quick', 'mate', 'match'] })).toBe(true);
+    expect(challengeOpen({ ...base, badges: ['white', 'black', 'clean', 'sharp', 'quick'], challengeOpen: true })).toBe(true);
     // Five wins used to open it ("five stars"): the migration marks it open, and it stays open.
     expect(challengeOpen({ ...base, w: 5, badges: ['white'] })).toBe(false);
     expect(challengeOpen({ ...base, w: 5, badges: ['white'], challengeOpen: true })).toBe(true);

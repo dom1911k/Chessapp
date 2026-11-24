@@ -1,6 +1,6 @@
-// The icon of a rivalry badge: a small rose disc with what the badge is for (a king for the colour
-// you won with, a shield for "On your own", a crosshair for "Sharp"…). Earned ones in colour, the
-// rest dim.
+// The icon of an opponent badge: a small disc with what the badge is for (a king for the colour
+// you won with, a shield for "On your own", a crosshair for "Sharp"…). Earned ones in the
+// achievement gold (gold disc, dark icon), the rest dim.
 import { Crosshair, Crown, Flame, ShieldCheck, Timer, Zap, type LucideIcon } from 'lucide-react';
 import { PieceIcon } from './PieceIcon';
 
@@ -19,7 +19,7 @@ export function BadgeIcon({ id, size = 20, on = true, className = '' }: { id: st
   const I = ICON[id] ?? Crown;
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-full ${on ? 'bg-hue-rose-600 text-white' : 'bg-stone-200 text-stone-400 dark:bg-white/[0.08] dark:text-stone-500'} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full ${on ? 'bg-gold-400 text-[#4a3500] shadow-[inset_0_-1px_0_rgba(0,0,0,0.18)]' : 'bg-stone-200 text-stone-400 dark:bg-white/[0.08] dark:text-stone-500'} ${className}`}
       style={{ width: size, height: size }}
       data-badge={id}
       data-on={on ? '' : undefined}

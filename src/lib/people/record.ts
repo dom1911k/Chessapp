@@ -17,7 +17,7 @@ export interface OpponentRecord {
   last?: 'win' | 'loss' | 'draw';
   /** Their special challenge is done. */
   challengeDone?: boolean;
-  /** Their special challenge has opened (five badges; or five wins, before badges opened it). */
+  /** Their special challenge has opened (seven badges; or earlier rules: five wins, then five badges). */
   challengeOpen?: boolean;
   /** Legacy rivalry points: stored, no longer shown or written. */
   rp?: number;
@@ -34,7 +34,7 @@ export const starsOf = (r: OpponentRecord | undefined) => Math.min(MAX_STARS, r?
 
 /** Badges held against an opponent (only known ids, so a stray one can't count). */
 export const badgeCount = (r: OpponentRecord | undefined) => (r?.badges ?? []).filter((b) => BADGES.some((x) => x.id === b)).length;
-/** Their special challenge is open: five badges with them, or opened earlier (kept). */
+/** Their special challenge is open: seven badges with them, or opened earlier (kept). */
 export const challengeOpen = (r: OpponentRecord | undefined) => !!r && (!!r.challengeOpen || badgeCount(r) >= CHALLENGE_BADGES);
 
 const KEY = 'opponentStats';
@@ -43,7 +43,7 @@ const empty = (): OpponentRecord => ({ w: 0, l: 0, d: 0, stars: 0, bestAccuracy:
 export const getOpponentRecords = () => kvGet<Record<string, OpponentRecord>>(KEY, {});
 
 /** Updates the record after a game: the score, badges, and the special challenge (it opens at the
- *  fifth badge and counts from the game after). No rivalry points or XP any more. */
+ *  seventh badge and counts from the game after). No rivalry points or XP any more. */
 export async function recordOpponentGame(g: GameRecord): Promise<{ firstWin: boolean; challengeOpened: boolean; challengeDone: boolean; rivalry: RivalryChange } | null> {
   if (!g.opponentId) return null;
   const all = await getOpponentRecords();
@@ -72,21 +72,27 @@ export async function recordOpponentGame(g: GameRecord): Promise<{ firstWin: boo
 
 const BADGES_KEY = 'badgeModel';
 /**
- * One-time (per data set, so also after restoring an old backup): before badges, five wins
- * ("five stars") opened an opponent's special challenge. Anyone who had opened it keeps it.
+ * One-time steps (per data set, so also after restoring an old backup) that keep every special
+ * challenge open that an earlier rule had opened:
+ *  1. before badges, five wins ("five stars") opened it;
+ *  2. in round 4, five badges did (now seven).
+ * The stored value is the last step done (true was step 1).
  */
 export async function migrateBadges(): Promise<boolean> {
-  if (await kvGet<boolean>(BADGES_KEY, false)) return false;
+  const v = await kvGet<number | boolean>(BADGES_KEY, 0);
+  const done = v === true ? 1 : typeof v === 'number' ? v : 0;
+  if (done >= 2) return false;
   const all = await getOpponentRecords();
   let changed = false;
   for (const r of Object.values(all)) {
-    if (r.w >= MAX_STARS && !r.challengeOpen) {
+    if (r.challengeOpen) continue;
+    if ((done < 1 && r.w >= MAX_STARS) || badgeCount(r) >= 5) {
       r.challengeOpen = true;
       changed = true;
     }
   }
   if (changed) await kvSet(KEY, all);
-  await kvSet(BADGES_KEY, true);
+  await kvSet(BADGES_KEY, 2);
   return changed;
 }
 

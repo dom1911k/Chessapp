@@ -447,7 +447,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
                   icon={<BadgeIcon id={newBadges[0] ?? next?.id ?? 'streak'} size={30} on={newBadges.length > 0 || !next} />}
                   title={newBadges.length ? <>{o.name} · {newBadges.length} new badge{newBadges.length === 1 ? '' : 's'}</> : <>{o.name} · {held}/8 badges</>}
                   sub={challengeLine ?? (newBadges.length ? undefined : next ? `Next: ${next.label} · ${next.hint.toLowerCase()}` : 'All eight badges')}
-                  strip={newBadges.length ? newBadges.map((id) => stripIcon(id, <BadgeIcon id={id} size={18} />)) : undefined}
+                  strip={newBadges.length ? newBadges.map((id) => stripIcon(id, <BadgeIcon id={id} size={20} />)) : undefined}
                   right={newBadges.length ? <span className="shrink-0 text-xs font-bold text-hue-rose-700 tabular-nums dark:text-hue-rose-300" data-testid="row-rivalry-count">{held}/8</span> : undefined}
                 />
               </div>
