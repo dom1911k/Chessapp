@@ -17,7 +17,7 @@ describe('one message at the end of a game', () => {
     expect(resultLines('draw', 'stalemate', undefined, 'Tom', 'Kf3 — a mistake.')).toEqual(["Kf3 — a mistake. It's a draw (stalemate)."]);
   });
   it('keeps the usual words when the game ended some other way', () => {
-    expect(resultLines('win', 'resignation', undefined, 'Tom')[0]).toBe('You won against Tom — Tom resigned! 🎉');
+    expect(resultLines('win', 'resignation', undefined, 'Tom')[0]).toBe('You won against Tom — Tom resigned!');
   });
   it('mentions new badges, not stars', () => {
     expect(resultLines('win', 'checkmate', { fresh: 2, held: 3 }, 'Tom')[1]).toBe('2 new badges with Tom: 3/8.');

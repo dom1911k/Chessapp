@@ -1,4 +1,4 @@
-// Custom Puzzles, chess.com style: Rated or Unrated (take your time), a difficulty and a theme.
+// Custom Puzzles, chess.com style: Rated or Unrated, a difficulty and a theme.
 // Quick picks on top: Mate in 1, your weakest theme, and (unrated) any theme near your rating —
 // what used to be "Learning mode".
 import { useEffect, useState } from 'react';
@@ -55,7 +55,7 @@ export function CustomPuzzlesScreen() {
   ];
   return (
     <div className="flex h-full flex-col">
-      <Header title="Custom Puzzles" back subtitle={rated ? 'Rated · pick a theme' : 'Unrated · take your time'} />
+      <Header title="Custom Puzzles" back subtitle={rated ? 'Rated · pick a theme' : 'Unrated · pick a theme'} />
       <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
         <div data-testid="custom-rated">
           <Segmented
@@ -63,9 +63,10 @@ export function CustomPuzzlesScreen() {
             onChange={(v) => chooseRated(v === 'rated')}
             options={[
               { value: 'rated', label: 'Rated' },
-              { value: 'unrated', label: 'Unrated (take your time)' },
+              { value: 'unrated', label: 'Unrated' },
             ]}
           />
+          <p className="mt-1.5 px-1 text-[12px] text-stone-500 dark:text-stone-400" data-testid="custom-rated-note">{rated ? 'Your puzzle rating moves' : 'No clock, no rating change'}</p>
         </div>
         <section>
           <h2 className="mb-1.5 section-title">Quick start</h2>

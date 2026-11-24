@@ -339,21 +339,26 @@ export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Revie
           <FadeScroll className="px-3 pt-2.5 pb-2" testId="review-coach">
             <CoachBubble mood={rp && isBad(rp.cls) && p?.isUser ? 'concerned' : 'happy'}>
               <CoachText g={g} r={r} i={i} best={best} retry={retry} cause={cause} threat={threatStage ? threat : null} onSeenThreat={() => setThreatSeen(i)} />
-              {play && (
-                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
-                  <button className="chip bg-brand-100 font-semibold text-brand-700" data-testid="play-line" onClick={() => setLineK(lineK === null ? 0 : null)}>
-                    {lineK === null ? <><Play size={12} /> {play.label}</> : <><Square size={11} /> Stop</>}
-                  </button>
-                  {lineK !== null && <span className="font-semibold tabular-nums text-stone-600">{formatLine(play.fen, play.frames.slice(0, lineK + 1).map((x) => x.san))}</span>}
-                </div>
-              )}
-              {p && rp && !retry && (
-                <button className="mt-2 flex items-center gap-1 text-[13px] font-bold text-brand-700" onClick={() => setExplain(true)} data-testid="explain">
-                  <MessageCircleQuestion size={15} /> Explain this move
-                </button>
-              )}
+              {/* While a line plays, it's spelled out under the text. */}
+              {play && lineK !== null && <p className="mt-2 text-[13px] font-semibold tabular-nums text-stone-600" data-testid="play-line-text">{formatLine(play.fen, play.frames.slice(0, lineK + 1).map((x) => x.san))}</p>}
             </CoachBubble>
           </FadeScroll>
+          )}
+          {/* The step's two actions sit outside the scrolling text, pinned just above the buttons, so
+              a small phone never hides them under the fade. */}
+          {!fix && (play || (p && rp && !retry)) && (
+            <div className="mx-3 mb-2 flex shrink-0 items-center gap-2" data-testid="step-tools">
+              {play && (
+                <button className="btn-secondary !min-h-8 !gap-1 !px-3 !py-1 text-[13px]" data-testid="play-line" title={play.label} onClick={() => setLineK(lineK === null ? 0 : null)}>
+                  {lineK === null ? <><Play size={13} /> Play it out</> : <><Square size={12} /> Stop</>}
+                </button>
+              )}
+              {p && rp && !retry && (
+                <button className="btn-secondary !min-h-8 !gap-1 !px-3 !py-1 text-[13px]" onClick={() => setExplain(true)} data-testid="explain">
+                  <MessageCircleQuestion size={14} /> Explain
+                </button>
+              )}
+            </div>
           )}
           {/* Fix mode: Show me / Try again, then "Next moment ›" (nothing once the done card shows). */}
           {fix ? (

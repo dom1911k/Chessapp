@@ -2,6 +2,7 @@
 // drill — spot and refute it, then keep the position safe against Maia. Traps seen in my imported
 // chess.com games are marked.
 import { Medallion } from '../components/Glyph';
+import { plural } from '../lib/plural';
 import { useEffect, useMemo, useState } from 'react';
 import { Chess } from 'chess.js';
 import { ChevronRight } from 'lucide-react';
@@ -210,7 +211,7 @@ function TrapDrill({ t }: { t: Trap }) {
         if (n >= DRILL_MOVES || mate) {
           sfx('correct');
           setPhase('won');
-          setMsg(first ? `Spotted it! ${t.text[t.text.length - 1]}` : `Refuted — and you kept it safe for ${n} moves against Maia. That's how you beat this trap.`);
+          setMsg(first ? `Spotted it! ${t.text[t.text.length - 1]}` : `Refuted — and you kept it safe for ${plural(n, 'move')} against Maia. That's how you beat this trap.`);
           return;
         }
         setMsg(first ? 'Good — you saw through it. Now keep it safe: Maia plays on.' : 'Still safe. Keep going.');

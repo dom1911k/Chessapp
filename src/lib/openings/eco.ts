@@ -50,7 +50,7 @@ export const ECO: OpeningEntry[] = [
   { eco: 'B50', name: 'Sicilian: ...d6', moves: 'e4 c5 Nf3 d6', idea: 'Black guards e5 and gets ready to bring out the knight.' },
   { eco: 'B54', name: 'Open Sicilian', moves: 'e4 c5 Nf3 d6 d4 cxd4 Nxd4', idea: 'White has more room and pieces out. Black gets an open line for the rook later.' },
   { eco: 'B90', name: 'Sicilian: Najdorf', moves: 'e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6', idea: 'A sneaky little pawn move that keeps White\'s pieces off b5.' },
-  { eco: 'B70', name: 'Sicilian: Dragon', moves: 'e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6', idea: 'The bishop goes to g7 and breathes fire along the long diagonal 🐉' },
+  { eco: 'B70', name: 'Sicilian: Dragon', moves: 'e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6', idea: 'The bishop goes to g7 and breathes fire along the long diagonal.' },
   { eco: 'B40', name: 'Sicilian: ...e6', moves: 'e4 c5 Nf3 e6', idea: 'Black keeps options open and gets ready to push the d-pawn.' },
   { eco: 'B21', name: 'Smith-Morra Gambit', moves: 'e4 c5 d4 cxd4 c3', idea: 'White gives away a pawn to bring pieces out fast.' },
   { eco: 'C00', name: 'French Defense', moves: 'e4 e6', idea: 'Black gets ready to push the d-pawn. Very solid, but a bit cramped.' },

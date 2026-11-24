@@ -511,9 +511,12 @@ time {
 .pp-mark.bad { background: linear-gradient(#ff6a54, #e8382a); }
 .pp-mark svg { width: 62%; height: 62%; }
 .pp-ring { position: absolute; width: 12.5%; aspect-ratio: 1; border-radius: 50%; border: 4px solid #fff; z-index: 29; pointer-events: none; transform: translate(-50%, -50%); }
+/* Each digit is a 1em window over a 0–9 strip. Every box is exactly 1em tall (line-height 1), so
+   no glyph spills out of its slot into the window (slivers of the digits above). */
+.odo { line-height: 1; }
 .odo .dg { display: inline-block; height: 1em; overflow: hidden; vertical-align: top; }
 .odo .st { display: block; transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.25, 1); }
-.odo .st i { display: block; height: 1em; font-style: normal; }
+.odo .st i { display: block; height: 1em; line-height: 1; font-style: normal; }
 .pp-sweep { position: absolute; top: 0; bottom: 0; left: 0; width: 45%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent); transform: translateX(-150%); pointer-events: none; }
 
 /* ---------- Puzzle Path world (ported from the prototype): ambient life, transform/opacity only ---------- */

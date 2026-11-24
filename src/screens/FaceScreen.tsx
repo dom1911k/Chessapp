@@ -1,6 +1,7 @@
 // What you face: the openings in my chess.com games, by colour, with my score, the usual line
 // against me, where I go wrong, and a button to practise the line.
 import { EmptyState } from '../components/ui';
+import { plural } from '../lib/plural';
 import { Eye } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Header, Segmented, Spinner } from '../components/ui';
@@ -60,7 +61,7 @@ function OpeningCard({ o }: { o: FacedOpening }) {
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">{o.name}</span>
           <span className="block text-xs text-stone-500">
-            <ChessComBadge /> {o.games} games · <b className="text-brand-700">{o.w}W</b> {o.d}D <b className="text-danger-700">{o.l}L</b>
+            <ChessComBadge /> {plural(o.games, 'game')} · <b className="text-brand-700">{o.w}W</b> {o.d}D <b className="text-danger-700">{o.l}L</b>
           </span>
         </span>
         <span className={`text-xl font-bold ${o.score >= 55 ? 'text-brand-700' : o.score < 45 ? 'text-danger-700' : ''}`}>{o.score}%</span>

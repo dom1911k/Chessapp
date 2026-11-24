@@ -170,7 +170,7 @@ export function LastChessComGames() {
       ) : !last.analyzed ? (
         <ImportProgress />
       ) : (
-        <div className="text-sm text-brand-700 dark:text-brand-500">No mistakes or blunders in your latest game. 👏</div>
+        <div className="text-sm text-brand-700 dark:text-brand-500">No mistakes or blunders in your latest game.</div>
       )}
       <button className="text-left text-sm font-semibold text-brand-700 dark:text-brand-500" onClick={() => push({ name: 'face' })}>
         What people play against you →

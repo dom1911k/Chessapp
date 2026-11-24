@@ -9,6 +9,7 @@ import { Sprite } from '../pixel/sprites';
 import { GOLD, JADE, SPIRIT, EMBER, BLOOD, type SpritePalette } from '../pixel/pixelize';
 import { PixelText } from '../ui/PixelText';
 import { sfx } from '../sfx';
+import { Laurel } from '../ui/bits';
 
 const SECTIONS: { kind: ShopKind; title: string; pal: SpritePalette }[] = [
   { kind: 'boon', title: 'Boons', pal: GOLD },
@@ -50,7 +51,7 @@ export function LaurelShop({ onBack }: { onBack: () => void }) {
                     <span className="run-sans text-xs font-black text-[var(--gold-2)]">Owned</span>
                   ) : (
                     <button className="run-btn shrink-0 px-3! py-1.5! text-sm" disabled={!st.ok} title={st.why} onClick={() => void meta.buy(item.id, item.price).then((ok) => ok && sfx('relic'))}>
-                      {st.ok || st.why?.endsWith('Laurels') ? `${item.price} 🌿` : 'Locked'}
+                      {st.ok || st.why?.endsWith('Laurels') ? <>{item.price} <Laurel /></> : 'Locked'}
                     </button>
                   )}
                 </div>
@@ -89,7 +90,7 @@ function Upgrades() {
                 <span className="run-sans text-xs font-black text-[var(--gold-2)]">Max</span>
               ) : (
                 <button className="run-btn shrink-0 px-3! py-1.5! text-sm" disabled={meta.laurels < cost} aria-label={`Upgrade ${now.name}`} onClick={() => void meta.upgrade(id).then((ok) => ok && sfx('relic'))}>
-                  {levelName(l + 1)} · {cost} 🌿
+                  {levelName(l + 1)} · {cost} <Laurel />
                 </button>
               )}
             </div>

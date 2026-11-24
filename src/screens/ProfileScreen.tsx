@@ -1,6 +1,7 @@
 // Profile & stats, chess.com style: your ratings per mode, your record, accuracy over time and
 // best wins up top; then games, puzzles and activity.
 import { hasAccuracy } from '../lib/report';
+import { plural } from '../lib/plural';
 import { RematchRecords, TurningStat } from '../components/TurningCards';
 import { AvatarPicker, UserAvatar, useMyTitle } from '../components/UserAvatar';
 import { Pencil } from 'lucide-react';
@@ -144,9 +145,14 @@ export function ProfileScreen() {
         {view === 'stats' && (
           <>
             <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
-              <RatingRow label="Bots" sub={`${d.bots.games} rated games`} value={d.bots.rating} best={d.bots.peak} onClick={() => push({ name: 'journey' })} seenKey="stats.rating" />
-              <RatingRow label="Puzzles" sub={d.puzzles.total ? `${d.puzzles.solved} of ${d.puzzles.total} solved` : "No puzzles yet"} value={d.rating} best={Math.max(d.rating, ...d.ratings)} />
-              <RatingRow label="Puzzle Rush" sub={`Survival best ${d.survival}`} value={d.rush} />
+              <RatingRow label="Bots" sub={`${plural(d.bots.games, 'rated game')}`} value={d.bots.rating} best={d.bots.peak} onClick={() => push({ name: 'journey' })} seenKey="stats.rating" />
+              {/* No number until there is one: "—" before the first rated puzzle, "Try it" before a Rush. */}
+              <RatingRow label="Puzzles" sub={d.puzzles.total ? `${d.puzzles.solved} of ${d.puzzles.total} solved` : 'No puzzles yet'} value={d.ratings.length > 1 ? d.rating : null} empty="—" best={Math.max(d.rating, ...d.ratings)} />
+              {d.rush || d.survival ? (
+                <RatingRow label="Puzzle Rush" sub={`Survival best ${d.survival}`} value={d.rush} />
+              ) : (
+                <RatingRow label="Puzzle Rush" sub="3 or 5 minutes, or survival" value={null} empty="Try it" onClick={() => push({ name: 'rush' })} />
+              )}
               {d.cc.map((c) => (
                 <RatingRow key={c.cls} label={`chess.com ${c.cls}`} sub="Latest imported game" value={c.rating} />
               ))}
@@ -263,7 +269,7 @@ export function ProfileScreen() {
   );
 }
 
-function RatingRow({ label, sub, value, best, onClick, seenKey }: { label: string; sub: string; value: number; best?: number; onClick?: () => void; /** Roll from the value last seen here. */ seenKey?: string }) {
+function RatingRow({ label, sub, value, empty, best, onClick, seenKey }: { label: string; sub: string; /** null: nothing yet, `empty` shows in muted text instead. */ value: number | null; empty?: string; best?: number; onClick?: () => void; /** Roll from the value last seen here. */ seenKey?: string }) {
   const inner = (
     <>
       <span className="min-w-0 flex-1">
@@ -271,8 +277,12 @@ function RatingRow({ label, sub, value, best, onClick, seenKey }: { label: strin
         <span className="block truncate text-xs text-stone-500 dark:text-stone-400">{sub}</span>
       </span>
       <span className="text-right">
-        <span className="font-display block text-[22px] leading-tight font-semibold tabular-nums">{seenKey ? <SeenNumber k={seenKey} value={value} chipClass="text-[14px]" /> : value}</span>
-        {best !== undefined && best > value && <span className="block text-[12px] text-stone-500 dark:text-stone-400">best {best}</span>}
+        {value === null ? (
+          <span className="block text-[15px] font-semibold text-stone-500 dark:text-stone-400" data-testid={`rating-empty-${label}`}>{empty}</span>
+        ) : (
+          <span className="font-display block text-[22px] leading-tight font-semibold tabular-nums">{seenKey ? <SeenNumber k={seenKey} value={value} chipClass="text-[14px]" /> : value}</span>
+        )}
+        {value !== null && best !== undefined && best > value && <span className="block text-[12px] text-stone-500 dark:text-stone-400">best {best}</span>}
       </span>
       {onClick && <ChevronRight size={16} className="text-stone-400" />}
     </>

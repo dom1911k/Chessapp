@@ -18,6 +18,7 @@ import { THEMES } from '../lib/themes';
 import { useNav } from '../lib/nav';
 import { useImport } from '../lib/chesscom/store';
 import { formatDate } from '../lib/store/finish';
+import { plural } from '../lib/plural';
 
 const PHASE_LABEL: Record<Phase, string> = { opening: 'Opening', middlegame: 'Middlegame', endgame: 'Endgame' };
 const PERIODS = { all: 0, '90': 90, '30': 30 } as const;
@@ -56,7 +57,7 @@ export function MistakesScreen() {
           <>
             <CoachBubble>
               <p>
-                Your most common mistake is <b>{THEMES[top.theme].label.toLowerCase()}</b>: it came up in {top.games} of {r.games} games ({Math.round(top.share * 100)}%), most often in the {mostPhase(top.phases).toLowerCase()}.
+                Your most common mistake is <b>{THEMES[top.theme].label.toLowerCase()}</b>: it came up in {top.games} of {plural(r.games, 'game')} ({Math.round(top.share * 100)}%), most often in the {mostPhase(top.phases).toLowerCase()}.
               </p>
               <p className="text-sm">{THEMES[top.theme].lesson}</p>
             </CoachBubble>
@@ -114,7 +115,7 @@ function ThemeRow({ t, total, max, open, onToggle }: { t: MistakeTheme; total: n
             <span className="block h-full rounded-full bg-hue-amber-500" style={{ width: `${(t.share / max) * 100}%` }} />
           </span>
           <span className="mt-0.5 block text-xs text-stone-500">
-            {t.games} of {total} games · {t.count}× in all · most in the {mostPhase(t.phases).toLowerCase()} · as White {t.colors.w}, as Black {t.colors.b}
+            {t.games} of {plural(total, 'game')} · {t.count}× in all · most in the {mostPhase(t.phases).toLowerCase()} · as White {t.colors.w}, as Black {t.colors.b}
           </span>
         </span>
         {open ? <ChevronDown size={18} className="text-stone-400" /> : <ChevronRight size={18} className="text-stone-400" />}

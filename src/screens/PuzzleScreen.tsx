@@ -27,7 +27,7 @@ import { allGames } from '../lib/games';
 const YOURS_KEY = 'yourPuzzlesDone';
 /** The daily puzzle comes from this rating range (the same for everyone on a given day). */
 export const DAILY_RANGE = [1000, 1500] as const;
-const MODE_TITLE: Partial<Record<PuzzleMode['kind'], string>> = { rated: 'Puzzles', learn: 'Learning mode', yours: 'From your games', dailyPuzzle: 'Daily Puzzle' };
+const MODE_TITLE: Partial<Record<PuzzleMode['kind'], string>> = { rated: 'Puzzles', learn: 'Unrated puzzles', yours: 'From your games', dailyPuzzle: 'Daily Puzzle' };
 /** Streak lengths that get a banner. */
 const isMilestone = (n: number) => n === 3 || n === 5 || (n >= 10 && n % 5 === 0);
 
@@ -200,7 +200,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   );
 }
 
-/** Custom themes and learning mode: you pick the difficulty, so no points (they could be farmed). */
+/** Custom themes and unrated puzzles: you pick the difficulty, so no points (they could be farmed). */
 function PracticeCard() {
   const timer = useContext(PuzzleTimer);
   return (

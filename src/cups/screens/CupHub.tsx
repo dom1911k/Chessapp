@@ -13,7 +13,7 @@ import { sfx } from '../sfx';
 import { BoonPick } from './BoonPick';
 import { Shop, GoldCount } from './Shop';
 import { boonCard, charmCard, lv } from '../boons';
-import { TarotCard } from '../ui/bits';
+import { Laurel, TarotCard } from '../ui/bits';
 import { ChronicleCard } from '../ui/ChronicleCard';
 import { chatter } from '../story';
 import { heatInfo, heatOf } from '../heat';
@@ -116,7 +116,7 @@ function CupTerms({ c }: { c: CupState }) {
       {sp && (
         <div className={`run-sans text-xs ${heat ? 'mt-1.5' : ''}`}>
           <span className="run-label mr-1">{sp.name}</span>
-          {sp.text} <b className={done ? 'text-[#7ef0b0]' : 'text-[var(--gold-2)]'}>{done ? '✓ done' : `+${sponsorReward(sp, c.tier)} 🌿`}</b>
+          {sp.text} <b className={done ? 'text-[#7ef0b0]' : 'text-[var(--gold-2)]'}>{done ? '✓ done' : <>+{sponsorReward(sp, c.tier)} <Laurel /></>}</b>
         </div>
       )}
     </div>
@@ -134,13 +134,13 @@ function RewardList({ c }: { c: CupState }) {
       {lines.map((l, i) => (
         <div key={l.label} className="run-fadeup flex justify-between border-b border-white/5 py-0.5" style={{ animationDelay: `${i * 120}ms` }}>
           <span>{l.label}</span>
-          <b className="text-[var(--gold-2)]">+{l.laurels} 🌿</b>
+          <b className="text-[var(--gold-2)]">+{l.laurels} <Laurel /></b>
         </div>
       ))}
       {codex.map((q, i) => (
         <div key={q} className="run-fadeup flex justify-between border-b border-white/5 py-0.5" style={{ animationDelay: `${(lines.length + i) * 120}ms` }}>
           <span>Codex: {qInfo(q)?.name}</span>
-          <b className="text-[var(--gold-2)]">+{TUNING.mastery.codexLaurels} 🌿</b>
+          <b className="text-[var(--gold-2)]">+{TUNING.mastery.codexLaurels} <Laurel /></b>
         </div>
       ))}
       <div className="run-slam mt-1 flex justify-between font-black">

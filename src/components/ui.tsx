@@ -252,7 +252,8 @@ export function FadeScroll({ children, className = '', testId, onMore }: { child
       {area}
       {more && (
         <button
-          className="absolute bottom-1.5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-white py-0.5 pr-2 pl-2.5 text-[12px] font-bold text-[#312e2b] shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
+          // On the bubble's bottom edge, half outside it, so it never sits on a line of text.
+          className="absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 translate-y-1/2 items-center gap-0.5 rounded-full bg-white py-0.5 pr-2 pl-2.5 text-[12px] font-bold text-[#312e2b] shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
           onClick={onMore}
           data-testid="coach-more"
         >

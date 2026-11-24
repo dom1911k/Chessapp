@@ -735,6 +735,8 @@ async function run([W, H], scheme) {
   }, [k, v]);
   /** Back to Home so it recomputes "Up next", then a shot with the card in view. */
   const upNextShot = async (name) => {
+    // A finished game still on the Play tab would cover Home: leave it first.
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
     await p.evaluate(() => window.__nav.getState().setTab('more'));
     await p.waitForTimeout(400);
     await home();
@@ -786,6 +788,7 @@ async function run([W, H], scheme) {
     await seedLegal();
     await upNextShot('r4-upnext-review');
     // Rule 1 opens "Fix your key moments" straight away.
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
     await p.locator('[data-testid="up-next"]').click();
     await p.waitForTimeout(1800);
     if (!(await p.locator('[data-testid="fix-task"]').count())) errors.push('home-upnext: Up next did not open the fix flow');

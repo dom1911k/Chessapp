@@ -6,7 +6,7 @@ import { Arrive, EmptyState, Header, Segmented, Skeleton } from '../components/u
 import { Portrait } from '../components/Coach';
 import { opponentById } from '../lib/people';
 import { useNav } from '../lib/nav';
-import { formatDate } from '../lib/store/finish';
+import { shortDate } from '../lib/store/finish';
 import type { AnyGame, ImportedGame } from '../lib/store/types';
 import { Medallion } from '../components/Glyph';
 import { allGames } from '../lib/games';
@@ -64,14 +64,15 @@ export function HistoryScreen() {
                 </span>
               </span>
               <span className="min-w-0 flex-1">
+                {/* The opponent in the title (it no longer gets cut off by the rating); colour, rating,
+                    date and how it ended underneath. */}
                 <span className="block truncate font-semibold">
                   {cc && <ChessComBadge className="mr-1" />}
-                  {g.userColor === 'w' ? 'White' : 'Black'} vs {cc ? `${imported.opponentName} (${g.elo})` : `${g.opponentName ?? opponentById(g.opponentId)?.name ?? 'Bot'} (${g.elo})`}
+                  vs {cc ? imported.opponentName : g.opponentName ?? opponentById(g.opponentId)?.name ?? 'Bot'}
                 </span>
-                <span className="block truncate text-xs text-stone-500">
-                  {formatDate(g.endedAt)} · {cc ? `${timeControlLabel(imported.timeControl)} · ` : g.match ? 'Match conditions · ' : ''}
+                <span className="block truncate text-[12px] text-stone-500 dark:text-stone-400">
+                  {g.userColor === 'w' ? 'White' : 'Black'} · {g.elo} · {shortDate(g.endedAt)} · {cc ? `${timeControlLabel(imported.timeControl)} · ` : ''}
                   {g.reason}
-                  {g.opening ? ` · ${g.opening}` : ''}
                 </span>
               </span>
               <span className="text-right">

@@ -1,5 +1,6 @@
 import { Dock, DockButton, DockMain } from '../components/Dock';
 import { RotateCcw, Undo2 } from 'lucide-react';
+import { plural } from '../lib/plural';
 import { Chess } from 'chess.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Board } from '../components/Board';
@@ -85,7 +86,7 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
   const afterUserMove = async (before: string, after: string, promoted: boolean, movesUsed: number) => {
     const my = ++run.current;
     const c = new Chess(after);
-    if (c.isCheckmate()) return finish(true, `Checkmate in ${movesUsed} moves! ${movesUsed <= drill.maxMoves ? 'Goal reached.' : ''}`);
+    if (c.isCheckmate()) return finish(true, `Checkmate in ${plural(movesUsed, 'move')}! ${movesUsed <= drill.maxMoves ? 'Goal reached.' : ''}`);
     const hold = drill.goal === 'hold';
     if (c.isStalemate() || c.isInsufficientMaterial() || c.isThreefoldRepetition())
       return hold
@@ -95,13 +96,13 @@ export function EndgameScreen({ drillId }: { drillId: string }) {
           : finish(false, 'There isn\'t enough material left to checkmate — it\'s a draw.');
     // Won the pawn: the opponent has nothing but the king (a promoted pawn doesn't count as won).
     if (drill.goal === 'capture' && !parseFen(after).board.some((p) => p && p.color !== me && p.type !== 'k'))
-      return finish(true, `You won the pawn in ${movesUsed} moves! The rest is an easy queen mate.`);
+      return finish(true, `You won the pawn in ${plural(movesUsed, 'move')}! The rest is an easy queen mate.`);
     if (drill.goal === 'promote' && promoted) {
       setStatus('thinking');
       const a = await evaluate(after).catch(() => null);
       if (my !== run.current) return;
       const s = a?.lines[0] ? povScore(a.lines[0].score, me) : null;
-      if (!s || scoreToCp(s) > 300) return finish(true, `You promoted the pawn in ${movesUsed} moves!`);
+      if (!s || scoreToCp(s) > 300) return finish(true, `You promoted the pawn in ${plural(movesUsed, 'move')}!`);
       return finish(false, 'You promoted, but the new queen can be captured right away. Promote only when the square is safe!');
     }
     if (movesUsed >= drill.maxMoves && !hold) return finish(false, `That's ${drill.maxMoves} moves — the goal was ${drill.goalText.toLowerCase()}. Try again!`);

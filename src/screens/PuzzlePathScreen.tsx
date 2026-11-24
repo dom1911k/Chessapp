@@ -214,7 +214,7 @@ export function HowPointsWork({ open, onClose, points }: { open: boolean; onClos
           <Row k="From your games" v={`+${r5(15)}`} />
           <Row k="Daily Puzzle (once a day)" v={`+${r5(25)}`} />
           <Row k="Puzzle Rush: a new personal best" v={`+${r5(50)}`} />
-          <Row k="Custom puzzles and Learning mode" v="no points" />
+          <Row k="Custom and unrated puzzles" v="no points" />
         </section>
         <section>
           <h3 className="section-title mb-1">Difficulty and clues</h3>

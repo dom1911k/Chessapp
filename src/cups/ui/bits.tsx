@@ -4,6 +4,11 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { Sprite } from '../pixel/sprites';
 import { BLOOD, EMBER, GOLD, SPIRIT, type SpritePalette } from '../pixel/pixelize';
 
+/** The Laurel currency, inline after a number ("4 [laurel]"): the pixel crown the Laurel counters use. */
+export function Laurel({ size = 14 }: { size?: number }) {
+  return <Sprite name="crown" size={size} px={10} className="align-[-2px]" />;
+}
+
 export type Rarity = 'common' | 'uncommon' | 'rare';
 export const RARITY_COLOR: Record<Rarity, string> = { common: '#cdbf9f', uncommon: '#6fd3ff', rare: '#ff6bd5' };
 

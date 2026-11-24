@@ -9,6 +9,7 @@ import { Sprite } from '../pixel/sprites';
 import { TUNING } from '../tuning';
 import { Sheet } from './Sheet';
 import { PixelText } from './PixelText';
+import { Lock } from 'lucide-react';
 
 export function SettingsSheet({ onClose }: { onClose: () => void }) {
   const rs = useRunSettings();
@@ -66,7 +67,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
             const own = piecesOwned(owned, id);
             return (
               <button key={id} disabled={!own} className={`run-btn flex-1 px-2! py-1.5! text-xs ${rs.pieces === id ? '' : 'ghost'}`} onClick={() => rs.set({ pieces: id })}>
-                {!own && '🔒 '}{id === 'board' ? 'Match board' : PIECE_SETS[id]!.name}
+                {!own && <Lock size={11} className="mr-1 inline align-[-1px]" />}{id === 'board' ? 'Match board' : PIECE_SETS[id]!.name}
               </button>
             );
           })}

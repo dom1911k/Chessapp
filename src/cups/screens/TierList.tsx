@@ -13,6 +13,8 @@ import { STAR_NAMES } from '../mastery';
 import { opponentById } from '../../lib/people';
 import { Sheet } from '../ui/Sheet';
 import { TUNING } from '../tuning';
+import { Laurel } from '../ui/bits';
+import { Flame } from 'lucide-react';
 
 export const TIER_PAL: Record<CupTier, SpritePalette> = { bronze: EMBER, silver: SPIRIT, gold: GOLD, platinum: JADE, diamond: BLOOD };
 
@@ -90,7 +92,7 @@ function PrepareSheet({ tier, won, onClose }: { tier: CupTier; won: number; onCl
                 <div className="run-title text-sm leading-tight font-black">{o.name}</div>
                 <div className="run-sans text-xs leading-snug text-[var(--ink-dim)]">{o.text}</div>
               </div>
-              <span className="run-sans shrink-0 text-sm font-black text-[var(--gold-2)]">+{sponsorReward(o, tier)} 🌿</span>
+              <span className="run-sans shrink-0 text-sm font-black text-[var(--gold-2)]">+{sponsorReward(o, tier)} <Laurel /></span>
             </button>
           ))}
         </div>
@@ -106,7 +108,7 @@ function PrepareSheet({ tier, won, onClose }: { tier: CupTier; won: number; onCl
                     <div className="run-title text-sm leading-tight font-black">{h.name}</div>
                     <div className="run-sans text-[12px] leading-snug text-[var(--ink-dim)]">{h.text}</div>
                   </div>
-                  <span className="run-sans shrink-0 text-xs font-black text-[#ff8a98]">{'🔥'.repeat(h.heat)}</span>
+                  <span className="flex shrink-0 text-[#ff8a98]" aria-label={`Heat ${h.heat}`}>{Array.from({ length: h.heat }, (_, k) => <Flame key={k} size={12} className="fill-current" />)}</span>
                 </button>
               ))}
             </div>

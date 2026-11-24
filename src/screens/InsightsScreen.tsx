@@ -3,6 +3,7 @@
 // colour and opening, by time of day and by playing speed. App games and chess.com imports.
 import { useEffect, useRef, useState } from 'react';
 import { SkillsSection } from '../components/SkillsSection';
+import { plural } from '../lib/plural';
 import { Arrive, EmptyState, Header, Segmented, Skeleton } from '../components/ui';
 import { Lightbulb } from 'lucide-react';
 import { useNav } from '../lib/nav';
@@ -29,7 +30,7 @@ export function InsightsScreen({ focus }: { /** 'skills': open at the Skills sec
   const r: Insights | null = all ? insights(bySource(all, src)) : null;
   return (
     <div className="flex h-full flex-col">
-      <Header title="Insights" back subtitle={r ? `${r.games} games` : undefined} />
+      <Header title="Insights" back subtitle={r ? plural(r.games, 'game') : undefined} />
       <div ref={scroller} className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
         <SkillsSection />
         <h2 className="section-title !mt-6">Your games</h2>
@@ -51,7 +52,7 @@ export function InsightsScreen({ focus }: { /** 'skills': open at the Skills sec
                   <div key={p.phase} className={`rounded-[10px] p-2.5 text-center ${p.phase === r.weakestPhase ? 'bg-danger-50 ring-1 ring-danger-300 dark:bg-danger-900/40 dark:ring-danger-800' : 'bg-stone-100 dark:bg-stone-800'}`}>
                     <div className="text-2xl font-black tabular-nums">{p.accuracy ?? '–'}{p.accuracy !== null && <span className="text-sm">%</span>}</div>
                     <div className="text-xs font-semibold">{PHASE_LABEL[p.phase]}</div>
-                    <div className="text-[12px] text-stone-500 dark:text-stone-400">{p.moves} moves</div>
+                    <div className="text-[12px] text-stone-500 dark:text-stone-400">{plural(p.moves, 'move')}</div>
                   </div>
                 ))}
               </div>

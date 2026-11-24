@@ -34,6 +34,7 @@ import { cupMemory, rivalLine } from '../story';
 import { useCupsMeta } from '../meta';
 import { CLASS_LABEL } from '../../lib/chess/evaluation';
 import { quirkById } from '../quirks';
+import { Bell } from 'lucide-react';
 
 function useNow(ms = 200) {
   const [now, setNow] = useState(Date.now());
@@ -375,7 +376,7 @@ export function CupGameScreen() {
         captured={<PixelCaptured pieces={mat.lost[opp]} color={opp} lead={me === 'w' ? mat.diff : -mat.diff} />}
       />
       {s.warning ? (
-        <div className="run-sans run-fadeup mx-3 rounded bg-[var(--blood)]/25 px-2 py-1 text-xs text-[#ffd0d6]">🔔 Threat Bell: {s.warning.text} Choose again.</div>
+        <div className="run-sans run-fadeup mx-3 rounded bg-[var(--blood)]/25 px-2 py-1 text-xs text-[#ffd0d6]"><Bell size={12} className="mr-1 inline align-[-1px]" />Threat Bell: {s.warning.text} Choose again.</div>
       ) : (
         <div className="run-sans px-3 text-xs text-[var(--ink-dim)]">
           {g.armed ? 'Threat Bell is armed for your next move. ' : ''}

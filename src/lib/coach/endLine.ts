@@ -20,7 +20,7 @@ export function resultLines(userResult: 'win' | 'loss' | 'draw', reason: string,
   if (verdict && userResult === 'draw') return [`${verdict} It's a draw (${reason}).`];
   if (userResult === 'win')
     return [
-      `You won against ${who}${reason === 'checkmate' ? ' by checkmate' : reason === 'resignation' ? ` — ${opponent ?? 'the bot'} resigned` : ''}! 🎉`,
+      `You won against ${who}${reason === 'checkmate' ? ' by checkmate' : reason === 'resignation' ? ` — ${opponent ?? 'the bot'} resigned` : ''}!`,
       ...starLine,
     ];
   if (userResult === 'draw') return [`A draw (${reason}). That's a solid result!`];
