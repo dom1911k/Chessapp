@@ -839,7 +839,7 @@ async function run([W, H], scheme) {
     await p.locator('[data-testid="fix-back"]').click();
     await p.waitForTimeout(900);
     const again = await p.locator('[data-testid="fix-moments"]').textContent().catch(() => null);
-    if (!/Fix moments again/.test(again ?? '')) errors.push(`fix-done: back on the summary the button reads ${again}`);
+    if (!/Fix (moments )?again/.test(again ?? '')) errors.push(`fix-done: back on the summary the button reads ${again}`);
     await shot('r4-summary-again');
     await home();
     await p.waitForTimeout(600);

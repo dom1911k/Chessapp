@@ -422,7 +422,16 @@ export function SummaryView({ g, r, trap, onStart, fix }: { g: AnyGame; r: Revie
           </button>
           {fix && !pending(g) && (
             <button className="btn-secondary !min-h-14 text-[14px]" onClick={fix.start} data-testid="fix-moments">
-              <Crosshair size={16} /> {fix.again ? 'Fix moments again' : `Fix ${fix.count} moment${fix.count === 1 ? '' : 's'}`}
+              <Crosshair size={16} />{' '}
+              {fix.again ? (
+                <>
+                  {/* "Start Review" keeps one line on a 360px phone. */}
+                  <span className="max-[380px]:hidden">Fix moments again</span>
+                  <span className="min-[381px]:hidden">Fix again</span>
+                </>
+              ) : (
+                `Fix ${fix.count} moment${fix.count === 1 ? '' : 's'}`
+              )}
             </button>
           )}
         </div>
