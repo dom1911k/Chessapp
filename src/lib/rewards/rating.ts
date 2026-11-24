@@ -39,12 +39,22 @@ export async function rateGame(opponentElo: number, score: number, helpUsed: num
   return { before, after };
 }
 
-/** Starts your game rating again at `rating` (history and game count cleared, so it settles fast). */
-export async function restartGameRating(rating: number): Promise<void> {
-  const fresh: GameRating = { rating, peak: rating, games: 0, history: [{ at: Date.now(), rating }] };
+/** Your best rating before a restart: the looks it unlocked stay unlocked. */
+export const KEPT_PEAK_KEY = 'keptPeak';
+
+/**
+ * Starts your game rating again at `rating` (history and game count cleared, so it settles fast).
+ * The peak starts there too, unless `keepPeak` and it was higher (the Journey stays where it was).
+ * Either way, the old peak is kept for unlocks: nothing already unlocked locks again.
+ */
+export async function restartGameRating(rating: number, opts: { keepPeak?: boolean } = {}): Promise<GameRating> {
+  const before = await getGameRating();
+  await kvSet(KEPT_PEAK_KEY, Math.max(await kvGet<number>(KEPT_PEAK_KEY, 0), before.peak));
+  const fresh: GameRating = { rating, peak: opts.keepPeak ? Math.max(rating, before.peak) : rating, games: 0, history: [{ at: Date.now(), rating }] };
   await kvSet(KEY, fresh);
   setPlayerRating(rating);
   announceChange('rating');
+  return fresh;
 }
 
 export interface Milestone {

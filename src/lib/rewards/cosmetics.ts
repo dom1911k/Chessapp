@@ -9,7 +9,7 @@ import { getXp, levelFor } from '../progress/xp'; // legacy level: what it unloc
 import { useSettings, BOARD_THEMES, type Settings } from '../settings';
 import { SOUND_PACKS } from '../sound';
 import { CELEBRATIONS, HIGHLIGHTS, PIECE_SETS } from './looks';
-import { getGameRating, MILESTONES } from './rating';
+import { getGameRating, KEPT_PEAK_KEY, MILESTONES } from './rating';
 import { skillStates } from './skills';
 
 export type CosmeticKind = 'board' | 'pieces' | 'fx' | 'hl' | 'snd';
@@ -155,7 +155,8 @@ export async function unlockContext(): Promise<UnlockContext> {
   const skills = await skillStates();
   return {
     level: levelFor(await getXp()).level,
-    peak: (await getGameRating()).peak,
+    // A restart below your best keeps what your best unlocked.
+    peak: Math.max((await getGameRating()).peak, await kvGet<number>(KEPT_PEAK_KEY, 0)),
     legacyPeak: await kvGet<number>('legacyPeak', 0),
     achievements: await kvGet<Record<string, number>>('achievements', {}),
     challenges: new Set(Object.entries(records).filter(([, r]) => r.challengeDone).map(([id]) => id)),
@@ -199,6 +200,13 @@ export async function freshUnlocks(): Promise<Cosmetic[]> {
   const fresh = unlocked.filter((c) => !seen.has(c.id));
   if (fresh.length) await kvSet(SEEN, unlocked.map((c) => c.id));
   return fresh;
+}
+
+/** Marks looks as seen without announcing them (they were told about some other way). */
+export async function markLooksSeen(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const seen = await kvGet<string[]>(SEEN, []);
+  await kvSet(SEEN, [...new Set([...seen, ...ids])]);
 }
 
 /** Equip an item (sets the matching setting). */

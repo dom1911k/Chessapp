@@ -265,15 +265,13 @@ export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Revie
     resolveMoment('skipped');
     nextMoment();
   };
-  // Nothing pops over a moment: toasts (an achievement from the practice) wait for the done card.
+  // Nothing pops over a moment or the done card: toasts (an achievement from the practice) wait
+  // until the fix flow is left.
   useEffect(() => {
     if (!fix) return;
     useCelebrate.getState().setHold(true, { queue: true });
     return () => useCelebrate.getState().setHold(false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (fixDone) useCelebrate.getState().setHold(false);
-  }, [fixDone]);
   const fixedCount = fixRes.filter((x) => x === 'fixed').length;
   const allFixed = !!fix && fixedCount === fix.plies.length;
   const doneCard = useRef<HTMLDivElement>(null);

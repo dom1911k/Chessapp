@@ -1064,15 +1064,89 @@ async function run([W, H], scheme) {
     await home();
     await p.waitForTimeout(500);
   }
+  // profile-cc: a chess.com import at 512 rapid and a game rating of 284. Profile offers to start
+  // there; "Not now" hides it; the start sets the rating and says how many looks it unlocked; the
+  // chess.com account card has the same action as a row.
+  if (R('profile-cc')) {
+    const saved = await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const { db, kvGet } = await import(find('/src/lib/db.ts'));
+      const { parseCcGame } = await import(find('/src/lib/chesscom/parse.ts'));
+      const pgn = '[White "Opp_123"]\n[Black "MyName"]\n[Result "0-1"]\n[TimeControl "600"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6 4. d3 Bc5 5. O-O d6 0-1';
+      const g = parseCcGame({ url: 'https://www.chess.com/game/live/1', pgn, time_control: '600', time_class: 'rapid', end_time: Math.floor(Date.now() / 1000) - 3600, rated: true, uuid: 'seed-512', rules: 'chess', white: { username: 'Opp_123', rating: 540, result: 'resigned' }, black: { username: 'MyName', rating: 512, result: 'win' } }, 'MyName');
+      await db.imported.bulkPut([g]);
+      const keep = { gameRating: await kvGet('gameRating', null), seen: await kvGet('cosmeticsSeen', []) };
+      window.__settings.getState().set({ ccUsername: 'MyName', ccAutoSync: false });
+      return keep;
+    });
+    await kv('gameRating', { rating: 284, peak: 300, games: 12, history: [{ at: Date.now(), rating: 284 }] });
+    await kv('ccStartHidden', null);
+    await push({ name: 'profile' });
+    await p.waitForTimeout(1500);
+    const card = p.locator('[data-testid="cc-start"]');
+    const text = (await card.locator('p').first().textContent().catch(() => '')).replace(/^chess\.com/, '').trim();
+    if (text !== 'Your chess.com rapid rating is 512. Start your rating here at 512?') errors.push(`profile-cc: the card reads "${text}"`);
+    if ((await card.locator('button').first().textContent().catch(() => '')) !== 'Start at 512') errors.push('profile-cc: no "Start at 512"');
+    await shot('r5-profile-cc');
+    await p.locator('[data-testid="cc-start-later"]').click();
+    await p.waitForTimeout(400);
+    if (await card.count()) errors.push('profile-cc: "Not now" left the card');
+    await home();
+    await push({ name: 'profile' });
+    await p.waitForTimeout(1200);
+    if (await card.count()) errors.push('profile-cc: the card came back after "Not now"');
+    await kv('ccStartHidden', null);
+    await home();
+    await push({ name: 'profile' });
+    await p.waitForTimeout(1200);
+    await p.locator('[data-testid="cc-start-go"]').click();
+    await p.waitForTimeout(1200);
+    const done = await p.locator('[data-testid="cc-start-done"]').textContent().catch(() => null);
+    if (!/^Rating set to 512\. \d+ new looks? in your Collection\.$/.test(done ?? '')) errors.push(`profile-cc: the confirmation reads "${done}"`);
+    const top = await p.evaluate(() => document.querySelector('[data-testid="profile-rating"]')?.textContent);
+    if (!top?.endsWith('Rating 512')) errors.push(`profile-cc: the header reads "${top}"`);
+    if (await p.locator('[data-testid="delta-chip"]').count()) errors.push('profile-cc: a delta chip after the start');
+    await shot('r5-profile-cc-done');
+    await p.locator('[data-testid="cc-start-done"]').click();
+    await p.waitForTimeout(1200);
+    const at = await p.evaluate(() => window.__nav.getState().stack.at(-1)?.name);
+    if (at !== 'collection') errors.push(`profile-cc: the confirmation opened ${at}`);
+    await home();
+    // The same action on the chess.com account card (Settings).
+    await kv('gameRating', { rating: 284, peak: 512, games: 3, history: [{ at: Date.now(), rating: 284 }] });
+    await push({ name: 'settings' });
+    await p.waitForTimeout(1500);
+    const row = p.locator('[data-testid="cc-start-row"]');
+    await row.scrollIntoViewIfNeeded().catch(() => {});
+    await p.waitForTimeout(300);
+    if (!(await row.count())) errors.push('profile-cc: no row on the chess.com account card');
+    else await shot('r5-profile-cc-row');
+    await home();
+    await inPage(async (keep) => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const { db, kvSet } = await import(find('/src/lib/db.ts'));
+      await db.imported.clear();
+      if (keep.gameRating) await kvSet('gameRating', keep.gameRating);
+      else await db.kv.delete('gameRating');
+      await kvSet('cosmeticsSeen', keep.seen);
+      await db.kv.delete('keptPeak');
+      await db.kv.delete('ccStartHidden');
+      window.__settings.getState().set({ ccUsername: '' });
+    }, saved);
+    await p.waitForTimeout(400);
+  }
   if (R('laurel-shop')) {
-    // A Steady Hand bought up to II before: kept, but no longer listed as an upgrade.
+    // A Steady Hand bought up to II before: kept, but no longer listed as an upgrade. The Run tab
+    // loads the Cups code, so open it before patching (the module isn't loaded until then).
+    await p.evaluate(() => window.__nav.getState().setTab('run'));
+    await p.waitForTimeout(1800);
+    await p.waitForFunction(() => performance.getEntriesByType('resource').some((e) => e.name.includes('/src/cups/meta.ts')), null, { timeout: 8000 }).catch(() => {});
     await p.evaluate(async () => {
       const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
       const m = await import(find('/src/cups/meta.ts'));
       await m.useCupsMeta.getState().patch({ laurels: 14, levels: { steadyHand: 2, rewind: 2 } });
     });
-    await p.evaluate(() => window.__nav.getState().setTab('run'));
-    await p.waitForTimeout(1800);
+    await p.waitForTimeout(400);
     await p.locator('button:has-text("Laurel shop")').click();
     await p.waitForTimeout(1500);
     const ids = await p.evaluate(() => [...document.querySelectorAll('[data-testid="upgrade-row"]')].map((e) => e.getAttribute('data-id')).join(','));

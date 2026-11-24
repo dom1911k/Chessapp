@@ -29,6 +29,7 @@ import { AchievementsPreview, WeeklyGoalCard } from '../components/Gamification'
 import { weeklySummary, type WeekStats } from '../lib/weekly';
 import { CareerCard, RewardsCards } from '../components/RewardsCards';
 import { GameInsightsCard, GapCard } from '../components/ChessCom';
+import { CcRatingStart } from '../components/CcRatingStart';
 
 interface Data {
   rating: number;
@@ -57,6 +58,8 @@ export function ProfileScreen() {
   const [d, setD] = useState<Data | null>(null);
   const [view, setView] = useState<'stats' | 'games' | 'puzzles' | 'activity'>('stats');
   const [picking, setPicking] = useState(false);
+  /** Bumped after the rating starts from chess.com, so the rows read it again. */
+  const [reload, setReload] = useState(0);
   const title = useMyTitle();
 
   useEffect(() => {
@@ -104,7 +107,7 @@ export function ProfileScreen() {
         week: await weeklySummary(),
       });
     })();
-  }, []);
+  }, [reload]);
 
   if (!d)
     return (
@@ -144,6 +147,7 @@ export function ProfileScreen() {
         />
         {view === 'stats' && (
           <>
+            <CcRatingStart variant="card" onDone={() => setReload((n) => n + 1)} />
             <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
               <RatingRow label="Bots" sub={`${plural(d.bots.games, 'rated game')}`} value={d.bots.rating} best={d.bots.peak} onClick={() => push({ name: 'journey' })} seenKey="stats.rating" />
               {/* No number until there is one: "—" before the first rated puzzle, "Try it" before a Rush. */}
@@ -273,7 +277,7 @@ function RatingRow({ label, sub, value, empty, best, onClick, seenKey }: { label
   const inner = (
     <>
       <span className="min-w-0 flex-1">
-        <span className="block font-semibold capitalize">{label}</span>
+        <span className="block font-semibold">{label}</span>
         <span className="block truncate text-xs text-stone-500 dark:text-stone-400">{sub}</span>
       </span>
       <span className="text-right">

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Check, Lock, X } from 'lucide-react';
 import { AVATARS, FRAMES, TITLES, avatarId, avatarUrl, frameById, type Frame } from '../lib/avatars';
 import { getGameRating, titleFor } from '../lib/rewards/rating';
+import { onChange } from '../lib/changes';
 import { meets, unlockContext, unlockText, type UnlockContext } from '../lib/rewards/cosmetics';
 import { useSettings } from '../lib/settings';
 import { avatarRadius } from './Coach';
@@ -16,7 +17,11 @@ export const useMyName = () => useSettings((s) => s.ccUsername) || 'You';
 export function useMyTitle(): string {
   const chosen = useSettings((s) => s.avatarTitle);
   const [journey, setJourney] = useState('');
-  useEffect(() => void getGameRating().then((r) => setJourney(titleFor(r.peak))), []);
+  useEffect(() => {
+    const read = () => void getGameRating().then((r) => setJourney(titleFor(r.peak)));
+    read();
+    return onChange('rating', read);
+  }, []);
   return TITLES.find((t) => t.id === chosen)?.label ?? journey;
 }
 

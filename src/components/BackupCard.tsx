@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Download, Upload } from 'lucide-react';
 import { describeBackup, exportBackup, parseBackup, restoreBackup, type Backup } from '../lib/backup';
 import { Dialog, Spinner } from './ui';
 
@@ -54,10 +55,10 @@ export function BackupCard() {
       </div>
       <div className="flex gap-2">
         <button className="btn-primary flex-1" onClick={doExport} disabled={busy}>
-          {busy ? <Spinner /> : '⬆️ Export'}
+          {busy ? <Spinner /> : <><Upload size={16} /> Export</>}
         </button>
         <button className="btn-secondary flex-1" onClick={() => input.current?.click()} disabled={busy}>
-          ⬇️ Import
+          <Download size={16} /> Import
         </button>
         <input ref={input} type="file" accept="application/json,.json" className="hidden" onChange={(e) => void onFile(e.target.files?.[0])} />
       </div>

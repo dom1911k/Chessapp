@@ -21,10 +21,11 @@ import { THEMES } from '../lib/themes';
 import { TACTIC_LABEL } from '../lib/rewards/career';
 import { shortWords } from '../lib/chess/words';
 import { ClassBadge } from './Coach';
+import { CcRatingStart } from './CcRatingStart';
 
 /** A small green "chess.com" tag. */
 export function ChessComBadge({ className = '' }: { className?: string }) {
-  return <span className={`inline-flex items-center rounded bg-chesscom px-1 py-px align-middle text-[11px] font-bold leading-tight text-white ${className}`}>chess.com</span>;
+  return <span className={`inline-flex items-center rounded bg-chesscom px-1 py-px align-middle text-[11px] font-bold leading-tight tracking-normal text-white normal-case ${className}`}>chess.com</span>;
 }
 
 /** "Analysing your chess.com games · 12 of 40" — never blocks anything. */
@@ -101,6 +102,7 @@ export function ChessComCard() {
           <Check size={15} /> {imp.added ? `${imp.added} new game${imp.added === 1 ? '' : 's'} imported.` : 'Up to date — no new games.'}
         </p>
       )}
+      <CcRatingStart variant="row" reloadKey={imp.total} />
       <div className="text-xs text-stone-500">
         {imp.total} imported game{imp.total === 1 ? '' : 's'}
         {imp.lastSync ? ` · last sync ${new Date(imp.lastSync).toLocaleString()}` : ''}

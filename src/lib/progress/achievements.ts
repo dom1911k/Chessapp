@@ -6,7 +6,7 @@ import { LESSONS } from '../lessons/data';
 import { MATE_PATTERNS } from '../lessons/mates';
 import { OPPONENTS } from '../people';
 import { badgeCount, getOpponentRecords } from '../people/record';
-import { getGameRating } from '../rewards/rating';
+import { getGameRating, KEPT_PEAK_KEY } from '../rewards/rating';
 import { add, BEST_GAME, getCareer, maxOf, type TacticCounts } from '../rewards/career';
 import { skillStates } from '../rewards/skills';
 import { getPathState, levelAt } from '../puzzles/path';
@@ -162,7 +162,7 @@ export async function gatherStats(extra: TacticCounts = {}): Promise<Stats> {
     drillsDone: Object.values(drills).filter((d) => d.completed > 0).length,
     dailyDone: activity.filter((a) => a.dailyDone).length,
     weeksMet: (await weeksMet()).length,
-    peak: Math.max((await getGameRating()).peak, await kvGet<number>('legacyPeak', 0)),
+    peak: Math.max((await getGameRating()).peak, await kvGet<number>('legacyPeak', 0), await kvGet<number>(KEPT_PEAK_KEY, 0)),
     chaptersDone: Object.values(course).filter(Boolean).length,
     ...(await pathStats()),
   };
