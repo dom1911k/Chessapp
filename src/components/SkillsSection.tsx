@@ -78,7 +78,7 @@ export function SkillsSection() {
             const list = SKILLS.filter((s) => s.branch === b.id);
             return (
               <div key={b.id} className="relative flex flex-col items-center">
-                <div className="mb-3 w-full rounded-full py-1 text-center text-[11px] font-bold tracking-wide text-white uppercase shadow-sm" style={{ background: b.fill }}>
+                <div className="mb-3 w-full rounded-full py-1 text-center text-[11px] font-bold tracking-tight whitespace-nowrap text-white uppercase shadow-sm" style={{ background: b.fill }}>
                   {b.name}
                 </div>
                 <div className="absolute top-10 bottom-10 left-1/2 w-1 -translate-x-1/2 rounded-full opacity-30" style={{ background: b.color }} />
