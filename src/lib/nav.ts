@@ -7,7 +7,8 @@ import type { Theme } from './coach/types';
 export type Tab = 'play' | 'puzzles' | 'learn' | 'more' | 'run';
 
 export type Screen =
-  | { name: 'report'; gameId: number | string }
+  /** `fix`: open straight into "Fix your key moments" (Home's Up next). */
+  | { name: 'report'; gameId: number | string; fix?: boolean }
   | { name: 'review'; gameId: number | string; ply?: number }
   | { name: 'turning'; gameId: number | string }
   | { name: 'explore'; fen: string; orientation: 'white' | 'black'; title?: string }

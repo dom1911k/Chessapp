@@ -1,6 +1,5 @@
 // Game Review's summary: result, both players' accuracy and game rating, Coach Sam's take, key
 // moments, the move-class table, phases, time and mistakes, and the way into the step-through.
-import { markReviewSeen } from '../../lib/upNext';
 import { appTc, canRematch, rematchInfo } from '../../lib/rematch';
 import { usePlay } from '../../lib/store/play';
 import { isEligible } from '../../lib/turning';
@@ -13,7 +12,7 @@ import { BOUNCE, SOFT, animate, reduced, sleep, token, type Token } from '../../
 import { GREENS, centre, emit } from '../../lib/fx';
 import { sfx } from '../../lib/sfx';
 import { countTo } from '../../lib/numbers';
-import { ChevronRight, Sparkles, TriangleAlert, Lightbulb } from 'lucide-react';
+import { ChevronRight, Crosshair, Sparkles, Lightbulb } from 'lucide-react';
 import { Board } from '../../components/Board';
 import { EvalGraph } from '../../components/Charts';
 import { CoachAvatar, Portrait } from '../../components/Coach';
@@ -27,7 +26,7 @@ import { opponentById } from '../../lib/people';
 import { shortDate } from '../../lib/store/finish';
 import { db } from '../../lib/db';
 import { cpLosses, gameRating, verdictLine } from '../../lib/reviewText';
-import { isBad, moveNo, RC, slipCardLine, REVIEW_ORDER, type Review } from '../../lib/review';
+import { moveNo, RC, slipCardLine, REVIEW_ORDER, type Review } from '../../lib/review';
 import { PHASES } from '../../lib/games/mistakes';
 import { THEMES } from '../../lib/themes';
 import { trapById } from '../../lib/traps';
@@ -81,14 +80,11 @@ function PlayerChip({ g, me }: { g: AnyGame; me: boolean }) {
   );
 }
 
-export function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; trap?: string; onStart: (ply: number) => void }) {
+export function SummaryView({ g, r, trap, onStart, fix }: { g: AnyGame; r: Review; trap?: string; onStart: (ply: number) => void; /** "Fix your key moments": how many, whether it already played once, and the way in. */ fix?: { count: number; again: boolean; start: () => void } }) {
   const push = useNav((s) => s.push);
-  // Home's "Up next" stops pointing here once you've opened this game's review.
-  useEffect(() => void markReviewSeen(g), [g]);
   const meWhite = g.userColor === 'w';
   const resultText = g.userResult === 'win' ? 'You won' : g.userResult === 'loss' ? 'You lost' : 'Draw';
   const lesson = g.summary.pattern?.theme ?? g.summary.lessonTheme;
-  const firstBad = r.plies.findIndex((p, i) => g.plies[i].isUser && isBad(p.cls));
   const cls = useMemo(() => r.plies.map((x) => x.cls), [r]);
   const causes = useMemo(() => (pending(g) ? [] : mistakeCauses(g, cls)), [g, cls]);
   const missed = useMemo(() => (pending(g) ? [] : missedChances(g, cls)), [g, cls]);
@@ -424,9 +420,9 @@ export function SummaryView({ g, r, trap, onStart }: { g: AnyGame; r: Review; tr
           <button className="btn-primary !min-h-14 flex-1 text-[17px] !font-extrabold" onClick={() => onStart(-1)}>
             <Sparkles size={18} /> Start Review
           </button>
-          {firstBad >= 0 && !pending(g) && (
-            <button className="btn-secondary !min-h-14 text-[14px]" onClick={() => onStart(firstBad)}>
-              <TriangleAlert size={16} /> First mistake
+          {fix && !pending(g) && (
+            <button className="btn-secondary !min-h-14 text-[14px]" onClick={fix.start} data-testid="fix-moments">
+              <Crosshair size={16} /> {fix.again ? 'Fix moments again' : `Fix ${fix.count} moment${fix.count === 1 ? '' : 's'}`}
             </button>
           )}
         </div>

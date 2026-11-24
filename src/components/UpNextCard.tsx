@@ -38,7 +38,7 @@ export function UpNextCard() {
     else setTab('learn'); // a course game: the Learn tab has the opponent and the confirm
   };
   const go = () => {
-    if (u.kind === 'review') push({ name: 'report', gameId: u.gameId });
+    if (u.kind === 'review') push({ name: 'report', gameId: u.gameId, fix: true });
     else if (u.kind === 'daily') push({ name: 'daily' });
     else if (u.kind === 'course') openStep(u.step);
     else push({ name: 'puzzlePath' });
@@ -52,7 +52,8 @@ export function UpNextCard() {
         <button className="press flex w-full items-center gap-3 px-3.5 py-3 text-left" onClick={go} data-testid="up-next" data-kind={u.kind}>
           <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] ${ic.tint}`}>{ic.el}</span>
           <span className="min-w-0 flex-1 leading-tight">
-            <span className="block truncate text-[15px] font-bold">{t.title}</span>
+            {/* Long opponent names wrap to a second line rather than cut the title off. */}
+            <span className="line-clamp-2 block text-[15px] font-bold">{t.title}</span>
             <span className="mt-0.5 block truncate text-[12px] text-stone-500 dark:text-stone-400">{t.detail}</span>
           </span>
           <ChevronRight size={18} className="shrink-0 text-stone-400" />

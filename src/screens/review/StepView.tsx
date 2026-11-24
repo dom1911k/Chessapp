@@ -1,7 +1,9 @@
 // Game Review's step-through: eval bar + board, the move strip, Coach Sam on the move shown,
-// Best / Retry / Next mistake, and the step arrows.
+// Best / Retry / Next mistake, and the step arrows. With `fix`, the short "Fix your key moments"
+// mode: Retry already on at each of your key mistakes in turn ("Find a better move for White."),
+// Show me, "Next moment ›", and a small done card.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ChartLine, Play, Square, FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope } from 'lucide-react';
+import { ChartLine, Play, Square, FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope, Check } from 'lucide-react';
 import { Board } from '../../components/Board';
 import { EvalGraph } from '../../components/Charts';
 import { CoachBubble } from '../../components/Coach';
@@ -22,16 +24,29 @@ import { goodWhy, looseWhy, missedThreat, planWhy, repeatedTips, reviewNotes } f
 import { ArrowOverlay, type OverlayArrow } from '../../components/ArrowOverlay';
 import { isBad, moveNo, punishInfo, punishment, RC, type Review, type ReviewClass } from '../../lib/review';
 import { sfx, sfxCls } from '../../lib/sfx';
-import { animate, haptic } from '../../lib/motion';
+import { POP, SOFT, animate, haptic } from '../../lib/motion';
+import { practiseMoment } from '../../lib/upNext';
 import type { AnyGame, ImportedGame } from '../../lib/store/types';
 import { SquareFlash, SquareIcon, oppName, timesOf } from './shared';
 
-type Retry = { state: 'try' | 'checking' | 'right' | 'ok' | 'wrong'; fen: string; last?: { from: string; to: string }; reply?: string };
+/** 'shown': Show me played the better move for you (fix mode). */
+type Retry = { state: 'try' | 'checking' | 'right' | 'ok' | 'wrong' | 'shown'; fen: string; last?: { from: string; to: string }; reply?: string };
+/** Fix mode: the plies of your key mistakes, in order, and what to do once they're all done. */
+export interface FixMode {
+  plies: number[];
+  onDone: () => void;
+}
 
-export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; start: number; onSummary: () => void }) {
+export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Review; start: number; onSummary: () => void; fix?: FixMode }) {
   const [i, setI] = useState(start);
   const [best, setBest] = useState(false);
-  const [retry, setRetry] = useState<Retry | null>(null);
+  const [retry, setRetry] = useState<Retry | null>(() => (fix ? { state: 'try', fen: g.plies[fix.plies[0]].fenBefore } : null));
+  // Fix mode: which moment, how each ended ('fixed' found it, 'shown' after Show me), wrong tries
+  // on this one, and the done card.
+  const [fk, setFk] = useState(0);
+  const [fixRes, setFixRes] = useState<('fixed' | 'shown')[]>([]);
+  const [fixDone, setFixDone] = useState(false);
+  const wrongTries = useRef(0);
   const [explain, setExplain] = useState(false);
   // On a move where you missed their threat: show the threat first, then your move.
   const [threatSeen, setThreatSeen] = useState<number | null>(null);
@@ -80,14 +95,15 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
     const fwd = i === prevI.current + 1;
     prevI.current = i;
     setBest(false);
-    setRetry(null);
+    // Fix mode lands on each moment with Retry already on.
+    setRetry(fix && fix.plies[fk] === i ? { state: 'try', fen: g.plies[i].fenBefore } : null);
     setThreatSeen(null);
     setLineK(null);
     strip.current?.querySelector(`[data-ply="${i}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
     // The coach card swaps with a short crossfade.
     void animate(document.querySelector('[data-testid="review-coach"] > *'), [{ opacity: 0.3, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { d: 200, e: 'ease-out' });
     const c = i >= 0 ? r.plies[i]?.cls : undefined;
-    if (!fwd || !c) return;
+    if (!fwd || !c || fix) return;
     sfxCls(c);
     if (c === 'brilliant') haptic('success');
     if (c === 'blunder') haptic('warn');
@@ -142,9 +158,11 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
     return () => clearTimeout(t);
   }, [lineK, play]);
   useEffect(() => setLineK(null), [best]);
+  // Trying a fix: their last move stays highlighted for context.
+  const prevMove = fix && i > 0 ? { from: g.plies[i - 1].uci.slice(0, 2), to: g.plies[i - 1].uci.slice(2, 4) } : null;
   // What the board shows: the position after the move; before it for Best / Retry / their threat.
   const fen = frame ? frame.fen : retry ? retry.fen : p ? (best || threatStage ? p.fenBefore : p.fenAfter) : g.startFen;
-  const lastMove = frame ? frame.last : retry ? retry.last ?? null : p && !best && !threatStage ? { from: p.uci.slice(0, 2), to: p.uci.slice(2, 4) } : null;
+  const lastMove = frame ? frame.last : retry ? retry.last ?? prevMove : p && !best && !threatStage ? { from: p.uci.slice(0, 2), to: p.uci.slice(2, 4) } : null;
   // The same arrows everywhere: green = best move, red = what a move allowed, dotted = a punishing
   // reply to their mistake (or their threat).
   const arr = (uci: string, tone: 'good' | 'bad' | 'info') => ({ from: uci.slice(0, 2), to: uci.slice(2, 4), tone });
@@ -154,6 +172,7 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
     // Playing a line out: the board speaks for itself.
   } else if (retry) {
     if (retry.state === 'wrong' && retry.reply) arrows.push(arr(retry.reply, 'bad'));
+    if (retry.state === 'shown' && p?.comment?.bestUci) arrows.push(arr(p.comment.bestUci, 'good'));
   } else if (threatStage && threat) dotted.push(arr(threat.uci, 'bad'));
   else if (best && p?.comment?.bestUci) arrows.push(arr(p.comment.bestUci, 'good'));
   else if (p && rp && isBad(rp.cls)) {
@@ -161,7 +180,10 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
     const next = g.plies[i + 1];
     if (!p.isUser && next?.isUser && next.comment?.bestUci) dotted.push(arr(next.comment.bestUci, 'good'));
   }
-  const evalNow = r.curve[i + 1] ?? 50;
+  // Fix mode shows the position before your move, so the bar does too (no spoiler).
+  const evalNow = (fix ? r.curve[i] : r.curve[i + 1]) ?? 50;
+  const evalScore = fix ? (i > 0 ? g.plies[i - 1].evalAfter : undefined) : p?.evalAfter;
+
 
   const onRetryMove = (m: MoveInput) => {
     if (!retry || retry.state !== 'try' || !p) return false;
@@ -172,6 +194,7 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
     if (uci === p.comment?.bestUci) {
       sfx('correct');
       setRetry({ state: 'right', fen: res.fen, last: { from: res.move.from, to: res.move.to } });
+      resolveMoment('fixed');
       return true;
     }
     void (async () => {
@@ -182,12 +205,54 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
         const good = cls === 'best' || cls === 'good';
         sfx(good ? 'correct' : 'fail');
         setRetry({ state: good ? 'ok' : 'wrong', fen: res.fen, last: { from: res.move.from, to: res.move.to }, reply: good ? undefined : a.bestMove ?? undefined });
+        if (good) resolveMoment('fixed');
+        else wrongTries.current++;
       } catch {
         setRetry({ state: 'wrong', fen: res.fen, last: { from: res.move.from, to: res.move.to } });
+        wrongTries.current++;
       }
     })();
     return true;
   };
+
+  // ---------- Fix mode ----------
+  const fixMode = !!fix && !!p && fix.plies[fk] === i;
+  const lastMoment = !!fix && fk === fix.plies.length - 1;
+  /** A moment is settled once: save the practice first, then the line and "Next moment ›" show. */
+  function resolveMoment(kind: 'fixed' | 'shown') {
+    if (!fix || fixRes[fk]) return;
+    setFixRes((x) => Object.assign([...x], { [fk]: kind }));
+    void practiseMoment(g, i, kind === 'fixed', wrongTries.current + (kind === 'shown' ? 1 : 0));
+  }
+  const showMe = () => {
+    const u = p?.comment?.bestUci;
+    const m = u ? tryMove(p!.fenBefore, u) : null;
+    if (!m) return;
+    sfx('move');
+    setRetry({ state: 'shown', fen: m.fen, last: { from: m.move.from, to: m.move.to } });
+    resolveMoment('shown');
+  };
+  const nextMoment = () => {
+    if (!fix) return;
+    wrongTries.current = 0;
+    if (lastMoment) {
+      setFixDone(true);
+      fix.onDone();
+      return;
+    }
+    setFk(fk + 1);
+    setI(fix.plies[fk + 1]);
+  };
+  const fixedCount = fixRes.filter((x) => x === 'fixed').length;
+  const doneCard = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!fixDone) return;
+    const all = !!fix && fixedCount === fix.plies.length;
+    sfx(all ? 'accLand' : 'land', 2);
+    void animate(doneCard.current, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], SOFT);
+    // Overshoot only when every moment was found (a small celebration); otherwise it just settles.
+    void animate(doneCard.current?.querySelector('[data-done-icon]'), [{ transform: 'scale(0.4)' }, { transform: 'none' }], all ? POP : SOFT);
+  }, [fixDone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The reviewed move's squares in its class colour (for the moves that matter), else yellow.
   const moveTint = p && rp && !best && !retry && !threatStage && !frame && NOTABLE.has(rp.cls) ? hexRgb(RC[rp.cls].color) : undefined;
@@ -196,16 +261,20 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
   return (
     <div className="flex h-full flex-col">
       {/* No date here: with three header buttons it would truncate (the summary shows it). */}
-      <Header title="Game Review" back subtitle={`vs ${oppName(g)}`} right={
+      <Header title={fix ? 'Key moments' : 'Game Review'} back subtitle={fix ? `Moment ${Math.min(fk + 1, fix.plies.length)} of ${fix.plies.length} · vs ${oppName(g)}` : `vs ${oppName(g)}`} right={
+        fix ? (
+          <button className="px-2 text-sm font-semibold text-stone-600 active:text-stone-900 dark:text-stone-300 dark:active:text-white" onClick={onSummary}>Summary</button>
+        ) : (
         <span className="flex items-center gap-1">
           <button aria-label="Analyse this position" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300 dark:active:bg-stone-800" onClick={() => push({ name: 'explore', fen: p ? p.fenAfter : g.startFen, orientation, title: 'Analysis' })}><Microscope size={19} /></button>
           <button aria-label="Flip board" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-600 active:bg-stone-200 dark:text-stone-300 dark:active:bg-stone-800" onClick={() => setFlipped((f) => !f)}><FlipVertical2 size={19} /></button>
           <button className="px-2 text-sm font-semibold text-stone-600 active:text-stone-900 dark:text-stone-300 dark:active:text-white" onClick={onSummary}>Summary</button>
         </span>
+        )
       } />
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col land:max-w-6xl land:flex-row land:gap-4 land:px-3">
         <div className="flex gap-1 land:w-[min(calc(100dvh-7rem),58vw)] land:shrink-0 land:self-start">
-          <EvalBar whitePct={evalNow} orientation={orientation} score={p?.evalAfter ?? { type: 'cp', value: 0 }} width={20} />
+          <EvalBar whitePct={evalNow} orientation={orientation} score={evalScore ?? { type: 'cp', value: 0 }} width={20} />
           <div className="relative min-w-0 flex-1" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} data-testid="review-board">
             <Board fen={fen} orientation={orientation} movable={retry?.state === 'try' ? g.userColor : null} onMove={onRetryMove} arrows={arrows} lastMove={lastMove} lastMoveColor={moveTint} kingBadges={endBadges} quiet={!retry && !frame && !(fwdStep && rp?.cls === 'book')} />
             {fwdStep && p && rp && !best && !retry && !frame && FLASH[rp.cls] && <SquareFlash key={`f${i}`} sq={p.uci.slice(2, 4)} orientation={orientation} color={FLASH[rp.cls]!.color} stars={FLASH[rp.cls]!.stars} />}
@@ -216,7 +285,7 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {/* Move strip: the same look as the game's, with the graph toggle at its end. */}
           <div className="flex shrink-0 items-center">
-          <div ref={strip} className="no-scrollbar flex h-9 min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-2 text-[14px]">
+          <div ref={strip} className={`no-scrollbar flex h-9 min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-2 text-[14px] ${fix ? 'pointer-events-none' : ''}`}>
             {g.plies.map((q, k) => {
               const c = r.plies[k].cls;
               const showIcon = c === 'brilliant' || c === 'great' || isBad(c);
@@ -234,7 +303,7 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
               );
             })}
           </div>
-          <button
+          {!fix && <button
             aria-label={graphOpen ? 'Hide the evaluation graph' : 'Show the evaluation graph'}
             aria-expanded={graphOpen}
             className={`mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${graphOpen ? 'bg-black/[0.06] text-stone-700 dark:bg-white/[0.08] dark:text-stone-200' : 'text-stone-500'}`}
@@ -242,15 +311,31 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
             data-testid="graph-toggle"
           >
             <ChartLine size={18} />
-          </button>
+          </button>}
           </div>
           {/* The eval graph as a scrubber right under the moves. */}
-          {graphOpen && (
+          {graphOpen && !fix && (
             <div className="mx-3 shrink-0">
               <EvalGraph plies={g.plies} current={i} onSelect={go} height={40} times={stepTimes} classes={r.plies.map((x) => x.cls)} />
             </div>
           )}
           {/* Coach Sam on the move, in his speech bubble; takes the remaining height. */}
+          {fix ? (
+            <FadeScroll className="px-3 pt-2.5 pb-2" testId="review-coach">
+              {fixDone ? (
+                <div ref={doneCard} className="card flex flex-col items-center gap-1.5 !px-4 !py-4 text-center" data-testid="fix-done">
+                  <span data-done-icon className={`flex h-11 w-11 items-center justify-center rounded-full ${fixedCount === fix.plies.length ? 'bg-brand-500 text-white' : 'bg-stone-100 text-stone-600 dark:bg-white/[0.08] dark:text-stone-300'}`}><Check size={24} strokeWidth={3} /></span>
+                  <p className="text-[18px] font-extrabold tracking-[-0.01em]">{fixedCount} of {fix.plies.length} fixed</p>
+                  <p className="text-[13px] text-stone-600 dark:text-stone-300">{fixedCount === fix.plies.length ? 'Every key moment fixed. They count as practice for your skills.' : 'They count as practice. Try the ones you missed again from the summary.'}</p>
+                  <button className="btn-primary mt-1.5 !min-h-11 w-full" onClick={onSummary} data-testid="fix-back">Back to summary</button>
+                </div>
+              ) : (
+                <CoachBubble mood={retry?.state === 'wrong' ? 'concerned' : 'happy'}>
+                  <FixText g={g} i={i} retry={retry} />
+                </CoachBubble>
+              )}
+            </FadeScroll>
+          ) : (
           <FadeScroll className="px-3 pt-2.5 pb-2" testId="review-coach">
             <CoachBubble mood={rp && isBad(rp.cls) && p?.isUser ? 'concerned' : 'happy'}>
               <CoachText g={g} r={r} i={i} best={best} retry={retry} cause={cause} threat={threatStage ? threat : null} onSeenThreat={() => setThreatSeen(i)} />
@@ -269,6 +354,31 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
               )}
             </CoachBubble>
           </FadeScroll>
+          )}
+          {/* Fix mode: Show me / Try again, then "Next moment ›" (nothing once the done card shows). */}
+          {fix ? (
+            !fixDone && (
+              <div className="safe-bottom shrink-0 border-t border-black/[0.08] bg-white dark:border-white/[0.06] dark:bg-stone-900">
+                <div className="mx-auto flex h-14 max-w-md gap-2 px-3 py-1.5" data-testid="fix-actions">
+                  {fixMode && fixRes[fk] ? (
+                    <button className="btn-primary flex-1 !min-h-11 text-[16px] !font-extrabold" onClick={nextMoment} data-testid="fix-next">
+                      {lastMoment ? 'Finish' : 'Next moment'} <ChevronRight size={18} />
+                    </button>
+                  ) : (
+                    <>
+                      <button className="btn-secondary flex-1 !min-h-11" disabled={!fixMode || retry?.state === 'checking'} onClick={showMe} data-testid="fix-show">
+                        <Lightbulb size={16} /> Show me
+                      </button>
+                      <button className="btn-secondary flex-1 !min-h-11 disabled:opacity-35" disabled={retry?.state !== 'wrong'} onClick={() => setRetry({ state: 'try', fen: p!.fenBefore })} data-testid="fix-again">
+                        <RotateCcw size={16} /> Try again
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )
+          ) : (
+          <>
           {/* Best / Retry / Next mistake */}
           {/* The longest label gets the widest column, so nothing pushes the row past a 360px screen. */}
           <div className="mx-3 mb-2 grid shrink-0 grid-cols-[1fr_1fr_1.3fr] gap-2">
@@ -290,6 +400,8 @@ export function StepView({ g, r, start, onSummary }: { g: AnyGame; r: Review; st
               <NavButton onClick={() => go(n - 1)} disabled={i >= n - 1} label="End"><ChevronLast size={22} /></NavButton>
             </div>
           </div>
+          </>
+          )}
         </div>
       </div>
       {explain && p && rp && (
@@ -356,6 +468,41 @@ const FLASH: Partial<Record<ReviewClass, { color: string; stars?: string[] }>> =
   miss: { color: 'rgba(255,164,89,.55)' },
 };
 
+/** Fix mode's coach line: the task, then one short line once it's found or shown. */
+function FixText({ g, i, retry }: { g: AnyGame; i: number; retry: Retry | null }) {
+  const p = g.plies[i];
+  const c = p.comment;
+  const side = p.color === 'w' ? 'White' : 'Black';
+  const reply = c?.replyLine?.[0] ? lineToSan(p.fenAfter, c.replyLine.slice(0, 1))[0] : undefined;
+  // What the game move cost, in one short line.
+  const gameLine = reply ? `In the game, ${p.san} allowed ${reply}.` : `In the game you played ${p.san}.`;
+  const st = retry?.state ?? 'try';
+  if (st === 'try' || st === 'checking') {
+    return (
+      <>
+        <p className="font-semibold" data-testid="fix-task">{st === 'checking' ? 'Checking…' : `Find a better move for ${side}.`}</p>
+        <p className="mt-1 text-[13px] text-stone-600 dark:text-stone-300">You played {p.san} here in the game.</p>
+      </>
+    );
+  }
+  if (st === 'wrong') {
+    const theirs = retry?.reply ? lineToSan(retry.fen, [retry.reply])[0] : undefined;
+    return (
+      <>
+        <p className="font-semibold text-danger-700 dark:text-danger-300">Not quite{theirs ? ` — ${theirs} answers that` : ''}.</p>
+        <p className="mt-1 text-[13px] text-stone-600 dark:text-stone-300">Try again, or tap Show me.</p>
+      </>
+    );
+  }
+  const head = st === 'right' ? <>Yes! <b>{c?.bestSan}</b> is the best move.</> : st === 'ok' ? <>That works too. <b>{c?.bestSan}</b> was the engine's choice.</> : <><b>{c?.bestSan}</b> was the move.</>;
+  return (
+    <>
+      <p className={`font-semibold ${st === 'shown' ? '' : 'text-brand-700 dark:text-brand-500'}`} data-testid="fix-line">{head}</p>
+      <p className="mt-1 text-[13px] text-stone-600 dark:text-stone-300">{gameLine}</p>
+    </>
+  );
+}
+
 /** Coach Sam on the move being viewed: a one-line verdict, why, and the concrete lines. */
 function CoachText({ g, r, i, best, retry, cause, threat, onSeenThreat }: { g: AnyGame; r: Review; i: number; best: boolean; retry: Retry | null; cause?: MistakeCause; threat?: { san: string; text: string } | null; onSeenThreat?: () => void }) {
   if (i < 0) {
@@ -372,7 +519,7 @@ function CoachText({ g, r, i, best, retry, cause, threat, onSeenThreat }: { g: A
   const next = g.plies[i + 1];
   const nextR = r.plies[i + 1];
   if (retry) {
-    const msg = { try: 'Your move — find something better than ' + p.san + '.', checking: 'Checking…', right: `Yes! ${c?.bestSan} is the best move.`, ok: 'That works too — a good alternative.', wrong: 'Not quite. Tap Retry to try again, or Best to see it.' }[retry.state];
+    const msg = { try: 'Your move — find something better than ' + p.san + '.', checking: 'Checking…', right: `Yes! ${c?.bestSan} is the best move.`, ok: 'That works too — a good alternative.', wrong: 'Not quite. Tap Retry to try again, or Best to see it.', shown: `${c?.bestSan} was the move.` }[retry.state];
     return <p className={`font-semibold ${retry.state === 'right' || retry.state === 'ok' ? 'text-brand-700 dark:text-brand-500' : retry.state === 'wrong' ? 'text-danger-700' : ''}`}>{msg}</p>;
   }
   // Their threat first (you missed it), then your move.

@@ -112,7 +112,7 @@ function StackScreen({ screen }: { screen: Screen }) {
     case 'explore':
       return <ExploreScreen {...screen} />;
     case 'report':
-      return <GameReviewScreen key={`r${screen.gameId}`} gameId={screen.gameId} />;
+      return <GameReviewScreen key={`r${screen.gameId}${screen.fix ? 'f' : ''}`} gameId={screen.gameId} fix={screen.fix} />;
     case 'review':
       return <GameReviewScreen key={`v${screen.gameId}:${screen.ply}`} gameId={screen.gameId} ply={screen.ply ?? -1} />;
     case 'turning':

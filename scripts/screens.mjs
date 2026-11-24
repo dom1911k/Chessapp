@@ -21,7 +21,8 @@
 // over-win-mid, over-win-levelup, over-loss-end, review-reveal-mid, review-reveal-end, step-brilliant,
 // step-blunder, tabs-mid, push-mid, sheet-open, home-delta, path-hedges (frames caught mid-flight).
 //
-// Round 4 QA (opt-in: --only=round4, or by name): home-upnext (each Up next rule), more, puzzles-tab.
+// Round 4 QA (opt-in: --only=round4, or by name): home-upnext (each Up next rule), more, puzzles-tab,
+// summary-fix, fix-mode, fix-done.
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
@@ -716,7 +717,7 @@ async function run([W, H], scheme) {
   }
 
   // ---- Round 4 QA (opt-in: --only=round4, or any of these names) ----
-  // home-upnext (each of the four rules), more, puzzles-tab.
+  // home-upnext (each of the four rules), more, puzzles-tab, summary-fix, fix-mode, fix-done.
   const R = (k) => !!ONLY && (ONLY.includes(k) || ONLY.includes('round4'));
   const inPage = (fn, arg) => p.evaluate(fn, arg);
   /** Back to Home so it recomputes "Up next", then a shot with the card in view. */
@@ -730,6 +731,28 @@ async function run([W, H], scheme) {
     if (!name.endsWith(kind ?? 'none')) errors.push(`${name}: Up next shows ${kind}`);
     await shot(name);
     await p.evaluate(() => document.querySelectorAll('.overflow-y-auto').forEach((e) => e.scrollTo(0, 0)));
+  };
+  // A lost game with two key mistakes of yours (you as Black): 4…g6? allows Nxe5, then 5…Bxd1??
+  // walks into Legal's mate. Both have a known better move, so "Fix 2 moments" has work to do.
+  let legalId = null;
+  const seedLegal = async () => {
+    legalId ??= await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const { db } = await import(find('/src/lib/db.ts'));
+      const { tryMove, START_FEN } = await import(find('/src/lib/chess/game.ts'));
+      const LEGAL = ['e2e4', 'e7e5', 'g1f3', 'd7d6', 'f1c4', 'c8g4', 'b1c3', 'g7g6', 'f3e5', 'g4d1', 'c4f7', 'e8e7', 'c3d5'];
+      const CP = [30, 30, 30, 40, 40, 80, 80, 300, 300, 900, 900, 900, null];
+      const BAD = { 7: { cls: 'mistake', comment: { text: [], themes: ['defense'], bestUci: 'g8f6', bestSan: 'Nf6', replyLine: ['f3e5'] } }, 9: { cls: 'blunder', comment: { text: [], themes: ['mate'], bestUci: 'd6e5', bestSan: 'dxe5', replyLine: ['c4f7', 'e8e7', 'c3d5'] } } };
+      let fen = START_FEN;
+      const plies = LEGAL.map((u, i) => {
+        const r = tryMove(fen, u);
+        const ply = { san: r.move.san, uci: u, fenBefore: fen, fenAfter: r.fen, color: i % 2 ? 'b' : 'w', isUser: i % 2 === 1, evalAfter: CP[i] === null ? undefined : { type: 'cp', value: CP[i] }, classification: i % 2 === 1 ? BAD[i]?.cls ?? 'best' : undefined, comment: BAD[i]?.comment };
+        fen = r.fen;
+        return ply;
+      });
+      return db.games.add({ userColor: 'b', elo: 400, opponentId: 'tom', startFen: START_FEN, startedAt: Date.now() - 600000, endedAt: Date.now(), plies, takebacks: 0, hintsUsed: 0, told: [], result: '1-0', reason: 'checkmate', userResult: 'loss', summary: { accuracy: 60, counts: { best: 4, good: 0, inaccuracy: 0, mistake: 1, blunder: 1 }, biggestMistakePly: 9 } });
+    });
+    return legalId;
   };
   if (R('home-upnext')) {
     // Rule 2 on a fresh profile; rule 3 once today's training is done; rule 4 with the course
@@ -751,22 +774,65 @@ async function run([W, H], scheme) {
     await kv('courseStartStage', 99);
     await upNextShot('r4-upnext-puzzles');
     await kv('courseStartStage', 0);
-    await inPage(async () => {
-      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
-      const { db } = await import(find('/src/lib/db.ts'));
-      const { tryMove, START_FEN } = await import(find('/src/lib/chess/game.ts'));
-      const LEGAL = ['e2e4', 'e7e5', 'g1f3', 'd7d6', 'f1c4', 'c8g4', 'b1c3', 'g7g6', 'f3e5', 'g4d1', 'c4f7', 'e8e7', 'c3d5'];
-      const CP = [30, 30, 30, 40, 40, 80, 80, 160, 210, 900, 900, 900, null];
-      let fen = START_FEN;
-      const plies = LEGAL.map((u, i) => {
-        const r = tryMove(fen, u);
-        const ply = { san: r.move.san, uci: u, fenBefore: fen, fenAfter: r.fen, color: i % 2 ? 'b' : 'w', isUser: i % 2 === 1, evalAfter: CP[i] === null ? undefined : { type: 'cp', value: CP[i] }, classification: i % 2 === 1 ? (i === 9 ? 'blunder' : 'best') : undefined };
-        fen = r.fen;
-        return ply;
-      });
-      await db.games.add({ userColor: 'b', elo: 400, opponentId: 'tom', startFen: START_FEN, startedAt: Date.now() - 600000, endedAt: Date.now(), plies, takebacks: 0, hintsUsed: 0, told: [], result: '1-0', reason: 'checkmate', userResult: 'loss', summary: { accuracy: 60, counts: { best: 5, good: 0, inaccuracy: 0, mistake: 0, blunder: 1 }, biggestMistakePly: 9 } });
-    });
+    await seedLegal();
     await upNextShot('r4-upnext-review');
+    // Rule 1 opens "Fix your key moments" straight away.
+    await p.locator('[data-testid="up-next"]').click();
+    await p.waitForTimeout(1800);
+    if (!(await p.locator('[data-testid="fix-task"]').count())) errors.push('home-upnext: Up next did not open the fix flow');
+    await home();
+    await p.waitForTimeout(600);
+  }
+  // summary-fix, fix-mode, fix-done: the summary's "Fix 2 moments", a moment with Retry on, a
+  // wrong try, a found move, Show me, and the done card; then the button reads "again".
+  if (R('summary-fix') || R('fix-mode') || R('fix-done')) {
+    const id = await seedLegal();
+    await push({ name: 'report', gameId: id });
+    await p.waitForTimeout(800);
+    await p.locator('[data-testid="verdict"]').click({ force: true }).catch(() => {}); // skip the reveal
+    await p.waitForTimeout(900);
+    const label = await p.locator('[data-testid="fix-moments"]').textContent().catch(() => null);
+    if (!/Fix 2 moments/.test(label ?? '')) errors.push(`summary-fix: the button reads ${label}`);
+    await shot('r4-summary-fix');
+    await p.locator('[data-testid="fix-moments"]').click();
+    await p.waitForTimeout(1200);
+    const task = await p.locator('[data-testid="fix-task"]').textContent().catch(() => null);
+    if (task !== 'Find a better move for Black.') errors.push(`fix-mode: the task reads ${task}`);
+    await shot('r4-fix-mode');
+    // A wrong try (…a6), checked by the engine, then Try again.
+    await tap(p, 'a7', 'black');
+    await p.waitForTimeout(200);
+    await tap(p, 'a6', 'black');
+    await p.locator('[data-testid="fix-again"]:not([disabled])').waitFor({ timeout: 15000 }).catch(() => errors.push('fix-mode: a wrong try was not marked'));
+    await shot('r4-fix-wrong');
+    await p.locator('[data-testid="fix-again"]').click();
+    await p.waitForTimeout(400);
+    // The better move: …Nf6.
+    await tap(p, 'g8', 'black');
+    await p.waitForTimeout(200);
+    await tap(p, 'f6', 'black');
+    await p.waitForTimeout(900);
+    const line = await p.locator('[data-testid="fix-line"]').textContent().catch(() => null);
+    if (!/Nf6 is the best move/.test(line ?? '')) errors.push(`fix-mode: after the right move the line reads ${line}`);
+    await shot('r4-fix-solved');
+    await p.locator('[data-testid="fix-next"]').click();
+    await p.waitForTimeout(1200);
+    // Moment 2: Show me.
+    await p.locator('[data-testid="fix-show"]').click();
+    await p.waitForTimeout(900);
+    await shot('r4-fix-shown');
+    await p.locator('[data-testid="fix-next"]').click();
+    await p.waitForTimeout(1200);
+    const done = await p.locator('[data-testid="fix-done"]').textContent().catch(() => null);
+    if (!/1 of 2 fixed/.test(done ?? '')) errors.push(`fix-done: the card reads ${done}`);
+    await shot('r4-fix-done');
+    await p.locator('[data-testid="fix-back"]').click();
+    await p.waitForTimeout(900);
+    const again = await p.locator('[data-testid="fix-moments"]').textContent().catch(() => null);
+    if (!/Fix moments again/.test(again ?? '')) errors.push(`fix-done: back on the summary the button reads ${again}`);
+    await shot('r4-summary-again');
+    await home();
+    await p.waitForTimeout(600);
   }
   if (R('more')) {
     await p.evaluate(() => window.__nav.getState().setTab('more'));

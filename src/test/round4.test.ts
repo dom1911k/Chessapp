@@ -39,12 +39,12 @@ describe('Home: Up next', async () => {
   const { chooseUpNext, upNextText } = await import('../lib/upNext');
   const step = { id: 's1', kind: 'lesson' as const, lessonId: 'checkmate', label: 'Check, checkmate & stalemate' };
   const base = { dailyDone: true, due: 0, course: null, points: 0 };
-  it('1 · your last game’s key moments first, until you’ve opened its review', () => {
-    const u = chooseUpNext({ ...base, dailyDone: false, last: { gameId: 7, opponent: 'Grandpa Tom', moments: 2, seen: false } });
+  it('1 · your last game’s key moments first, until you’ve fixed them', () => {
+    const u = chooseUpNext({ ...base, dailyDone: false, last: { gameId: 7, opponent: 'Grandpa Tom', moments: 2, fixed: false } });
     expect(u).toEqual({ kind: 'review', gameId: 7, opponent: 'Grandpa Tom', moments: 2 });
     expect(upNextText(u)).toEqual({ title: 'Review your game vs Grandpa Tom', detail: '2 key moments' });
-    expect(chooseUpNext({ ...base, dailyDone: false, last: { gameId: 7, opponent: 'Tom', moments: 2, seen: true } }).kind).toBe('daily');
-    expect(chooseUpNext({ ...base, dailyDone: false, last: { gameId: 7, opponent: 'Tom', moments: 0, seen: false } }).kind).toBe('daily');
+    expect(chooseUpNext({ ...base, dailyDone: false, last: { gameId: 7, opponent: 'Tom', moments: 2, fixed: true } }).kind).toBe('daily');
+    expect(chooseUpNext({ ...base, dailyDone: false, last: { gameId: 7, opponent: 'Tom', moments: 0, fixed: false } }).kind).toBe('daily');
   });
   it('2 · Daily training when it isn’t done today', () => {
     expect(upNextText(chooseUpNext({ ...base, dailyDone: false, due: 5 }))).toEqual({ title: 'Daily training', detail: '5 positions from your mistakes' });
