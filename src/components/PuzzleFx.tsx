@@ -35,7 +35,7 @@ export function SolveBurst({ sq, orientation, power = 1, id }: { sq: string; ori
   const colors = power >= 5 ? ['#f472b6', '#c084fc', '#fde68a'] : power >= 3 ? ['#fb923c', '#fde68a', '#f87171'] : ['#fde68a', '#34d399', '#fbbf24'];
   return (
     <div data-burst={id} className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-md">
-      <span className="animate-flash-ring absolute h-[12.5%] w-[12.5%] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ ...p, boxShadow: `0 0 0 4px ${colors[0]}, 0 0 28px 10px ${colors[1]}` }} />
+      <span className="animate-flash-ring absolute h-[12.5%] w-[12.5%] rounded-full" style={{ ...p, boxShadow: `0 0 0 4px ${colors[0]}, 0 0 28px 10px ${colors[1]}` }} />
       {Array.from({ length: n }, (_, i) => {
         const a = (i / n) * Math.PI * 2;
         const d = 60 + (i % 3) * 22 + power * 6;

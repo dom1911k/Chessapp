@@ -324,16 +324,18 @@ time {
 }
 
 /* Board celebrations (BoardFlash) */
+/* --chip-x: centred over its square (−50%), or 0 when it's pinned to a board edge. */
 @keyframes flash-chip {
-  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.6); }
-  15% { opacity: 1; transform: translate(-50%, 0) scale(1.12); }
-  25% { transform: translate(-50%, 0) scale(1); }
+  0% { opacity: 0; transform: translate(var(--chip-x, -50%), 6px) scale(0.6); }
+  15% { opacity: 1; transform: translate(var(--chip-x, -50%), 0) scale(1.12); }
+  25% { transform: translate(var(--chip-x, -50%), 0) scale(1); }
   80% { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%, -10px) scale(1); }
+  100% { opacity: 0; transform: translate(var(--chip-x, -50%), -10px) scale(1); }
 }
 @utility animate-flash-chip { animation: flash-chip 1.7s ease-out forwards; }
 @keyframes flash-dim { 0%, 100% { opacity: 0; } 15%, 75% { opacity: 1; } }
 @utility animate-flash-dim { animation: flash-dim 2.6s ease-in-out forwards; }
+/* The keyframes centre these on their point (translate −50%); no translate class on the element. */
 @keyframes flash-ring {
   0% { opacity: 1; transform: translate(-50%, -50%) scale(0.4); }
   60% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.6); }
