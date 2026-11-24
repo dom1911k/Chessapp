@@ -277,7 +277,8 @@ export function StepView({ g, r, start, onSummary, fix }: { g: AnyGame; r: Revie
   const doneCard = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!fixDone) return;
-    void animate(doneCard.current, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], SOFT);
+    // With reduced animations it only fades in (no rise, no pop).
+    void animate(doneCard.current, reduced() ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], SOFT);
     // Every moment found: one chord and the check pops (POP; no confetti, no pop with reduced animations).
     if (allFixed) {
       sfx('accLand');

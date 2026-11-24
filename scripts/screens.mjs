@@ -23,7 +23,7 @@
 //
 // Round 4 QA (opt-in: --only=round4, or by name): home-upnext (each Up next rule), more, puzzles-tab,
 // summary-fix, fix-mode, fix-done, fix-skip, end-message, over-win-long, opponent-badges,
-// badge-sheet, insights-skills, laurel-shop.
+// badge-sheet, profile-cc, odo-zoom, insights-skills, laurel-shop.
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
@@ -1005,6 +1005,57 @@ async function run([W, H], scheme) {
     await p.evaluate(() => (window.__play.getState().closeRewards?.(), window.__play.getState().leaveGame?.()));
     await home();
     await p.waitForTimeout(800);
+  }
+
+  // odo-zoom: every rolling number cropped at 3x (the results tile, More, Profile, the path card,
+  // the Home header). Each digit strip must be exactly one line high: a taller line box lets the
+  // digits above and below show through (round 5, 0.1).
+  if (R('odo-zoom')) {
+    const zoom = async (name, sel, pad = 8) => {
+      const el = p.locator(sel).first();
+      if (!(await el.count())) return errors.push(`odo-zoom: no ${sel} for ${name}`);
+      await el.scrollIntoViewIfNeeded().catch(() => {});
+      const spill = await el.evaluate((root) =>
+        [...(root.matches('.odo') ? [root] : root.querySelectorAll('.odo'))].flatMap((o) => [...o.querySelectorAll('.st i')]).filter((i) => i.getBoundingClientRect().height > 0 && Math.abs(parseFloat(getComputedStyle(i).lineHeight) - i.getBoundingClientRect().height) > 0.5).length,
+      );
+      if (spill) errors.push(`odo-zoom: ${name}: ${spill} digits taller or shorter than their line`);
+      const cdp = await p.context().newCDPSession(p);
+      const metrics = (dpr) => cdp.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: dpr, mobile: W < 700 });
+      await metrics(3);
+      await p.waitForTimeout(250);
+      const b = await el.boundingBox();
+      if (b) await p.screenshot({ path: join(OUT, `${tag}-r5-odo-${name}.png`), clip: { x: Math.max(0, b.x - pad), y: Math.max(0, b.y - pad), width: b.width + 2 * pad, height: b.height + 2 * pad } });
+      await metrics(2);
+      await cdp.detach();
+      await p.waitForTimeout(150);
+    };
+    // The results tile, after a mate.
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await p.evaluate(() => window.__play.getState().newGame('w', 400, '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1', 'tom'));
+    await p.waitForTimeout(800);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitFor(p, ['userTurn'], 60000);
+    await p.waitForTimeout(600);
+    await p.evaluate(() => window.__play.getState().userMove({ from: 'a1', to: 'a8' }));
+    await p.waitForTimeout(8000);
+    await zoom('results', '[data-testid="results-rating"]');
+    await p.evaluate(() => (window.__play.getState().closeRewards?.(), window.__play.getState().leaveGame?.()));
+    await home();
+    await p.waitForTimeout(1500);
+    await zoom('home', '[data-testid="home-rating"]');
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(2500);
+    await zoom('more', '[data-testid="more-rating"]');
+    await home();
+    await push({ name: 'profile' });
+    await p.waitForTimeout(2500);
+    await zoom('profile', '.odo >> visible=true');
+    await home();
+    await push({ name: 'puzzle', mode: { kind: 'rated' } });
+    await p.waitForTimeout(3000);
+    await zoom('path', '[data-testid="path-total"]');
+    await home();
+    await p.waitForTimeout(500);
   }
 
   // opponent-badges, insights-skills, laurel-shop (Phase 4).
