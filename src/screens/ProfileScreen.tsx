@@ -133,7 +133,7 @@ export function ProfileScreen() {
           <span className="min-w-0 flex-1">
             <span className="block truncate text-xl font-bold">{ccUser || 'You'}</span>
             <span className="block text-sm font-semibold text-brand-700 dark:text-brand-500" data-testid="profile-rating">{title} · Rating {d.bots.rating}</span>
-            <span className="block text-sm text-stone-500 dark:text-stone-400">{total ? <>{total} games · {d.streak} day{d.streak === 1 ? '' : 's'} in a row</> : 'Play your first game to see your stats here'}</span>
+            <span className="block text-sm text-stone-500 dark:text-stone-400">{total ? <>{total} game{total === 1 ? '' : 's'} · {d.streak} day{d.streak === 1 ? '' : 's'} in a row</> : 'Play your first game to see your stats here'}</span>
           </span>
         </div>
         <Segmented
