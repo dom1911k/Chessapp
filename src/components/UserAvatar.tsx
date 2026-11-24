@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Check, Lock, X } from 'lucide-react';
 import { AVATARS, FRAMES, TITLES, avatarId, avatarUrl, frameById, type Frame } from '../lib/avatars';
-import { getXp, levelFor } from '../lib/progress/xp';
+import { getGameRating, titleFor } from '../lib/rewards/rating';
 import { meets, unlockContext, unlockText, type UnlockContext } from '../lib/rewards/cosmetics';
 import { useSettings } from '../lib/settings';
 import { avatarRadius } from './Coach';
@@ -12,12 +12,12 @@ import { GrabHandle, Sheet } from './Sheet';
 /** The name shown for the player. */
 export const useMyName = () => useSettings((s) => s.ccUsername) || 'You';
 
-/** The player's title: the chosen one, or the current level's. */
+/** The player's title: the chosen one, or the latest Journey milestone you've reached ("Newcomer" before the first). */
 export function useMyTitle(): string {
   const chosen = useSettings((s) => s.avatarTitle);
-  const [lvl, setLvl] = useState('');
-  useEffect(() => void getXp().then((x) => setLvl(levelFor(x).title)), []);
-  return TITLES.find((t) => t.id === chosen)?.label ?? lvl;
+  const [journey, setJourney] = useState('');
+  useEffect(() => void getGameRating().then((r) => setJourney(titleFor(r.peak))), []);
+  return TITLES.find((t) => t.id === chosen)?.label ?? journey;
 }
 
 export function AvatarImg({ id, frame, size = 44, className = '' }: { id: string; frame?: Frame; size?: number; className?: string }) {
@@ -84,9 +84,9 @@ export function AvatarPicker({ onClose }: { onClose: () => void }) {
         <h3 className="section-title mt-5">Title</h3>
         <div className="mt-2 flex flex-wrap gap-2">
           <button className={`chip !px-3 !py-1.5 ${s.avatarTitle === '' ? 'bg-brand-700 text-white' : 'bg-stone-100 dark:bg-stone-800'}`} onClick={() => s.set({ avatarTitle: '' })}>
-            {s.avatarTitle === '' && <Check size={13} />} My level
+            {s.avatarTitle === '' && <Check size={13} />} My journey
           </button>
-          {TITLES.map((t) => {
+          {TITLES.filter((t) => !t.legacy || (!!ctx && meets(t.unlock, ctx)) || s.avatarTitle === t.id).map((t) => {
             const ok = open(t.unlock);
             const on = s.avatarTitle === t.id;
             return (
@@ -96,7 +96,7 @@ export function AvatarPicker({ onClose }: { onClose: () => void }) {
             );
           })}
         </div>
-        <p className="mt-3 text-xs text-stone-500">Frames and titles unlock as you level up and climb your rating journey.</p>
+        <p className="mt-3 text-xs text-stone-500 dark:text-stone-400">Frames and titles unlock as you climb your rating journey and win cups.</p>
         <button className="btn-primary mt-4 w-full" onClick={close}>Done</button>
       </div>
       </>

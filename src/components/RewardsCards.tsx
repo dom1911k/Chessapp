@@ -1,4 +1,4 @@
-// Progress-tab entry points: journey, skill tree, collection and career statistics.
+// Profile entry points: journey, skills (in Insights), collection and career statistics.
 import { useEffect, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { useNav } from '../lib/nav';
@@ -46,7 +46,7 @@ export function RewardsCards() {
       <div className="grid grid-cols-2 gap-2.5">
         <button className="card tile flex flex-col gap-2 !p-3 text-left transition-[filter] active:brightness-95" onClick={() => push({ name: 'skills' })}>
           <span className="flex items-center justify-between">
-            <span className="font-semibold">Skill tree</span>
+            <span className="font-semibold">Skills</span>
             <Glyph name="tree" size={18} className="text-brand-700" />
           </span>
           <span className="flex gap-1.5">

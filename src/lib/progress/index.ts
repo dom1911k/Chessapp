@@ -1,6 +1,8 @@
-// One entry point for "something happened": XP, weekly goal and achievements.
+// One entry point for "something happened": the weekly goal and achievements. There is no
+// account XP any more (round 4): your rating, the Journey and the Puzzle Path are the numbers that
+// grow. The XP already stored stays in the database, unshown.
+import { bumpActivity } from '../db';
 import { checkAchievements } from './achievements';
-import { awardXp, XP } from './xp';
 import { checkWeeklyGoal } from './weekly';
 
 export type ProgressEvent =
@@ -12,31 +14,10 @@ export type ProgressEvent =
   | { kind: 'rush'; solved: number }
   | { kind: 'chapter' };
 
-export function xpFor(e: ProgressEvent): number {
-  switch (e.kind) {
-    case 'game':
-      return XP.gamePlayed + (e.result === 'win' ? XP.gameWon : e.result === 'draw' ? XP.gameDraw : 0) + (e.accuracy >= 80 ? XP.accurateGame : 0);
-    case 'puzzle':
-      return e.success ? (e.review ? XP.review : XP.puzzle + (e.clean ? XP.cleanPuzzle : 0)) : 0;
-    case 'lesson':
-      return e.first ? XP.lesson : XP.lessonRepeat;
-    case 'drill':
-      return e.first ? XP.drill : XP.drillRepeat;
-    case 'daily':
-      return XP.daily;
-    case 'rush':
-      return e.solved * XP.rushSolve;
-    case 'chapter':
-      return XP.chapter;
-  }
-}
-
-export async function progress(e: ProgressEvent): Promise<number> {
-  const xp = xpFor(e);
-  // Puzzles happen often: their XP is shown in the puzzle itself; a game's on its results sheet.
-  const game = e.kind === 'game';
-  await awardXp(xp, e.kind === 'puzzle' || game);
-  if (await checkWeeklyGoal()) await awardXp(XP.weeklyGoal, true);
-  await checkAchievements({}, { quiet: game });
-  return xp;
+export async function progress(e: ProgressEvent): Promise<void> {
+  // Games, puzzles and reviews mark the day themselves; the rest counts as training here, so the
+  // weekly goal still sees a lesson-only day.
+  if (e.kind === 'lesson' || e.kind === 'drill' || e.kind === 'chapter' || e.kind === 'rush') await bumpActivity('other');
+  await checkWeeklyGoal();
+  await checkAchievements({}, { quiet: e.kind === 'game' });
 }

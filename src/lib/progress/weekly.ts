@@ -26,7 +26,7 @@ export async function weeklyGoal(): Promise<{ goal: number; days: number; active
   const rows = await db.activity.bulkGet(keys);
   const activeDays = keys.filter((_, i) => {
     const r = rows[i];
-    return r && r.puzzles + r.games + r.reviews + (r.xp ?? 0) > 0;
+    return r && r.puzzles + r.games + r.reviews + (r.other ?? 0) + (r.xp ?? 0) > 0;
   });
   return { goal, days: activeDays.length, activeDays, met: activeDays.length >= goal };
 }

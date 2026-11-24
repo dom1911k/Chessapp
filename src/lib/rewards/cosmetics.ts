@@ -5,7 +5,7 @@ import { kvGet, kvSet } from '../db';
 import { OPPONENTS } from '../people';
 import { getOpponentRecords } from '../people/record';
 import { CHALLENGES } from '../people/challenges';
-import { getXp, levelFor } from '../progress/xp';
+import { getXp, levelFor } from '../progress/xp'; // legacy level: what it unlocked stays unlocked
 import { useSettings, BOARD_THEMES, type Settings } from '../settings';
 import { SOUND_PACKS } from '../sound';
 import { CELEBRATIONS, HIGHLIGHTS, PIECE_SETS } from './looks';
@@ -16,8 +16,10 @@ export type CosmeticKind = 'board' | 'pieces' | 'fx' | 'hl' | 'snd';
 
 export type Unlock =
   | { kind: 'free' }
+  /** Legacy (account levels are gone): still met by the level your stored XP reached. */
   | { kind: 'level'; n: number }
-  | { kind: 'rating'; n: number }
+  /** Reach N on your journey. `was`: the account level that unlocked it before (still counts). */
+  | { kind: 'rating'; n: number; was?: number }
   | { kind: 'achievement'; id: string; label: string }
   | { kind: 'challenge'; opponentId: string }
   | { kind: 'gold'; n: number }
@@ -52,21 +54,22 @@ const FREE: Record<CosmeticKind, string[]> = {
 };
 
 const SPECIAL: Record<string, Unlock> = {
-  // Levels (XP)
-  'hl-sky': { kind: 'level', n: 2 },
-  'board-cherry': { kind: 'level', n: 3 },
-  'fx-hearts': { kind: 'level', n: 4 },
-  'board-forest': { kind: 'level', n: 5 },
-  'pieces-shadow': { kind: 'level', n: 6 },
-  'hl-lavender': { kind: 'level', n: 7 },
-  'board-sandstone': { kind: 'level', n: 8 },
-  'fx-snow': { kind: 'level', n: 12 },
+  // Journey ratings between the milestones (these were account-level rewards; `was` keeps them for
+  // anyone who reached that level).
+  'hl-sky': { kind: 'rating', n: 300, was: 2 },
+  'board-cherry': { kind: 'rating', n: 350, was: 3 },
+  'fx-hearts': { kind: 'rating', n: 400, was: 4 },
+  'board-forest': { kind: 'rating', n: 450, was: 5 },
+  'pieces-shadow': { kind: 'rating', n: 550, was: 6 },
+  'hl-lavender': { kind: 'rating', n: 650, was: 7 },
+  'board-sandstone': { kind: 'rating', n: 750, was: 8 },
+  'fx-snow': { kind: 'rating', n: 1050, was: 12 },
   // Achievements
   'hl-rose': { kind: 'achievement', id: 'tac-fork-1', label: 'First fork' },
   'board-ice': { kind: 'achievement', id: 'brill-1', label: 'Brilliant!' },
   'pieces-neon': { kind: 'achievement', id: 'great-10', label: 'Sharp eye' },
   'fx-pieces': { kind: 'achievement', id: 'mate-10', label: 'Mate collector' },
-  // Skill tree
+  // Skills (Insights → Skills)
   'pieces-bronze': { kind: 'gold', n: 1 },
   'fx-leaves': { kind: 'gold', n: 3 },
 };
@@ -97,6 +100,11 @@ export const COSMETICS: Cosmetic[] = (Object.keys(keysOf) as CosmeticKind[]).fla
 
 export const cosmeticById = (id: string) => COSMETICS.find((c) => c.id === id);
 
+/** The looks the Journey gives between its milestones (small reward dots on the map), by rating. */
+export const JOURNEY_LOOKS: { rating: number; cosmetic: Cosmetic }[] = COSMETICS.filter((c) => c.unlock.kind === 'rating' && !MILESTONES.some((m) => m.reward === c.id))
+  .map((c) => ({ rating: (c.unlock as { n: number }).n, cosmetic: c }))
+  .sort((a, b) => a.rating - b.rating);
+
 /** What to add after a name another kind shares: "Marble board", "Marble pieces". */
 const KIND_NOUN: Record<CosmeticKind, string> = { board: 'board', pieces: 'pieces', fx: 'celebration', hl: 'move colour', snd: 'sounds' };
 const NAME_KINDS = new Map<string, Set<CosmeticKind>>();
@@ -119,7 +127,7 @@ export function unlockText(u: Unlock): string {
       return `Complete ${o?.name}'s challenge`;
     }
     case 'gold':
-      return u.n === 1 ? 'Master a skill' : `Master ${u.n} skills`;
+      return `Master ${u.n} skill${u.n === 1 ? '' : 's'} (Insights → Skills)`;
     case 'cup':
       return `Win the ${u.tier[0].toUpperCase()}${u.tier.slice(1)} Cup`;
     case 'laurel':
@@ -128,6 +136,7 @@ export function unlockText(u: Unlock): string {
 }
 
 export interface UnlockContext {
+  /** The level your stored XP reached (XP is no longer awarded; what it unlocked stays). */
   level: number;
   peak: number;
   /** Peak on the old rating scale (before v1.55): what it earned stays earned. */
@@ -166,7 +175,7 @@ export function meets(u: Unlock, ctx: UnlockContext): boolean {
     case 'level':
       return ctx.level >= u.n;
     case 'rating':
-      return ctx.peak >= u.n || (ctx.legacyPeak ?? 0) >= u.n;
+      return ctx.peak >= u.n || (ctx.legacyPeak ?? 0) >= u.n || (u.was !== undefined && ctx.level >= u.was);
     case 'achievement':
       return !!ctx.achievements[u.id];
     case 'challenge':

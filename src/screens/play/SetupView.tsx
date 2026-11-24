@@ -1,7 +1,7 @@
 // The Play tab's home: the opponent card with Play (the one primary action), the rivalry row,
 // "This week", and one "Up next" row (the single most useful thing to do next). The rest of the
 // app lives in the tabs.
-import { RivalryCard, RivalryChip } from '../../components/Rivalry';
+import { BadgeStrip, RivalryCard } from '../../components/Rivalry';
 import { TurningPrompt } from '../../components/TurningCards';
 import { useEffect, useState } from 'react';
 import { Flame, ChevronRight, Timer, Swords, Bot, Brain, Check, Lock, MessageCircleHeart, Settings, Share, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy } from 'lucide-react';
@@ -17,7 +17,8 @@ import { CoachBubble, Portrait } from '../../components/Coach';
 import { OPPONENTS, opponentById, portraitColors } from '../../lib/people';
 import { getOpponentRecords, isUnlocked, type OpponentRecord } from '../../lib/people/record';
 import { Dialog, IconButton, Segmented } from '../../components/ui';
-import { MAX_STARS, starsOf } from '../../lib/people/record';
+import { badgeCount, challengeOpen } from '../../lib/people/record';
+import { CHALLENGE_BADGES } from '../../lib/people/rivalry';
 import { challengeFor } from '../../lib/people/challenges';
 import { cosmeticById, type Cosmetic } from '../../lib/rewards/cosmetics';
 import { CosmeticPreview } from '../../components/CosmeticPreview';
@@ -75,7 +76,7 @@ export function SetupView() {
   };
   const [sheet, setSheet] = useState<'opponent' | 'options' | null>(null);
   const tc = match ? matchTc : settings.coachedTimeControl;
-  const stars = starsOf(rec);
+  const chOpen = challengeOpen(rec);
   const colorLabel = settings.colorPref === 'w' ? 'White' : settings.colorPref === 'b' ? 'Black' : 'Random colour';
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -97,12 +98,12 @@ export function SetupView() {
             <span className="min-w-0 flex-1">
               <span className="block text-[11px] font-bold tracking-[0.1em] text-stone-500 uppercase dark:text-stone-400">Your opponent</span>
               <span className="block truncate text-[22px] leading-tight font-extrabold tracking-[-0.015em]">{opp ? opp.name : sparring ? 'Sparring partner' : 'Custom bot'}</span>
-              <span className="mt-0.5 flex items-center gap-1.5">
-                <span className="rounded-[4px] bg-stone-800 px-1.5 py-px text-xs font-bold text-white tabular-nums">{botElo}</span>
-                {opp && <Stars n={stars} of={MAX_STARS} size={12} />}
-                {opp && <RivalryChip rec={rec} />}
+              <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                <span className="shrink-0 rounded-[4px] bg-stone-800 px-1.5 py-px text-xs font-bold text-white tabular-nums">{botElo}</span>
+                <span className="truncate text-xs text-stone-600 dark:text-stone-400">{opp ? opp.tagline : sparring ? sparringTagline(spar) : eloLabel(settings.botElo)}</span>
               </span>
-              <span className="mt-0.5 block truncate text-xs text-stone-600 dark:text-stone-400">{opp ? opp.tagline : sparring ? sparringTagline(spar) : eloLabel(settings.botElo)}</span>
+              {/* Your badges with them: the one track per opponent. */}
+              {opp && <BadgeStrip rec={rec} className="mt-1.5" />}
             </span>
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200" aria-label="Change opponent"><ChevronRight size={18} /></span>
           </button>
@@ -137,7 +138,7 @@ export function SetupView() {
           {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
           </div>
         </div>
-        {opp && !locked && stars >= MAX_STARS && !rec?.challengeDone && <ChallengeCard opponentId={opp.id} stars={stars} done={false} />}
+        {opp && !locked && chOpen && !rec?.challengeDone && <ChallengeCard opponentId={opp.id} badges={badgeCount(rec)} open done={false} />}
         {opp && !locked && <RivalryCard opponentId={opp.id} rec={rec} />}
         <WeekRing />
         <UpNextCard />
@@ -169,7 +170,7 @@ export function SetupView() {
           </div>
         )}
         {!sparring && <p className="mt-2 px-1 text-xs text-stone-500">Ratings are chess.com rapid ratings: each bot plays like real chess.com players at its rating.</p>}
-        {opp && !locked && stars < MAX_STARS && <ChallengeCard opponentId={opp.id} stars={stars} done={!!rec?.challengeDone} />}
+        {opp && !locked && !chOpen && <ChallengeCard opponentId={opp.id} badges={badgeCount(rec)} open={false} done={!!rec?.challengeDone} />}
         <div className="mt-3 flex gap-2">
           {!sparring && (
             <button className="btn-ghost flex-1 text-sm" onClick={() => settings.set({ opponentId: custom ? OPPONENTS[1].id : 'custom' })}>
@@ -305,11 +306,10 @@ function HomeScreenHint() {
   );
 }
 
-/** The opponent's special challenge: opens with all 5 stars, rewards something unique. */
-function ChallengeCard({ opponentId, stars, done }: { opponentId: string; stars: number; done: boolean }) {
+/** The opponent's special challenge: opens with five badges, rewards something unique. */
+function ChallengeCard({ opponentId, badges, open, done }: { opponentId: string; badges: number; open: boolean; done: boolean }) {
   const ch = challengeFor(opponentId);
   if (!ch) return null;
-  const open = stars >= MAX_STARS;
   const rewards = ch.rewards.map((id) => cosmeticById(id)).filter((c): c is Cosmetic => !!c);
   return (
     <div className={`card relative overflow-hidden !p-3 ${open && !done ? 'ring-2 ring-gold-400' : ''}`}>
@@ -326,19 +326,19 @@ function ChallengeCard({ opponentId, stars, done }: { opponentId: string; stars:
           <div className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-gold-500 uppercase">
             {done ? <Check size={12} strokeWidth={3} /> : open ? <Trophy size={12} /> : <Lock size={12} />} Special challenge
           </div>
-          <div className="font-semibold leading-tight">{open ? ch.title : `${stars} of ${MAX_STARS} stars`}</div>
+          <div className="font-semibold leading-tight">{open ? ch.title : `${Math.min(badges, CHALLENGE_BADGES)} of ${CHALLENGE_BADGES} badges`}</div>
           <div className="text-xs text-stone-500">
             {done
               ? `Done! You won: ${rewards.map((c) => c.name).join(' + ')}.`
               : open
                 ? `${ch.description} Reward: ${rewards.map((c) => c.name).join(' + ')}.`
-                : `Each win earns a star. With all ${MAX_STARS}, a special challenge opens.`}
+                : `Earn ${CHALLENGE_BADGES} of the 8 badges against them and a special challenge opens.`}
           </div>
         </div>
       </div>
       {!open && (
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800">
-          <div className="h-full rounded-full bg-gold-400" style={{ width: `${(stars / MAX_STARS) * 100}%` }} />
+          <div className="h-full rounded-full bg-gold-400" style={{ width: `${(Math.min(badges, CHALLENGE_BADGES) / CHALLENGE_BADGES) * 100}%` }} />
         </div>
       )}
     </div>

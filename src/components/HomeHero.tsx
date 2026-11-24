@@ -1,12 +1,12 @@
-// The top of the Play tab: a greeting that follows the time of day, your level and your streak.
+// The top of the Play tab: a greeting that follows the time of day, your rating and your streak.
 import { useEffect, useState, type ReactNode } from 'react';
 import { Flame } from 'lucide-react';
-import { getXp, levelFor } from '../lib/progress/xp';
+import { getGameRating } from '../lib/rewards/rating';
 import { weeklyGoal } from '../lib/progress/weekly';
 import { currentStreak, trainedToday } from '../lib/stats';
 import { useNav } from '../lib/nav';
 import { useCelebrate } from '../lib/celebrate';
-import { UserAvatar, useMyName, useMyTitle } from './UserAvatar';
+import { UserAvatar, useMyName } from './UserAvatar';
 import { DeltaChip, useLastSeen } from './Odometer';
 
 type Daypart = 'morning' | 'afternoon' | 'evening' | 'night';
@@ -28,7 +28,7 @@ const GREETING: Record<Daypart, string> = {
 export function HomeHero({ right }: { right?: ReactNode }) {
   const part = daypart();
   const burst = useCelebrate((s) => s.burst);
-  const [xp, setXp] = useState<number | null>(null);
+  const [rating, setRating] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
   const [doneToday, setDoneToday] = useState(true);
   const [grew, setGrew] = useState(false);
@@ -37,7 +37,7 @@ export function HomeHero({ right }: { right?: ReactNode }) {
   // Refreshed when you come back from a game or a screen (the stack empties), as well as on celebrations.
   const depth = useNav((s) => s.stack.length);
   useEffect(() => {
-    void getXp().then(setXp);
+    void getGameRating().then((r) => setRating(r.rating));
     void Promise.all([currentStreak(), trainedToday()]).then(([n, done]) => {
       setStreak(n);
       setDoneToday(done);
@@ -52,12 +52,10 @@ export function HomeHero({ right }: { right?: ReactNode }) {
     });
     void weeklyGoal().then((w) => setWeek({ days: w.days, goal: w.goal }));
   }, [burst, depth]);
-  // Numbers change in front of you: back from a game, the XP (and with it the level) rolls up from
-  // what you last saw here, with a "+60" chip.
-  const seen = useLastSeen('home.xp', xp);
-  const l = levelFor(seen.shown ?? 0);
+  // Numbers change in front of you: back from a game, your rating rolls from what you last saw
+  // here to where it is now, with a "+12" (or "−8") chip.
+  const seen = useLastSeen('home.rating', rating);
   const name = useMyName();
-  const title = useMyTitle();
   const line =
     streak >= 2
       ? `${streak} days in a row — keep the flame going!`
@@ -67,23 +65,18 @@ export function HomeHero({ right }: { right?: ReactNode }) {
 
   return (
     <div className="safe-top shrink-0 bg-stone-100 dark:bg-stone-950">
-      {/* A flat header in the page colour: you, your level, your streak. */}
+      {/* A flat header in the page colour: you, your rating, your streak. */}
       <div className="mx-auto flex max-w-md items-center gap-3 px-4 pt-3 pb-2">
         <button className="relative shrink-0 active:brightness-95" aria-label="Your profile" onClick={() => push({ name: 'profile' })}>
           <UserAvatar size={40} />
-          <span className="absolute -right-1.5 -bottom-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-[5px] bg-[#f7c045] px-1 text-[10px] font-extrabold text-[#3a2a00] ring-2 ring-stone-100 tabular-nums dark:ring-stone-950" aria-label={`Level ${l.level}`}>
-            {l.level}
-          </span>
         </button>
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate text-[12px] font-medium text-stone-500">{GREETING[part]}</div>
+          <div className="truncate text-[12px] font-medium text-stone-500 dark:text-stone-400">{GREETING[part]}</div>
           <div className="truncate text-[18px] font-extrabold tracking-[-0.01em]">{name}</div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-stone-500 dark:text-stone-400">
-            <span className="truncate font-semibold">{title}</span>
-            <span className="relative h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-stone-300 dark:bg-stone-800" title={`${l.span - l.into} XP to go`}>
-              <span className="absolute inset-y-0 left-0 rounded-full bg-[#f7c045]" style={{ width: `${Math.max(4, (seen.shown === null ? 0 : l.into / l.span) * 100)}%` }} />
-            </span>
-            {seen.delta && seen.delta.d > 0 && <DeltaChip key={seen.delta.id} d={seen.delta.d} className="!ml-0 text-[11px]" />}
+          <div className="mt-0.5 flex items-center gap-1 text-[12px] text-stone-500 dark:text-stone-400" data-testid="home-rating">
+            <span className="font-semibold">Rating</span>
+            <span className="font-bold text-stone-800 tabular-nums dark:text-stone-100">{seen.shown === null ? '\u00a0' : Math.round(seen.shown)}</span>
+            {seen.delta && seen.delta.d !== 0 && <DeltaChip key={seen.delta.id} d={seen.delta.d} className="!ml-0.5 !text-[12px]" />}
           </div>
         </div>
         {/* The streak chip once there's a streak (a new profile sees no "0"). */}

@@ -10,7 +10,6 @@ import { useSettings } from '../settings';
 export interface AttemptOutcome {
   ratingBefore?: number;
   ratingAfter?: number;
-  xp?: number;
   /** A new highest puzzle rating (after the first 10 rated puzzles). */
   newPeak?: boolean;
   /** What the Puzzle Path awarded (saved before anything animates). */
@@ -64,7 +63,7 @@ export async function recordAttempt(spec: PuzzleSpec, success: boolean, hintsUse
     });
   }
   await bumpActivity(source === 'review' ? 'reviews' : 'puzzles');
-  out.xp = await progress({ kind: 'puzzle', success, clean, review: source === 'review' });
+  await progress({ kind: 'puzzle', success, clean, review: source === 'review' });
 
   const cardId = spec.cardId ?? `p:${spec.id}`;
   const existing = await db.cards.get(cardId);

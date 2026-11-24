@@ -4,7 +4,7 @@ import { CoachBubble } from '../components/Coach';
 import { CosmeticPreview } from '../components/CosmeticPreview';
 import { Glyph } from '../components/Glyph';
 import { Header } from '../components/ui';
-import { cosmeticById, cosmeticTitle } from '../lib/rewards/cosmetics';
+import { cosmeticById, cosmeticTitle, JOURNEY_LOOKS } from '../lib/rewards/cosmetics';
 import { getGameRating, MILESTONES, REGIONS, START_RATING, titleFor, type GameRating } from '../lib/rewards/rating';
 
 const ROW = 128;
@@ -60,6 +60,15 @@ export function JourneyScreen() {
     // Kept to the middle of the path so it never covers a milestone's label.
     pos = curve(lo, hi, 0.3 + Math.min(1, (peak - lo.rating) / (hi.rating - lo.rating)) * 0.3);
   } else if (below === 0) pos = { x: nodes[0].x, y: nodes[0].y };
+
+  // The looks between milestones: small reward dots on the path, no title.
+  const dots = JOURNEY_LOOKS.flatMap(({ rating, cosmetic }) => {
+    const k = nodes.findIndex((n) => n.rating <= rating);
+    if (k <= 0) return [];
+    const lo = nodes[k];
+    const hi = nodes[k - 1];
+    return [{ rating, cosmetic, at: curve(lo, hi, (rating - lo.rating) / (hi.rating - lo.rating)) }];
+  });
 
   const d = nodes
     .slice(1)
@@ -189,6 +198,18 @@ export function JourneyScreen() {
               </div>
             );
           })}
+          {dots.map(({ rating, cosmetic, at }) => (
+            <div
+              key={cosmetic.id}
+              className={`absolute flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-sm ring-2 dark:bg-stone-800 ${peak >= rating ? 'ring-gold-400' : 'opacity-70 ring-white grayscale dark:ring-stone-900'}`}
+              style={{ left: `${at.x}%`, top: at.y, transform: 'translate(-50%, -50%)' }}
+              title={`${rating}: ${cosmeticTitle(cosmetic)}`}
+              aria-label={`${cosmeticTitle(cosmetic)} at ${rating}`}
+              data-journey-dot={rating}
+            >
+              <CosmeticPreview c={cosmetic} size={18} />
+            </div>
+          ))}
           <div ref={player} className="absolute z-10" style={{ left: `${pos.x}%`, top: pos.y, transform: 'translate(-50%, -50%)' }}>
             <div className="animate-bounce-soft relative flex items-center">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-lg ring-2 ring-brand-500 dark:bg-stone-800">

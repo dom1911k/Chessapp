@@ -1,25 +1,6 @@
-// Experience points and levels. XP only ever goes up — nothing is lost by taking a break.
-import { useCelebrate } from '../celebrate';
-import { db, kvGet, kvSet, today } from '../db';
-
-export const XP = {
-  gamePlayed: 20,
-  gameWon: 30,
-  gameDraw: 10,
-  accurateGame: 10,
-  puzzle: 8,
-  cleanPuzzle: 4,
-  review: 6,
-  lesson: 40,
-  lessonRepeat: 10,
-  drill: 30,
-  drillRepeat: 10,
-  daily: 30,
-  rushSolve: 3,
-  chapter: 80,
-  achievement: 25,
-  weeklyGoal: 50,
-} as const;
+// Legacy experience points and levels. XP is no longer awarded (round 4) but the stored total
+// stays: the level it reached still keeps what it unlocked (looks, frames, titles) unlocked.
+import { kvGet } from '../db';
 
 export const LEVEL_TITLES = [
   'Newcomer',
@@ -53,26 +34,3 @@ export function levelFor(total: number): { level: number; into: number; span: nu
 }
 
 export const getXp = () => kvGet<number>('xp', 0);
-
-/** Adds XP, records it for today, and celebrates level-ups. */
-export async function awardXp(amount: number, quiet = false): Promise<number> {
-  if (amount <= 0) return getXp();
-  const before = await getXp();
-  const after = before + amount;
-  await kvSet('xp', after);
-  const day = today();
-  await db.transaction('rw', db.activity, async () => {
-    const row = (await db.activity.get(day)) ?? { day, puzzles: 0, games: 0, reviews: 0 };
-    await db.activity.put({ ...row, xp: (row.xp ?? 0) + amount });
-  });
-  const lb = levelFor(before);
-  const la = levelFor(after);
-  const c = useCelebrate.getState();
-  if (la.level > lb.level) {
-    c.confetti();
-    c.toast({ icon: 'star', title: `Player level ${la.level} — ${la.title}`, text: 'Keep it up!' });
-  } else if (!quiet) {
-    c.toast({ icon: 'sparkles', title: `+${amount} XP` });
-  }
-  return after;
-}

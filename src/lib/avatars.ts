@@ -1,6 +1,9 @@
 // Your own look: an avatar, a frame around it and a title under your name. Avatars are free;
-// frames and titles unlock from your progress (same rules as the other cosmetics).
+// frames and titles unlock from your progress (same rules as the other cosmetics): your rating
+// journey, cups and the Laurel shop. The old account-level titles and frames stay for anyone who
+// reached those levels.
 import { LEVEL_TITLES } from './progress/xp';
+import { MILESTONES } from './rewards/rating';
 import { meets, unlockText, type Unlock, type UnlockContext } from './rewards/cosmetics';
 
 const urls = import.meta.glob('../assets/avatars/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
@@ -30,9 +33,9 @@ const lg = (a: string, b: string, c = a) => `linear-gradient(135deg, ${a}, ${b} 
 
 export const FRAMES: Frame[] = [
   { id: 'none', name: 'No frame', ring: '', unlock: { kind: 'free' } },
-  { id: 'bronze', name: 'Copper', ring: lg('#eab583', '#8a5a2c', '#d99a63'), unlock: { kind: 'level', n: 3 } },
-  { id: 'silver', name: 'Silver', ring: lg('#f4f6f8', '#8d96a0', '#dfe4e9'), unlock: { kind: 'level', n: 6 } },
-  { id: 'gold', name: 'Gold', ring: lg('#fff0a8', '#d19a16', '#ffe07a'), unlock: { kind: 'level', n: 10 } },
+  { id: 'bronze', name: 'Copper', ring: lg('#eab583', '#8a5a2c', '#d99a63'), unlock: { kind: 'rating', n: 500, was: 3 } },
+  { id: 'silver', name: 'Silver', ring: lg('#f4f6f8', '#8d96a0', '#dfe4e9'), unlock: { kind: 'rating', n: 1000, was: 6 } },
+  { id: 'gold', name: 'Gold', ring: lg('#fff0a8', '#d19a16', '#ffe07a'), unlock: { kind: 'rating', n: 1500, was: 10 } },
   { id: 'emerald', name: 'Emerald', ring: lg('#8ff5bd', '#12805a', '#5fe0a0'), unlock: { kind: 'rating', n: 1000 } },
   { id: 'royal', name: 'Royal', ring: lg('#d4b0ff', '#5a2bb8', '#b98aff'), unlock: { kind: 'rating', n: 1400 } },
   { id: 'flame', name: 'Flame', ring: lg('#ffd84a', '#f0531c', '#ffb02e'), unlock: { kind: 'gold', n: 1 } },
@@ -54,11 +57,11 @@ export interface Title {
   id: string;
   label: string;
   unlock: Unlock;
+  /** An old account-level title: only listed once earned (anyone using one keeps it). */
+  legacy?: boolean;
 }
 
-/** Every level title once you've reached that level, plus a few for your rating journey. */
-export const TITLES: Title[] = [
-  ...LEVEL_TITLES.map((label, i) => ({ id: `lvl${i + 1}`, label, unlock: (i === 0 ? { kind: 'free' } : { kind: 'level', n: i + 1 }) as Unlock })),
+const OTHER_TITLES: Title[] = [
   { id: 'rising', label: 'Rising Star', unlock: { kind: 'rating', n: 1000 } },
   { id: 'contender', label: 'Contender', unlock: { kind: 'rating', n: 1400 } },
   { id: 'masterclass', label: 'Master Class', unlock: { kind: 'rating', n: 1800 } },
@@ -71,10 +74,21 @@ export const TITLES: Title[] = [
   { id: 'grand', label: 'Grand Champion', unlock: { kind: 'laurel', id: 'title:grand', label: 'Earn all 15 Cups stars' } },
 ];
 
-/** The title to show: the chosen one if it is still unlocked, else your level's title. */
-export function shownTitle(chosen: string, levelTitle: string, ctx?: UnlockContext): string {
+/**
+ * "Newcomer" to start, then the Journey's milestone titles you've reached ("Park Rookie", "Park
+ * Player", "Café Regular" …), the rating, cup and Cups titles, and the old level titles you earned.
+ */
+export const TITLES: Title[] = [
+  { id: 'lvl1', label: LEVEL_TITLES[0], unlock: { kind: 'free' } },
+  ...MILESTONES.filter((m) => !OTHER_TITLES.some((t) => t.label === m.title)).map((m): Title => ({ id: `ms${m.rating}`, label: m.title, unlock: { kind: 'rating', n: m.rating } })),
+  ...OTHER_TITLES,
+  ...LEVEL_TITLES.slice(1).map((label, i): Title => ({ id: `lvl${i + 2}`, label, unlock: { kind: 'level', n: i + 2 }, legacy: true })),
+];
+
+/** The title to show: the chosen one if it is still unlocked, else `fallback` (your latest Journey title). */
+export function shownTitle(chosen: string, fallback: string, ctx?: UnlockContext): string {
   const t = TITLES.find((x) => x.id === chosen);
-  if (!t || (ctx && !meets(t.unlock, ctx))) return levelTitle;
+  if (!t || (ctx && !meets(t.unlock, ctx))) return fallback;
   return t.label;
 }
 

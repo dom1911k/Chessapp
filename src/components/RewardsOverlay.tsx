@@ -1,23 +1,22 @@
-// The results screen after a game, as a tally (docs/polish-3-prototype.html, scene 2). The rows are
-// grouped by kind, five at most: the rivalry (its new badges pop in a strip), the level, the
-// achievements (one row, their icons in a strip), the new looks (one row, with a preview) and what's
-// next (the opponent this win unlocked, or the next stop on the Journey). Tap a group for its list.
+// The results screen after a game, as a tally (docs/polish-3-prototype.html, scene 2). Three stat
+// tiles (rating ±, accuracy, game rating) and the rows, grouped by kind, four at most: the opponent's
+// badges (the new ones pop in a strip), the achievements (one row, their icons in a strip), the new
+// looks (one row, with a preview) and what's next (the opponent this win unlocked, or the next stop
+// on the Journey). Tap a group for its list.
 // They arrive in beats on the motion kit: the sheet springs up, the title pops (a win throws a short
 // confetti burst upwards from the sheet's top edge, never onto the numbers), the crown pops on the
 // winner, the stat tiles rise and their numbers land together, then each row slides in and does its
 // thing. The header and buttons stay put; only the rows scroll (on a small phone), and the sheet never
 // scrolls itself. The buttons rise last. A tap on the sheet skips to the end: every value final, every
-// row visible. It plays once (about 4s with a level-up); with "Reduce animations" the numbers just set.
-import { BADGES, rivalryLevel, rivalryRank } from '../lib/people/rivalry';
+// row visible. It plays once (under 4s); with "Reduce animations" the numbers just set.
+import { BADGES, CHALLENGE_BADGES, nextBadge } from '../lib/people/rivalry';
 import { UserAvatar, useMyName } from './UserAvatar';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { BadgeIcon } from './BadgeIcon';
-import { ChevronRight, Crown, Flame, RotateCcw, Star, Trophy, Users, X } from 'lucide-react';
+import { ChevronRight, Crown, Flame, RotateCcw, Trophy, Users, X } from 'lucide-react';
 import { MILESTONES, START_RATING, type Milestone } from '../lib/rewards/rating';
 import { opponentById } from '../lib/people';
 import { challengeFor } from '../lib/people/challenges';
-import { MAX_STARS } from '../lib/people/record';
-import { levelFor } from '../lib/progress/xp';
 import { cosmeticTitle, KIND_LABEL } from '../lib/rewards/cosmetics';
 import { SKILLS, TIERS } from '../lib/rewards/skills';
 import { BOUNCE, POP, SOFT, UI_EASE, animate, eo3, haptic, reduced, sleep, token, tween, type Token } from '../lib/motion';
@@ -130,28 +129,21 @@ async function fillBar(el: Element | null | undefined, from: number, to: number,
 export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent, onPlayNext }: { r: GameRewards; onClose: () => void; onReport?: () => void; onRematch?: () => void; onNewOpponent?: () => void; onPlayNext?: (id: string) => void }) {
   const o = opponentById(r.opponentId);
   const myName = useMyName();
-  const lvBefore = levelFor(r.xpBefore);
-  const lvAfter = levelFor(r.xpAfter);
-  // Once all five stars are in, the rivalry carries the progression.
-  const hasStars = !!o && r.starsBefore < MAX_STARS;
   const streak = r.winStreak ?? 0;
   const won = r.userResult === 'win';
   const delta = r.ratingAfter - r.ratingBefore;
   const jb = journeyPos(r.ratingBefore);
   const ja = journeyPos(r.ratingAfter);
-  const xpFrom = lvBefore.level + lvBefore.into / lvBefore.span;
-  const xpTo = lvAfter.level + lvAfter.into / lvAfter.span;
-  const rvFrom = r.rivalry ? rivalryLevel(r.rivalry.pointsBefore).pos : 0;
-  const rvTo = r.rivalry ? rivalryLevel(r.rivalry.pointsAfter).pos : 0;
   const ch = challengeFor(r.opponentId);
   const reached = MILESTONES.filter((m) => m.rating > r.ratingBefore && m.rating <= r.ratingAfter).pop();
   const meWon = r.userResult === 'win' ? true : r.userResult === 'loss' ? false : null;
   const theyWon = meWon === null ? null : !meWon;
   const accText = (v: number) => (r.noMoves ? '—' : `${v.toFixed(1)}%`);
 
-  // ---- The rows, grouped by kind (five at most): rivalry, level, achievements, unlocks, next ----
+  // ---- The rows, grouped by kind (four at most): badges, achievements, unlocks, next ----
   const newBadges = o ? (r.rivalry?.newBadges ?? []) : [];
-  const rivalUp = !!r.rivalry && r.rivalry.levelAfter > r.rivalry.levelBefore;
+  const held = r.rivalry?.badges ?? 0;
+  const next = nextBadge(r.rivalry?.held);
   const challengeLine = (r.challengeOpened || r.challengeDone) && ch ? (r.challengeDone ? `Challenge complete: ${ch.title}` : 'Special challenge unlocked') : null;
   const nextOpp = r.unlocked ? opponentById(r.unlocked) : undefined;
   // The last slot: the opponent this win unlocked (with Play), else the Journey. A milestone reached
@@ -161,7 +153,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
     ...r.achievements.map((a) => ({ key: a.id, icon: a.portrait ? <Portrait id={a.portrait} size={28} /> : <Medallion name={a.icon} tint="gold" size={28} />, title: a.title, sub: a.description })),
     ...r.skillsUp.map((sk) => {
       const k = SKILLS.find((x) => x.id === sk.id)!;
-      return { key: `skill:${sk.id}`, icon: <Medallion name={k.icon} tint="blue" size={28} />, title: k.name, sub: `Skill · ${TIERS[sk.tier].name} — your skill tree grew` };
+      return { key: `skill:${sk.id}`, icon: <Medallion name={k.icon} tint="blue" size={28} />, title: k.name, sub: `Skill · ${TIERS[sk.tier].name} — see Insights → Skills` };
     }),
     ...(nextOpp ? r.milestones.map((m) => ({ key: `ms:${m.rating}`, icon: <Medallion name="map" tint="gold" size={28} />, title: m.title, sub: `Journey · ${m.rating} · ${m.line}` })) : []),
   ];
@@ -170,9 +162,6 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
 
   // What changes in discrete steps (the rest is driven frame by frame on the elements).
   const [done, setDone] = useState(false);
-  const [starsLit, setStarsLit] = useState(r.starsBefore);
-  const [rivalNow, setRivalNow] = useState(r.rivalry?.levelBefore ?? 1);
-  const [levelNow, setLevelNow] = useState(lvBefore.level);
   const [milestoneHit, setMilestoneHit] = useState(false);
   const sheet = useRef<HTMLDivElement>(null);
   const back = useRef<HTMLDivElement>(null);
@@ -203,7 +192,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
     if (back.current) back.current.style.opacity = '1';
     odo(q.current.rating, r.ratingAfter);
     if (q.current.acc) q.current.acc.textContent = accText(r.accuracy);
-    if (q.current.xp) q.current.xp.textContent = `+${r.xpAfter - r.xpBefore}`;
+    if (q.current.gr && r.gameRating) q.current.gr.textContent = String(r.gameRating);
     sh.querySelectorAll<HTMLElement>('.pp-hide').forEach((e) => {
       e.getAnimations().forEach((a) => a.cancel());
       e.style.opacity = '1';
@@ -215,12 +204,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
       f.getAnimations().forEach((a) => a.cancel());
       f.style.transform = `scaleX(${full ? 1 : Math.max(0.02, frac(pos))})`;
     };
-    bar(q.current.rvBar, rvTo, Math.floor(rvTo) === rvTo && rvTo > rvFrom);
     bar(q.current.jBar, ja.pos);
-    bar(q.current.lvBar, xpTo);
-    setStarsLit(r.starsAfter);
-    setRivalNow(r.rivalry?.levelAfter ?? 1);
-    setLevelNow(lvAfter.level);
     if (reached) setMilestoneHit(true);
     setDone(true);
   };
@@ -229,7 +213,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
   useLayoutEffect(() => {
     odo(q.current.rating, r.ratingBefore);
     if (q.current.acc) q.current.acc.textContent = r.noMoves ? '—' : '0.0%';
-    if (q.current.xp) q.current.xp.textContent = '+0';
+    if (q.current.gr) q.current.gr.textContent = '0';
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -291,24 +275,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
         sfx('land', delta >= 0 ? 6 : 1);
       })();
       const pAcc = r.noMoves ? Promise.resolve() : countTo($.acc, 0, r.accuracy, 700, 1, tk, (s) => `${s}%`);
-      const pXp = countTo($.xp, 0, r.xpAfter - r.xpBefore, 650, 0, tk, (s) => `+${s}`);
-      const pStars = (async () => {
-        if (!hasStars) return;
-        await sleep(360, tk);
-        for (let n = r.starsBefore + 1; n <= r.starsAfter && !over(); n++) {
-          setStarsLit(n);
-          await sleep(30, tk);
-          const st = $.star;
-          void animate(st, [{ transform: 'scale(0) rotate(-40deg)' }, { transform: 'scale(1.5) rotate(10deg)', offset: 0.55 }, { transform: 'none' }], { d: BOUNCE.d, e: 'ease-out' });
-          sfx('star', n - r.starsBefore - 1);
-          haptic('success');
-          if (st) {
-            const c = centre(st);
-            emit({ x: c.x, y: c.y, n: 12, shape: 'star', colors: GOLDS, speed: [60, 170], life: [0.35, 0.65], size: [2, 4.5] });
-          }
-          await sleep(220, tk);
-        }
-      })();
+      const pGr = r.gameRating ? countTo($.gr, 0, r.gameRating, 650, 0, tk) : Promise.resolve();
       await sleep(480, tk);
       if (over()) return;
       // 6 · The rows slide in one at a time and each does its thing (the sheet never scrolls itself).
@@ -319,31 +286,17 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
         await sleep(120, tk);
         const kind = row.dataset.row;
         if (kind === 'rivalry') {
+          // The new badges pop in one after another; the count lands after them.
           const n = popStrip(row, 3);
-          if (!n) await fillBar($.rvBar, rvFrom, rvTo, 420, tk, (l) => setRivalNow(l));
-          else {
-            setRivalNow(r.rivalry?.levelAfter ?? 1);
+          if (n) {
+            haptic('success');
             await sleep(Math.min(300, n * 90 + 120), tk);
           }
-          void animate(row.querySelector('.pp-right'), [{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'none' }], POP);
+          void animate(row.querySelector('.pp-right'), [{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'none' }], n ? POP : SOFT);
         } else if (kind === 'journey') {
           await fillBar($.jBar, jb.pos, ja.pos, 420, tk, () => {
             setMilestoneHit(true);
             sfx('achieve');
-          });
-        } else if (kind === 'level') {
-          await fillBar($.lvBar, xpFrom, xpTo, 420, tk, async (l) => {
-            sfx('unlock');
-            haptic('big');
-            const b = $.lvBadge;
-            await animate(b, [{ transform: 'rotateY(0)' }, { transform: 'rotateY(90deg)' }], { d: 140, e: 'ease-in' });
-            setLevelNow(l);
-            void animate(b, [{ transform: 'rotateY(-90deg) scale(1.35)' }, { transform: 'none' }], BOUNCE);
-            if (b) {
-              const c = centre(b);
-              emit({ x: c.x, y: c.y, n: 14, shape: 'star', colors: GOLDS, speed: [60, 180], life: [0.4, 0.75], size: [2.5, 5] });
-            }
-            await sleep(300, tk);
           });
         } else if (kind === 'group') {
           const n = popStrip(row, 2);
@@ -360,7 +313,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
         }
         await sleep(40, tk);
       }
-      await Promise.all([pRating, pAcc, pXp, pStars]);
+      await Promise.all([pRating, pAcc, pGr]);
       if (over()) return;
       // 7 · The buttons rise in last; the coach on Game Review nods.
       void animate($.btns, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], SOFT);
@@ -455,8 +408,8 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
             </div>
           </div>
 
-          {/* One stat strip: rating ±, accuracy, stars, XP. */}
-          <div className={`mt-4 grid gap-2 ${hasStars ? 'grid-cols-4' : 'grid-cols-3'}`}>
+          {/* One stat strip: rating ±, accuracy and, when the game was long enough to judge, your game rating. */}
+          <div className={`mt-4 grid gap-2 ${r.gameRating ? 'grid-cols-3' : 'grid-cols-2'}`} data-testid="results-stats">
             <div className={hide}>
               <Stat
                 value={<span ref={ref('rating')} className="odo inline-block" data-testid="results-rating" />}
@@ -474,28 +427,15 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
             <div className={hide}>
               <Stat value={<span ref={ref('acc')} data-testid="results-accuracy" />} label="Accuracy" />
             </div>
-            {hasStars && (
+            {r.gameRating ? (
               <div className={hide}>
-                <Stat
-                  value={
-                    <span className="flex items-center justify-center gap-1">
-                      <span ref={ref('star')} className="inline-flex">
-                        <Star size={16} className={starsLit > 0 ? 'fill-[#f7c631] text-[#e0a800]' : 'text-stone-400'} />
-                      </span>
-                      {starsLit}/{MAX_STARS}
-                    </span>
-                  }
-                  label={r.starsAfter > r.starsBefore ? `+${r.starsAfter - r.starsBefore} star` : 'Stars'}
-                />
+                <Stat value={<span ref={ref('gr')} data-testid="results-game-rating" />} label="Game rating" />
               </div>
-            )}
-            <div className={hide}>
-              <Stat value={<span ref={ref('xp')} data-testid="results-xp" />} label="XP" />
-            </div>
+            ) : null}
           </div>
         </div>
 
-        {/* The rows, grouped (five at most); on a small phone they scroll under the fixed header. */}
+        {/* The rows, grouped (four at most); on a small phone they scroll under the fixed header. */}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-2 pb-3" data-testid="results-rows">
           <div className="divide-y divide-black/5 dark:divide-white/[0.06]">
             {o && (r.rivalry || challengeLine) && (
@@ -504,29 +444,14 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
                   kind="rivalry"
                   testId="row-rivalry"
                   onOpen={newBadges.length || challengeLine ? open('rivalry') : undefined}
-                  icon={<span className="flex h-8 w-8 flex-col items-center justify-center rounded-md bg-hue-rose-600 text-white"><span className="text-[11px] leading-none font-bold uppercase">Lv</span><span className="text-[13px] leading-none font-extrabold tabular-nums">{rivalNow}</span></span>}
-                  title={<>Rivalry with {o.name} · {rivalUp ? 'Level up' : rivalryRank(rivalNow)}</>}
-                  sub={challengeLine ?? undefined}
+                  icon={<BadgeIcon id={newBadges[0] ?? next?.id ?? 'streak'} size={30} on={newBadges.length > 0 || !next} />}
+                  title={newBadges.length ? <>{o.name} · {newBadges.length} new badge{newBadges.length === 1 ? '' : 's'}</> : <>{o.name} · {held}/8 badges</>}
+                  sub={challengeLine ?? (newBadges.length ? undefined : next ? `Next: ${next.label} · ${next.hint.toLowerCase()}` : 'All eight badges')}
                   strip={newBadges.length ? newBadges.map((id) => stripIcon(id, <BadgeIcon id={id} size={18} />)) : undefined}
-                  bar={newBadges.length ? undefined : <Bar barRef={ref('rvBar')} frac={done ? frac(rvTo) : frac(rvFrom)} fill="bg-hue-rose-500" />}
-                  right={r.rivalry && !rivalUp ? <span className="shrink-0 text-xs font-bold text-hue-rose-600 tabular-nums dark:text-hue-rose-400">+{r.rivalry.gained}</span> : undefined}
+                  right={newBadges.length ? <span className="shrink-0 text-xs font-bold text-hue-rose-700 tabular-nums dark:text-hue-rose-300" data-testid="row-rivalry-count">{held}/8</span> : undefined}
                 />
               </div>
             )}
-            <div className={hide}>
-              <RewardRow
-                kind="level"
-                testId="row-level"
-                icon={
-                  <span ref={ref('lvBadge')} className="flex h-8 w-8 items-center justify-center rounded-md bg-[#f7c045] text-[13px] font-extrabold text-[#3a2a00] [backface-visibility:hidden]">
-                    {levelNow}
-                  </span>
-                }
-                title={levelNow > lvBefore.level ? <>Level up! {lvAfter.title}</> : <>Level {levelNow} · {lvBefore.title}</>}
-                bar={<Bar barRef={ref('lvBar')} frac={done ? frac(xpTo) : frac(xpFrom)} fill="bg-[#f7c045]" />}
-                right={levelNow > lvBefore.level ? NEW : undefined}
-              />
-            </div>
             {achItems.length > 0 && (
               <div className={hide}>
                 <RewardRow
@@ -622,8 +547,8 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               </div>
               {detail === 'rivalry' && o && (
                 <>
-                  <h3 className="text-[17px] font-extrabold">Rivalry with {o.name}</h3>
-                  {r.rivalry && <p className="text-[13px] text-stone-500">Level {r.rivalry.levelAfter} · {rivalryRank(r.rivalry.levelAfter)} · +{r.rivalry.gained} points this game</p>}
+                  <h3 className="text-[17px] font-extrabold">Badges with {o.name}</h3>
+                  <p className="text-[13px] text-stone-500 dark:text-stone-400">{held} of 8 · {held >= CHALLENGE_BADGES ? 'their special challenge is open' : `${CHALLENGE_BADGES - held} more to open their special challenge`}</p>
                   <div className="mt-2 divide-y divide-black/5 dark:divide-white/[0.06]">
                     {newBadges.map((id) => {
                       const b = BADGES.find((x) => x.id === id);

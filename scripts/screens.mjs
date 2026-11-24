@@ -22,7 +22,7 @@
 // step-blunder, tabs-mid, push-mid, sheet-open, home-delta, path-hedges (frames caught mid-flight).
 //
 // Round 4 QA (opt-in: --only=round4, or by name): home-upnext (each Up next rule), more, puzzles-tab,
-// summary-fix, fix-mode, fix-done.
+// summary-fix, fix-mode, fix-done, over-win-long, opponent-badges, insights-skills, laurel-shop.
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
@@ -588,7 +588,7 @@ async function run([W, H], scheme) {
   const MATE_IN_1 = '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1';
   const waitTurn = () => waitFor(p, ['userTurn'], 60000);
   if (['versus-stamp', 'versus-handoff', 'end-badges', 'over-win-mid', 'over-win-levelup'].some(Q)) {
-    // A fresh profile's first win levels you up (Level 1 → 2).
+    // A fresh profile's first win: four new badges against Tom, the rating up, achievements.
     const t0 = Date.now();
     await p.evaluate((f) => window.__play.getState().newGame('w', 400, f, 'tom'), MATE_IN_1);
     await shotsAt(t0, [[820, 'p3-versus-stamp'], [2200, 'p3-versus-handoff']]);
@@ -597,19 +597,26 @@ async function run([W, H], scheme) {
     const t1 = Date.now();
     await p.evaluate(() => window.__play.getState().userMove({ from: 'a1', to: 'a8' }));
     await shotsAt(t1, [[650, 'p3-end-badges'], [2400, 'p3-over-win-mid']]);
-    // The level row: catch its badge as it flips back in.
-    const flip = await p.evaluate(async () => {
-      const t = Date.now();
-      while (Date.now() - t < 12000) {
-        const sh = document.querySelector('[data-testid="results-sheet"]');
-        if (sh?.getAnimations({ subtree: true }).some((a) => JSON.stringify(a.effect?.getKeyframes?.() ?? []).includes('rotateY(-90deg)'))) return true;
-        await new Promise((r) => setTimeout(r, 30));
-      }
-      return false;
+    // The tally once it has landed: at most five rows, no level row, three stat tiles (or two
+    // when the game is too short for a game rating, as this one-move mate is), header in view.
+    await p.waitForTimeout(2600);
+    const sheet = await p.evaluate(() => {
+      const sh = document.querySelector('[data-testid="results-sheet"]');
+      const head = document.querySelector('[data-testid="results-header"]')?.getBoundingClientRect();
+      return {
+        rows: sh?.querySelectorAll('.pp-row').length ?? 0,
+        level: !!sh?.querySelector('[data-testid="row-level"]'),
+        tiles: sh?.querySelectorAll('.pp-stat').length ?? 0,
+        xp: /\bXP\b|Level up/.test(sh?.textContent ?? ''),
+        headInView: !!head && head.top >= 0 && head.bottom <= innerHeight,
+      };
     });
-    await p.waitForTimeout(140);
-    await shot(flip ? 'p3-over-win-levelup' : 'p3-over-win-levelup-missing');
-    await p.waitForTimeout(3000);
+    if (sheet.rows > 5) errors.push(`over-win-levelup: ${sheet.rows} rows`);
+    if (sheet.level || sheet.xp) errors.push('over-win-levelup: a level row or XP is still shown');
+    if (sheet.tiles < 2 || sheet.tiles > 3) errors.push(`over-win-levelup: ${sheet.tiles} stat tiles`);
+    if (!sheet.headInView) errors.push('over-win-levelup: the header is out of view');
+    await shot('p3-over-win-levelup');
+    await p.waitForTimeout(1500);
     await p.evaluate(() => (window.__play.getState().closeRewards?.(), window.__play.getState().leaveGame?.()));
     await home();
     await p.waitForTimeout(800);
@@ -693,13 +700,14 @@ async function run([W, H], scheme) {
     await p.waitForTimeout(600);
   }
   if (Q('home-delta')) {
-    // Come back to Home with more XP than you last saw: it rolls up and a "+60" chip pops.
+    // Come back to Home with a higher rating than you last saw: it rolls up and a "+24" chip pops.
     await p.evaluate(async () => {
       const find = (n) => performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n) && !x.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n));
       const db = await import(find('/src/lib/db.ts'));
-      const xp = await import(find('/src/lib/progress/xp.ts'));
-      await db.kvSet('lastSeen:home.xp', await xp.getXp());
-      await xp.awardXp(60, true);
+      const rating = await import(find('/src/lib/rewards/rating.ts'));
+      const r = await rating.getGameRating();
+      await db.kvSet('lastSeen:home.rating', r.rating);
+      await db.kvSet('gameRating', { ...r, rating: r.rating + 24, peak: Math.max(r.peak, r.rating + 24) });
     });
     await p.reload();
     await p.waitForTimeout(3000);
@@ -720,6 +728,11 @@ async function run([W, H], scheme) {
   // home-upnext (each of the four rules), more, puzzles-tab, summary-fix, fix-mode, fix-done.
   const R = (k) => !!ONLY && (ONLY.includes(k) || ONLY.includes('round4'));
   const inPage = (fn, arg) => p.evaluate(fn, arg);
+  /** Set a stored value (the kv table) in the page. */
+  const kv = (k, v) => inPage(async ([k, v]) => {
+    const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+    await (await import(find('/src/lib/db.ts'))).kvSet(k, v);
+  }, [k, v]);
   /** Back to Home so it recomputes "Up next", then a shot with the card in view. */
   const upNextShot = async (name) => {
     await p.evaluate(() => window.__nav.getState().setTab('more'));
@@ -767,10 +780,6 @@ async function run([W, H], scheme) {
       await window.__path({ ...st, flatDays: { ...st.flatDays, dailyTrainingDone: db.today() } });
     });
     await upNextShot('r4-upnext-course');
-    const kv = (k, v) => inPage(async ([k, v]) => {
-      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
-      await (await import(find('/src/lib/db.ts'))).kvSet(k, v);
-    }, [k, v]);
     await kv('courseStartStage', 99);
     await upNextShot('r4-upnext-puzzles');
     await kv('courseStartStage', 0);
@@ -799,13 +808,14 @@ async function run([W, H], scheme) {
     const task = await p.locator('[data-testid="fix-task"]').textContent().catch(() => null);
     if (task !== 'Find a better move for Black.') errors.push(`fix-mode: the task reads ${task}`);
     await shot('r4-fix-mode');
-    // A wrong try (…a6), checked by the engine, then Try again.
-    await tap(p, 'a7', 'black');
+    // A wrong try (…Qg5?? hangs the queen to Nxg5), checked by the engine, then Try again.
+    await tap(p, 'd8', 'black');
     await p.waitForTimeout(200);
-    await tap(p, 'a6', 'black');
-    await p.locator('[data-testid="fix-again"]:not([disabled])').waitFor({ timeout: 15000 }).catch(() => errors.push('fix-mode: a wrong try was not marked'));
+    await tap(p, 'g5', 'black');
+    const marked = await p.locator('[data-testid="fix-again"]:not([disabled])').waitFor({ timeout: 20000 }).then(() => true, () => false);
+    if (!marked) errors.push('fix-mode: a wrong try was not marked');
     await shot('r4-fix-wrong');
-    await p.locator('[data-testid="fix-again"]').click();
+    if (marked) await p.locator('[data-testid="fix-again"]').click();
     await p.waitForTimeout(400);
     // The better move: …Nf6.
     await tap(p, 'g8', 'black');
@@ -851,6 +861,115 @@ async function run([W, H], scheme) {
     await push({ name: 'customPuzzles' });
     await p.waitForTimeout(1500);
     await shot('r4-custom');
+    await home();
+    await p.waitForTimeout(600);
+  }
+
+  // over-win-long: a longer won game (17 moves of yours, the last a mate), so the results sheet has
+  // all three stat tiles: Rating, Accuracy and Game rating.
+  if (R('over-win-long')) {
+    await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const { db } = await import(find('/src/lib/db.ts'));
+      const { tryMove } = await import(find('/src/lib/chess/game.ts'));
+      const start = '6k1/1R6/8/8/8/8/8/R3K3 w - - 0 1';
+      const route = ['e1d1', 'd1c1', 'c1c2', 'c2d2', 'd2e2', 'e2f2', 'f2f3', 'f3e3', 'e3d3', 'd3c3', 'c3c4', 'c4d4', 'd4e4', 'e4f4', 'f4g4', 'g4h4'];
+      const loss = [10, 60, 25, 80, 15, 40, 120, 35, 20, 55, 30, 90, 15, 45, 25, 70];
+      let fen = start;
+      let ev = 500;
+      const plies = [];
+      route.forEach((u, i) => {
+        const w = tryMove(fen, u);
+        ev -= loss[i];
+        plies.push({ san: w.move.san, uci: u, fenBefore: fen, fenAfter: w.fen, color: 'w', isUser: true, evalAfter: { type: 'cp', value: ev }, classification: loss[i] >= 90 ? 'inaccuracy' : 'good' });
+        fen = w.fen;
+        // Black's king steps between g8 and h8 (Rb7 holds the seventh rank).
+        const mv = ['g8h8', 'h8g8'].map((m) => tryMove(fen, m)).find(Boolean);
+        ev += 30;
+        plies.push({ san: mv.move.san, uci: mv.move.lan, fenBefore: fen, fenAfter: mv.fen, color: 'b', isUser: false, evalAfter: { type: 'cp', value: ev } });
+        fen = mv.fen;
+      });
+      await db.current.put({ id: 'play', userColor: 'w', elo: 400, opponentId: 'tom', startFen: start, startedAt: Date.now() - 420000, plies, takebacks: 0, hintsUsed: 0, told: [] });
+    });
+    await p.evaluate(() => window.__play.getState().load());
+    await waitTurn();
+    await p.waitForTimeout(700);
+    await p.evaluate(() => window.__play.getState().userMove({ from: 'a1', to: 'a8' }));
+    await p.waitForTimeout(7500);
+    const tiles = await p.evaluate(() => [...document.querySelectorAll('[data-testid="results-sheet"] .pp-stat')].map((e) => e.textContent).join(' | '));
+    if (!/Game rating/.test(tiles)) errors.push(`over-win-long: tiles ${tiles}`);
+    await shot('r4-over-win-long');
+    await p.evaluate(() => (window.__play.getState().closeRewards?.(), window.__play.getState().leaveGame?.()));
+    await home();
+    await p.waitForTimeout(800);
+  }
+
+  // opponent-badges, insights-skills, laurel-shop (Phase 4).
+  if (R('opponent-badges')) {
+    // Three of Tom's eight badges: the card's strip, the row, the row opened, and the picker.
+    await kv('opponentStats', { tom: { w: 3, l: 1, d: 0, stars: 3, bestAccuracy: 80, badges: ['white', 'clean', 'mate'], streak: 1 } });
+    await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      (await import(find('/src/lib/changes.ts'))).announceChange('records');
+    });
+    await p.evaluate(() => window.__settings.getState().set({ opponentId: 'tom' }));
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(400);
+    await home();
+    await p.waitForTimeout(1500);
+    const strip = await p.evaluate(() => document.querySelector('[data-testid="badge-strip"]')?.getAttribute('data-held'));
+    if (strip !== '3') errors.push(`opponent-badges: the strip shows ${strip}`);
+    if (await p.evaluate(() => /☆|★/.test(document.body.textContent ?? ''))) errors.push('opponent-badges: stars are still shown');
+    await shot('r4-opponent-badges');
+    await p.locator('[data-testid="rivalry"]').scrollIntoViewIfNeeded();
+    await p.locator('[data-testid="rivalry"]').click();
+    await p.waitForTimeout(500);
+    await p.locator('[data-badge-tile="streak"]').scrollIntoViewIfNeeded().catch(() => {});
+    await shot('r4-opponent-badges-open');
+    await p.evaluate(() => document.querySelectorAll('.overflow-y-auto').forEach((e) => e.scrollTo(0, 0)));
+    await p.locator('[aria-label="Change opponent"]').click();
+    await p.waitForTimeout(1200);
+    await shot('r4-opponent-picker');
+    await p.keyboard.press('Escape').catch(() => {});
+    await p.locator('button:has-text("Done")').last().click().catch(() => {});
+    await p.waitForTimeout(500);
+  }
+  if (R('insights-skills')) {
+    await push({ name: 'insights' });
+    await p.waitForTimeout(1800);
+    if (!(await p.locator('[data-testid="insights-skills"]').count())) errors.push('insights-skills: no Skills section');
+    await shot('r4-insights-skills');
+    await home();
+    await p.waitForTimeout(500);
+    // An old Skill tree link opens Insights at Skills.
+    await push({ name: 'skills' });
+    await p.waitForTimeout(1500);
+    const inView = await p.evaluate(() => {
+      const r = document.querySelector('#skills')?.getBoundingClientRect();
+      return !!r && r.top >= 0 && r.top < innerHeight / 2;
+    });
+    if (!inView) errors.push('insights-skills: the skills link did not open at Skills');
+    await home();
+    await p.waitForTimeout(500);
+  }
+  if (R('laurel-shop')) {
+    // A Steady Hand bought up to II before: kept, but no longer listed as an upgrade.
+    await p.evaluate(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const m = await import(find('/src/cups/meta.ts'));
+      await m.useCupsMeta.getState().patch({ laurels: 14, levels: { steadyHand: 2, rewind: 2 } });
+    });
+    await p.evaluate(() => window.__nav.getState().setTab('run'));
+    await p.waitForTimeout(1800);
+    await p.locator('button:has-text("Laurel shop")').click();
+    await p.waitForTimeout(1500);
+    const ids = await p.evaluate(() => [...document.querySelectorAll('[data-testid="upgrade-row"]')].map((e) => e.getAttribute('data-id')).join(','));
+    if (ids !== 'rewind,extraMinute,threatBell,colour') errors.push(`laurel-shop: upgrade rows ${ids}`);
+    await shot('r4-laurel-shop');
+    await p.evaluate(() => document.querySelector('.run-fadeup')?.scrollTo(0, 99999));
+    await p.waitForTimeout(500);
+    await shot('r4-laurel-shop-bottom');
+    await p.locator('button:has-text("Back")').first().click().catch(() => {});
     await home();
     await p.waitForTimeout(600);
   }

@@ -1,6 +1,8 @@
-// Insights, chess.com style: where your games are won and lost — accuracy by phase, results by
+// Insights, chess.com style: your Skills first (they grow from puzzles and lessons too, so they're
+// useful from day one), then where your games are won and lost — accuracy by phase, results by
 // colour and opening, by time of day and by playing speed. App games and chess.com imports.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { SkillsSection } from '../components/SkillsSection';
 import { Arrive, EmptyState, Header, Segmented, Skeleton } from '../components/ui';
 import { Lightbulb } from 'lucide-react';
 import { useNav } from '../lib/nav';
@@ -13,8 +15,14 @@ const PHASE_LABEL = { opening: 'Opening', middlegame: 'Middlegame', endgame: 'En
 const PART_LABEL = { morning: 'Morning (5–12)', afternoon: 'Afternoon (12–17)', evening: 'Evening (17–22)', night: 'Night (22–5)' } as const;
 const SPEED_LABEL = { bullet: 'Bullet', blitz: 'Blitz', rapid: 'Rapid', classical: 'Classical', daily: 'Daily', untimed: 'No clock' } as const;
 
-export function InsightsScreen() {
+export function InsightsScreen({ focus }: { /** 'skills': open at the Skills section (links that used to open the Skill tree). */ focus?: 'skills' } = {}) {
   const [all, setAll] = useState<AnyGame[] | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focus !== 'skills') return;
+    const t = setTimeout(() => scroller.current?.querySelector('#skills')?.scrollIntoView({ block: 'start' }), 60);
+    return () => clearTimeout(t);
+  }, [focus]);
   const [src, setSrc] = useState<GameSource>('all');
   const push = useNav((s) => s.push);
   useEffect(() => void allGames({ includeUnanalyzed: true }).then(setAll), []);
@@ -22,7 +30,9 @@ export function InsightsScreen() {
   return (
     <div className="flex h-full flex-col">
       <Header title="Insights" back subtitle={r ? `${r.games} games` : undefined} />
-      <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
+      <div ref={scroller} className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto p-4">
+        <SkillsSection />
+        <h2 className="section-title !mt-6">Your games</h2>
         <Segmented value={src} onChange={setSrc} options={[{ value: 'all', label: 'All games' }, { value: 'app', label: 'In this app' }, { value: 'chess.com', label: 'chess.com' }]} />
         <Arrive ready={!!r} skeleton={<Skeleton rows={4} kind="charts" />} className="space-y-4">
         {r && r.games === 0 && (

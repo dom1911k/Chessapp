@@ -1,7 +1,10 @@
+// Skills (in Insights): your chess skills in four columns (Safety, Tactics, Checkmates, Endgames),
+// each node Solid → Strong → Mastered, growing from puzzles, the tactics you play in games and
+// lessons. Tap a node for how to grow it. (This was the Skill tree screen.)
 import { useEffect, useState } from 'react';
-import { CoachBubble } from '../components/Coach';
-import { Glyph } from '../components/Glyph';
-import { Dialog, Header } from '../components/ui';
+import { CoachBubble } from './Coach';
+import { Glyph } from './Glyph';
+import { Dialog } from './ui';
 import { useNav } from '../lib/nav';
 import { getCareer, type TacticCounts } from '../lib/rewards/career';
 import { BRANCHES, SKILLS, skillStates, TIERS, type Skill, type SkillState } from '../lib/rewards/skills';
@@ -39,8 +42,8 @@ function SkillNode({ skill, st, onClick }: { skill: Skill; st: SkillState; onCli
   );
 }
 
-/** Your chess skills, growing from puzzles, games and lessons. */
-export function SkillTreeScreen() {
+/** Your chess skills, growing from puzzles, games and lessons (Insights' first section). */
+export function SkillsSection() {
   const push = useNav((s) => s.push);
   const [states, setStates] = useState<Record<string, SkillState> | null>(null);
   const [career, setCareer] = useState<TacticCounts>({});
@@ -49,29 +52,28 @@ export function SkillTreeScreen() {
     void skillStates().then(setStates);
     void getCareer().then(setCareer);
   }, []);
-  if (!states) return null;
-  const medals = [1, 2, 3].map((t) => Object.values(states).filter((s) => s.tier === t).length);
-  const st = open ? states[open.id] : null;
+  const medals = states ? [1, 2, 3].map((t) => Object.values(states).filter((s) => s.tier === t).length) : [0, 0, 0];
+  const st = open && states ? states[open.id] : null;
 
   return (
-    <div className="flex h-full flex-col">
-      <Header title="Skill tree" back />
-      <div className="mx-auto w-full max-w-xl flex-1 space-y-4 overflow-y-auto px-4 pb-6">
-        <div className="card flex items-center justify-around !py-3">
+    <section id="skills" className="scroll-mt-3 space-y-2.5" data-testid="insights-skills">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="section-title">Skills</h2>
+        {/* Medals so far: Solid, Strong, Mastered. */}
+        <span className="flex items-center gap-2.5">
           {[1, 2, 3].map((t, i) => (
-            <div key={t} className="flex flex-col items-center">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full text-white shadow" style={{ background: TIERS[t].color }}>
-                <Glyph name="medal" size={18} />
-              </span>
-              <span className="mt-1 text-lg leading-none font-bold">{medals[i]}</span>
-              <span className="text-[12px] text-stone-500 dark:text-stone-400">{TIERS[t].name}</span>
-            </div>
+            <span key={t} className="flex items-center gap-1 text-[12px] font-semibold text-stone-600 tabular-nums dark:text-stone-300" title={TIERS[t].name}>
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: TIERS[t].color }} />
+              {medals[i]} {TIERS[t].name}
+            </span>
           ))}
-        </div>
-        <CoachBubble>
-          <p>Every skill grows from <b>puzzles</b>, from <b>using it in your games</b> (that counts extra!) and from <b>lessons</b>. Tap a skill to see how to grow it.</p>
-        </CoachBubble>
-        <div className="relative grid grid-cols-4 gap-1">
+        </span>
+      </div>
+      <CoachBubble>
+        <p>Every skill grows from <b>puzzles</b>, from <b>using it in your games</b> (that counts extra!) and from <b>lessons</b>. Tap a skill to see how to grow it.</p>
+      </CoachBubble>
+      {states && (
+        <div className="card relative grid grid-cols-4 gap-1 !px-1.5 !py-3">
           {BRANCHES.map((b) => {
             const list = SKILLS.filter((s) => s.branch === b.id);
             return (
@@ -89,7 +91,7 @@ export function SkillTreeScreen() {
             );
           })}
         </div>
-      </div>
+      )}
       <Dialog open={!!open} onClose={() => setOpen(null)} title={open?.name ?? ''}>
         {open && st && (
           <div className="space-y-3">
@@ -138,6 +140,6 @@ export function SkillTreeScreen() {
           </div>
         )}
       </Dialog>
-    </div>
+    </section>
   );
 }

@@ -11,7 +11,10 @@ export interface Activity {
   games: number;
   reviews: number;
   dailyDone?: boolean;
+  /** Legacy: XP earned that day (no longer written); still marks old days as training days. */
   xp?: number;
+  /** Lessons, drills, chapters, rushes: training that isn't a puzzle, game or review. */
+  other?: number;
 }
 
 export interface KV {
@@ -62,11 +65,11 @@ export function today(d = new Date()): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-export async function bumpActivity(field: 'puzzles' | 'games' | 'reviews', n = 1) {
+export async function bumpActivity(field: 'puzzles' | 'games' | 'reviews' | 'other', n = 1) {
   const day = today();
   await db.transaction('rw', db.activity, async () => {
-    const row = (await db.activity.get(day)) ?? { day, puzzles: 0, games: 0, reviews: 0 };
-    row[field] += n;
+    const row: Activity = (await db.activity.get(day)) ?? { day, puzzles: 0, games: 0, reviews: 0 };
+    row[field] = (row[field] ?? 0) + n;
     await db.activity.put(row);
   });
 }

@@ -1,4 +1,5 @@
 import { migrateRatingScale } from './lib/migrate';
+import { migrateBadges } from './lib/people/record';
 import { Onboarding } from './components/Onboarding';
 import { getGameRating } from './lib/rewards/rating';
 import { setPlayerRating } from './lib/playerRating';
@@ -37,7 +38,6 @@ import { TimeDrillScreen } from './screens/TimeDrillScreen';
 import { TrapScreen, TrapsScreen } from './screens/TrapsScreen';
 import { PracticeScreen } from './screens/PracticeScreen';
 import { JourneyScreen } from './screens/JourneyScreen';
-import { SkillTreeScreen } from './screens/SkillTreeScreen';
 import { CollectionScreen } from './screens/CollectionScreen';
 import { PuzzlePathScreen } from './screens/PuzzlePathScreen';
 import { PieceDefs } from './components/PieceDefs';
@@ -162,7 +162,8 @@ function StackScreen({ screen }: { screen: Screen }) {
     case 'journey':
       return <JourneyScreen />;
     case 'skills':
-      return <SkillTreeScreen />;
+      // The Skill tree lives in Insights now: old links open Insights at its Skills section.
+      return <InsightsScreen focus="skills" />;
     case 'collection':
       return <CollectionScreen />;
     case 'puzzlePath':
@@ -299,7 +300,9 @@ export function App() {
     requestPersistentStorage();
     void preloadSounds();
     // Ratings moved to the chess.com scale (v1.55): convert stored ratings once, then load.
-    const migrated = migrateRatingScale().catch(() => false);
+    const migrated = migrateRatingScale().catch(() => false)
+      // Badges replaced stars (round 4): challenges already opened by five wins stay open.
+      .then(() => migrateBadges().catch(() => false));
     void migrated.then(() => getGameRating()).then((r) => setPlayerRating(r.rating));
     void migrated.then(() => useSettings.getState().load()).then(() => {
       const st = useSettings.getState();

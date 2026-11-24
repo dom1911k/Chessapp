@@ -29,12 +29,12 @@ export function ResetRecordsCard() {
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} title="Fresh start against the bots?">
         <div className="space-y-3 text-sm">
-          <p>Every bot's wins, draws, losses, stars, rivalry level, badges and special challenges are cleared, and only the first three opponents are open again.</p>
+          <p>Every bot's wins, draws, losses, badges and special challenges are cleared, and only the first three opponents are open again.</p>
           <label className="flex items-center gap-2 font-semibold">
             <input type="checkbox" checked={rating} onChange={(e) => setRating(e.target.checked)} className="h-5 w-5 accent-brand-600" />
             Also restart my rating at {START}
           </label>
-          <p className="text-stone-500">Kept: your game history and reviews, puzzles, XP, achievements and your collection.</p>
+          <p className="text-stone-500">Kept: your game history and reviews, puzzles, achievements and your collection.</p>
           <div className="flex gap-2">
             <button className="btn-secondary flex-1" onClick={() => setOpen(false)}>Cancel</button>
             <button className="btn-primary flex-1" disabled={busy} onClick={() => void reset()}>{busy ? 'Resetting…' : 'Start fresh'}</button>

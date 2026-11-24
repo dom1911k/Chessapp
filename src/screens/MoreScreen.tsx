@@ -1,10 +1,11 @@
 // The More tab, chess.com style: your profile (and stats) on top, then everything else as a plain
 // list, one row per screen.
 import { UserAvatar } from '../components/UserAvatar';
-import { type ReactNode } from 'react';
-import { Award, ChevronRight, CloudDownload, Gem, History, Lightbulb, Map, Microscope, Network, Settings, Target } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Award, ChevronRight, CloudDownload, Gem, History, Lightbulb, Map, Microscope, Settings, Target } from 'lucide-react';
 import { Header } from '../components/ui';
-import { LevelBadge } from '../components/Gamification';
+import { SeenNumber } from '../components/Odometer';
+import { getGameRating } from '../lib/rewards/rating';
 import { useNav, type Screen } from '../lib/nav';
 import { useSettings } from '../lib/settings';
 
@@ -30,7 +31,6 @@ const GROUPS: { title: string; items: Item[] }[] = [
     items: [
       { icon: <Map size={19} />, label: 'Rating journey', to: { name: 'journey' } },
       { icon: <Award size={19} />, label: 'Achievements', to: { name: 'achievements' } },
-      { icon: <Network size={19} />, label: 'Skill tree', to: { name: 'skills' } },
       { icon: <Gem size={19} />, label: 'Collection', sub: 'Boards, pieces and sounds', to: { name: 'collection' } },
     ],
   },
@@ -38,6 +38,11 @@ const GROUPS: { title: string; items: Item[] }[] = [
 
 export function MoreScreen() {
   const push = useNav((s) => s.push);
+  const tab = useNav((s) => s.tab);
+  const [rating, setRating] = useState<number | null>(null);
+  useEffect(() => {
+    if (tab === 'more') void getGameRating().then((r) => setRating(r.rating));
+  }, [tab]);
   const ccUser = useSettings((s) => s.ccUsername);
   return (
     <div className="flex h-full flex-col">
@@ -47,8 +52,8 @@ export function MoreScreen() {
           <UserAvatar size={56} />
           <span className="flex-1">
             <span className="block text-lg font-bold">{ccUser || 'You'}</span>
-            <span className="mt-0.5 block">
-              <LevelBadge seenKey="more.level" />
+            <span className="mt-0.5 flex items-center gap-1 text-[13px] text-stone-500 dark:text-stone-400" data-testid="more-rating">
+              Rating <SeenNumber k="more.rating" value={rating} className="font-bold text-stone-800 dark:text-stone-100" />
             </span>
           </span>
           <span className="text-sm font-semibold text-brand-700 dark:text-brand-500">Profile and stats</span>

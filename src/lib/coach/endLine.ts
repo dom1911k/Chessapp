@@ -3,10 +3,19 @@
 import type { Classification } from '../chess/evaluation';
 import { TACTIC_LABEL, type Special, type TacticKey } from '../rewards/career';
 
+/** Badges from the game: how many are new, how many you now hold, and whether the fifth opened the challenge. */
+export interface BadgeNews {
+  fresh: number;
+  held: number;
+  opened?: boolean;
+}
+
 /** Coach Sam's words at the end of a game. `verdict`: what he thinks of your game-ending move, said first. */
-export function resultLines(userResult: 'win' | 'loss' | 'draw', reason: string, stars: number, opponent?: string, verdict?: string): string[] {
+export function resultLines(userResult: 'win' | 'loss' | 'draw', reason: string, badges?: BadgeNews, opponent?: string, verdict?: string): string[] {
   const who = opponent ?? 'the bot';
-  const starLine = opponent ? [stars >= 5 ? `That's all 5 stars with ${who}!` : `Star ${stars} of 5 with ${who}. Five stars open ${who}'s special challenge.`] : [];
+  const starLine = opponent && badges?.fresh
+    ? [`${badges.fresh === 1 ? 'A new badge' : `${badges.fresh} new badges`} with ${who}: ${badges.held}/8.${badges.opened ? ` That opens ${who}'s special challenge!` : ''}`]
+    : [];
   if (verdict && userResult === 'win') return [`${verdict} You won${reason === 'checkmate' ? ' by checkmate' : ''}!`, ...starLine];
   if (verdict && userResult === 'draw') return [`${verdict} It's a draw (${reason}).`];
   if (userResult === 'win')

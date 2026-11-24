@@ -5,11 +5,12 @@ import { DRILLS } from '../endgames';
 import { LESSONS } from '../lessons/data';
 import { MATE_PATTERNS } from '../lessons/mates';
 import { OPPONENTS } from '../people';
-import { getOpponentRecords, MAX_STARS, starsOf } from '../people/record';
+import { badgeCount, getOpponentRecords } from '../people/record';
+import { CHALLENGE_BADGES } from '../people/rivalry';
+import { getGameRating } from '../rewards/rating';
 import { add, BEST_GAME, getCareer, maxOf, type TacticCounts } from '../rewards/career';
 import { skillStates } from '../rewards/skills';
 import { getPathState, levelAt } from '../puzzles/path';
-import { awardXp, getXp, levelFor, XP } from './xp';
 import { weeksMet } from './weekly';
 
 export interface Stats {
@@ -19,7 +20,8 @@ export interface Stats {
   cleanWins: number;
   bestAccuracy: number;
   beaten: Set<string>;
-  fiveStars: number;
+  /** Most badges you hold against any one opponent. */
+  maxBadges: number;
   /** Tactics played in all your games (plus the current game while it's running). */
   career: TacticCounts;
   /** Most of each tactic in a single game. */
@@ -37,7 +39,8 @@ export interface Stats {
   drillsDone: number;
   dailyDone: number;
   weeksMet: number;
-  level: number;
+  /** Your best Journey rating (peak), on either rating scale. */
+  peak: number;
   chaptersDone: number;
   /** The puzzle path: the board you're on (0 = Wood … 7 = Legend) and your best streak. */
   pathBoard: number;
@@ -72,7 +75,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: `Win a game against ${o.name} (${o.elo}).`,
     check: (s: Stats) => s.beaten.has(o.id),
   })),
-  { id: 'stars-3', icon: 'star', title: 'Five-star friend', description: 'Collect all 5 stars with one opponent.', ...count(1, (s) => s.fiveStars) },
+  // Ids kept from before badges and the Journey replaced stars and levels: earned ones stay earned.
+  { id: 'stars-3', icon: 'star', title: 'Best friends', description: `Earn ${CHALLENGE_BADGES} badges against one opponent.`, ...count(CHALLENGE_BADGES, (s) => s.maxBadges) },
   { id: 'challenge-1', icon: 'flag', title: 'Challenge accepted', description: "Complete an opponent's special challenge.", ...count(1, (s) => s.challengesDone) },
   { id: 'challenge-5', icon: 'trophy', title: 'Challenge champion', description: 'Complete 5 special challenges.', ...count(5, (s) => s.challengesDone) },
   // Tactics played in real games
@@ -95,7 +99,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'great-10', icon: 'zap', title: 'Sharp eye', description: 'Play 10 great moves.', ...count(10, (s) => s.career.great ?? 0) },
   { id: 'comeback', icon: 'repeat', title: 'Comeback kid', description: 'Win a game after being clearly worse.', ...count(1, (s) => s.comebacks) },
   { id: 'spotless', icon: 'shield', title: 'Spotless', description: 'Win without a single mistake or blunder.', ...count(1, (s) => s.spotlessWins) },
-  { id: 'skill-gold', icon: 'medal', title: 'Mastered', description: 'Master a skill in the skill tree.', ...count(1, (s) => s.goldSkills) },
+  { id: 'skill-gold', icon: 'medal', title: 'Mastered', description: 'Master a skill (Insights → Skills).', ...count(1, (s) => s.goldSkills) },
   { id: 'collector-10', icon: 'palette', title: 'Collector', description: 'Unlock 10 items for your collection.', ...count(10, (s) => s.collected) },
   { id: 'puzzles-10', icon: 'sparkles', title: 'Puzzler', description: 'Solve 10 puzzles.', ...count(10, (s) => s.puzzlesSolved) },
   { id: 'puzzles-100', icon: 'brain', title: 'Pattern spotter', description: 'Solve 100 puzzles.', ...count(100, (s) => s.puzzlesSolved) },
@@ -120,8 +124,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'week-1', icon: 'sprout', title: 'Weekly goal', description: 'Reach your weekly goal once.', ...count(1, (s) => s.weeksMet) },
   { id: 'week-5', icon: 'tree', title: 'Steady growth', description: 'Reach your weekly goal in 5 weeks (they don\'t need to be in a row).', ...count(5, (s) => s.weeksMet) },
   { id: 'chapter-1', icon: 'map', title: 'On the path', description: 'Finish a chapter of the course.', ...count(1, (s) => s.chaptersDone) },
-  { id: 'level-5', icon: 'medal', title: 'Level 5', description: 'Reach level 5.', ...count(5, (s) => s.level) },
-  { id: 'level-10', icon: 'award', title: 'Level 10', description: 'Reach level 10.', ...count(10, (s) => s.level) },
+  { id: 'level-5', icon: 'medal', title: 'Park Rookie', description: 'Reach 500 on your journey.', ...count(500, (s) => s.peak) },
+  { id: 'level-10', icon: 'award', title: 'Club Member', description: 'Reach 1000 on your journey.', ...count(1000, (s) => s.peak) },
 ];
 
 const KEY = 'achievements';
@@ -143,7 +147,7 @@ export async function gatherStats(extra: TacticCounts = {}): Promise<Stats> {
     cleanWins: games.filter((g) => g.userResult === 'win' && g.hintsUsed + g.takebacks === 0).length,
     bestAccuracy: Math.max(0, ...games.map((g) => g.summary.accuracy)),
     beaten: new Set(Object.entries(records).filter(([, r]) => r.w > 0).map(([id]) => id)),
-    fiveStars: Object.values(records).filter((r) => starsOf(r) >= MAX_STARS).length,
+    maxBadges: Math.max(0, ...Object.values(records).map((r) => badgeCount(r))),
     career: add(await getCareer(), extra),
     bestGame: maxOf(await kvGet<TacticCounts>(BEST_GAME, {}), extra),
     comebacks: games.filter((g) => g.userResult === 'win' && (g.minWp ?? 50) <= 20).length,
@@ -159,7 +163,7 @@ export async function gatherStats(extra: TacticCounts = {}): Promise<Stats> {
     drillsDone: Object.values(drills).filter((d) => d.completed > 0).length,
     dailyDone: activity.filter((a) => a.dailyDone).length,
     weeksMet: (await weeksMet()).length,
-    level: levelFor(await getXp()).level,
+    peak: Math.max((await getGameRating()).peak, await kvGet<number>('legacyPeak', 0)),
     chaptersDone: Object.values(course).filter(Boolean).length,
     ...(await pathStats()),
   };
@@ -170,8 +174,8 @@ async function pathStats() {
 }
 
 /**
- * Unlocks anything newly earned and gives a little XP for each; celebrates with confetti and a
- * toast unless `quiet` (games: the results sheet lists them instead).
+ * Unlocks anything newly earned; celebrates with a toast unless `quiet` (games: the results sheet
+ * lists them instead).
  */
 export async function checkAchievements(extra: TacticCounts = {}, opts: { quiet?: boolean } = {}): Promise<Achievement[]> {
   const stats = await gatherStats(extra);
@@ -185,7 +189,6 @@ export async function checkAchievements(extra: TacticCounts = {}, opts: { quiet?
     c.confetti();
     for (const a of fresh) c.toast({ icon: a.portrait ? 'trophy' : a.icon, title: `Achievement: ${a.title}`, text: a.description });
   }
-  await awardXp(XP.achievement * fresh.length, true);
   return fresh;
 }
 

@@ -4,7 +4,7 @@ import { useMyName } from '../../components/UserAvatar';
 import { champion, currentRound, opponentRating, roundName, yourColor, yourOpponent, type CupState } from '../cup';
 import { quirkById } from '../quirks';
 import { SPIRIT } from '../pixel/pixelize';
-import { YOU, cupXp, tierInfo } from '../ladder';
+import { YOU, tierInfo } from '../ladder';
 import { useCup } from '../store';
 import { PixelPortrait, Sprite } from '../pixel/sprites';
 import { Bracket } from '../ui/Bracket';
@@ -58,7 +58,6 @@ function CupHubMain({ c }: { c: CupState }) {
           <div className="run-sans mt-1 text-sm text-[var(--ink-dim)]">
             {c.place === 'winner' ? `Three wins in a row. The ${tierInfo(c.tier).name} is yours.` : champ && champ !== YOU ? `${opponentById(champ)?.name} went on to win it.` : ''}
           </div>
-          {cupXp(c.tier, c.place) > 0 && <div className="run-sans mt-2 text-sm font-black text-[var(--gold-2)]">+{cupXp(c.tier, c.place)} XP</div>}
           <RewardList c={c} />
           <button className="run-btn mt-4 w-full" onClick={() => (sfx('card'), void s.leave())}>Back to the cups</button>
         </div>

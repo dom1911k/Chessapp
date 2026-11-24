@@ -47,9 +47,11 @@ describe('avatar frames and titles', () => {
     expect(shownFrame('bronze', ctx).id).toBe('bronze');
     expect(shownFrame('gold', ctx).id).toBe('none');
     expect(shownFrame('emerald', { ...ctx, peak: 1000 }).id).toBe('emerald');
-    expect(shownTitle('lvl3', 'Curious Knight', ctx)).toBe(TITLES[2].label);
-    expect(shownTitle('contender', 'Curious Knight', ctx)).toBe('Curious Knight');
-    expect(shownTitle('', 'Curious Knight', ctx)).toBe('Curious Knight');
+    // Someone who reached level 3 keeps that title; the fallback is your Journey title.
+    expect(shownTitle('lvl3', 'Café Shark', ctx)).toBe('Curious Knight');
+    expect(shownTitle('contender', 'Café Shark', ctx)).toBe('Café Shark');
+    expect(shownTitle('', 'Café Shark', ctx)).toBe('Café Shark');
+    expect(TITLES.find((t) => t.id === 'lvl3')?.legacy).toBe(true);
     expect(FRAMES[0].unlock.kind).toBe('free');
   });
 });

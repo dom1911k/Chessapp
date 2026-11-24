@@ -552,3 +552,21 @@ describe('cups: sponsors, stars, codex, nemesis', () => {
     expect(n2.nemesis).toBeUndefined();
   });
 });
+
+import { UPGRADABLE, canUpgrade, useCupsMeta } from '../cups/meta';
+describe('cups: a smaller Laurel shop (round 4)', () => {
+  it('only Rewind, Extra Minute, Threat Bell and Choose Your Colour can be upgraded', async () => {
+    expect([...UPGRADABLE].sort()).toEqual(['colour', 'extraMinute', 'rewind', 'threatBell']);
+    for (const id of ['steadyHand', 'openingPrep', 'secondWind', 'scoutReport', 'rattled', 'candidates']) expect(canUpgrade(id)).toBe(false);
+    useCupsMeta.setState({ laurels: 20, levels: {} });
+    expect(await useCupsMeta.getState().upgrade('steadyHand')).toBe(false);
+    expect(useCupsMeta.getState().laurels).toBe(20);
+  });
+  it('a level II already bought on a removed one still applies in a cup', () => {
+    expect(gameStartMods(['steadyHand'], 'w', { steadyHand: 2 }).extraInc.w).toBe(TUNING.boons.steadyHandIncMs[1]);
+    expect(gameStartMods(['steadyHand'], 'w', {}).extraInc.w).toBe(TUNING.boons.steadyHandIncMs[0]);
+    // The cups still offer all six (at level I unless a level was bought).
+    expect(boonPool([])).toEqual(expect.arrayContaining(['steadyHand', 'openingPrep', 'secondWind', 'scoutReport', 'rattled']));
+    expect(charmPool([])).toContain('candidates');
+  });
+});

@@ -52,6 +52,13 @@ const KEY = 'cupsMeta';
 
 /** Laurels to raise a boon or charm from `level` to the next (null at the top). */
 export const upgradeCost = (level: number): number | null => (level < TUNING.levels.max ? TUNING.levels.cost[level - 1] ?? null : null);
+/**
+ * The cards Laurels can raise from level I to II and III (the shop's Upgrades). The other starting
+ * cards stay in the game at level I; a level already bought for one of them is kept and still
+ * applies in a cup, it just can't be raised further.
+ */
+export const UPGRADABLE = ['rewind', 'extraMinute', 'threatBell', 'colour'] as const;
+export const canUpgrade = (id: string) => (UPGRADABLE as readonly string[]).includes(id);
 export const EMPTY_META: CupsMeta = { laurels: 0, unlocks: [], recentQuirks: [], history: [], levels: {}, heatBest: {}, stars: {}, codex: {}, nemesesBeaten: [], contractsDone: 0 };
 
 interface MetaStore extends CupsMeta {
@@ -102,6 +109,7 @@ export const useCupsMeta = create<MetaStore>((set, get) => ({
     return true;
   },
   async upgrade(id) {
+    if (!canUpgrade(id)) return false;
     const m = get();
     const cur = m.levels[id] ?? 1;
     const cost = upgradeCost(cur);

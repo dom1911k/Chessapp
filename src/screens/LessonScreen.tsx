@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Board } from '../components/Board';
 import { CoachBubble } from '../components/Coach';
 import { Header } from '../components/ui';
-import { LevelBadge } from '../components/Gamification';
 import { tryMove, type MoveInput } from '../lib/chess/game';
 import { kvGet, kvSet } from '../lib/db';
 import { PLACEMENT, STAGES, START_KEY, placementStage } from '../lib/course';
@@ -154,7 +153,6 @@ export function LessonScreen({ lessonId, mode }: { lessonId: string; mode?: 'rev
                     : `A few slips — it comes back in ${INTERVALS[0]} days.`
                   : `It comes back in Daily training in ${INTERVALS[0]} days for a quick refresh.`}
               </p>
-              <LevelBadge />
             </>
           )}
           <button className="btn-primary mt-2 w-full" onClick={pop}>Continue</button>

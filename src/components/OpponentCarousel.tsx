@@ -1,9 +1,9 @@
-// Swipeable opponent cards on the Play tab: big portrait, stars, record and style.
-import { RivalryChip } from './Rivalry';
+// Swipeable opponent cards on the Play tab: big portrait, badges, record and style.
+import { BadgeStrip } from './Rivalry';
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, Lock, Star } from 'lucide-react';
+import { BookOpen, Lock } from 'lucide-react';
 import { OPPONENTS, type Opponent } from '../lib/people';
-import { isUnlocked, MAX_STARS, starsOf, type OpponentRecord } from '../lib/people/record';
+import { isUnlocked, type OpponentRecord } from '../lib/people/record';
 import { REPERTOIRES } from '../lib/people/openings';
 import { Portrait } from './Coach';
 
@@ -14,7 +14,6 @@ const GAP = 12;
 const TINT = ['#f8c8d4', '#cfe3c4', '#f2d2a6', '#bcd7ec', '#d9c8ef', '#f3c19b', '#b9d8cf', '#c7c3e6', '#e7b9b9'];
 
 function Card({ o, i, rec, open, active, onTap }: { o: Opponent; i: number; rec?: OpponentRecord; open: boolean; active: boolean; onTap: () => void }) {
-  const stars = starsOf(rec);
   const games = rec ? rec.w + rec.d + rec.l : 0;
   return (
     <button
@@ -28,16 +27,6 @@ function Card({ o, i, rec, open, active, onTap }: { o: Opponent; i: number; rec?
       <div className="relative flex h-[132px] w-full items-end justify-center">
         <div className="absolute inset-0 dark:opacity-35" style={{ background: `linear-gradient(180deg, ${TINT[i % TINT.length]}, transparent)` }} />
         <span className="absolute top-2.5 left-3 rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold text-stone-700 dark:bg-black/30 dark:text-stone-100">{o.elo}</span>
-        {open && (
-          <span className="absolute top-2.5 right-3 flex gap-px">
-            {Array.from({ length: MAX_STARS }, (_, k) => (
-              <Star key={k} size={12} className={k < stars ? 'fill-gold-400 text-gold-500' : 'text-stone-400/70'} />
-            ))}
-          </span>
-        )}
-        {open && games > 0 && (
-          <span className="absolute top-8 right-3"><RivalryChip rec={rec} /></span>
-        )}
         <Portrait id={o.id} size={108} mood={active && open ? 'happy' : 'neutral'} className={`mb-[-14px] ${open ? '' : 'opacity-40 grayscale'}`} />
         {!open && (
           <span className="absolute top-[52px] flex h-10 w-10 items-center justify-center rounded-full bg-stone-900/75 text-white shadow-lg">
@@ -49,6 +38,7 @@ function Card({ o, i, rec, open, active, onTap }: { o: Opponent; i: number; rec?
         <div className="font-display text-xl font-semibold">{o.name}</div>
         <div className="text-[12px] text-stone-500 dark:text-stone-400">Rated {o.elo} (chess.com rapid)</div>
         <div className="text-xs font-semibold text-brand-700 dark:text-brand-500">{open ? o.tagline : `Beat ${OPPONENTS[i - 1].name} to unlock`}</div>
+        {open && <BadgeStrip rec={rec} size={14} className="mt-1.5 justify-center" />}
         <p className="mt-2 line-clamp-3 min-h-[3.75em] text-[13px] leading-[1.25em] text-stone-600 dark:text-stone-300">{o.bio}</p>
         <div className="mt-2 flex items-center justify-center gap-3 text-[12px] text-stone-500 dark:text-stone-400">
           {REPERTOIRES[o.id] && (

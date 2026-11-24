@@ -35,17 +35,17 @@ describe('finishing a game', () => {
     };
     const first = await finishGame(g, '1-0', 'checkmate');
     expect(first).not.toBeNull();
-    const xp = await kvGet<number>('xp', 0);
-    expect(xp).toBeGreaterThan(0);
+    // No account XP any more: a game writes none (the rating moves instead).
+    expect(await kvGet<number>('xp', 0)).toBe(0);
+    expect(first!.rewards.ratingAfter).toBeGreaterThan(first!.rewards.ratingBefore);
     // The app closes before the game is cleared and finishes it again on restart.
     const second = await finishGame(g, '1-0', 'checkmate');
     expect(second).toBeNull();
     expect(await db.games.count()).toBe(1);
-    expect(await kvGet<number>('xp', 0)).toBe(xp);
 
     await resetProgress();
     expect(await db.games.count()).toBe(0);
-    expect(await kvGet<number>('xp', 0)).toBe(0);
+    expect((await kvGet<{ games: number } | null>('gameRating', null))?.games ?? 0).toBe(0);
   });
 });
 

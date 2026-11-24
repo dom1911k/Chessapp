@@ -6,9 +6,8 @@
 import { UserAvatar, useMyName } from './UserAvatar';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { PieceIcon } from './PieceIcon';
-import { Star } from 'lucide-react';
 import { opponentById } from '../lib/people';
-import { getXp, levelFor } from '../lib/progress/xp';
+import { getGameRating } from '../lib/rewards/rating';
 import { BOUNCE, POP, SOFT, UI_EASE, animate, crossfade, haptic, sleep, token } from '../lib/motion';
 import { centre, emit } from '../lib/fx';
 import { sfx } from '../lib/sfx';
@@ -52,7 +51,7 @@ function flyPortrait(from: Element | null, to: HTMLElement | null, frame: HTMLEl
 
 export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { opponentId?: string; elo: number; userColor: 'w' | 'b'; line?: string; onDone: () => void }) {
   const o = opponentById(opponentId);
-  const [level, setLevel] = useState<number | null>(null);
+  const [rating, setRating] = useState<number | null>(null);
   const name = useMyName();
   const root = useRef<HTMLButtonElement>(null);
   const r = useRef<Record<string, HTMLElement | null>>({});
@@ -60,7 +59,7 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
     r.current[k] = el;
   };
   const leaveRef = useRef<() => void>(() => {});
-  useEffect(() => void getXp().then((x) => setLevel(levelFor(x).level)), []);
+  useEffect(() => void getGameRating().then((x) => setRating(x.rating)), []);
 
   // Before the first paint: the halves start off-screen and the coach card is hidden in the same
   // frame the intro mounts, so nothing of the game screen (or a resting layout) shows first.
@@ -145,7 +144,7 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
           <span className="text-left">
             <span className="block max-w-[46vw] truncate font-display text-3xl font-semibold">{name}</span>
             <span ref={ref('meChip')} className="mt-1 inline-flex items-center gap-1 rounded-full bg-black/30 px-2 py-0.5 text-xs font-semibold opacity-0">
-              <Star size={11} className="fill-gold-400 text-gold-400" /> Level {level ?? <span className="skel inline-block h-3 w-4 rounded-[3px] align-middle" />} · {userColor === 'w' ? 'White' : 'Black'}
+              Rating {rating ?? <span className="skel inline-block h-3 w-6 rounded-[3px] align-middle" />} · {userColor === 'w' ? 'White' : 'Black'}
             </span>
           </span>
         </div>

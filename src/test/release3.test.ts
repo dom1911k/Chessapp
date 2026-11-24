@@ -66,38 +66,29 @@ describe('human-like move choice (Maia-1 tuning)', () => {
   });
 });
 
-import { BADGES, badgesEarned, levelSpan, rivalryLevel, rivalryPoints, rivalryRank, rivalryXp } from '../lib/people/rivalry';
-import { rpOf } from '../lib/people/record';
-describe('rivalries', () => {
+import { BADGES, badgesEarned, nextBadge } from '../lib/people/rivalry';
+import { badgeCount, challengeOpen } from '../lib/people/record';
+describe('badges with each opponent', () => {
   const game = (o: Record<string, unknown> = {}) => ({ userResult: 'win', userColor: 'w', hintsUsed: 0, takebacks: 0, reason: 'checkmate', match: false, summary: { accuracy: 90 }, plies: Array.from({ length: 40 }, (_, i) => ({ isUser: i % 2 === 0, fenAfter: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' })), ...o }) as never;
-  it('every finished game earns points; a clean win earns the most', () => {
-    expect(rivalryPoints({ userResult: 'win', hintsUsed: 0, takebacks: 0 })).toBe(4);
-    expect(rivalryPoints({ userResult: 'win', hintsUsed: 1, takebacks: 0 })).toBe(3);
-    expect(rivalryPoints({ userResult: 'draw', hintsUsed: 0, takebacks: 0 })).toBe(2);
-    expect(rivalryPoints({ userResult: 'loss', hintsUsed: 0, takebacks: 0 })).toBe(1);
-  });
-  it('levels never cap and each takes a little longer', () => {
-    expect(rivalryLevel(0)).toMatchObject({ level: 1, into: 0, span: 6 });
-    expect(rivalryLevel(6).level).toBe(2);
-    expect(rivalryLevel(6 + 8 + 3)).toMatchObject({ level: 3, into: 3, span: 10 });
-    expect(rivalryLevel(100000).level).toBeGreaterThan(100);
-    expect(levelSpan(5)).toBeGreaterThan(levelSpan(4));
-    expect(rivalryRank(1)).toBe('New face');
-    expect(rivalryRank(6)).toBe('Rival');
-    expect(rivalryRank(40)).toBe('Legendary rivalry');
-    expect(rivalryXp(3)).toBe(30);
-    expect(rivalryXp(50)).toBe(100);
-  });
   it('awards matchup badges for feats in a win only', () => {
     expect(badgesEarned(game(), 1).sort()).toEqual(['clean', 'mate', 'quick', 'sharp', 'white'].sort());
     expect(badgesEarned(game({ userColor: 'b', match: true, hintsUsed: 2, summary: { accuracy: 60 }, reason: 'resignation' }), 3).sort()).toEqual(['black', 'match', 'quick', 'streak'].sort());
     expect(badgesEarned(game({ userResult: 'loss' }), 0)).toEqual([]);
     expect(BADGES.length).toBe(8);
   });
-  it('gives old records their points from the score', () => {
-    expect(rpOf({ w: 5, l: 2, d: 1, stars: 0, bestAccuracy: 0 })).toBe(19);
-    expect(rpOf({ w: 5, l: 2, d: 1, stars: 0, bestAccuracy: 0, rp: 40 })).toBe(40);
-    expect(rpOf(undefined)).toBe(0);
+  it('counts only known badges, and names the next one to go for', () => {
+    const rec = { w: 2, l: 0, d: 0, stars: 0, bestAccuracy: 0, badges: ['white', 'clean', 'bogus'] };
+    expect(badgeCount(rec)).toBe(2);
+    expect(nextBadge(rec.badges)?.label).toBe('With Black');
+    expect(nextBadge(BADGES.map((b) => b.id))).toBeUndefined();
+  });
+  it('opens the special challenge at five badges, and keeps one already open', () => {
+    const base = { w: 0, l: 0, d: 0, stars: 0, bestAccuracy: 0 };
+    expect(challengeOpen({ ...base, badges: ['white', 'black', 'clean', 'sharp'] })).toBe(false);
+    expect(challengeOpen({ ...base, badges: ['white', 'black', 'clean', 'sharp', 'quick'] })).toBe(true);
+    // Five wins used to open it ("five stars"): the migration marks it open, and it stays open.
+    expect(challengeOpen({ ...base, w: 5, badges: ['white'] })).toBe(false);
+    expect(challengeOpen({ ...base, w: 5, badges: ['white'], challengeOpen: true })).toBe(true);
   });
 });
 

@@ -2,8 +2,8 @@
 // and an avatar frame per cup tier. Titles and prices keep the Cups display type; descriptions are
 // in the app font at 12px, in the Cups palette, so they stay readable under the scanlines.
 import { LAUREL_SHOP, canBuy, type ShopKind } from '../laurels';
-import { upgradeCost, useCupsMeta } from '../meta';
-import { boonCard, boonPool, charmCard, charmPool, levelLine, levelName, lv } from '../boons';
+import { UPGRADABLE, upgradeCost, useCupsMeta } from '../meta';
+import { BOONS, boonCard, charmCard, levelLine, levelName, lv, type BoonId, type CharmId } from '../boons';
 import { useCup } from '../store';
 import { Sprite } from '../pixel/sprites';
 import { GOLD, JADE, SPIRIT, EMBER, BLOOD, type SpritePalette } from '../pixel/pixelize';
@@ -63,24 +63,23 @@ export function LaurelShop({ onBack }: { onBack: () => void }) {
   );
 }
 
-/** Raise boons and charms you own from level I to II and III. */
+/** Raise four cards from level I to II and III (Rewind, Extra Minute, Threat Bell, Choose Your Colour). */
 function Upgrades() {
   const meta = useCupsMeta();
-  const rows = [
-    ...boonPool(meta.unlocks).map((id) => ({ id, card: (l: number) => boonCard(id, l), pal: GOLD })),
-    ...charmPool(meta.unlocks).map((id) => ({ id, card: (l: number) => charmCard(id, l), pal: EMBER })),
-  ];
+  const rows = UPGRADABLE.map((id) =>
+    id in BOONS ? { id, card: (l: number) => boonCard(id as BoonId, l), pal: GOLD } : { id, card: (l: number) => charmCard(id as CharmId, l), pal: EMBER },
+  );
   return (
     <section className="mt-4">
       <div className="run-label mb-1">Upgrades</div>
-      <div className="run-sans mb-2 text-[12px] leading-[1.4] text-[var(--ink-dim)]">Everything starts at level I. Level II is the classic strength, level III a step beyond.</div>
+      <div className="run-sans mb-2 text-[12px] leading-[1.4] text-[var(--ink-dim)]">Four cards can be raised. Level II is the classic strength, level III a step beyond.</div>
       <div className="space-y-2">
         {rows.map(({ id, card, pal }) => {
           const l = lv(meta.levels, id);
           const cost = upgradeCost(l);
           const now = card(l);
           return (
-            <div key={id} className="run-panel flex items-center gap-3 px-3 py-2">
+            <div key={id} className="run-panel flex items-center gap-3 px-3 py-2" data-testid="upgrade-row" data-id={id}>
               <Sprite name={now.glyph} size={34} px={14} pal={pal} />
               <div className="min-w-0 flex-1">
                 <div className="run-title leading-tight font-black">{now.name} <span className="text-[var(--gold-2)]">{levelName(l)}</span></div>

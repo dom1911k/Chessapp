@@ -31,7 +31,7 @@ export function ResetCard() {
         <div className="space-y-3 text-sm">
           <p className="flex gap-2 rounded-xl bg-danger-50 p-3 text-danger-700 dark:bg-danger-900/40 dark:text-danger-300">
             <TriangleAlert size={18} className="mt-0.5 shrink-0" />
-            This deletes your games, puzzle rating, XP and level, achievements, stars, journey, skill tree, collection, course progress and review cards. It can't be undone.
+            This deletes your games, your ratings, achievements, badges, journey, skills, collection, course progress and review cards. It can't be undone.
           </p>
           <p className="text-stone-500">Your settings stay. Tip: make a backup first (above) if you might want it back.</p>
           <label className="flex items-center gap-2 font-semibold">

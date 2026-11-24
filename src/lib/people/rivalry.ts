@@ -1,34 +1,8 @@
-// Rivalries: the progression with each opponent that never ends. Every finished game earns
-// rivalry points (a win most, but a loss still counts), points raise your rivalry level with
-// that opponent, and eight matchup badges give you something specific to go for.
+// Badges: the one track with each opponent. Eight feats you can earn once each against every
+// opponent; five of them open that opponent's special challenge. (Rivalry points and levels from
+// earlier versions stay in the stored records but are no longer shown or written.)
 import { Chess } from 'chess.js';
 import type { GameRecord } from '../store/types';
-
-/** Points for a finished game: win 3, draw 2, loss 1 — plus 1 for a win with no hints or take-backs. */
-export function rivalryPoints(g: Pick<GameRecord, 'userResult' | 'hintsUsed' | 'takebacks'>): number {
-  const base = g.userResult === 'win' ? 3 : g.userResult === 'draw' ? 2 : 1;
-  return base + (g.userResult === 'win' && g.hintsUsed + g.takebacks === 0 ? 1 : 0);
-}
-
-/** Points needed to go from level n to n+1: 6, 8, 10, … (so the early levels come quickly). */
-export const levelSpan = (level: number) => 4 + 2 * level;
-
-export function rivalryLevel(points: number): { level: number; into: number; span: number; /** level + fraction, for fill bars */ pos: number } {
-  let level = 1;
-  let left = Math.max(0, points);
-  while (left >= levelSpan(level)) {
-    left -= levelSpan(level);
-    level++;
-  }
-  return { level, into: left, span: levelSpan(level), pos: level + left / levelSpan(level) };
-}
-
-const RANKS: [number, string][] = [[1, 'New face'], [2, 'Acquaintance'], [3, 'Sparring partner'], [5, 'Rival'], [8, 'Arch-rival'], [12, 'Nemesis'], [16, 'Legendary rivalry']];
-/** What the two of you are to each other at a rivalry level. */
-export const rivalryRank = (level: number) => [...RANKS].reverse().find(([l]) => level >= l)![1];
-
-/** XP bonus for reaching a rivalry level. */
-export const rivalryXp = (level: number) => Math.min(100, 10 * level);
 
 export interface Badge {
   id: string;
@@ -62,16 +36,16 @@ export function badgesEarned(g: GameRecord, streak: number): string[] {
   return out;
 }
 
-/** Each new badge is worth this many rivalry points. */
-export const BADGE_POINTS = 3;
+/** Badges with one opponent that open their special challenge. */
+export const CHALLENGE_BADGES = 5;
+
+/** The next badge to go for: the first one in order you don't hold yet. */
+export const nextBadge = (held: string[] | undefined) => BADGES.find((b) => !(held ?? []).includes(b.id));
 
 export interface RivalryChange {
-  pointsBefore: number;
-  pointsAfter: number;
-  gained: number;
-  levelBefore: number;
-  levelAfter: number;
+  /** Badges this game earned (in BADGES order). */
   newBadges: string[];
-  /** XP earned from rivalry levels reached in this game. */
-  xp: number;
+  /** Badges held against them after this game, and which. */
+  badges: number;
+  held: string[];
 }

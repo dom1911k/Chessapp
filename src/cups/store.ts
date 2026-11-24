@@ -1,10 +1,9 @@
 // The cup in progress (saved between rounds; the game itself saves mid-game in game.ts).
 import { create } from 'zustand';
 import { kvGet, kvSet } from '../lib/db';
-import { awardXp } from '../lib/progress/xp';
 import { getRepertoire, linePlies, repertoireLines } from '../lib/repertoire';
 import { applyResult, applySecondChance, cupAdvances, cupGold, heatOn, summarize, currentRound, newCup, opponentRating, roundDone, secondChanceApplies, yourColor, yourOpponent, type CupState } from './cup';
-import { addTrophy, cupXp, getTrophies, rng, type CupTier, type Trophies } from './ladder';
+import { addTrophy, getTrophies, rng, type CupTier, type Trophies } from './ladder';
 import { fenOf, turnOf, useCupGame, type GameOver } from './game';
 import { NOTICE_KEY } from './legacy';
 import { TUNING } from './tuning';
@@ -117,8 +116,6 @@ export const useCup = create<CupStore>((set, get) => {
       const laurels = end.lines.reduce((n, l) => n + l.laurels, 0);
       await useCupsMeta.getState().patch({ ...end.patch, laurels: useCupsMeta.getState().laurels + laurels });
       next = { ...next, rewards: end.lines };
-      const xp = cupXp(next.tier, next.place!);
-      if (xp) await awardXp(xp, true);
       if (next.place === 'winner') trophies = await addTrophy(next.tier);
     } else if (through) {
       // Between rounds: a boon (while you have room), then the shop.

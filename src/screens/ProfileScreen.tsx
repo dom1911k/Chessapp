@@ -24,7 +24,7 @@ import { SeenNumber } from '../components/Odometer';
 import { themeStats, type ThemeStat } from '../lib/puzzles/select';
 import { themeLabel } from '../lib/puzzles/themes';
 import { bestStreak, currentStreak } from '../lib/stats';
-import { AchievementsPreview, LevelCard, WeeklyGoalCard } from '../components/Gamification';
+import { AchievementsPreview, WeeklyGoalCard } from '../components/Gamification';
 import { weeklySummary, type WeekStats } from '../lib/weekly';
 import { CareerCard, RewardsCards } from '../components/RewardsCards';
 import { GameInsightsCard, GapCard } from '../components/ChessCom';
@@ -132,7 +132,7 @@ export function ProfileScreen() {
           </button>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-xl font-bold">{ccUser || 'You'}</span>
-            <span className="block text-sm font-semibold text-brand-700 dark:text-brand-500">{title}</span>
+            <span className="block text-sm font-semibold text-brand-700 dark:text-brand-500" data-testid="profile-rating">{title} · Rating {d.bots.rating}</span>
             <span className="block text-sm text-stone-500 dark:text-stone-400">{total ? <>{total} games · {d.streak} day{d.streak === 1 ? '' : 's'} in a row</> : 'Play your first game to see your stats here'}</span>
           </span>
         </div>
@@ -249,7 +249,6 @@ export function ProfileScreen() {
                 ))}
               </div>
             </div>
-            <LevelCard />
             <WeeklyGoalCard editable />
             <WeekCard week={d.week} />
             <RewardsCards />

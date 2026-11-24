@@ -4,57 +4,17 @@ import { kvSet } from '../lib/db';
 import { useNav } from '../lib/nav';
 import { ACHIEVEMENTS, gatherStats, unlockedAchievements, type Stats } from '../lib/progress/achievements';
 import { GOAL_KEY, weeklyGoal } from '../lib/progress/weekly';
-import { getXp, levelFor } from '../lib/progress/xp';
 import { useCelebrate } from '../lib/celebrate';
 import { Portrait } from './Coach';
 import { Header } from './ui';
-import { Check, ChevronRight, Star } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import { Medallion } from './Glyph';
-import { SeenNumber } from './Odometer';
 
-/** Re-reads data whenever celebrations fire (XP/achievements may have changed). */
+/** Re-reads data whenever celebrations fire (achievements or the weekly goal may have changed). */
 function useRefreshKey() {
   const burst = useCelebrate((s) => s.burst);
   const toasts = useCelebrate((s) => s.toasts.length);
   return `${burst}-${toasts}`;
-}
-
-/** "★ Level 4". With `seenKey`, the level rolls up from the one you last saw there. */
-export function LevelBadge({ seenKey }: { seenKey?: string } = {}) {
-  const [xp, setXp] = useState<number | null>(null);
-  const key = useRefreshKey();
-  useEffect(() => void getXp().then(setXp), [key]);
-  if (xp === null) return null;
-  const l = levelFor(xp);
-  return (
-    <span className="chip bg-gold-300/40 text-stone-800 ring-1 ring-gold-400/50 dark:bg-gold-500/20 dark:text-gold-300" title={l.title}>
-      <Star size={12} className="fill-gold-400 text-gold-500" /> Level {seenKey ? <SeenNumber k={seenKey} value={l.level} /> : l.level}
-    </span>
-  );
-}
-
-export function LevelCard() {
-  const [xp, setXp] = useState(0);
-  const key = useRefreshKey();
-  useEffect(() => void getXp().then(setXp), [key]);
-  const l = levelFor(xp);
-  return (
-    <div className="card flex items-center gap-4 !p-3">
-      <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-[10px] bg-gradient-to-br from-hue-amber-300 to-hue-amber-500 text-white shadow-sm">
-        <span className="text-[11px] font-semibold uppercase leading-none">Level</span>
-        <span className="text-2xl font-black leading-none">{l.level}</span>
-      </div>
-      <div className="flex-1">
-        <div className="font-bold">{l.title}</div>
-        <div className="mt-1 h-2 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-700">
-          <div className="h-full rounded-full bg-hue-amber-400 transition-all" style={{ width: `${(l.into / l.span) * 100}%` }} />
-        </div>
-        <div className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
-          {l.into} / {l.span} XP to level {l.level + 1} · {xp} XP total
-        </div>
-      </div>
-    </div>
-  );
 }
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];

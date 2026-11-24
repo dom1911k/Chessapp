@@ -12,9 +12,9 @@ import { addToCareer, type TacticCounts } from '../rewards/career';
 import { rateGame, MILESTONES, type Milestone } from '../rewards/rating';
 import { skillStates, SKILLS, type Tier } from '../rewards/skills';
 import { freshUnlocks, type Cosmetic } from '../rewards/cosmetics';
-import { awardXp, getXp } from '../progress/xp';
 import { ACHIEVEMENTS, checkAchievements, unlockedAchievements, type Achievement } from '../progress/achievements';
-import { MAX_STARS } from '../people/record';
+import { reviewGame } from '../review';
+import { cpLosses, gameRating } from '../reviewText';
 import { OPPONENTS } from '../people';
 import { TACTIC_KEYS } from '../rewards/career';
 import { BEST_WIN_STREAK, currentWinStreak } from '../stats';
@@ -43,7 +43,6 @@ export function shortDate(t: number, now = Date.now()): string {
 /** Store the finished game, turn its mistakes into review cards, and set the lesson focus. */
 export interface FinishInfo {
   gameId: number;
-  stars: number;
   firstWin: boolean;
   rewards: GameRewards;
 }
@@ -56,17 +55,15 @@ export interface GameRewards {
   accuracy: number;
   /** None of your moves were analysed (resigned before moving): the sheet shows "—". */
   noMoves?: boolean;
-  starsBefore: number;
-  starsAfter: number;
-  /** Rivalry points and badges from this game. */
+  /** Badges from this game against this opponent. */
   rivalry?: RivalryChange;
-  /** All five stars just reached: the special challenge opens. */
+  /** The fifth badge just came in: the special challenge opens. */
   challengeOpened: boolean;
   challengeDone: boolean;
-  xpBefore: number;
-  xpAfter: number;
   ratingBefore: number;
   ratingAfter: number;
+  /** How strongly you played this game on the bots' scale (as in the review summary); none for short games. */
+  gameRating?: number;
   /** Journey milestones reached with this game. */
   milestones: Milestone[];
   achievements: Achievement[];
@@ -148,10 +145,8 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     return id;
   });
   await bumpActivity('games');
-  const xpBefore = await getXp();
   const skillsBefore = await skillStates();
   const rec = await recordOpponentGame({ ...record, id: gameId });
-  if (rec?.rivalry.xp) await awardXp(rec.rivalry.xp, true);
   await addToCareer(record.tactics ?? {});
   // Rematches: results per chess.com opponent.
   if (g.rematch && !opts.cup) await recordRematch(g.rematch.name, userResult);
@@ -175,14 +170,11 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     opponentId: g.opponentId,
     accuracy: summary.accuracy,
     noMoves: !hasAccuracy(summary) || undefined,
-    starsBefore: rec?.starsBefore ?? 0,
-    starsAfter: rec?.stars ?? 0,
-    challengeOpened: (rec?.starsBefore ?? 0) < MAX_STARS && (rec?.stars ?? 0) >= MAX_STARS,
+    challengeOpened: rec?.challengeOpened ?? false,
     challengeDone: rec?.challengeDone ?? false,
-    xpBefore,
-    xpAfter: await getXp(),
     ratingBefore: rb.rating,
     ratingAfter: ra.rating,
+    gameRating: perfOf(record),
     milestones: MILESTONES.filter((m) => m.rating > rb.peak && m.rating <= ra.peak),
     achievements: ACHIEVEMENTS.filter((a) => (unlockedAt[a.id] ?? 0) >= g.startedAt),
     unlocks: await freshUnlocks(),
@@ -199,7 +191,16 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
   };
   // Unlocking items can complete the "Collector" achievement.
   if (rewards.unlocks.length) rewards.achievements.push(...(await checkAchievements()));
-  return { gameId, stars: rec?.stars ?? 0, firstWin: rec?.firstWin ?? false, rewards };
+  return { gameId, firstWin: rec?.firstWin ?? false, rewards };
+}
+
+/** Your game rating for the results sheet (the review summary's number), when the game is long enough. */
+function perfOf(g: GameRecord): number | undefined {
+  try {
+    return gameRating(cpLosses(g, reviewGame(g), true)) ?? undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Tactics you played this game, summed over your moves (take-backs drop out by themselves). */

@@ -59,7 +59,7 @@ interface PlayStore {
   botNote: ThreatInfo | null;
   /** The opponent's latest chat line. */
   chat: { text: string; mood: Mood; ply: number } | null;
-  over: { result: GameResult; reason: string; gameId: number; stars?: number; firstWin?: boolean; practice?: Theme } | null;
+  over: { result: GameResult; reason: string; gameId: number; firstWin?: boolean; practice?: Theme } | null;
   /** Set the moment a game ends (before it's recorded): the board marks the kings from it. */
   ending: { result: GameResult; reason: string; at: number } | null;
   /** The results screen after a game (null once closed). */
@@ -265,9 +265,10 @@ export const usePlay = create<PlayStore>((set, get) => {
     }
     const rec = await db.games.get(info.gameId);
     const practice = rec?.summary.pattern?.theme ?? rec?.summary.lessonTheme;
-    set({ over: { result, reason, gameId: info.gameId, stars: info.stars, firstWin: info.firstWin, practice }, rewards: info.rewards });
+    set({ over: { result, reason, gameId: info.gameId, firstWin: info.firstWin, practice }, rewards: info.rewards });
     const userResult = result === '1/2-1/2' ? 'draw' : botWon ? 'loss' : 'win';
-    const lines = resultLines(userResult, reason, info.stars, opponentById(g.opponentId)?.name, endVerdictText ?? undefined);
+    const rv = info.rewards.rivalry;
+    const lines = resultLines(userResult, reason, rv ? { fresh: rv.newBadges.length, held: rv.badges, opened: info.rewards.challengeOpened } : undefined, opponentById(g.opponentId)?.name, endVerdictText ?? undefined);
     endVerdictText = null;
     if (practice) lines.push(`${THEMES[practice].label} tripped you up this game. Want to practise it for 2 minutes?`);
     post({ kind: 'result', text: lines, mood: userResult === 'loss' ? 'concerned' : 'happy' });
