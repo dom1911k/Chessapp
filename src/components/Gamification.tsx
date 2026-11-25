@@ -196,10 +196,22 @@ export function WeekRing() {
               {parts.map((t, i) => (
                 <span key={i}>
                   {i > 0 && ' · '}
-                  {i === 0 && lw.rating.rated ? <b className={`font-extrabold ${lw.rating.end >= lw.rating.start ? 'text-brand-700 dark:text-brand-500' : ''}`}>{t}</b> : t}
+                  {i === 0 && lw.rating.rated ? (
+                    <b className={`font-extrabold ${lw.rating.end >= lw.rating.start ? 'text-brand-700 dark:text-brand-500' : ''}`}>{t}</b>
+                  ) : i === parts.length - 1 && down ? (
+                    // The trend icon wraps with the words before it, never alone.
+                    <>
+                      {t.split(' ').slice(0, -1).join(' ')}{' '}
+                      <span className="whitespace-nowrap">
+                        {t.split(' ').pop()}
+                        <TrendingDown size={17} strokeWidth={2.5} className="ml-1.5 inline align-[-3px] text-brand-600 dark:text-brand-500" aria-label="Fewer blunders than the week before" />
+                      </span>
+                    </>
+                  ) : (
+                    t
+                  )}
                 </span>
               ))}
-              {down && <TrendingDown size={17} strokeWidth={2.5} className="ml-1.5 inline align-[-3px] text-brand-600 dark:text-brand-500" aria-label="Fewer blunders than the week before" />}
             </span>
             <span className="mt-0.5 block text-[12px] text-stone-500 dark:text-stone-400">Tap to see your week</span>
           </span>
