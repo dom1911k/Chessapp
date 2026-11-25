@@ -141,6 +141,13 @@ describe('think time across time controls (round 7)', () => {
     expect(Math.max(...sample({ ...low, tc: '300+2' }))).toBeLessThanOrEqual(4000 * THINK.maxShare);
   });
 
+  it("a type's think factor (Time Trouble, Speedster) stays inside the time cap", () => {
+    const slow = sample({ ...mid, leftMs: 100_000, mult: 3, second: -300 });
+    expect(Math.max(...slow)).toBeLessThanOrEqual(100_000 * THINK.maxShare + 1);
+    expect(pct(slow, 0.5)).toBeGreaterThan(pct(sample({ ...mid, leftMs: 100_000, second: -300 }), 0.5));
+    expect(pct(sample({ ...mid, mult: 0.5 }), 0.5)).toBeLessThan(pct(sample(mid), 0.5));
+  });
+
   it('under pressure, players up to 800 now and then forget the clock (Time Trouble more often)', () => {
     const pressed = { ...mid, elo: 600, leftMs: 15_000, tc: '600+0' };
     // Longer than the time-pressure cap allows: only a player who forgot the clock thinks that long.

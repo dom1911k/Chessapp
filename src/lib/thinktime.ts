@@ -113,8 +113,8 @@ export const THINK = {
   planWeight: 0.8,
   planMoves: 40,
   /** Each game a player is a little quicker or slower than usual (log-normal), so some games end in a scramble. */
-  gamePaceSigma: 0.5,
-  gamePace: [0.5, 2] as [number, number],
+  gamePaceSigma: 0.6,
+  gamePace: [0.6, 1.6] as [number, number],
 };
 
 /** A time control's budget against 10+0's: base plus `incMoves` increments. */
@@ -155,6 +155,8 @@ export interface ThinkInput {
   forget?: number;
   /** This game's think pace (drawPace; 1 = usual). */
   pace?: number;
+  /** Its types' think factor (Speedster quicker, Time Trouble slower in the opening): inside the time cap. */
+  mult?: number;
 }
 
 /** Where time pressure starts for a time control (ms on the clock, increment not counted). */
@@ -229,7 +231,8 @@ export function botThinkMs(o: ThinkInput, rng: () => number = Math.random): numb
   const floor = left < 15_000 ? THINK.floorMs - 80 : THINK.floorMs;
   // Below 10 s with no increment only hand speed is left: the cap no longer keeps the flag up.
   const hands = !inc && left < THINK.handMs;
-  const clamp = (ms: number, quick = false) => {
+  const clamp = (ms0: number, quick = false) => {
+    const ms = ms0 * (o.mult ?? 1);
     if (hands) return Math.round(quick ? handMs(o, true, rng) : Math.max(Math.min(ms, cap), handMs(o, false, rng)));
     return Math.round(Math.max(floor + 120 * rng(), Math.min(ms, cap)));
   };

@@ -119,7 +119,7 @@ for (let g = 0; g < games; g++) {
     const endgame = phaseOf(fen, moveNo) === 'endgame';
     const forget = ids.includes('timeTrouble') ? TYPE_TUNING.timeTrouble.forget : 1;
     const think = { elo, moveNo, tc, book: !!book, forced, ...info, endgame, forget };
-    const ms = base ? botThinkMs({ ...think, leftMs: clock[side], swing: swing[side](g, info.best), pace: pace[side] }) * mods.think : 0;
+    const ms = base ? botThinkMs({ ...think, leftMs: clock[side], swing: swing[side](g, info.best), pace: pace[side], mult: mods.think }) : 0;
     rec.push({ ...think, phase: phaseOf(fen, moveNo), mult: mods.think });
     if (base) {
       clock[side] -= ms;

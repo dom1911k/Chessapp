@@ -547,7 +547,9 @@ export const usePlay = create<PlayStore>((set, get) => {
           // Time Trouble forgets the clock more often (below 800 anyone might).
           forget: ids.includes('timeTrouble') ? TYPE_TUNING.timeTrouble.forget : 1,
           pace: g.pace,
-        }) * mods.think;
+          // Its types' think factor, inside the time cap.
+          mult: mods.think,
+        });
         await sleep(Math.max(0, target - (Date.now() - gc.clock.turnStart)));
       } else await sleep(Math.max(0, (g.coach ? 800 + Math.random() * 1200 : book ? 700 : 600) - (Date.now() - started)));
       if (my !== token || !uci) return;

@@ -78,7 +78,7 @@ function replay(gs: Rec[], tc: string, seed0 = 1): Map<number, TimeAcc> {
       const p = g.plies[i];
       const side = i % 2;
       // As in the app: the type's think factor on top (its pressure factor only loosens the moves).
-      const ms = botThinkMs({ ...p, tc, leftMs: clock[side], swing: swing[side](gi, p.best), pace: pace[side] }, r) * (p.mult ?? 1);
+      const ms = botThinkMs({ ...p, tc, leftMs: clock[side], swing: swing[side](gi, p.best), pace: pace[side], mult: p.mult ?? 1 }, r) * (M.THINK.incUse === undefined ? (p.mult ?? 1) : 1);
       clock[side] -= ms;
       if (clock[side] <= 0) {
         lost = true;
