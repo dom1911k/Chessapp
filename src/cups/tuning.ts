@@ -1,6 +1,7 @@
 // Every balance number for Cups lives here. Change a number, not the code.
 // Sections: juice (animation feel), ladder (stage 2), gold/boons/charms (stage 3),
 // quirks (stage 4), story (stage 5), laurels/shop (stage 6).
+import { TYPE_TUNING } from '../lib/playerTypes';
 
 export const TUNING = {
   /** Animation feel shared by every cup screen (tally, slams, coin streams). */
@@ -152,26 +153,8 @@ export const TUNING = {
     recentMemory: 6,
     /** A quirk's icon pulses at most once per this many plies. */
     pulseEvery: 6,
-    /*
-     * Player types. Each changes how the opponent plays, not how strong it is (calibrated to
-     * 40–60% against a plain bot of the same rating). Controls: `elo` / `openingElo` / `laterElo`
-     * shift the rating it plays at (by phase or situation), `oppo` shifts how strong it thinks you
-     * are, `think` scales its think time, `pressure` makes time pressure start earlier (>1).
-     */
-    speedster: { think: 0.5, temp: 0.1, pressure: 1.8 },
-    timeTrouble: { openingMoves: 12, think: 2.6, lowMs: 60_000, lowTemp: 0.6, pressure: 1.4 },
-    gambiteer: { offerMaxMove: 6, openingMoves: 12, openingElo: 0 },
-    earlyQueen: { untilMove: 10, weight: 5, oppo: -60 },
-    turtle: { tradeWeight: 2.2, checkWeight: 0.6, temp: -0.15, think: 1.2 },
-    tilter: { moves: 6, elo: -120, think: 0.6 },
-    comebackKid: { belowCp: -150, elo: 150 },
-    slowStarter: { moves: 12, openingElo: -40, laterElo: 60 },
-    fastStarter: { moves: 12, openingElo: 200, laterElo: -100, think: 0.7 },
-    endgameGrinder: { evenCp: 80, tradeWeight: 2.5, queenTradeWeight: 4, queensOffElo: 100 },
-    pawnStormer: { fromMove: 6, weight: 3 },
-    pawnGrabber: { weight: 4 },
-    copycat: { untilMove: 4, weight: 100 },
-    uncastled: { untilMove: 18, castleWeight: 0.15, noticeAtMove: 12 },
+    // Player types: the numbers live with the types (src/lib/playerTypes.ts), shared with the characters.
+    ...TYPE_TUNING,
   },
   /** Laurels: earned when a cup ends, spent in the Laurel shop between cups. */
   laurels: {

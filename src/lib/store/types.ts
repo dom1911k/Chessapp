@@ -74,6 +74,17 @@ export interface SavedGame {
   rematch?: { name: string; lines: string[][]; bookPlies: number };
   /** Against the sparring partner (its rating follows yours). */
   sparring?: boolean;
+  /** The opponent's player types this game (src/lib/playerTypes.ts), and their per-game counters (Tilter). */
+  types?: string[];
+  qstate?: Record<string, number>;
+  /** The opponent's form this game: rating points added to how it plays (normal, sd 50, ±100; invisible). */
+  form?: number;
+  /** This game's think pace for the opponent (round 7; 1 = its usual speed, some games quicker or slower). */
+  pace?: number;
+  /** Draw offers this game (real games only): see src/lib/draws.ts. */
+  draws?: import('../draws').DrawState;
+  /** Played while their special challenge was open: a fair attempt, so no form. */
+  challenge?: boolean;
   /** A Play Coach game against Coach Sam (his strength against yours): practice only, with all the help. */
   coach?: CoachStrength;
   /** Played in a cup (Cups tab): which cup, tier and round. */

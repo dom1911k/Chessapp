@@ -21,6 +21,8 @@ describe('repertoires', () => {
     expect(bookMove('jonas', [], () => 0)).toBe('e2e4');
     expect(bookMove('jonas', ['e4', 'e5'], () => 0)).toBe('f2f4');
     expect(bookMove('jonas', ['e4', 'e5', 'Nc3'])).toBeNull();
-    expect(bookMove('lily', [])).toBeNull();
+    // Round 7: Lily has a one-move identity start (her early queen comes from her type).
+    expect(bookMove('lily', [])).toBe('e2e4');
+    expect(bookMove('nobody', [])).toBeNull();
   });
 });

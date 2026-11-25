@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { flagExplanation } from '../lib/feedback';
-import { COACH, portrait, type Mood } from '../lib/people';
+import { COACH, type Mood } from '../lib/people';
+import { portrait } from '../lib/people/portraits';
 import type { CoachComment } from '../lib/coach/types';
 import { CLASS_LABEL, CLASS_SYMBOL, type Classification } from '../lib/chess/evaluation';
 import { Check, ThumbsDown } from 'lucide-react';

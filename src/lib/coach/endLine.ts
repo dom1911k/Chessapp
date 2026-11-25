@@ -23,6 +23,7 @@ export function resultLine(userResult: 'win' | 'loss' | 'draw', reason: string, 
     if (e.verdict) return `${e.verdict} Well played.`;
     return `You beat ${who}${reason === 'checkmate' ? ' by checkmate' : reason === 'time' ? ' on time' : ''}.`;
   }
+  if (userResult === 'draw' && reason === 'agreement') return 'A draw by agreement. Good game.';
   if (userResult === 'draw') return `${e.verdict ? `${e.verdict} ` : ''}A draw (${reason}). Solid.`;
   const then = e.toFix ? momentsLine(e.toFix) : 'The review shows where it turned.';
   if (reason === 'resignation') return `Game over. ${then}`;

@@ -94,7 +94,7 @@ export function HistoryScreen() {
                 </span>
                 <span className="block truncate text-[12px] text-stone-500 dark:text-stone-400">
                   {g.userColor === 'w' ? 'White' : 'Black'} · {g.elo} · {shortDate(g.endedAt)} · {cc ? `${timeControlLabel(imported.timeControl)} · ` : ''}
-                  {g.reason}
+                  {g.reason === 'agreement' ? 'draw by agreement' : g.reason}
                 </span>
               </span>
               <span className="text-right">

@@ -6,6 +6,13 @@ export interface Repertoire {
   /** Shown on the opponent card. */
   favourite: string;
   lines: string[];
+  /**
+   * Short "identity" starts with weights (round 7, below 1000): what they play as White, and their
+   * answers as Black. Used instead of `lines` for the colour they cover; only the first few of
+   * their own moves come from it (bookDepth), then Maia plays the opening like people at that level.
+   */
+  white?: [string, number][];
+  black?: [string, number][];
 }
 
 export const REPERTOIRES: Record<string, Repertoire> = {
@@ -24,45 +31,34 @@ export const REPERTOIRES: Record<string, Repertoire> = {
       'e4 c6 d4 d5 exd5 cxd5 Bd3 Nc6 c3 Nf6 Bf4 Bg4',
     ],
   },
+  lily: {
+    // Lily (200) plays one book move; her Overconfident type brings the queen out after it.
+    favourite: 'Early queen attacks',
+    lines: [],
+    white: [['e4', 1]],
+    black: [['e4 e5', 3], ['d4 d5', 1], ['c4 e5', 1], ['Nf3 e5', 1]],
+  },
   tom: {
-    favourite: 'Italian Game',
-    lines: [
-      'e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3',
-      'e4 e5 Nf3 Nc6 Bc4 Nf6 d3 Bc5',
-      'e4 c5 Nf3 d6 d4 cxd4 Nxd4',
-      'e4 e6 d4 d5 Nc3',
-      'e4 c6 d4 d5 Nc3',
-      'e4 d5 exd5 Qxd5 Nc3',
-      'd4 d5 c4 e6 Nc3 Nf6',
-      'c4 e5 Nc3 Nf6',
-      'Nf3 d5 d4 Nf6',
-    ],
+    // Tom (400) plays one book move: 1.e4 most of the time, 1.d4 now and then; 1...e5 against 1.e4.
+    favourite: "King's Pawn (1.e4 e5)",
+    lines: [],
+    white: [['e4', 4], ['d4', 1]],
+    black: [['e4 e5', 5], ['e4 e6', 1], ['d4 d5', 1], ['c4 e5', 1], ['Nf3 d5', 1]],
   },
   maya: {
+    // Maya (600) plays two book moves: the Scandinavian with Black (1...d5 and ...Qxd5).
     favourite: 'Scandinavian Defense',
-    lines: [
-      'e4 d5 exd5 Qxd5 Nc3 Qa5 d4 Nf6',
-      'e4 d5 Nc3 dxe4 Nxe4',
-      'e4 d5 e5 Bf5',
-      'd4 d5 c4 c6',
-      'e4 e5 Nf3 Nc6 Bb5',
-      'e4 c5 Nc3 Nc6',
-      'e4 e6 d4 d5 exd5',
-    ],
+    lines: [],
+    white: [['e4 e5 Nf3', 3], ['e4 c5 Nc3', 1], ['d4 d5 c4', 1]],
+    black: [['e4 d5 exd5 Qxd5', 5], ['e4 d5 Nc3 dxe4', 1], ['d4 d5 c4 c6', 2], ['c4 e5', 1], ['Nf3 d5', 1]],
   },
   jonas: {
+    // Jonas (800) plays three book moves: the King's Gambit (e4, f4, Nf3); his Gambiteer type
+    // keeps the gambits coming as Black too.
     favourite: "King's Gambit",
-    lines: [
-      'e4 e5 f4 exf4 Nf3 g5 h4',
-      'e4 e5 f4 d5 exd5 exf4',
-      'e4 e5 f4 Bc5 Nf3 d6',
-      'e4 c5 f4 Nc6 Nf3',
-      'e4 e6 d4 d5 Nc3',
-      'e4 c6 d4 d5 Nc3',
-      'e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5',
-      'd4 d5 c4 e5',
-      'd4 Nf6 c4 e5',
-    ],
+    lines: [],
+    white: [['e4 e5 f4 exf4 Nf3', 4], ['e4 e5 f4 d5 exd5', 1], ['e4 c5 f4 Nc6 Nf3', 1], ['d4 d5 c4', 1]],
+    black: [['e4 e5 Nf3 Nc6 Bc4 Nf6', 3], ['e4 c6 d4 d5', 1], ['d4 d5 c4 e5', 2], ['d4 Nf6 c4 e5', 1], ['c4 e5 Nc3 Nf6', 1]],
   },
   priya: {
     favourite: 'London System & Caro-Kann',
@@ -128,16 +124,31 @@ export const REPERTOIRES: Record<string, Repertoire> = {
 };
 
 /** Next book move (UCI) for the side to move, if the game so far follows one of the lines. */
+/** How many of its own moves a bot plays from its book (round 7): below 1000 people leave theory
+ *  almost at once, so a 400 plays one book move and then Maia; from 1200 the whole line. */
+export function bookDepth(elo: number): number {
+  return elo < 600 ? 1 : elo < 800 ? 2 : elo < 1000 ? 3 : elo < 1200 ? 4 : Infinity;
+}
+
 export function bookMove(opponentId: string | undefined, sanHistory: string[], rand: () => number = Math.random): string | null {
   const rep = opponentId ? REPERTOIRES[opponentId] : undefined;
   if (!rep) return null;
   const n = sanHistory.length;
-  const candidates = rep.lines
-    .map((l) => l.split(' '))
-    .filter((l) => l.length > n && sanHistory.every((m, i) => l[i] === m))
-    .map((l) => l[n]);
-  if (!candidates.length) return null;
-  const san = candidates[Math.floor(rand() * candidates.length)];
+  // Weighted identity starts for the colour to move, else every line (with weight 1).
+  const weighted = (n % 2 === 0 ? rep.white : rep.black) ?? rep.lines.map((l) => [l, 1] as [string, number]);
+  const options = weighted
+    .map(([l, w]) => [l.split(' '), w] as [string[], number])
+    .filter(([l]) => l.length > n && sanHistory.every((m, i) => l[i] === m))
+    .map(([l, w]) => [l[n], w] as [string, number]);
+  if (!options.length) return null;
+  let x = rand() * options.reduce((a, [, w]) => a + w, 0);
+  let san = options[options.length - 1][0];
+  for (const [m, w] of options) {
+    if ((x -= w) < 0) {
+      san = m;
+      break;
+    }
+  }
   const c = new Chess();
   try {
     for (const m of sanHistory) c.move(m);

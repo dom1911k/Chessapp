@@ -8,7 +8,8 @@ import { fromLegacy } from './scale';
 export interface Settings {
   theme: 'system' | 'light' | 'dark';
   botElo: number;
-  /** Opponents play with Maia (human-like) or Stockfish (classic, with random slips). */
+  /** Opponents play with Maia (human-like). 'stockfish' (Classic) was removed in round 7: stored
+   *  values move to 'maia'; Stockfish stays only as the silent fallback if Maia fails. */
   opponentEngine: 'maia' | 'stockfish';
   /** Which Maia plays the human-like opponents: the classic per-rating nets, or Maia-3 (one model, any rating). */
   maiaVersion: 'maia1' | 'maia3';
@@ -262,6 +263,8 @@ export const useSettings = create<SettingsStore>((set, get) => ({
         }
         // One-time (round 7): Coached and Match became one kind of real game; its clock is the one
         // you used: Match's when you played Match, else the coached one (Off included).
+        // One-time (round 7): Classic (Stockfish with noise) is no longer an opponent style.
+        if (saved.opponentEngine === 'stockfish') saved.opponentEngine = 'maia';
         if (!saved.playModesV1) {
           saved.charTimeControl = saved.matchMode ? saved.matchTimeControl || '600+0' : saved.coachedTimeControl ?? '';
           saved.playModesV1 = true;

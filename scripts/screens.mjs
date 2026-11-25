@@ -28,7 +28,7 @@
 // Round 6 QA (in round4 too, or by name): colour-alternate, week-card, week-sheet, week-reduced,
 // daily-short, history-filters, backup-card.
 //
-// Round 7 QA (in round4 too, or by name): play-coach-card, badges-new.
+// Round 7 QA (in round4 too, or by name): play-coach-card, badges-new, home-characters, draw-offer.
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
@@ -1698,6 +1698,76 @@ async function run([W, H], scheme) {
     await shot('r7-badges-new');
     await p.locator('[data-testid="badge-sheet"] [aria-label="Close"]').click().catch(() => {});
     await p.waitForTimeout(600);
+  }
+
+  // home-characters: the Play card's "Plays:" line (a character's two types; Mei one of four), no
+  // play-style row left in Options.
+  if (R('home-characters')) {
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await p.evaluate(() => window.__settings.getState().set({ opponentId: 'jonas' }));
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(300);
+    await home();
+    await p.waitForTimeout(1200);
+    const plays = await p.locator('[data-testid="plays-line"]').first().textContent();
+    if (plays !== 'Plays:GambiteerTilter') errors.push(`home-characters: Jonas's line reads ${plays}`);
+    const glyphs = await p.locator('[data-testid="plays-line"] svg, [data-testid="plays-line"] canvas, [data-testid="plays-line"] img').count();
+    if (glyphs < 2) errors.push(`home-characters: ${glyphs} type glyphs on Jonas's line`);
+    await shot('r7-home-characters');
+    await p.evaluate(() => window.__settings.getState().set({ opponentId: 'mei' }));
+    await p.waitForTimeout(800);
+    const mei = await p.locator('[data-testid="plays-line"]').first().textContent();
+    if (mei !== 'Plays one of:GambiteerPawn StormerTrapperEndgame Grinder') errors.push(`home-characters: Mei's line reads ${mei}`);
+    await shot('r7-home-mei');
+    await p.locator('[data-testid="play-card"] button:has-text("Options")').click();
+    await p.waitForTimeout(800);
+    const opts = await p.locator('[data-testid="options-sheet"]').textContent();
+    if (/Classic|Opponent style|Human-like/.test(opts ?? '')) errors.push(`home-characters: the options still offer a play style (${opts})`);
+    await p.locator('[data-testid="options-sheet"] button:has-text("Done")').click();
+    await p.waitForTimeout(600);
+    await p.evaluate(() => window.__settings.getState().set({ opponentId: 'tom' }));
+  }
+
+  // draw-offer: the bot's offer (Accept / Decline), "Draw declined", the dock's Draw button (from
+  // move 10 only), and a draw by agreement on the results.
+  if (R('draw-offer')) {
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await p.evaluate(() => window.__play.getState().newGame('w', 1600, undefined, 'viktor', { match: true, timeControl: '600+0' }));
+    await p.waitForTimeout(900);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitFor(p, ['userTurn'], 60000);
+    await p.waitForTimeout(600);
+    const drawBtn = p.locator('button[aria-label="Draw"], button:has-text("Draw")').first();
+    if (!(await drawBtn.count()) || !(await drawBtn.isDisabled())) errors.push('draw-offer: the Draw button is not there, or on before move 10');
+    const offer = () => p.evaluate(() => { const s = window.__play; const g = s.getState().game; s.setState({ game: { ...g, draws: { ...g.draws, pending: 'bot', botCount: (g.draws?.botCount ?? 0) + 1, botAt: g.plies.length } } }); });
+    await offer();
+    await p.waitForTimeout(700);
+    const banner = await p.locator('[data-testid="draw-offer"]').textContent().catch(() => null);
+    if (banner !== 'Viktor offers a drawDeclineAccept') errors.push(`draw-offer: the banner reads ${banner}`);
+    await shot('r7-draw-offer');
+    await p.locator('[data-testid="draw-decline"]').click();
+    await p.waitForTimeout(500);
+    if (await p.locator('[data-testid="draw-offer"]').count()) errors.push('draw-offer: Decline left the banner up');
+    // Your offer declined: the pill for 2 s.
+    await p.evaluate(() => window.__play.setState({ drawDeclined: Date.now() }));
+    await p.waitForTimeout(400);
+    if (!(await p.locator('[data-testid="draw-declined"]').count())) errors.push('draw-offer: no "Draw declined" pill');
+    await shot('r7-draw-declined');
+    await p.waitForTimeout(2200);
+    if (await p.locator('[data-testid="draw-declined"]').count()) errors.push('draw-offer: the pill stayed up');
+    await offer();
+    await p.waitForTimeout(600);
+    await p.locator('[data-testid="draw-accept"]').click();
+    await waitFor(p, ['over'], 15000);
+    await p.waitForTimeout(3500);
+    const over = await p.evaluate(() => window.__play.getState().over);
+    if (over?.result !== '1/2-1/2' || over?.reason !== 'agreement') errors.push(`draw-offer: Accept ended the game as ${JSON.stringify(over)}`);
+    const sub = await p.evaluate(() => document.body.textContent.includes('by agreement'));
+    if (!sub) errors.push('draw-offer: the results do not say "by agreement"');
+    await shot('r7-draw-agreed');
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await home();
+    await p.waitForTimeout(500);
   }
 
   if (R('laurel-shop')) {

@@ -124,18 +124,6 @@ export function SettingsScreen() {
         <div className="card divide-y divide-stone-100 dark:divide-stone-800">
           <div className="pb-1 section-title">Coaching</div>
           <div className="py-2">
-            <div className="mb-1.5 text-sm">Opponent style</div>
-            <Segmented
-              value={s.opponentEngine}
-              onChange={(v) => s.set({ opponentEngine: v })}
-              options={[
-                { value: 'maia', label: 'Human-like (Maia)' },
-                { value: 'stockfish', label: 'Classic' },
-              ]}
-            />
-          </div>
-          {s.opponentEngine === 'maia' && (
-            <div className="py-2">
               <div className="mb-1.5 text-sm">Human-like brain</div>
               <Segmented
                 value={s.maiaVersion}
@@ -148,8 +136,7 @@ export function SettingsScreen() {
               <p className="mt-1.5 text-xs text-stone-500">
                 {s.maiaVersion === 'maia3' ? 'One model for every rating that also knows your strength: its mistakes are the ones real players at that level make.' : 'The original networks, one per rating band. Use this if Maia-3 is slow on your device.'}
               </p>
-            </div>
-          )}
+          </div>
           <div className="py-2">
             <div className="mb-1.5 text-sm">Sam talks (Play Coach)</div>
             <Segmented

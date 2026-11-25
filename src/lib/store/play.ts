@@ -2,7 +2,7 @@
 import { rematchMove, type RematchInfo } from '../rematch';
 import { create } from 'zustand';
 import { chooseBotMove, botParams } from '../bot';
-import { chooseHumanMove, humanParams, maiaLogits } from '../maia';
+import { chooseHumanMove, getPlayerRating, humanParams, maiaLogits, shiftedTemperature } from '../maia';
 import { accuracyOf, winPct, povScore, scoreToCp, type Score } from '../chess/evaluation';
 import { gameOverInfo, START_FEN, tryMove, type GameResult, type MoveInput } from '../chess/game';
 import { hangingPieces, other, parseFen, PIECE_NAME, VALUE, type Color, type PieceType } from '../chess/pos';
@@ -20,8 +20,12 @@ import { analysisLimits } from '../engine/speed';
 import { useSettings } from '../settings';
 import { playSound } from '../sound';
 import { sfxCls } from '../sfx';
-import { opponentById, pickLine, wantsSummaryLine, type ChatEvent, type Mood } from '../people';
-import { bookMove } from '../people/openings';
+import { opponentById, pickLine, typesFor, wantsSummaryLine, type ChatEvent, type Mood } from '../people';
+import { bookDepth, bookMove } from '../people/openings';
+import { quirkById, quirkEffects, typeOpening, TYPE_TUNING, type QuirkCtx } from '../playerTypes';
+import { keepsQuiet, timedQuiet } from '../people/quiet';
+import { formFor } from '../form';
+import { botAcceptsDraw, botOffersDraw, canOfferDraw, repeatedTwice } from '../draws';
 import { detectOpening } from '../openings';
 import { useCelebrate } from '../celebrate';
 import { canAbort, finishGame, gameTactics, type GameRewards } from './finish';
@@ -36,7 +40,7 @@ import { checkAchievements } from '../progress/achievements';
 import { setPlayActiveCheck } from '../chesscom/store';
 import { aidsFor } from '../coach/level';
 import { flagResult, lowTime as isLowTime, newClock, pressClock, timeLeft } from '../clock';
-import { botThinkMs, positionInfo, pressureParams, swingTracker, timePressure } from '../thinktime';
+import { botThinkMs, drawPace, positionInfo, pressureParams, swingTracker, timePressure } from '../thinktime';
 import { evalHistory, shouldResign } from '../resign';
 import { phaseOf } from '../benchmark/profile';
 
@@ -78,7 +82,7 @@ interface PlayStore {
   precheck: { move: MoveInput; uci: string; check: PreCheck; revealed: boolean } | null;
   load(): Promise<void>;
   /** Every game is a real game (no help) unless `coach`: a Play Coach game against Sam. */
-  newGame(color: Color, elo: number, startFen?: string, opponentId?: string, opts?: { match?: boolean; timeControl?: string; sparring?: boolean; rematch?: RematchInfo; coach?: CoachStrength }): void;
+  newGame(color: Color, elo: number, startFen?: string, opponentId?: string, opts?: { match?: boolean; timeControl?: string; sparring?: boolean; rematch?: RematchInfo; coach?: CoachStrength; challenge?: boolean }): void;
   userMove(m: MoveInput, force?: boolean): boolean;
   /** Play the move the "are you sure?" check stopped. */
   confirmPrecheck(): void;
@@ -92,6 +96,12 @@ interface PlayStore {
   /** Coach Sam describes the current position in the conversation. */
   requestExplain(): Promise<void>;
   resign(): Promise<void>;
+  /** Draw offers (real games, round 7): you offer, you answer the bot's offer. */
+  offerDraw(): void;
+  acceptDraw(): Promise<void>;
+  declineDraw(): void;
+  /** When the bot last declined your offer ("Draw declined" pill, 2 s). */
+  drawDeclined: number | null;
   /** Start over: very short games are discarded, longer ones count as resigned. */
   abandon(): Promise<void>;
   /** End the game before each side has made 2 moves (canAbort): nothing is recorded, back to the menu. */
@@ -175,8 +185,10 @@ export const usePlay = create<PlayStore>((set, get) => {
     const g = get().game;
     const o = opponentById(g?.opponentId);
     if (!g || !o) return;
-    // Even when they stay quiet, their face reacts.
-    const text = Math.random() <= p ? pickLine(o, event, Math.random(), vars) : '';
+    // With a clock a character only greets and says their end-of-game line (round 7); without
+    // one they chat as at the park. Even when they stay quiet, their face reacts.
+    const quiet = keepsQuiet(g, event);
+    const text = !quiet && Math.random() <= p ? pickLine(o, event, Math.random(), vars) : '';
     set({ chat: { text, mood: CHAT_MOOD[event] ?? 'neutral', ply: g.plies.length } });
   };
 
@@ -261,7 +273,8 @@ export const usePlay = create<PlayStore>((set, get) => {
     set({ phase: 'over', hint: null, ending: { result, reason, at: Date.now() } });
     playSound('gameEnd');
     const botWon = result !== '1/2-1/2' && (result === '1-0') !== (g.userColor === 'w');
-    say(reason === 'resignation' && botWon ? 'userResigned' : result === '1/2-1/2' ? 'draw' : botWon ? 'botWins' : 'botLoses');
+    if (reason === 'agreement') set({ chat: { text: 'Good game.', mood: 'happy', ply: g.plies.length } });
+    else say(reason === 'resignation' && botWon ? 'userResigned' : result === '1/2-1/2' ? 'draw' : botWon ? 'botWins' : 'botLoses');
     // The results screen shows the rewards; keep the usual toasts quiet meanwhile.
     useCelebrate.getState().setMuted(true);
     const info = await finishGame(g, result, reason);
@@ -293,7 +306,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     // The opponent's take on the game.
     const o = opponentById(g.opponentId);
     // Not after a game too short to judge (resigned early, or fewer than 10 of your moves).
-    if (o && rec && wantsSummaryLine(rec.plies.filter((p) => p.isUser).length)) {
+    if (o && rec && !timedQuiet(g) && wantsSummaryLine(rec.plies.filter((p) => p.isUser).length)) {
       const big = rec.summary.biggestMistakePly !== null ? rec.plies[rec.summary.biggestMistakePly] : null;
       const event = big ? 'summaryMistake' : 'summaryGood';
       sayLater(cap(pickLine(o, event).replace('{move}', big ? moveWords(big.fenBefore, big.uci, 'you', 'ger', false) : '')), big ? 'neutral' : 'happy', 2600);
@@ -430,28 +443,59 @@ export const usePlay = create<PlayStore>((set, get) => {
     try {
       const params = botParams(g.elo);
       const started = Date.now();
-      // Opponents play their favourite openings from a small book first.
-      // A rematch stand-in opens the way that opponent opened against you; characters use their book.
-      const book = g.startFen !== START_FEN ? null : g.rematch ? rematchMove(g.rematch, g.plies.map((p) => p.san), fen) : bookMove(g.opponentId, g.plies.map((p) => p.san));
+      const turn = turnOf(fen);
+      const sans = g.plies.map((p) => p.san);
+      // Their player types (round 7) and the situation as the types see it.
+      const ids = g.types ?? [];
+      const gc0 = get().game!;
+      const leftMs = gc0.clock && gc0.timeControl ? timeLeft(gc0.clock, turn, turn, gc0.clock.turnStart) : Infinity;
+      const prevEvals = evalsOf(g.startedAt, undefined);
+      const baseCtx: QuirkCtx = {
+        fen,
+        sans,
+        moveNo: Math.floor(sans.length / 2) + 1,
+        bot: turn,
+        me: g.userColor,
+        botEval: prevEvals[prevEvals.length - 1],
+        botLeftMs: leftMs,
+        state: g.qstate ?? {},
+        lastUserUci: [...g.plies].reverse().find((p) => p.isUser)?.uci,
+        fromStart: g.startFen === START_FEN,
+        // Whether its types go for their opening plans this game: one draw per game (from its start time).
+        plan: (((g.startedAt % 233280) * 9301 + 49297) % 233280) / 233280,
+      };
+      // Openings: the types' plans first (a gambit, a trap line, the early queen), then the book: a
+      // stand-in's lines, or the character's own (below 1200 only the first few moves of it).
+      const planned = ids.length && baseCtx.fromStart ? typeOpening(ids, baseCtx, Math.random) : null;
+      const ownBookMoves = g.plies.filter((p) => !p.isUser).length;
+      const book = planned?.uci ?? (g.startFen !== START_FEN ? null : g.rematch ? rematchMove(g.rematch, sans, fen) : ownBookMoves < bookDepth(g.elo) ? bookMove(g.opponentId, sans) : null);
       let uci = book;
       // What the position looks like to a human (for the opponent's thinking time).
       let seen: { logits?: Map<string, number>; candidates?: Map<string, number> } = {};
-      const gc0 = get().game!;
-      const pressure = gc0.clock && gc0.timeControl ? timePressure(timeLeft(gc0.clock, turnOf(fen), turnOf(fen), gc0.clock.turnStart), gc0.timeControl) : 0;
-      // Human-like (Maia) or classic (Stockfish) opponent; Stockfish also covers any Maia failure.
-      if (!uci && (useSettings.getState().opponentEngine === 'maia' || g.coach)) {
+      let mods = quirkEffects(ids, baseCtx);
+      // Its types can make time pressure start earlier (Speedster, Time Trouble).
+      const pressure = gc0.clock && gc0.timeControl ? timePressure(leftMs / mods.pressure, gc0.timeControl) : 0;
+      // The level it plays at right now: its rating, today's form, and its types (by phase or situation).
+      const playElo = Math.max(100, g.elo + (g.form ?? 0) + mods.elo);
+      // Human-like (Maia); Stockfish only covers a Maia failure.
+      if (!uci) {
         try {
           const fens = [g.startFen, ...g.plies.map((p) => p.fenAfter)];
           // Maia says what a human would play; a quick Stockfish look says what each move costs,
           // so howlers become rare and small inaccuracies stay common (see chooseHumanMove).
           const [logits, a] = await Promise.all([
-            maiaLogits(fens, g.elo),
+            maiaLogits(fens, playElo, getPlayerRating() + mods.oppo),
             analyze(fen, 8, Math.max(analysisLimits().depth, params.depth)).catch(() => null),
           ]);
-          const turn = turnOf(fen);
           const candidates = a ? new Map(a.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], scoreToCp(povScore(l.score, turn))])) : undefined;
-          // Short of time, a person plays faster and looser.
-          uci = chooseHumanMove(logits, g.elo, candidates, Math.random, { style: g.coach ? undefined : opponentById(g.opponentId)?.style, params: pressure ? pressureParams(humanParams(g.elo), pressure) : undefined });
+          // Now it knows how it stands (Comeback Kid, Endgame Grinder need that).
+          const ctx = { ...baseCtx, botEval: candidates?.size ? Math.max(...candidates.values()) : undefined };
+          mods = quirkEffects(ids, ctx);
+          const verbose = new Map(new Chess(fen).moves({ verbose: true }).map((m) => [m.lan, m]));
+          const weighted = ids.length ? new Map([...logits].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, verbose.has(m) ? mods.weight(verbose.get(m)!) : 1))])) : logits;
+          // Types shift the temperature; short of time, a person also plays faster and looser.
+          const base = { ...humanParams(playElo), temperature: shiftedTemperature(playElo, mods.temp) };
+          uci = chooseHumanMove(weighted, playElo, candidates, Math.random, { params: pressure ? pressureParams(base, pressure) : base });
           seen = { logits, candidates };
         } catch (e) {
           console.warn('Maia failed, using Stockfish', e);
@@ -461,13 +505,25 @@ export const usePlay = create<PlayStore>((set, get) => {
       if (!uci) {
         const a = await analyze(fen, params.multipv, Math.max(analysisLimits().depth, params.depth));
         if (my !== token) return;
-        uci = chooseBotMove(fen, a, g.elo, Math.random, opponentById(g.opponentId)?.style);
+        uci = chooseBotMove(fen, a, g.elo, Math.random);
         seen = { candidates: new Map(a.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], scoreToCp(povScore(l.score, turnOf(fen)))])) };
       }
       const gc = get().game!;
       // A clearly lost opponent may resign instead of moving (strong ones do, beginners play on).
       const bestNow = seen.candidates?.size ? Math.max(...seen.candidates.values()) : undefined;
-      if (!book && shouldResign({ elo: g.elo, moveNo: Math.floor(gc.plies.length / 2) + 1, evals: evalsOf(gc.startedAt, bestNow) })) {
+      // Your draw offer: answered on its next move.
+      if (gc.draws?.pending === 'user') {
+        const moveNo = Math.floor(gc.plies.length / 2) + 1;
+        if (botAcceptsDraw({ evalCp: bestNow ?? prevEvals[prevEvals.length - 1], elo: g.elo, moveNo, endgame: phaseOf(fen, moveNo) === 'endgame', types: ids })) {
+          await sleep(900);
+          if (my !== token) return;
+          await endGame('1/2-1/2', 'agreement');
+          return;
+        }
+        update((gg) => void (gg.draws = { ...gg.draws, pending: undefined }));
+        set({ drawDeclined: Date.now() });
+      }
+      if (!book && shouldResign({ elo: g.elo, moveNo: Math.floor(gc.plies.length / 2) + 1, evals: evalsOf(gc.startedAt, bestNow), temperament: opponentById(g.opponentId)?.resign ?? mods.resign })) {
         await sleep(1200 + 1500 * Math.random());
         if (my !== token) return;
         await endGame(g.userColor === 'w' ? '1-0' : '0-1', 'resignation');
@@ -487,7 +543,10 @@ export const usePlay = create<PlayStore>((set, get) => {
           ...info,
           swing: swingOf(gc.startedAt, info.best),
           endgame: phaseOf(fen, Math.floor(gc.plies.length / 2) + 1) === 'endgame',
-        });
+          // Time Trouble forgets the clock more often (below 800 anyone might).
+          forget: ids.includes('timeTrouble') ? TYPE_TUNING.timeTrouble.forget : 1,
+          pace: g.pace,
+        }) * mods.think;
         await sleep(Math.max(0, target - (Date.now() - gc.clock.turnStart)));
       } else await sleep(Math.max(0, (g.coach ? 800 + Math.random() * 1200 : book ? 700 : 600) - (Date.now() - started)));
       if (my !== token || !uci) return;
@@ -495,11 +554,20 @@ export const usePlay = create<PlayStore>((set, get) => {
       update((gg) => {
         gg.plies.push({ uci, san: r.move.san, color: r.move.color, fenBefore: fen, fenAfter: r.fen, isUser: false });
         press(gg, r.move.color as Color);
+        // Tilter: one fewer reckless move to go.
+        if ((gg.qstate?.tilt ?? 0) > 0) gg.qstate = { ...gg.qstate, tilt: gg.qstate!.tilt - 1 };
       });
       if (r.move.san.includes('+')) say('botCheck', 0.5);
       else if (r.move.captured) say('botCapture', 0.3);
       announceOpening();
       if (await checkOver(get().game!)) return;
+      // A draw offer from the bot: a quiet, level endgame, or the position repeating (from 800).
+      const ga = get().game!;
+      if (ga.match && !ga.coach && !ga.cup) {
+        const moveNo = Math.floor(ga.plies.length / 2) + 1;
+        if (botOffersDraw({ elo: g.elo, draws: ga.draws, plies: ga.plies.length, evals: evalsOf(ga.startedAt, undefined), endgame: phaseOf(r.fen, moveNo) === 'endgame', repeated: repeatedTwice([ga.startFen, ...ga.plies.map((p) => p.fenAfter)]), types: ids }))
+          update((gg) => void (gg.draws = { ...gg.draws, pending: 'bot', botCount: (gg.draws?.botCount ?? 0) + 1, botAt: gg.plies.length }));
+      }
       let note = aidsOf(g).botNotes ? botMoveNote(fen, r.fen, uci, g.userColor, opponentById(g.opponentId)?.name) : null;
       // Gentle: checks speak for themselves and a threatened pawn isn't worth a message.
       // Other warnings get a few moves' break, except a checkmate threat.
@@ -559,6 +627,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     ending: null,
     away: false,
     lowTime: false,
+    drawDeclined: null,
     intro: null,
     endIntro() {
       set({ intro: null });
@@ -638,6 +707,13 @@ export const usePlay = create<PlayStore>((set, get) => {
         clocks: opts.timeControl ? [] : undefined,
         sparring: opts.sparring || undefined,
         rematch: opts.rematch,
+        // Round 7: the character's player types (Mei picks one per game) and today's form. Play
+        // Coach has neither: Sam is steady.
+        types: opts.coach ? undefined : typesFor(opponentById(opponentId)),
+        form: formFor(opts),
+        pace: opts.coach ? undefined : drawPace(),
+        challenge: opts.challenge || undefined,
+        qstate: {},
       };
       lastBestTag = -99;
       endVerdictText = null;
@@ -689,6 +765,16 @@ export const usePlay = create<PlayStore>((set, get) => {
         press(g, r.move.color as Color);
       });
       reactToUserMove(fen, r.fen, r.move);
+      // Making a move declines the bot's draw offer (as on chess.com).
+      if (get().game?.draws?.pending === 'bot') update((gg) => void (gg.draws = { ...gg.draws, pending: undefined }));
+      // Types that react to your move (Tilter: it just lost material).
+      const lost = r.move.captured ? VALUE[r.move.captured as PieceType] : 0;
+      const tg = get().game!;
+      if (lost > 0 && tg.types?.length)
+        for (const id of tg.types) {
+          const change = quirkById(id)?.afterUserMove?.({ fen: r.fen, sans: tg.plies.map((p) => p.san), moveNo: Math.floor(tg.plies.length / 2) + 1, bot: other(tg.userColor), me: tg.userColor, botLeftMs: Infinity, state: tg.qstate ?? {}, fromStart: tg.startFen === START_FEN }, lost);
+          if (change) update((gg) => void (gg.qstate = { ...gg.qstate, ...change }));
+        }
       set({ hint: null, message: null, threat: null, botNote: null });
       void reviewUserMove(get().game!.plies.length - 1);
       return true;
@@ -819,6 +905,22 @@ export const usePlay = create<PlayStore>((set, get) => {
       const g = get().game;
       if (!g) return;
       await endGame(g.userColor === 'w' ? '0-1' : '1-0', 'resignation');
+    },
+
+    offerDraw() {
+      const g = get().game;
+      if (!g || get().over || !canOfferDraw(g)) return;
+      update((gg) => void (gg.draws = { ...gg.draws, pending: 'user', userAt: gg.plies.length }));
+    },
+
+    async acceptDraw() {
+      const g = get().game;
+      if (!g || get().over || g.draws?.pending !== 'bot') return;
+      await endGame('1/2-1/2', 'agreement');
+    },
+
+    declineDraw() {
+      if (get().game?.draws?.pending === 'bot') update((gg) => void (gg.draws = { ...gg.draws, pending: undefined }));
     },
 
     async abandon() {

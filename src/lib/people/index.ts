@@ -37,7 +37,14 @@ export interface Opponent {
   id: string;
   name: string;
   elo: number;
+  /** Words for the card only (round 7: it no longer changes how they play; their types do). */
   style: PlayStyle;
+  /** Player types (src/lib/playerTypes.ts) that shape how they play. */
+  types?: string[];
+  /** Instead of fixed types: one of these, picked per game (Mei). */
+  typePool?: string[];
+  /** Resign temperament over their types' (Viktor resigns proudly). */
+  resign?: 'stubborn' | 'proud';
   /** One line under the name. */
   tagline: string;
   bio: string;
@@ -46,18 +53,13 @@ export interface Opponent {
 
 export const COACH = { id: 'coach', name: 'Coach Sam' };
 
-const urls = import.meta.glob('../../assets/people/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
-
-export function portrait(id: string, mood: Mood = 'neutral'): string {
-  return urls[`../../assets/people/${id}-${mood}.webp`] ?? urls[`../../assets/people/${id}-neutral.webp`] ?? '';
-}
-
 export const OPPONENTS: Opponent[] = [
   {
     id: 'lily',
     name: 'Lily',
     elo: 200,
     style: 'wild',
+    types: ['earlyQueen', 'speedster'],
     tagline: 'Learned the rules last month',
     bio: 'Lily is eight and LOVES moving her queen everywhere. She forgets her pieces can be taken sometimes — just like all of us did once!',
     lines: {
@@ -88,6 +90,7 @@ export const OPPONENTS: Opponent[] = [
     name: 'Grandpa Tom',
     elo: 400,
     style: 'solid',
+    types: ['turtle', 'endgameGrinder'],
     tagline: 'Retired, plays at the park',
     bio: 'Tom plays with his grandkids and at the park on sunny days. Patient, kind, and always ready with a little story.',
     lines: {
@@ -118,6 +121,7 @@ export const OPPONENTS: Opponent[] = [
     name: 'Maya',
     elo: 600,
     style: 'balanced',
+    types: ['pawnGrabber', 'timeTrouble'],
     tagline: 'Plays between lectures',
     bio: 'Maya is a student who plays quick games on her phone between classes. Relaxed, funny, and a little chaotic.',
     lines: {
@@ -148,6 +152,7 @@ export const OPPONENTS: Opponent[] = [
     name: 'Jonas',
     elo: 800,
     style: 'aggressive',
+    types: ['gambiteer', 'tilter'],
     tagline: 'Café champion (says Jonas)',
     bio: 'Jonas plays at the café every Sunday and loves to brag about his attacks before they happen. Loud, cheerful, a bit too sure of himself.',
     lines: {
@@ -178,6 +183,7 @@ export const OPPONENTS: Opponent[] = [
     name: 'Priya',
     elo: 1000,
     style: 'solid',
+    types: ['endgameGrinder', 'comebackKid'],
     tagline: 'Club player, loves puzzles',
     bio: 'Priya plays at the local club and loves puzzles and patterns. Careful and friendly — she always counts twice before she takes anything.',
     lines: {
@@ -208,6 +214,7 @@ export const OPPONENTS: Opponent[] = [
     name: 'Marcus',
     elo: 1200,
     style: 'aggressive',
+    types: ['pawnStormer', 'trapper'],
     tagline: 'All attack, all the time',
     bio: 'Marcus streams fast games online and never says no to a wild attack. He trash-talks a little, but always with a smile.',
     lines: {
@@ -238,6 +245,7 @@ export const OPPONENTS: Opponent[] = [
     name: 'Sofia',
     elo: 1400,
     style: 'balanced',
+    types: ['fastStarter', 'comebackKid'],
     tagline: 'Tournament player',
     bio: "Sofia plays weekend tournaments and doesn't talk much at the board. Cool, focused and quietly competitive.",
     lines: {
@@ -268,6 +276,8 @@ export const OPPONENTS: Opponent[] = [
     name: 'Viktor',
     elo: 1600,
     style: 'solid',
+    types: ['turtle', 'endgameGrinder'],
+    resign: 'proud',
     tagline: 'Strict old chess teacher',
     bio: 'Viktor taught chess at a strict club for forty years. Gruff and demanding, but he respects anyone who tries hard.',
     lines: {
@@ -298,6 +308,7 @@ export const OPPONENTS: Opponent[] = [
     name: 'Mei',
     elo: 1800,
     style: 'balanced',
+    typePool: ['gambiteer', 'pawnStormer', 'trapper', 'endgameGrinder'],
     tagline: 'The champion',
     bio: 'Mei is the strongest player here — calm, kind and almost impossible to rattle. Beating her is the final goal.',
     lines: {
@@ -389,3 +400,10 @@ export function portraitColors(id: string): [string, string] {
 /** The opponent's summary line ("A nice, careful game from you") only fits a game with at least 10 of your moves. */
 export const SUMMARY_MIN_MOVES = 10;
 export const wantsSummaryLine = (userMoves: number) => userMoves >= SUMMARY_MIN_MOVES;
+
+/** The types an opponent plays with this game: theirs, or one picked from their pool (Mei). */
+export function typesFor(o: Opponent | undefined, rand: () => number = Math.random): string[] {
+  if (!o) return [];
+  if (o.typePool?.length) return [o.typePool[Math.floor(rand() * o.typePool.length) % o.typePool.length]];
+  return o.types ?? [];
+}

@@ -13,7 +13,7 @@ export function rematch(s: ReturnType<typeof usePlay.getState>) {
   void setLastColour(color).catch(() => undefined);
   // Play Coach again with Sam at the same level; otherwise the same real game, colours swapped.
   if (g.coach) s.newGame(color, g.elo, undefined, 'coach', { coach: g.coach });
-  else s.newGame(color, g.elo, undefined, g.opponentId, { match: true, timeControl: g.timeControl });
+  else s.newGame(color, g.elo, undefined, g.opponentId, { match: true, timeControl: g.timeControl, ...(g.challenge ? { challenge: true } : {}) });
 }
 
 export type ActionKind = 'paused' | 'precheck' | 'over';

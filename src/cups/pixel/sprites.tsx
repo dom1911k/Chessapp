@@ -1,6 +1,6 @@
 // Sprite sources (48×48 line art) and React helpers to show them as pixel art.
 import { useEffect, useState, type CSSProperties } from 'react';
-import { portrait } from '../../lib/people';
+import { portrait } from '../../lib/people/portraits';
 import { cached, GOLD, pixelPortrait, spriteFromSvg, type SpritePalette } from './pixelize';
 
 export const SPRITES: Record<string, string> = {

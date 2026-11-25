@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { botThinkMs, critical, difficulty, isRecapture, pressureParams, THINK, timePressure, type ThinkInput } from '../lib/thinktime';
+import { botThinkMs, critical, difficulty, isRecapture, pressureParams, tcStretch, THINK, timePressure, type ThinkInput } from '../lib/thinktime';
 
 function seeded(seed: number) {
   let t = seed;
@@ -57,8 +57,10 @@ describe('bot think time', () => {
     expect(timePressure(70_000, '600+0')).toBe(0);
     expect(timePressure(30_000, '600+0')).toBeCloseTo(0.5);
     expect(timePressure(0, '600+0')).toBe(1);
-    // Short games: pressure from 20 s at least.
-    expect(timePressure(19_000, '180+2')).toBeGreaterThan(0);
+    // Short games: pressure from 20 s at least; an increment eases it (five of them count).
+    expect(timePressure(19_000, '180+0')).toBeGreaterThan(0);
+    expect(timePressure(19_000, '180+2')).toBe(0);
+    expect(timePressure(9_000, '180+2')).toBeGreaterThan(0);
     const relaxed = pct(sample({ ...mid, leftMs: 70_000 }), 0.5);
     const pressed = sample({ ...mid, leftMs: 15_000 });
     expect(pct(pressed, 0.5)).toBeLessThan(relaxed * 0.5);
@@ -73,7 +75,8 @@ describe('bot think time', () => {
 
   it('stays within bounds', () => {
     for (const x of sample({ ...mid, second: -400, leftMs: 900_000, tc: '1800+0' })) expect(x).toBeLessThanOrEqual(THINK.maxMs);
-    for (const x of sample({ ...mid, leftMs: 5000 })) expect(x).toBeLessThanOrEqual(5000 * THINK.maxShare);
+    // With an increment the cap still holds when the clock is low.
+    for (const x of sample({ ...mid, leftMs: 5000, tc: '180+2' })) expect(x).toBeLessThanOrEqual(5000 * THINK.maxShare);
     for (const x of sample({ ...mid, book: true, tc: '180+2', leftMs: 180_000 })) expect(x).toBeGreaterThanOrEqual(THINK.floorMs);
   });
 });
@@ -97,5 +100,49 @@ describe('time use compared with your rating band', () => {
   it('scales the 10+0 benchmark to other time controls and skips daily games', () => {
     expect(timeVsBand(plies, clocksFor(3, 5), '300', 'w', 520, bands, phase)).toBeNull();
     expect(timeVsBand(plies, clocksFor(14, 10), 'daily', 'w', 520, bands, phase)).toBeNull();
+  });
+
+});
+
+describe('think time across time controls (round 7)', () => {
+  it('other time controls stretch the think by (budget / 10+0 budget)^k, not in proportion (round 7)', () => {
+    expect(tcStretch('600+0', 1000, 20)).toBe(1);
+    // 30+0 has three times the budget: the think grows, but by less than three times.
+    const long = { ...mid, tc: '1800+0', leftMs: mid.leftMs * 3 };
+    const ratio = pct(sample(long), 0.5) / pct(sample(mid), 0.5);
+    expect(ratio).toBeGreaterThan(1.05);
+    expect(ratio).toBeLessThan(2.9);
+    // Stronger players scale their think more with the clock (k grows with rating).
+    const k = (elo: number) => Math.log(tcStretch('1800+0', elo, 20) * 3) / Math.log(3);
+    expect(k(2000)).toBeGreaterThan(k(400));
+    // The opening uses a smaller k: people know their openings whatever the clock.
+    expect(tcStretch('1800+0', 1400, 5) * 3).toBeLessThan(tcStretch('1800+0', 1400, 20) * 3);
+    // Blitz: more than a proportional share of the (smaller) budget.
+    expect(tcStretch('180+2', 1000, 20)).toBeGreaterThan(1);
+  });
+
+  it('below 10 s with no increment only hand speed is left, so a bot can lose on time (round 7)', () => {
+    const low = { ...mid, leftMs: 4000, tc: '300+0' };
+    const forced = sample({ ...low, forced: true });
+    expect(Math.min(...forced)).toBeGreaterThanOrEqual(THINK.handInstantMs[0]);
+    expect(Math.max(...forced)).toBeLessThanOrEqual(THINK.handInstantMs[1] + 1);
+    const moves = sample(low);
+    expect(Math.min(...moves)).toBeGreaterThanOrEqual(THINK.handInstantMs[0]);
+    expect(Math.max(...moves)).toBeLessThanOrEqual(THINK.handMaxMs + 1);
+    // Weaker players move the pieces slower.
+    const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(avg(sample({ ...low, elo: 400 }))).toBeGreaterThan(avg(sample({ ...low, elo: 2000 })));
+    // At 1.5 s left a beginner's normal move can take longer than the clock has: the flag can fall.
+    expect(sample({ ...low, elo: 500, leftMs: 1500 }).some((x) => x > 1500)).toBe(true);
+    // With an increment the old cap still applies.
+    expect(Math.max(...sample({ ...low, tc: '300+2' }))).toBeLessThanOrEqual(4000 * THINK.maxShare);
+  });
+
+  it('under pressure, players up to 800 now and then forget the clock (Time Trouble more often)', () => {
+    const pressed = { ...mid, elo: 600, leftMs: 30_000, tc: '600+0' };
+    const long = (xs: number[]) => xs.filter((x) => x > 30_000 * THINK.maxShare * 0.75).length / xs.length;
+    expect(long(sample(pressed))).toBeGreaterThan(0);
+    expect(long(sample({ ...pressed, forget: 3 }))).toBeGreaterThan(long(sample(pressed)));
+    expect(long(sample({ ...pressed, elo: 1400 }))).toBe(0);
   });
 });

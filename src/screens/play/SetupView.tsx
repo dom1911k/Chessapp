@@ -2,6 +2,7 @@
 // "This week", and one "Up next" row (the single most useful thing to do next). The rest of the
 // app lives in the tabs.
 import { BadgeLine } from '../../components/Rivalry';
+import { PlaysLine } from '../../components/PlaysLine';
 import { TurningPrompt } from '../../components/TurningCards';
 import { useEffect, useState } from 'react';
 import { ChevronRight, Timer, Bot, Check, Lock, Settings, Share, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy } from 'lucide-react';
@@ -79,7 +80,8 @@ export function SetupView() {
     const color = nextColour(settings.colorPref, lastColour);
     // Starting over ends the game in progress (counts as resigned after a few moves).
     if (running) await usePlay.getState().abandon();
-    newGame(color, botElo, undefined, opp?.id, { match: true, timeControl: settings.charTimeControl || undefined, sparring });
+    // While their special challenge is open, every game is an attempt at it: no form (round 7).
+    newGame(color, botElo, undefined, opp?.id, { match: true, timeControl: settings.charTimeControl || undefined, sparring, challenge: !!opp && chOpen && !rec?.challengeDone });
   };
   /** Play Coach: Sam at your rating (150 below for Easier, 150 above for Harder), no clock. */
   const startCoach = async () => {
@@ -123,6 +125,7 @@ export function SetupView() {
           </button>
           <div className="space-y-3 px-3">
           {/* Your badges with them, in one place on Home: a line that opens the badge sheet. */}
+          {opp && <PlaysLine o={opp} />}
           {opp && <BadgeLine opponentId={opp.id} rec={rec} />}
           <button className="flex w-full flex-wrap items-center gap-1.5 rounded-[8px] p-1 text-left press" onClick={() => setSheet('options')}>
             {/* The next game's colour (Alternate: a two-tone dot). */}

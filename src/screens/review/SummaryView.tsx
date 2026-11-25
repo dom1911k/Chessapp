@@ -215,7 +215,8 @@ export function SummaryView({ g, r, trap, onStart, fix }: { g: AnyGame; r: Revie
             <span className={`chip !px-3 !py-1 text-[13px] ${resultTone}`}>{resultText}</span>
             <span className="text-[13px] text-stone-500">by {g.reason}</span>
             {g.source === 'chess.com' && <ChessComBadge />}
-            {g.match && <span className="chip bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-100">Match</span>}
+            {/* Every game but Play Coach is a real game now (round 7): only practice gets a tag. */}
+            {g.coach && <span className="chip bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-100">Coach game</span>}
           </div>
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pt-3 pb-4">
             <div className="flex flex-col items-center gap-2">

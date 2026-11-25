@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Chess, type Square } from 'chess.js';
 import { squareAtPoint, stepView, swipeDir } from '../../lib/chess/boardfeel';
 import { kingBadges } from '../../lib/chess/kingBadges';
-import { FlipVertical2, ChevronRight, ChevronLeft, Crosshair, EllipsisVertical, Flag, Lightbulb, ListOrdered, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, ShieldCheck, Dumbbell, Sparkles, Undo2, Users, X } from 'lucide-react';
+import { FlipVertical2, ChevronRight, ChevronLeft, Crosshair, EllipsisVertical, Flag, Handshake, Lightbulb, ListOrdered, MessageCircleHeart, MessagesSquare, RotateCcw, ScanSearch, ShieldCheck, Dumbbell, Sparkles, Undo2, Users, X } from 'lucide-react';
 import { povScore, winPct } from '../../lib/chess/evaluation';
 import { safetyInfo } from '../../lib/coach';
 import { START_FEN } from '../../lib/chess/game';
@@ -14,6 +14,7 @@ import { useNav } from '../../lib/nav';
 import { useSettings } from '../../lib/settings';
 import { currentFen, turnOf, usePlay } from '../../lib/store/play';
 import { canAbort } from '../../lib/store/finish';
+import { canOfferDraw } from '../../lib/draws';
 import { Board } from '../../components/Board';
 import { opponentById } from '../../lib/people';
 import { Dialog, EvalBar, FadeScroll, IconButton, useBackHandler } from '../../components/ui';
@@ -32,6 +33,9 @@ import { PlayerBar } from './PlayerBar';
 import { haptic, reduced } from '../../lib/motion';
 import { sfx } from '../../lib/sfx';
 import { END_BEATS, END_STALE_MS, endStinger } from '../../lib/endBeats';
+
+/** The opponent's name for banners: the character, a stand-in, or "Your opponent". */
+const opponentName = (g: { opponentId?: string; rematch?: { name: string } }) => opponentById(g.opponentId)?.name ?? (g.rematch ? g.rematch.name : 'Your opponent');
 
 /** Slim top row: back to menu, the opening (or the mode), game menu. */
 function GameTopBar({ onMenu }: { onMenu: () => void }) {
@@ -164,6 +168,16 @@ export function GameView() {
   const lastEval = [...g.plies].reverse().find((p) => p.evalAfter)?.evalAfter;
   const whitePct = lastEval ? winPct(povScore(lastEval, 'w')) : 50;
   const userPlies = g.plies.filter((p) => p.isUser).length;
+  // Draw offers (real games): yours from move 10, and the bot's banner.
+  const drawOk = !s.over && canOfferDraw(g);
+  const botOffer = !s.over && g.draws?.pending === 'bot';
+  const [declinedPill, setDeclinedPill] = useState(false);
+  useEffect(() => {
+    if (!s.drawDeclined || Date.now() - s.drawDeclined > 2000) return;
+    setDeclinedPill(true);
+    const t = setTimeout(() => setDeclinedPill(false), 2000);
+    return () => clearTimeout(t);
+  }, [s.drawDeclined]);
   // Before each side has made 2 moves, Resign reads Abort (chess.com): nothing is recorded.
   const abortable = !s.over && canAbort(g);
 
@@ -229,6 +243,20 @@ export function GameView() {
                 premoveColor={!viewing && (s.phase === 'analyzing' || s.phase === 'botThinking') ? g.userColor : null}
                 kingBadges={ended && !viewing && (!s.ending || endBeat >= 1) ? kingBadges(ended.result, ended.reason) : null}
               />
+              {/* The bot offers a draw: Accept or Decline (making a move declines too). */}
+              {botOffer && !viewing && (
+                <div className="animate-pop absolute inset-x-2 top-2 z-30 flex items-center gap-2 rounded-[10px] bg-stone-900/90 py-1.5 pr-1.5 pl-3 text-white shadow-lg backdrop-blur" data-testid="draw-offer">
+                  <Handshake size={16} className="shrink-0 text-gold-300" />
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{opponentName(g)} offers a draw</span>
+                  <button className="rounded-[8px] bg-white/10 px-3 py-1.5 text-[13px] font-bold" onClick={s.declineDraw} data-testid="draw-decline">Decline</button>
+                  <button className="rounded-[8px] bg-brand-500 px-3 py-1.5 text-[13px] font-bold" onClick={() => void s.acceptDraw()} data-testid="draw-accept">Accept</button>
+                </div>
+              )}
+              {declinedPill && !botOffer && (
+                <div className="animate-pop pointer-events-none absolute top-2 left-1/2 z-30 -translate-x-1/2 rounded-full bg-stone-900/85 px-3 py-1 text-[13px] font-semibold whitespace-nowrap text-white shadow-lg" data-testid="draw-declined">
+                  Draw declined
+                </div>
+              )}
               {viewing && (
                 <button
                   onClick={() => setView(null)}
@@ -281,6 +309,7 @@ export function GameView() {
                   <>
                     <DockButton label="Back" icon={<ChevronLeft size={24} />} disabled={!g.plies.length || view === -1} onClick={() => setView(stepView(view, g.plies.length, -1))} />
                     <DockButton label="Forward" icon={<ChevronRight size={24} />} disabled={!viewing} onClick={() => setView(stepView(view, g.plies.length, 1))} />
+                    {!g.cup && <DockButton label="Draw" icon={<Handshake size={22} />} disabled={!drawOk} onClick={s.offerDraw} />}
                     {abortable ? (
                       <DockButton label="Abort" icon={<X size={22} />} onClick={() => void s.abort()} />
                     ) : (
@@ -326,6 +355,7 @@ export function GameView() {
           )}
           {g.coach && menuItem(<ShieldCheck size={19} />, 'Safety overlay', () => settings.set({ safetyOverlay: !settings.safetyOverlay }), onOff(settings.safetyOverlay))}
           {menuItem(<ListOrdered size={19} />, 'Move list', () => settings.set({ showMoveList: !settings.showMoveList }), onOff(settings.showMoveList))}
+          {!s.over && !g.coach && !g.cup && drawOk && menuItem(<Handshake size={19} />, 'Offer draw', s.offerDraw)}
           {!s.over && (abortable ? menuItem(<X size={19} />, 'Abort', () => void s.abort()) : menuItem(<Flag size={19} />, 'Resign', () => (g.coach ? void s.resign() : setConfirmResign(true))))}
           {menuItem(<RotateCcw size={19} />, 'New game', () => void (s.over ? s.leaveGame() : s.abandon()))}
         </div>
