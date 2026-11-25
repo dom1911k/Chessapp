@@ -20,6 +20,13 @@ function merge(ps: Prof[]): Prof | null {
   const w = (k: 'inacc' | 'mistake' | 'blunder') => Math.round((ps.reduce((a, p) => a + p[k] * p.moves, 0) / Math.max(1, moves)) * 10) / 10;
   return { games: ps.reduce((a, p) => a + p.games, 0), moves, inacc: w('inacc'), mistake: w('mistake'), blunder: w('blunder') };
 }
+/** Standard error of a rate from the spread between runs (each run a few games). */
+function se(ps: Prof[], k: 'inacc' | 'mistake' | 'blunder'): number {
+  if (ps.length < 2) return NaN;
+  const m = ps.reduce((a, p) => a + p[k], 0) / ps.length;
+  const sd = Math.sqrt(ps.reduce((a, p) => a + (p[k] - m) ** 2, 0) / (ps.length - 1));
+  return Math.round((sd / Math.sqrt(ps.length)) * 10) / 10;
+}
 const groupBy = <T,>(xs: T[], key: (x: T) => string) => xs.reduce((m, x) => m.set(key(x), [...(m.get(key(x)) ?? []), x]), new Map<string, T[]>());
 const base = new Map((baseline.bots as (Prof & { label: number })[]).map((b) => [b.label, b]));
 const d = (x: number, y: number) => `${x - y >= 0 ? '+' : '−'}${Math.abs(Math.round((x - y) * 10) / 10)}`;
@@ -29,14 +36,15 @@ const ok = (...xs: boolean[]) => (xs.every(Boolean) ? 'yes' : 'no');
 const chars = rows('chars').filter((r) => r.profile);
 if (chars.length) {
   console.log('\n**Characters, self-play with their types (and form) vs the band baseline** (blunders / mistakes / inaccuracies per 100 moves; ±1.5)\n');
-  console.log('| Character | Types | games / moves | before: band bot B / M / I | after B / M / I | Δ B / M / I | within |');
+  console.log('| Character | games / moves | before: band bot B / M / I | after B / M / I | Δ B / M / I | ± (run-to-run SE) | within ±1.5 |');
   console.log('|---|---|---|---|---|---|---|');
-  for (const [label, rs] of groupBy(chars, (r) => r.label)) {
-    const a = merge(rs.map((r) => r.profile))!;
+  const order = ['lily', 'tom', 'maya', 'jonas', 'priya', 'marcus', 'sofia', 'viktor', 'mei'];
+  for (const [label, rs] of [...groupBy(chars, (r) => r.label)].sort((x, y) => order.indexOf(x[0]) - order.indexOf(y[0]))) {
+    const ps = rs.map((r) => r.profile);
+    const a = merge(ps)!;
     const b = base.get(rs[0].elo);
-    const types = rs[0].spec.types ? rs[0].spec.types.join(' · ') : '(theirs)';
     if (!b) continue;
-    console.log(`| ${label} (${rs[0].elo}) | ${types} | ${a.games} / ${a.moves} | ${b.blunder} / ${b.mistake} / ${b.inacc} | ${a.blunder} / ${a.mistake} / ${a.inacc} | ${d(a.blunder, b.blunder)} / ${d(a.mistake, b.mistake)} / ${d(a.inacc, b.inacc)} | ${ok(Math.abs(a.blunder - b.blunder) <= 1.5, Math.abs(a.mistake - b.mistake) <= 1.5, Math.abs(a.inacc - b.inacc) <= 1.5)} |`);
+    console.log(`| ${label[0].toUpperCase() + label.slice(1)} (${rs[0].elo}) | ${a.games} / ${a.moves} | ${b.blunder} / ${b.mistake} / ${b.inacc} | ${a.blunder} / ${a.mistake} / ${a.inacc} | ${d(a.blunder, b.blunder)} / ${d(a.mistake, b.mistake)} / ${d(a.inacc, b.inacc)} | ${se(ps, 'blunder')} / ${se(ps, 'mistake')} / ${se(ps, 'inacc')} | ${ok(Math.abs(a.blunder - b.blunder) <= 1.5, Math.abs(a.mistake - b.mistake) <= 1.5, Math.abs(a.inacc - b.inacc) <= 1.5)} |`);
   }
 }
 
@@ -44,13 +52,14 @@ if (chars.length) {
 const form = rows('form').filter((r) => r.profile);
 if (form.length) {
   console.log('\n**Good days and bad days: plain bots with form vs without** (B / M / I per 100 moves; ±1.5)\n');
-  console.log('| Bot | games / moves | before (no form) | after (form) | Δ | within |');
-  console.log('|---|---|---|---|---|---|');
+  console.log('| Bot | games / moves | before (no form) | after (form) | Δ | ± (run-to-run SE) | within ±1.5 |');
+  console.log('|---|---|---|---|---|---|---|');
   for (const [label, rs] of groupBy(form, (r) => r.label)) {
-    const a = merge(rs.map((r) => r.profile))!;
+    const ps = rs.map((r) => r.profile);
+    const a = merge(ps)!;
     const b = base.get(rs[0].elo);
     if (!b) continue;
-    console.log(`| ${label} | ${a.games} / ${a.moves} | ${b.blunder} / ${b.mistake} / ${b.inacc} | ${a.blunder} / ${a.mistake} / ${a.inacc} | ${d(a.blunder, b.blunder)} / ${d(a.mistake, b.mistake)} / ${d(a.inacc, b.inacc)} | ${ok(Math.abs(a.blunder - b.blunder) <= 1.5, Math.abs(a.mistake - b.mistake) <= 1.5, Math.abs(a.inacc - b.inacc) <= 1.5)} |`);
+    console.log(`| ${rs[0].elo} | ${a.games} / ${a.moves} | ${b.blunder} / ${b.mistake} / ${b.inacc} | ${a.blunder} / ${a.mistake} / ${a.inacc} | ${d(a.blunder, b.blunder)} / ${d(a.mistake, b.mistake)} / ${d(a.inacc, b.inacc)} | ${se(ps, 'blunder')} / ${se(ps, 'mistake')} / ${se(ps, 'inacc')} | ${ok(Math.abs(a.blunder - b.blunder) <= 1.5, Math.abs(a.mistake - b.mistake) <= 1.5, Math.abs(a.inacc - b.inacc) <= 1.5)} |`);
   }
 }
 
