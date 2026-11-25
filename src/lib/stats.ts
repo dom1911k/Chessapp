@@ -49,5 +49,6 @@ export const BEST_WIN_STREAK = 'bestWinStreak';
 /** Your current win streak against the bots (games played in the app). */
 export async function currentWinStreak(): Promise<number> {
   const games = await db.games.orderBy('endedAt').reverse().limit(60).toArray();
-  return winStreak(games.filter((g) => g.source !== 'chess.com').map((g) => g.userResult));
+  // Real games only: chess.com imports and Play Coach practice don't count.
+  return winStreak(games.filter((g) => g.source !== 'chess.com' && !g.coach).map((g) => g.userResult));
 }

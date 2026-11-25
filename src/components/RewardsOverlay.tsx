@@ -414,13 +414,18 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               <Stat
                 value={<span ref={ref('rating')} className="odo inline-block" data-testid="results-rating" />}
                 label={
-                  <span className="flex items-center gap-1">
-                    Rating
-                    <span ref={ref('delta')} className={`${hide} font-bold tabular-nums`} style={{ color: delta > 0 ? '#5f9a2e' : delta < 0 ? '#e07b6c' : undefined }}>
-                      {delta > 0 ? '+' : delta < 0 ? '−' : '±'}
-                      {Math.abs(delta)}
+                  r.practice ? (
+                    // Play Coach is practice: your rating doesn't move.
+                    <span data-testid="results-unrated">Unrated · practice</span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      Rating
+                      <span ref={ref('delta')} className={`${hide} font-bold tabular-nums`} style={{ color: delta > 0 ? '#5f9a2e' : delta < 0 ? '#e07b6c' : undefined }}>
+                        {delta > 0 ? '+' : delta < 0 ? '−' : '±'}
+                        {Math.abs(delta)}
+                      </span>
                     </span>
-                  </span>
+                  )
                 }
               />
             </div>

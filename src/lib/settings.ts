@@ -75,8 +75,14 @@ export interface Settings {
   matchMode: boolean;
   /** Time control for Match conditions ("600+0"); '' = my most common chess.com one, else 10+0. */
   matchTimeControl: string;
-  /** Clock in coached games ('' = off). */
+  /** Clock in coached games ('' = off). Before round 7; kept stored. */
   coachedTimeControl: string;
+  /** Clock for games against the characters ('' = off; always a real game). */
+  charTimeControl: string;
+  /** Home's Play card: Quick match or Characters (remembered). */
+  playSide: 'quick' | 'characters';
+  /** Play Coach: Sam at your rating, 150 below or above. */
+  coachStrength: 'easier' | 'your' | 'harder';
   /** Your avatar (id in AVATARS), its frame (id in FRAMES) and your title ('' = your level's title). */
   avatar: string;
   avatarFrame: string;
@@ -204,6 +210,9 @@ export const DEFAULT_SETTINGS: Settings = {
   matchMode: false,
   matchTimeControl: '',
   coachedTimeControl: '',
+  charTimeControl: '600+0',
+  playSide: 'characters',
+  coachStrength: 'your',
   avatar: 'a01',
   avatarFrame: 'none',
   avatarTitle: '',
@@ -250,6 +259,12 @@ export const useSettings = create<SettingsStore>((set, get) => ({
         if (!saved.ccScaleV1) {
           if (typeof saved.botElo === 'number') saved.botElo = fromLegacy(saved.botElo);
           saved.ccScaleV1 = true;
+        }
+        // One-time (round 7): Coached and Match became one kind of real game; its clock is the one
+        // you used: Match's when you played Match, else the coached one (Off included).
+        if (!saved.playModesV1) {
+          saved.charTimeControl = saved.matchMode ? saved.matchTimeControl || '600+0' : saved.coachedTimeControl ?? '';
+          saved.playModesV1 = true;
         }
         migrateUiV2(saved);
         set({ ...DEFAULT_SETTINGS, ...saved });

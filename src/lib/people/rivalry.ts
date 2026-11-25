@@ -2,6 +2,7 @@
 // opponent; seven of them open that opponent's special challenge. (Rivalry points and levels from
 // earlier versions stay in the stored records but are no longer shown or written.)
 import { Chess } from 'chess.js';
+import { povScore, scoreToCp } from '../chess/evaluation';
 import type { GameRecord } from '../store/types';
 
 export interface Badge {
@@ -14,11 +15,13 @@ export interface Badge {
 export const BADGES: Badge[] = [
   { id: 'white', label: 'With White', hint: 'Win with the white pieces' },
   { id: 'black', label: 'With Black', hint: 'Win with the black pieces' },
-  { id: 'clean', label: 'On your own', hint: 'Win without hints or take-backs' },
+  // Every real game is without help now, so the old "On your own" (id kept) became Comeback.
+  { id: 'clean', label: 'Comeback', hint: 'Win a game you were losing' },
   { id: 'sharp', label: 'Sharp', hint: 'Win with 85% accuracy or more' },
   { id: 'quick', label: 'Quick work', hint: 'Win in 30 moves or fewer' },
   { id: 'mate', label: 'Checkmate', hint: 'Win by checkmate' },
-  { id: 'match', label: 'Match play', hint: 'Win under match conditions' },
+  // And the old "Match play" (id kept) became With a clock.
+  { id: 'match', label: 'With a clock', hint: 'Win a timed game' },
   { id: 'streak', label: 'Hat-trick', hint: 'Win three games in a row against them' },
 ];
 
@@ -26,20 +29,24 @@ export const BADGES: Badge[] = [
 export function badgesEarned(g: GameRecord, streak: number): string[] {
   if (g.userResult !== 'win') return [];
   const out: string[] = [g.userColor === 'w' ? 'white' : 'black'];
-  if (g.hintsUsed + g.takebacks === 0) out.push('clean');
+  if (wasLosing(g)) out.push('clean');
   if (g.summary.accuracy >= 85) out.push('sharp');
   if (g.plies.filter((p) => p.isUser).length <= 30) out.push('quick');
   const last = g.plies[g.plies.length - 1];
   if (g.reason === 'checkmate' || (last && new Chess(last.fenAfter).isCheckmate())) out.push('mate');
-  if (g.match) out.push('match');
+  if (g.timeControl) out.push('match');
   if (streak >= 3) out.push('streak');
   return out;
 }
 
+/** Comeback: your evaluation was −3 or worse at some point after move 10 (plies are scored from White's side). */
+export function wasLosing(g: Pick<GameRecord, 'plies' | 'userColor'>): boolean {
+  return g.plies.some((p, i) => i >= 20 && !!p.evalAfter && scoreToCp(povScore(p.evalAfter, g.userColor)) <= -300);
+}
+
 /**
- * Badges with one opponent that open their special challenge. Seven of eight: a clean win can earn
- * four or five at once, so it takes at least two of With Black, Match play and Hat-trick (several
- * games, usually one under real conditions).
+ * Badges with one opponent that open their special challenge. Seven of eight: one win can earn
+ * four or five at once, so it takes several games (With Black, Comeback, With a clock, Hat-trick).
  */
 export const CHALLENGE_BADGES = 7;
 

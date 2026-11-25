@@ -4,7 +4,7 @@
 import { BadgeLine } from '../../components/Rivalry';
 import { TurningPrompt } from '../../components/TurningCards';
 import { useEffect, useState } from 'react';
-import { ChevronRight, Timer, Swords, Bot, Brain, Check, Lock, MessageCircleHeart, Settings, Share, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy } from 'lucide-react';
+import { ChevronRight, Timer, Bot, Check, Lock, Settings, Share, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy } from 'lucide-react';
 import { eloLabel, MAX_ELO, MIN_ELO } from '../../lib/bot';
 import { getSparring, sparringStep, type SparringState } from '../../lib/sparring';
 import { getPlayerRating } from '../../lib/playerRating';
@@ -15,7 +15,7 @@ import { useSettings } from '../../lib/settings';
 import { usePlay } from '../../lib/store/play';
 import { CoachBubble, Portrait } from '../../components/Coach';
 import { OPPONENTS, opponentById, portraitColors } from '../../lib/people';
-import { getOpponentRecords, isUnlocked, type OpponentRecord } from '../../lib/people/record';
+import { getOpponentRecords, type OpponentRecord } from '../../lib/people/record';
 import { Dialog, IconButton, Segmented } from '../../components/ui';
 import { badgeCount, challengeOpen } from '../../lib/people/record';
 import { CHALLENGE_BADGES } from '../../lib/people/rivalry';
@@ -25,13 +25,16 @@ import { CosmeticPreview } from '../../components/CosmeticPreview';
 import { WeekRing } from '../../components/Gamification';
 import { LastChessComGames } from '../../components/ChessCom';
 import { db, kvGet } from '../../lib/db';
-import { defaultMatchTc, mostCommonTimeControl, offeredTimeControls } from '../../lib/clock';
+import { mostCommonTimeControl, offeredTimeControls } from '../../lib/clock';
 import { timeControlLabel } from '../../lib/chesscom/parse';
-import { COACH_LEVELS, nextLevel, stepDownSuggestion } from '../../lib/coach/level';
 import { HomeHero } from '../../components/HomeHero';
 import { UpNextCard } from '../../components/UpNextCard';
 import { OpponentCarousel } from '../../components/OpponentCarousel';
 import { needsHomeScreenHint } from '../../lib/pwa';
+import { coachElo } from '../../lib/coach/level';
+
+/** Quick match (Phase 3 of round 7) shows the Play card's switch. */
+const QUICK_MATCH = false;
 import { COLOUR_NEWS_KEY, colourChip, getLastColour, nextColour } from '../../lib/colour';
 import type { Color } from '../../lib/chess/pos';
 
@@ -55,13 +58,9 @@ export function SetupView() {
   const chosen = opponentById(settings.opponentId) ?? (custom || sparring ? undefined : OPPONENTS[1]);
   const opp = custom || sparring ? null : chosen ?? null;
   const botElo = opp ? opp.elo : sparring ? spar?.rating ?? getPlayerRating() : settings.botElo;
-  // Match conditions: any opponent from the ladder, no rating gate.
-  const match = settings.matchMode;
-  const locked = !match && !!opp && !isUnlocked(opp.id, records);
+  // Every game against a character is a real game, and every character is open (as Match was).
   const [ccTc, setCcTc] = useState<string | null>(null);
   useEffect(() => void db.imported.toArray().then((gs) => setCcTc(mostCommonTimeControl(gs))), []);
-  const matchTc = defaultMatchTc(settings.matchTimeControl, ccTc);
-  const prevName = opp ? OPPONENTS[OPPONENTS.indexOf(opp) - 1]?.name : undefined;
   const rec = opp ? records[opp.id] : undefined;
   const running = usePlay((s) => (s.game && s.phase !== 'over' && s.phase !== 'setup' ? s.game : null));
   // Your last game's colour (for Alternate) and the one-time line after the move to Alternate, from kv.
@@ -77,14 +76,19 @@ export function SetupView() {
   }, [phaseNow]);
   const chip = colourChip(settings.colorPref, lastColour);
   const start = async () => {
-    if (locked) return;
     const color = nextColour(settings.colorPref, lastColour);
     // Starting over ends the game in progress (counts as resigned after a few moves).
     if (running) await usePlay.getState().abandon();
-    newGame(color, botElo, undefined, opp?.id, { ...(match ? { match: true, timeControl: matchTc } : { timeControl: settings.coachedTimeControl || undefined }), sparring });
+    newGame(color, botElo, undefined, opp?.id, { match: true, timeControl: settings.charTimeControl || undefined, sparring });
   };
-  const [sheet, setSheet] = useState<'opponent' | 'options' | null>(null);
-  const tc = match ? matchTc : settings.coachedTimeControl;
+  /** Play Coach: Sam at your rating (150 below for Easier, 150 above for Harder), no clock. */
+  const startCoach = async () => {
+    const color = nextColour(settings.colorPref, lastColour);
+    if (running) await usePlay.getState().abandon();
+    newGame(color, coachElo(getPlayerRating(), settings.coachStrength), undefined, 'coach', { coach: settings.coachStrength });
+  };
+  const [sheet, setSheet] = useState<'opponent' | 'options' | 'coach' | null>(null);
+  const tc = settings.charTimeControl;
   const chOpen = challengeOpen(rec);
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -94,9 +98,13 @@ export function SetupView() {
         <TurningPrompt />
         {running && <ResumeCard />}
         <HomeScreenHint />
-        {!match && <StepDownCard />}
-        {/* The one card that starts a game. */}
-        <div className="card space-y-3 overflow-hidden !p-0 !pb-3">
+        {/* The Play card: real games (Characters; Quick match joins it). */}
+        <div className="card space-y-3 overflow-hidden !p-0 !pb-3" data-testid="play-card" data-side={settings.playSide}>
+          {QUICK_MATCH && (
+            <div className="px-3 pt-3">
+              <Segmented value={settings.playSide} onChange={(v) => settings.set({ playSide: v })} options={[{ value: 'quick', label: 'Quick match' }, { value: 'characters', label: 'Characters' }]} />
+            </div>
+          )}
           <button
             className="relative flex w-full items-center gap-3.5 px-3.5 pt-3.5 pb-3 text-left transition-[filter] duration-100 active:brightness-95"
             style={{ background: opp ? `linear-gradient(115deg, color-mix(in srgb, ${portraitColors(opp.id)[1]} 12%, transparent), transparent 70%)` : undefined }}
@@ -115,23 +123,13 @@ export function SetupView() {
           </button>
           <div className="space-y-3 px-3">
           {/* Your badges with them, in one place on Home: a line that opens the badge sheet. */}
-          {opp && !locked && <BadgeLine opponentId={opp.id} rec={rec} />}
-          <Segmented
-            value={match ? 'match' : 'coached'}
-            onChange={(v) => settings.set({ matchMode: v === 'match' })}
-            options={[
-              { value: 'coached', label: <><MessageCircleHeart size={15} /> Coached</> },
-              { value: 'match', label: <><Swords size={15} /> Match</> },
-            ]}
-          />
+          {opp && <BadgeLine opponentId={opp.id} rec={rec} />}
           <button className="flex w-full flex-wrap items-center gap-1.5 rounded-[8px] p-1 text-left press" onClick={() => setSheet('options')}>
             {/* The next game's colour (Alternate: a two-tone dot). */}
             <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200" data-testid="colour-chip" data-dot={chip.dot}>
               <ColourDot kind={chip.dot} size={12} /> {chip.label}
             </span>
-            <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200"><Timer size={12} /> {tc ? timeControlLabel(tc) : 'No clock'}</span>
-            <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">{settings.opponentEngine === 'maia' ? <><Brain size={12} /> Human-like</> : <><Bot size={12} /> Classic</>}</span>
-            {!match && <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">Coach: {COACH_LEVELS.find((l) => l.id === settings.coachLevel)?.label}</span>}
+            <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200" data-testid="clock-chip"><Timer size={12} /> {tc ? timeControlLabel(tc) : 'No clock'}</span>
             <span className="ml-auto text-sm font-semibold text-brand-700 dark:text-brand-500">Options</span>
           </button>
           {colourNews && settings.colorPref === 'alternate' && (
@@ -139,21 +137,21 @@ export function SetupView() {
               Colours now alternate, like on chess.com. Change it in Options.
             </p>
           )}
-          {match && <p className="px-1 text-xs text-stone-500">Like a real chess.com game: clock on, no help until it ends — then the full Game Review.</p>}
-          <button className="btn-primary !min-h-14 w-full text-[18px] !font-extrabold" disabled={locked} onClick={() => void start()}>
-            {locked ? <><Lock size={16} /> Beat {prevName} first</> : running ? 'Start a new game' : 'Play'}
+          <button className="btn-primary !min-h-14 w-full text-[18px] !font-extrabold" onClick={() => void start()} data-testid="play-button">
+            {running ? 'Start a new game' : 'Play'}
           </button>
           {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
           </div>
         </div>
-        {opp && !locked && chOpen && !rec?.challengeDone && <ChallengeCard opponentId={opp.id} badges={badgeCount(rec)} open done={false} />}
+        {opp && chOpen && !rec?.challengeDone && <ChallengeCard opponentId={opp.id} badges={badgeCount(rec)} open done={false} />}
+        <PlayCoachCard running={!!running} onPlay={() => void startCoach()} onOptions={() => setSheet('coach')} />
         <WeekRing />
         <UpNextCard />
         <LastChessComGames />
       </div>
       <Dialog open={sheet === 'opponent'} onClose={() => setSheet(null)} title="Choose your opponent">
         <div className="-mx-4">
-          {!custom && !sparring && <OpponentCarousel records={records} allOpen={match} selected={settings.opponentId} onSelect={(id) => settings.set({ opponentId: id })} />}
+          {!custom && !sparring && <OpponentCarousel records={records} allOpen selected={settings.opponentId} onSelect={(id) => settings.set({ opponentId: id })} />}
         </div>
         {custom && (
           <div className="py-2">
@@ -177,7 +175,7 @@ export function SetupView() {
           </div>
         )}
         {!sparring && <p className="mt-2 px-1 text-xs text-stone-500">Ratings are chess.com rapid ratings: each bot plays like real chess.com players at its rating.</p>}
-        {opp && !locked && !chOpen && <ChallengeCard opponentId={opp.id} badges={badgeCount(rec)} open={false} done={!!rec?.challengeDone} />}
+        {opp && !chOpen && <ChallengeCard opponentId={opp.id} badges={badgeCount(rec)} open={false} done={!!rec?.challengeDone} />}
         <div className="mt-3 flex gap-2">
           {!sparring && (
             <button className="btn-ghost flex-1 text-sm" onClick={() => settings.set({ opponentId: custom ? OPPONENTS[1].id : 'custom' })}>
@@ -190,8 +188,8 @@ export function SetupView() {
           <button className="btn-primary flex-1" onClick={() => setSheet(null)}>Done</button>
         </div>
       </Dialog>
-      <Dialog open={sheet === 'options'} onClose={() => setSheet(null)} title="Game options">
-        <div className="space-y-4">
+      <Dialog open={sheet === 'options' || sheet === 'coach'} onClose={() => setSheet(null)} title={sheet === 'coach' ? 'Play Coach options' : 'Game options'}>
+        <div className="space-y-4" data-testid="options-sheet" data-mode={sheet === 'coach' ? 'coach' : 'characters'}>
           <div>
             <div className="mb-1.5 section-title">You play</div>
             {/* Four choices: on a small phone the dots go so the words fit. */}
@@ -212,38 +210,65 @@ export function SetupView() {
               </p>
             )}
           </div>
-          <div>
-            <div className="mb-1.5 section-title">Clock</div>
-            {match ? (
-              <TimeControlPicker value={matchTc} options={offeredTimeControls(ccTc)} onChange={(v) => settings.set({ matchTimeControl: v })} mine={ccTc} />
-            ) : (
-              <TimeControlPicker value={settings.coachedTimeControl || 'off'} options={['off', ...offeredTimeControls(ccTc)]} onChange={(v) => settings.set({ coachedTimeControl: v === 'off' ? '' : v })} mine={ccTc} />
-            )}
-          </div>
-          <div>
-            <div className="mb-1.5 section-title">Opponent style</div>
-            <Segmented
-              value={settings.opponentEngine}
-              onChange={(v) => settings.set({ opponentEngine: v })}
-              options={[
-                { value: 'maia', label: <><Brain size={15} /> Human-like</> },
-                { value: 'stockfish', label: <><Bot size={15} /> Classic</> },
-              ]}
-            />
-            <p className="mt-1.5 px-1 text-xs text-stone-500">
-              {settings.opponentEngine === 'maia' ? 'Plays like real people at that level (Maia). Its mistakes are human mistakes.' : 'An engine made weaker with random slips.'}
-            </p>
-          </div>
-          {!match && (
+          {sheet === 'coach' ? (
             <div>
-              <div className="mb-1.5 section-title">Coach</div>
-              <Segmented value={settings.coachLevel} onChange={(v) => settings.set({ coachLevel: v, coachLevelSince: Date.now() })} options={COACH_LEVELS.map((l) => ({ value: l.id, label: l.label }))} />
-              <p className="mt-1.5 px-1 text-xs text-stone-500">{COACH_LEVELS.find((l) => l.id === settings.coachLevel)?.text}</p>
+              <div className="mb-1.5 section-title">Sam talks</div>
+              <Segmented
+                value={settings.coachLevel === 'full' ? 'full' : 'warnings'}
+                onChange={(v) => settings.set({ coachLevel: v, coachLevelSince: Date.now() })}
+                options={[
+                  { value: 'full', label: 'All' },
+                  { value: 'warnings', label: 'Only when it matters' },
+                ]}
+              />
+              <p className="mt-1.5 px-1 text-xs text-stone-500">
+                {settings.coachLevel === 'full' ? 'Sam comments on your moves, warns you, shows threats and explains his own moves.' : 'Sam only speaks up before a real mistake, and when you ask.'} No clock in Play Coach.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <div className="mb-1.5 section-title">Clock</div>
+              <TimeControlPicker value={settings.charTimeControl || 'off'} options={['off', ...offeredTimeControls(ccTc)]} onChange={(v) => settings.set({ charTimeControl: v === 'off' ? '' : v })} mine={ccTc} />
             </div>
           )}
           <button className="btn-primary w-full" onClick={() => setSheet(null)}>Done</button>
         </div>
       </Dialog>
+    </div>
+  );
+}
+
+/** The Play Coach card: Sam, the line, the level switch and its own button. */
+function PlayCoachCard({ running, onPlay, onOptions }: { running: boolean; onPlay: () => void; onOptions: () => void }) {
+  const level = useSettings((s) => s.coachStrength);
+  const set = useSettings((s) => s.set);
+  return (
+    <div className="card space-y-3 !p-3.5" data-testid="play-coach-card">
+      <div className="flex gap-3">
+        <Portrait id="coach" size={52} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <span className="flex-1 text-[16px] font-extrabold tracking-[-0.01em]">Play Coach</span>
+            <button className="text-sm font-semibold text-brand-700 dark:text-brand-500" onClick={onOptions}>Options</button>
+          </div>
+          <p className="text-[12px] leading-snug text-stone-500 dark:text-stone-400">Sam plays at your level and teaches as you go.</p>
+          <div className="mt-2">
+            <Segmented
+              dense
+              value={level}
+              onChange={(v) => set({ coachStrength: v })}
+              options={[
+                { value: 'easier', label: 'Easier' },
+                { value: 'your', label: 'Your level' },
+                { value: 'harder', label: 'Harder' },
+              ]}
+            />
+          </div>
+        </div>
+      </div>
+      <button className="btn-secondary !min-h-12 w-full text-[16px] !font-extrabold" onClick={onPlay} data-testid="play-coach-button">
+        {running ? 'Play Coach (ends your game)' : 'Play Coach'}
+      </button>
     </div>
   );
 }
@@ -385,32 +410,3 @@ export function TimeControlPicker({ value, options, onChange, mine }: { value: s
   );
 }
 
-/** After 5 wins at the current coach level: suggest one step down (never forced). */
-function StepDownCard() {
-  const settings = useSettings();
-  const [games, setGames] = useState<{ coachLevel?: 'full' | 'warnings' | 'silent'; match?: boolean; userResult: string; endedAt: number }[]>([]);
-  useEffect(() => void db.games.toArray().then(setGames), []);
-  const level = settings.coachLevel;
-  const sug = stepDownSuggestion(games, level, settings.coachLevelSince);
-  if (!sug || settings.stepDownDismissed === `${level}:${settings.coachLevelSince}`) return null;
-  const to = nextLevel(level);
-  const label = to === 'match' ? 'Match conditions' : COACH_LEVELS.find((l) => l.id === to)!.label;
-  return (
-    <div className="rounded-[10px] bg-brand-50 p-3 text-sm ring-1 ring-brand-500/30 dark:bg-brand-700/15">
-      <p>
-        <b>{sug.wins} wins</b> with the coach on “{COACH_LEVELS.find((l) => l.id === level)!.label}”. Ready for a little less help? Try <b>{label}</b>.
-      </p>
-      <div className="mt-2 flex gap-2">
-        <button
-          className="btn-primary !py-1.5 text-sm"
-          onClick={() => (to === 'match' ? settings.set({ matchMode: true }) : settings.set({ coachLevel: to, coachLevelSince: Date.now() }))}
-        >
-          Try {label}
-        </button>
-        <button className="btn-secondary !py-1.5 text-sm" onClick={() => settings.set({ stepDownDismissed: `${level}:${settings.coachLevelSince}` })}>
-          Not now
-        </button>
-      </div>
-    </div>
-  );
-}

@@ -1,4 +1,4 @@
-// The gap tracker: how you score with the coach's safety net, without it (Match conditions),
+// The gap tracker: how you score with the coach's safety net (Play Coach and older coached games), without it (real games),
 // and on chess.com over the same period (pure).
 import type { AnyGame } from '../store/types';
 
@@ -53,15 +53,15 @@ export function gapReport(games: AnyGame[], now = Date.now(), days = PERIOD_DAYS
 
 /** One plain sentence on what the gap suggests. */
 export function gapSentence(bands: GapBand[], coached: Tally, match: Tally, cc: Tally): string {
-  if (match.n === 0) return 'Play a few games in Match conditions to see how much of your result comes from the safety net.';
+  if (match.n === 0) return 'Play a few real games to see how much of your result comes from the help in Play Coach.';
   // Compare against the same opponents where both sides have enough games; else overall.
   const same = bands.filter((b) => b.coached.n >= MIN_GAMES && b.match.n >= MIN_GAMES).sort((a, b) => b.coached.n + b.match.n - (a.coached.n + a.match.n))[0];
   const c = same ? same.coached : coached;
   const m = same ? same.match : match;
-  if (c.n < MIN_GAMES || m.n < MIN_GAMES) return `${m.n} Match-conditions game${m.n === 1 ? '' : 's'} so far — play at least ${MIN_GAMES} of each kind against similar opponents to compare.`;
+  if (c.n < MIN_GAMES || m.n < MIN_GAMES) return `${m.n} real game${m.n === 1 ? '' : 's'} so far — play at least ${MIN_GAMES} of each kind against similar opponents to compare.`;
   const vs = same ? ' vs the same opponents' : '';
   const ccPart = cc.n >= MIN_GAMES ? ` (and ${cc.pct}% on chess.com)` : '';
-  if (c.pct - m.pct >= 15) return `You score ${c.pct}% coached but ${m.pct}% in Match conditions${vs}${ccPart} — the safety net is doing a lot of work. Play more Match-conditions games.`;
-  if (m.pct - c.pct >= 10) return `You score ${m.pct}% in Match conditions and ${c.pct}% coached${vs}${ccPart} — you don't need the safety net against these opponents; try stronger ones.`;
-  return `You score ${c.pct}% coached and ${m.pct}% in Match conditions${vs}${ccPart} — what you've learned holds up without help.`;
+  if (c.pct - m.pct >= 15) return `You score ${c.pct}% with help but ${m.pct}% in real games${vs}${ccPart} — the safety net is doing a lot of work. Play more real games.`;
+  if (m.pct - c.pct >= 10) return `You score ${m.pct}% in real games and ${c.pct}% with help${vs}${ccPart} — you don't need the safety net against these opponents; try stronger ones.`;
+  return `You score ${c.pct}% with help and ${m.pct}% in real games${vs}${ccPart} — what you've learned holds up without help.`;
 }

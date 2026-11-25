@@ -253,13 +253,13 @@ export function GapCard() {
   const cell = (t: { n: number; pct: number }) => (t.n ? <><b>{t.pct}%</b> <span className="text-stone-500">({t.n})</span></> : <span className="text-stone-500">–</span>);
   return (
     <div className="card space-y-2 !p-3">
-      <div className="section-title">Coached vs Match conditions (last {PERIOD_DAYS} days)</div>
+      <div className="section-title">With help vs real games (last {PERIOD_DAYS} days)</div>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-xs text-stone-500">
             <th className="text-left font-normal">Opponents</th>
-            <th className="text-right font-normal">Coached</th>
-            <th className="text-right font-normal">Match</th>
+            <th className="text-right font-normal">With help</th>
+            <th className="text-right font-normal">Real</th>
           </tr>
         </thead>
         <tbody>

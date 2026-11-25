@@ -11,7 +11,9 @@ export function rematch(s: ReturnType<typeof usePlay.getState>) {
   const g = s.game!;
   const color = g.userColor === 'w' ? 'b' : 'w';
   void setLastColour(color).catch(() => undefined);
-  s.newGame(color, g.elo, undefined, g.opponentId, g.match ? { match: true, timeControl: g.timeControl } : { timeControl: g.timeControl });
+  // Play Coach again with Sam at the same level; otherwise the same real game, colours swapped.
+  if (g.coach) s.newGame(color, g.elo, undefined, 'coach', { coach: g.coach });
+  else s.newGame(color, g.elo, undefined, g.opponentId, { match: true, timeControl: g.timeControl });
 }
 
 export type ActionKind = 'paused' | 'precheck' | 'over';

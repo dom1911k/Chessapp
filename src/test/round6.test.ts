@@ -103,7 +103,8 @@ describe('round 6 · 1 colours like chess.com', async () => {
     await vi.waitFor(async () => expect(await getLastColour()).toBe('b'));
     const s2 = { game: { userColor: 'b', elo: 600, opponentId: 'maya', match: false, timeControl: '' }, newGame } as never;
     rematch(s2);
-    expect(newGame).toHaveBeenLastCalledWith('w', 600, undefined, 'maya', { timeControl: '' });
+    // Round 7: every rematch outside Play Coach is a real game.
+    expect(newGame).toHaveBeenLastCalledWith('w', 600, undefined, 'maya', { match: true, timeControl: '' });
     await vi.waitFor(async () => expect(await getLastColour()).toBe('w'));
   });
   it('the migration moves White to Alternate once and never again', async () => {

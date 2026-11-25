@@ -71,8 +71,9 @@ import { badgeCount, challengeOpen } from '../lib/people/record';
 describe('badges with each opponent', () => {
   const game = (o: Record<string, unknown> = {}) => ({ userResult: 'win', userColor: 'w', hintsUsed: 0, takebacks: 0, reason: 'checkmate', match: false, summary: { accuracy: 90 }, plies: Array.from({ length: 40 }, (_, i) => ({ isUser: i % 2 === 0, fenAfter: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' })), ...o }) as never;
   it('awards matchup badges for feats in a win only', () => {
-    expect(badgesEarned(game(), 1).sort()).toEqual(['clean', 'mate', 'quick', 'sharp', 'white'].sort());
-    expect(badgesEarned(game({ userColor: 'b', match: true, hintsUsed: 2, summary: { accuracy: 60 }, reason: 'resignation' }), 3).sort()).toEqual(['black', 'match', 'quick', 'streak'].sort());
+    expect(badgesEarned(game(), 1).sort()).toEqual(['mate', 'quick', 'sharp', 'white'].sort());
+    // Round 7: "With a clock" (id match) needs a timed game; Comeback (id clean) a game you were losing.
+    expect(badgesEarned(game({ userColor: 'b', match: true, timeControl: '600+0', hintsUsed: 2, summary: { accuracy: 60 }, reason: 'resignation' }), 3).sort()).toEqual(['black', 'match', 'quick', 'streak'].sort());
     expect(badgesEarned(game({ userResult: 'loss' }), 0)).toEqual([]);
     expect(BADGES.length).toBe(8);
   });

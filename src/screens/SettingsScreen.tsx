@@ -7,7 +7,6 @@ import { useNav } from '../lib/nav';
 import { COSMETICS, isUnlocked, unlockContext } from '../lib/rewards/cosmetics';
 import { BackupCard } from '../components/BackupCard';
 import { ChessComCard } from '../components/ChessCom';
-import { COACH_LEVELS } from '../lib/coach/level';
 import { ResetCard } from '../components/ResetCard';
 import { ResetRecordsCard } from '../components/ResetRecordsCard';
 import { useRunFlag } from '../cups/flag';
@@ -152,15 +151,16 @@ export function SettingsScreen() {
             </div>
           )}
           <div className="py-2">
-            <div className="mb-1.5 text-sm">Coach level (normal games)</div>
+            <div className="mb-1.5 text-sm">Sam talks (Play Coach)</div>
             <Segmented
-              value={s.coachLevel}
+              value={s.coachLevel === 'full' ? 'full' : 'warnings'}
               onChange={(v) => s.set({ coachLevel: v, coachLevelSince: Date.now() })}
-              options={COACH_LEVELS.map((l) => ({ value: l.id, label: l.label }))}
+              options={[
+                { value: 'full', label: 'All' },
+                { value: 'warnings', label: 'Only when it matters' },
+              ]}
             />
-            <p className="mt-1.5 text-xs text-stone-500">
-              {COACH_LEVELS.find((l) => l.id === s.coachLevel)?.text} After 5 wins at a level, I'll suggest the next one down — Match conditions after Silent. It's always your call.
-            </p>
+            <p className="mt-1.5 text-xs text-stone-500">Games against the characters and Quick match are real games, with no help. Sam helps in Play Coach.</p>
           </div>
           <div className="py-2">
             <div className="mb-1.5 text-sm">How chatty is Coach Sam?</div>

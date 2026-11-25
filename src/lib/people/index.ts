@@ -325,7 +325,40 @@ export const OPPONENTS: Opponent[] = [
   },
 ];
 
-export const opponentById = (id: string | undefined) => OPPONENTS.find((o) => o.id === id);
+/** Coach Sam as the opponent in Play Coach: steady, at your level (the game's elo), not on the ladder. */
+export const COACH_SAM: Opponent = {
+  id: 'coach',
+  name: 'Coach Sam',
+  elo: 0,
+  style: 'balanced',
+  tagline: 'Plays at your level and teaches as you go',
+  bio: 'Sam plays you at your level, explains as you go and lets you take moves back.',
+  lines: {
+    greet: ["Let's play. Ask for a hint whenever you like."],
+    greetRevenge: ["Let's play. Ask for a hint whenever you like."],
+    greetRematch: ["Let's play. Ask for a hint whenever you like."],
+    userCheck: [],
+    userCapture: [],
+    userThreat: [],
+    userBrilliant: [],
+    userGoodMove: [],
+    userBlunder: [],
+    botCapture: [],
+    botCheck: [],
+    botWinning: [],
+    botLosing: [],
+    takeback: [],
+    botWins: ['Good game. Shall we look at it together?'],
+    botLoses: ['Well played! Shall we look at it together?'],
+    draw: ['A fair draw. Good game.'],
+    userResigned: ['Good game. Shall we look at it together?'],
+    summaryGood: [],
+    summaryMistake: [],
+  },
+};
+
+/** A character by id (Coach Sam too, for Play Coach games; he isn't in OPPONENTS). */
+export const opponentById = (id: string | undefined) => (id === 'coach' ? COACH_SAM : OPPONENTS.find((o) => o.id === id));
 
 const COUNT_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
 /** "Nine characters from 200 to 1800" — read off the cast, so it can't drift from the ladder. */
@@ -339,8 +372,10 @@ export function nearestOpponent(elo: number): Opponent {
   return OPPONENTS.reduce((a, b) => (Math.abs(b.elo - elo) < Math.abs(a.elo - elo) ? b : a));
 }
 
+/** One of their lines for the event ('' when they have none, e.g. Coach Sam mid-game). */
 export function pickLine(o: Opponent, e: ChatEvent, seed = Math.random(), vars: Record<string, string> = {}): string {
-  const l = o.lines[e];
+  const l = o.lines[e] ?? [];
+  if (!l.length) return '';
   return l[Math.floor(seed * l.length) % l.length].replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
 }
 

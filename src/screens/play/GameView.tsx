@@ -22,7 +22,7 @@ import { MoveHistory } from '../../components/MoveHistory';
 import type { CoachArrow, CoachHighlight } from '../../lib/coach/types';
 import { BoardFlash } from '../../components/BoardFlash';
 import { timeControlLabel } from '../../lib/chesscom/parse';
-import { aidsFor } from '../../lib/coach/level';
+import { aidsFor, coachLevelLabel } from '../../lib/coach/level';
 import { VersusIntro } from '../../components/VersusIntro';
 import { RewardsOverlay } from '../../components/RewardsOverlay';
 import { THEMES } from '../../lib/themes';
@@ -37,8 +37,9 @@ import { END_BEATS, END_STALE_MS, endStinger } from '../../lib/endBeats';
 function GameTopBar({ onMenu }: { onMenu: () => void }) {
   const s = usePlay();
   const g = s.game!;
-  const opening = useMemo(() => (g.startFen === START_FEN ? detectOpening(g.plies.map((p) => p.san)) : null), [g.plies, g.startFen]);
-  const sub = [g.match ? 'Match conditions' : 'Coached', g.timeControl ? timeControlLabel(g.timeControl) : null].filter(Boolean).join(' · ');
+  // Opening names are one of Play Coach's aids; a real game shows who you're playing.
+  const opening = useMemo(() => (g.coach && g.startFen === START_FEN ? detectOpening(g.plies.map((p) => p.san)) : null), [g.coach, g.plies, g.startFen]);
+  const sub = g.coach ? `${coachLevelLabel(g.coach)} · practice` : g.cup ? 'Cup game' : ['Rated', g.timeControl ? timeControlLabel(g.timeControl) : 'no clock'].join(' · ');
   return (
     <header className="safe-top relative z-20">
       <div className="mx-auto flex h-11 max-w-xl items-center gap-2 px-1 land:max-w-6xl">
@@ -46,7 +47,7 @@ function GameTopBar({ onMenu }: { onMenu: () => void }) {
           <ChevronLeft size={24} strokeWidth={2.2} />
         </IconButton>
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate text-[16px] font-bold tracking-[-0.01em]">{opening ? opening.name : `vs ${opponentById(g.opponentId)?.name ?? (g.rematch ? `${g.rematch.name} (stand-in)` : g.sparring ? 'Sparring partner' : 'Bot')}`}</div>
+          <div className="truncate text-[16px] font-bold tracking-[-0.01em]" data-testid="game-title">{g.coach ? (opening ? opening.name : 'Play Coach') : `vs ${opponentById(g.opponentId)?.name ?? (g.rematch ? `${g.rematch.name} (stand-in)` : g.sparring ? 'Sparring partner' : 'Bot')}`}</div>
           <div className="truncate text-[12px] font-medium text-stone-500">{sub}</div>
         </div>
         <IconButton label="Game menu" onClick={onMenu}>
@@ -121,7 +122,7 @@ export function GameView() {
   };
   const viewPly = viewing && view! >= 0 ? g.plies[view!] : null;
   const aids = aidsFor(settings, g);
-  // Match conditions and the quieter coach levels show the move list in the coach's place.
+  // Real games and the quieter Sam talks setting show the move list in the coach's place.
   const coachOff = !aids.comments;
   const feed = g.feed ?? [];
   const latestFeed = feed[feed.length - 1];
@@ -276,7 +277,7 @@ export function GameView() {
                     <DockButton label="Threats" icon={<Crosshair size={22} />} disabled={!myTurn} onClick={s.requestThreat} />
                   </>
                 ) : (
-                  // Match conditions: chess.com's bar. Back and Forward step through the game like a swipe.
+                  // A real game: chess.com's bar. Back and Forward step through the game like a swipe.
                   <>
                     <DockButton label="Back" icon={<ChevronLeft size={24} />} disabled={!g.plies.length || view === -1} onClick={() => setView(stepView(view, g.plies.length, -1))} />
                     <DockButton label="Forward" icon={<ChevronRight size={24} />} disabled={!viewing} onClick={() => setView(stepView(view, g.plies.length, 1))} />
@@ -317,15 +318,15 @@ export function GameView() {
           {(aids.requests || s.over) && menuItem(<Sparkles size={19} />, 'Explain this position', () => void s.requestExplain())}
           {menuItem(<MessagesSquare size={19} />, 'Conversation', () => setHistory(true))}
           {menuItem(<FlipVertical2 size={19} />, 'Flip board', () => setFlipped((f) => !f))}
-          {!g.match && menuItem(
+          {g.coach && menuItem(
             <MessageCircleHeart size={19} />,
             'Coach comments',
             () => settings.set({ coachStyle: settings.coachStyle === 'gentle' ? 'detailed' : settings.coachStyle === 'detailed' ? 'off' : 'gentle' }),
             <span className="chip bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300">{settings.coachStyle === 'gentle' ? 'Gentle' : settings.coachStyle === 'detailed' ? 'Every move' : 'Off · move list'}</span>,
           )}
-          {!g.match && menuItem(<ShieldCheck size={19} />, 'Safety overlay', () => settings.set({ safetyOverlay: !settings.safetyOverlay }), onOff(settings.safetyOverlay))}
+          {g.coach && menuItem(<ShieldCheck size={19} />, 'Safety overlay', () => settings.set({ safetyOverlay: !settings.safetyOverlay }), onOff(settings.safetyOverlay))}
           {menuItem(<ListOrdered size={19} />, 'Move list', () => settings.set({ showMoveList: !settings.showMoveList }), onOff(settings.showMoveList))}
-          {!s.over && (abortable ? menuItem(<X size={19} />, 'Abort', () => void s.abort()) : menuItem(<Flag size={19} />, 'Resign', () => (g.match ? setConfirmResign(true) : void s.resign())))}
+          {!s.over && (abortable ? menuItem(<X size={19} />, 'Abort', () => void s.abort()) : menuItem(<Flag size={19} />, 'Resign', () => (g.coach ? void s.resign() : setConfirmResign(true))))}
           {menuItem(<RotateCcw size={19} />, 'New game', () => void (s.over ? s.leaveGame() : s.abandon()))}
         </div>
       </Dialog>

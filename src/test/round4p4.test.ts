@@ -17,7 +17,7 @@ vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => false }
 vi.mock('@capacitor/filesystem', () => ({ Directory: {}, Encoding: {}, Filesystem: {} }));
 vi.mock('@capacitor/share', () => ({ Share: {} }));
 
-/** A short win against Tom: White, no help, 90% accuracy → With White, On your own, Sharp, Quick work. */
+/** A short win against Tom: White, 90% accuracy → With White, Sharp, Quick work (round 7: no Comeback, no clock). */
 const win = (o: Partial<GameRecord> = {}) =>
   ({
     id: 1,
@@ -35,12 +35,12 @@ const win = (o: Partial<GameRecord> = {}) =>
   }) as unknown as GameRecord;
 
 describe('4.1 · badges are the one track per opponent', () => {
-  it('one clean mate win earns five badges, and the challenge stays closed', async () => {
+  it('one mate win earns four badges, and the challenge stays closed', async () => {
     const { kvSet } = await import('../lib/db');
     const { recordOpponentGame } = await import('../lib/people/record');
     await kvSet('opponentStats', {});
     const a = await recordOpponentGame(win({ reason: 'checkmate' }));
-    expect(a!.rivalry.newBadges).toEqual(['white', 'clean', 'sharp', 'quick', 'mate']);
+    expect(a!.rivalry.newBadges).toEqual(['white', 'sharp', 'quick', 'mate']);
     expect(a!.challengeOpened).toBe(false);
   });
 
@@ -52,16 +52,20 @@ describe('4.1 · badges are the one track per opponent', () => {
     const a = await recordOpponentGame(win({ userColor: 'b' }));
     expect(a!.rivalry).toMatchObject({ newBadges: ['black'], badges: 6 });
     expect(a!.challengeOpened).toBe(false);
-    // A win under match conditions: the seventh opens Tom's challenge (win without hints or take-backs).
-    const b = await recordOpponentGame(win({ match: true }));
+    // A win with a clock: the seventh opens Tom's challenge (win a game that reached an endgame).
+    const b = await recordOpponentGame(win({ match: true, timeControl: '600+0' }));
     expect(b!.rivalry).toMatchObject({ newBadges: ['match'], badges: 7 });
     expect(b!.challengeOpened).toBe(true);
     expect(b!.challengeDone).toBe(false);
     expect((await getOpponentRecords()).tom.challengeOpen).toBe(true);
-    // The next clean win completes it (and, as the third win in a row, earns the Hat-trick).
-    const c = await recordOpponentGame(win());
+    // A win that kept the queens doesn't complete it; one that reached a queenless endgame does
+    // (and, as the fourth win in a row, earns the Hat-trick on the way).
+    const kept = await recordOpponentGame(win());
+    expect(kept!.challengeDone).toBe(false);
+    const endgame = win().plies.map((p, i, all) => (i === all.length - 1 ? { ...p, fenAfter: '6k1/5ppp/8/8/8/8/5PPP/6K1 w - - 0 1' } : p));
+    const c = await recordOpponentGame(win({ plies: endgame }));
     expect(c!.challengeDone).toBe(true);
-    expect(c!.rivalry.newBadges).toEqual(['streak']);
+    expect(kept!.rivalry.newBadges).toEqual(['streak']);
   });
 
   it('writes no rivalry points and no XP', async () => {

@@ -89,6 +89,7 @@ export function HistoryScreen() {
                     date and how it ended underneath. */}
                 <span className="block truncate font-semibold">
                   {cc && <ChessComBadge className="mr-1" />}
+                  {g.coach && <span className="mr-1 inline-flex rounded bg-brand-500/15 px-1 py-px align-middle text-[11px] font-bold leading-tight text-brand-700 dark:text-brand-500" data-testid="coach-tag">Coach game</span>}
                   vs {cc ? imported.opponentName : g.opponentName ?? opponentById(g.opponentId)?.name ?? 'Bot'}
                 </span>
                 <span className="block truncate text-[12px] text-stone-500 dark:text-stone-400">

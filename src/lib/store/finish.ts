@@ -9,7 +9,7 @@ import { progress } from '../progress';
 import { newCardDue, type Card } from '../srs';
 import type { GameRecord, SavedGame } from './types';
 import { addToCareer, type TacticCounts } from '../rewards/career';
-import { rateGame, MILESTONES, type Milestone } from '../rewards/rating';
+import { getGameRating, rateGame, MILESTONES, type Milestone } from '../rewards/rating';
 import { skillStates, SKILLS, type Tier } from '../rewards/skills';
 import { freshUnlocks, type Cosmetic } from '../rewards/cosmetics';
 import { ACHIEVEMENTS, checkAchievements, unlockedAchievements, type Achievement } from '../progress/achievements';
@@ -49,6 +49,8 @@ export interface GameRewards {
   accuracy: number;
   /** Your average over the previous 10 games with an accuracy (once there are 3): "Accuracy · avg 58%". */
   accuracyAvg?: number;
+  /** A Play Coach game: unrated, no badges (the sheet says "Practice" for the rating). */
+  practice?: boolean;
   /** None of your moves were analysed (resigned before moving): the sheet shows "—". */
   noMoves?: boolean;
   /** Badges from this game against this opponent. */
@@ -140,15 +142,19 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     await db.cards.bulkPut(cards);
     return id;
   });
+  // A training day either way.
   await bumpActivity('games');
   const skillsBefore = await skillStates();
-  const rec = await recordOpponentGame({ ...record, id: gameId });
+  // Play Coach is practice: no rating change, no badges, ladder or rivalry.
+  const practice = !!g.coach;
+  const rec = practice ? null : await recordOpponentGame({ ...record, id: gameId });
   await addToCareer(record.tactics ?? {});
   // Rematches: results per chess.com opponent.
   if (g.rematch && !opts.cup) await recordRematch(g.rematch.name, userResult);
   // The sparring partner moves its rating to keep you near 50%.
   if (g.sparring && !opts.cup) await saveSparring(afterSparring(await getSparring(g.elo), userResult));
-  const { before: rb, after: ra } = await rateGame(g.elo, userResult === 'win' ? 1 : userResult === 'draw' ? 0.5 : 0, g.hintsUsed + g.takebacks);
+  const unrated = await getGameRating();
+  const { before: rb, after: ra } = practice ? { before: unrated, after: unrated } : await rateGame(g.elo, userResult === 'win' ? 1 : userResult === 'draw' ? 0.5 : 0, g.hintsUsed + g.takebacks);
   await progress({ kind: 'game', result: userResult, accuracy: summary.accuracy });
   // A recurring pattern beats a one-game lesson for steering puzzle practice.
   const focus = summary.pattern?.theme ?? summary.lessonTheme;
@@ -166,6 +172,7 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     userResult,
     reason,
     opponentId: g.opponentId,
+    ...(practice ? { practice: true } : {}),
     accuracy: summary.accuracy,
     ...(avg !== null ? { accuracyAvg: avg } : {}),
     noMoves: !hasAccuracy(summary) || undefined,

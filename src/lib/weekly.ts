@@ -84,7 +84,8 @@ export async function weekStats(start: number): Promise<WeekStats> {
     getGameRating(),
     kvGet<number>(GOAL_KEY, 4),
   ]);
-  const games: AnyGame[] = [...app, ...ccWeek];
+  // Play Coach games are practice: out of the games, results, accuracy and blunders (still a training day).
+  const games: AnyGame[] = [...app.filter((g) => !g.coach), ...ccWeek];
   const done = games.filter(analysed);
   const withAcc = done.filter((g) => hasAccuracy(g.summary));
   const keys: string[] = [];

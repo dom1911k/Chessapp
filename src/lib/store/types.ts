@@ -37,6 +37,9 @@ export interface FeedItem {
   ply: number;
 }
 
+/** Play Coach: Sam at your rating, 150 below (Easier) or 150 above (Harder). */
+export type CoachStrength = 'easier' | 'your' | 'harder';
+
 export interface SavedGame {
   id: 'play';
   userColor: Color;
@@ -56,9 +59,10 @@ export interface SavedGame {
   tactics?: TacticCounts;
   /** Your lowest winning chance during the game (for comebacks). */
   minWp?: number;
-  /** Match conditions: no take-backs, hints, coach messages, warnings or overlays. */
+  /** A real game (characters, Quick match, stand-ins): no take-backs, hints, coach messages,
+   *  warnings or overlays. Every game but Play Coach since round 7. */
   match?: boolean;
-  /** The coach level this game was played with (normal games). */
+  /** The coach level this game was played with (Play Coach; older coached games too). */
   coachLevel?: 'full' | 'warnings' | 'silent';
   /** Time control "seconds+increment" when the clock is on. */
   timeControl?: string;
@@ -70,6 +74,8 @@ export interface SavedGame {
   rematch?: { name: string; lines: string[][]; bookPlies: number };
   /** Against the sparring partner (its rating follows yours). */
   sparring?: boolean;
+  /** A Play Coach game against Coach Sam (his strength against yours): practice only, with all the help. */
+  coach?: CoachStrength;
   /** Played in a cup (Cups tab): which cup, tier and round. */
   cup?: { id: string; tier: string; round: number };
 }

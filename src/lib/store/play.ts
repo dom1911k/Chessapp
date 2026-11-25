@@ -21,11 +21,11 @@ import { useSettings } from '../settings';
 import { playSound } from '../sound';
 import { sfxCls } from '../sfx';
 import { opponentById, pickLine, wantsSummaryLine, type ChatEvent, type Mood } from '../people';
-import { bookMove, REPERTOIRES } from '../people/openings';
+import { bookMove } from '../people/openings';
 import { detectOpening } from '../openings';
 import { useCelebrate } from '../celebrate';
 import { canAbort, finishGame, gameTactics, type GameRewards } from './finish';
-import type { FeedItem, SavedGame } from './types';
+import type { CoachStrength, FeedItem, SavedGame } from './types';
 import { cap, moveWords } from '../chess/words';
 import { specialMove, tacticsOfMove, TACTIC_KEYS, type Special, type TacticCounts, type TacticKey } from '../rewards/career';
 import { endVerdict, resultLines } from '../coach/endLine';
@@ -77,7 +77,8 @@ interface PlayStore {
   /** "Are you sure?" before a risky move. */
   precheck: { move: MoveInput; uci: string; check: PreCheck; revealed: boolean } | null;
   load(): Promise<void>;
-  newGame(color: Color, elo: number, startFen?: string, opponentId?: string, opts?: { match?: boolean; timeControl?: string; sparring?: boolean; rematch?: RematchInfo }): void;
+  /** Every game is a real game (no help) unless `coach`: a Play Coach game against Sam. */
+  newGame(color: Color, elo: number, startFen?: string, opponentId?: string, opts?: { match?: boolean; timeControl?: string; sparring?: boolean; rematch?: RematchInfo; coach?: CoachStrength }): void;
   userMove(m: MoveInput, force?: boolean): boolean;
   /** Play the move the "are you sure?" check stopped. */
   confirmPrecheck(): void;
@@ -437,7 +438,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       const gc0 = get().game!;
       const pressure = gc0.clock && gc0.timeControl ? timePressure(timeLeft(gc0.clock, turnOf(fen), turnOf(fen), gc0.clock.turnStart), gc0.timeControl) : 0;
       // Human-like (Maia) or classic (Stockfish) opponent; Stockfish also covers any Maia failure.
-      if (!uci && useSettings.getState().opponentEngine === 'maia') {
+      if (!uci && (useSettings.getState().opponentEngine === 'maia' || g.coach)) {
         try {
           const fens = [g.startFen, ...g.plies.map((p) => p.fenAfter)];
           // Maia says what a human would play; a quick Stockfish look says what each move costs,
@@ -449,7 +450,7 @@ export const usePlay = create<PlayStore>((set, get) => {
           const turn = turnOf(fen);
           const candidates = a ? new Map(a.lines.filter((l) => l.pv.length).map((l) => [l.pv[0], scoreToCp(povScore(l.score, turn))])) : undefined;
           // Short of time, a person plays faster and looser.
-          uci = chooseHumanMove(logits, g.elo, candidates, Math.random, { style: opponentById(g.opponentId)?.style, params: pressure ? pressureParams(humanParams(g.elo), pressure) : undefined });
+          uci = chooseHumanMove(logits, g.elo, candidates, Math.random, { style: g.coach ? undefined : opponentById(g.opponentId)?.style, params: pressure ? pressureParams(humanParams(g.elo), pressure) : undefined });
           seen = { logits, candidates };
         } catch (e) {
           console.warn('Maia failed, using Stockfish', e);
@@ -487,7 +488,7 @@ export const usePlay = create<PlayStore>((set, get) => {
           endgame: phaseOf(fen, Math.floor(gc.plies.length / 2) + 1) === 'endgame',
         });
         await sleep(Math.max(0, target - (Date.now() - gc.clock.turnStart)));
-      } else await sleep(Math.max(0, (book ? 700 : 600) - (Date.now() - started)));
+      } else await sleep(Math.max(0, (g.coach ? 800 + Math.random() * 1200 : book ? 700 : 600) - (Date.now() - started)));
       if (my !== token || !uci) return;
       const r = tryMove(fen, uci)!;
       update((gg) => {
@@ -627,8 +628,10 @@ export const usePlay = create<PlayStore>((set, get) => {
         takebacks: 0,
         hintsUsed: 0,
         told: [],
-        match: opts.match || undefined,
-        coachLevel: opts.match ? undefined : useSettings.getState().coachLevel,
+        // Real games have no help; Play Coach follows Sam talks (All / Only when it matters).
+        match: opts.coach ? undefined : true,
+        coachLevel: opts.coach ? (useSettings.getState().coachLevel === 'full' ? 'full' : 'warnings') : undefined,
+        coach: opts.coach,
         timeControl: opts.timeControl || undefined,
         clock: opts.timeControl ? newClock(opts.timeControl, Date.now()) : undefined,
         clocks: opts.timeControl ? [] : undefined,
@@ -652,10 +655,9 @@ export const usePlay = create<PlayStore>((set, get) => {
       post({
         kind: 'info',
         ply: -1,
-        text: opts.match ? [`Match conditions vs ${o ? o.name : opts.rematch ? `a stand-in for ${opts.rematch.name}` : 'the bot'} (${elo}): no hints, no take-backs, no warnings. Play it like a real game — I'll go through it with you afterwards.`] : [
-          o ? `You're playing ${o.name} (${o.elo}). ${REPERTOIRES[o.id] ? `Watch out — ${o.name.split(' ').pop()} likes the ${REPERTOIRES[o.id].favourite}.` : 'Expect surprises!'}` : 'New game — good luck!',
-          colourLine(color, o?.name, gamesDone),
-        ],
+        text: opts.coach
+          ? [`Play Coach: I'm playing at about ${elo}. Ask for a hint, take a move back or check the threats whenever you like.`, colourLine(color, o?.name, gamesDone)]
+          : [`You're playing ${o ? o.name : opts.rematch ? `a stand-in for ${opts.rematch.name}` : 'the bot'} (${elo}).`, colourLine(color, o?.name, gamesDone)],
       });
       if (turnOf(startFen) !== color) void botMove();
       else {

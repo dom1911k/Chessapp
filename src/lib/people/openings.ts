@@ -9,6 +9,21 @@ export interface Repertoire {
 }
 
 export const REPERTOIRES: Record<string, Repertoire> = {
+  // Coach Sam (Play Coach): a teaching repertoire of classical openings, played to full depth.
+  coach: {
+    favourite: 'Italian Game',
+    lines: [
+      'e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O O-O Re1 a6',
+      'e4 e5 Nf3 Nc6 Bc4 Nf6 d3 Be7 O-O O-O Re1 d6 c3',
+      'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3',
+      'e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Be7 Re1 d6 c3 O-O d4',
+      'd4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 h6 Bh4 b6',
+      'd4 d5 c4 e6 Nc3 Nf6 Nf3 Be7 Bf4 O-O e3 c5',
+      'e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5 Ng3 Bg6 h4 h6 Nf3 Nd7',
+      'e4 c6 d4 d5 e5 Bf5 Nf3 e6 Be2 c5 O-O Nc6',
+      'e4 c6 d4 d5 exd5 cxd5 Bd3 Nc6 c3 Nf6 Bf4 Bg4',
+    ],
+  },
   tom: {
     favourite: 'Italian Game',
     lines: [

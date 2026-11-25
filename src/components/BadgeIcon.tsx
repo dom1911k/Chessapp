@@ -1,13 +1,14 @@
 // The icon of an opponent badge: a small disc with what the badge is for (a king for the colour
-// you won with, a shield for "On your own", a crosshair for "Sharp"…). Earned ones in the
+// you won with, a rising line for "Comeback", a crosshair for "Sharp"…). Earned ones in the
 // achievement gold (gold disc, dark icon), the rest dim.
-import { Crosshair, Crown, Flame, ShieldCheck, Timer, Zap, type LucideIcon } from 'lucide-react';
+import { Crosshair, Crown, Flame, Timer, TrendingUp, Zap, type LucideIcon } from 'lucide-react';
 import { PieceIcon } from './PieceIcon';
 
 const ICON: Record<string, LucideIcon | 'wK' | 'bK'> = {
   white: 'wK',
   black: 'bK',
-  clean: ShieldCheck,
+  // Kept ids: `clean` is Comeback, `match` is With a clock (round 7).
+  clean: TrendingUp,
   sharp: Crosshair,
   quick: Zap,
   mate: Crown,

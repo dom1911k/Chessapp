@@ -28,6 +28,8 @@
 // Round 6 QA (in round4 too, or by name): colour-alternate, week-card, week-sheet, week-reduced,
 // daily-short, history-filters, backup-card.
 //
+// Round 7 QA (in round4 too, or by name): play-coach-card, badges-new.
+//
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
 // imports then return a different store instance than the app's.
@@ -222,7 +224,8 @@ async function run([W, H], scheme) {
     await p.waitForTimeout(500);
   }
   await store(p);
-  await p.evaluate((scheme) => window.__settings.getState().set({ theme: scheme, coachStyle: 'detailed', matchMode: false }), scheme);
+  // Round 7: character games are real games (no help); untimed here unless a scene sets a clock.
+  await p.evaluate((scheme) => window.__settings.getState().set({ theme: scheme, coachStyle: 'detailed', coachLevel: 'full', charTimeControl: '' }), scheme);
   await p.waitForTimeout(600);
 
   if (want('home')) await shot('home');
@@ -230,7 +233,8 @@ async function run([W, H], scheme) {
   let gameId = 0;
   let blunderPly = -1;
   if (want('coached') || want('review')) {
-    await p.getByRole('button', { name: 'Play', exact: true }).click();
+    // Round 7: the coached game is a Play Coach game against Sam.
+    await p.locator('[data-testid="play-coach-button"]').click();
     await p.waitForTimeout(700);
     if (want('coached')) await shot('versus');
     await p.evaluate(() => window.__play.getState().endIntro());
@@ -315,7 +319,8 @@ async function run([W, H], scheme) {
 
   if (want('match')) {
     await p.evaluate(() => window.__play.getState().leaveGame?.());
-    await p.evaluate(() => window.__settings.getState().set({ matchMode: true, matchTimeControl: '600+0' }));
+    // Round 7: a game against a character is a real game; this one with a 10-minute clock.
+    await p.evaluate(() => window.__settings.getState().set({ charTimeControl: '600+0' }));
     await p.waitForTimeout(600);
     await p.getByRole('button', { name: 'Play', exact: true }).click();
     await p.waitForTimeout(500);
@@ -357,7 +362,7 @@ async function run([W, H], scheme) {
     await shot('match-flag');
     await p.evaluate(() => window.__play.getState().closeRewards?.());
     await p.evaluate(() => window.__play.getState().leaveGame?.());
-    await p.evaluate(() => window.__settings.getState().set({ matchMode: false }));
+    await p.evaluate(() => window.__settings.getState().set({ charTimeControl: '' }));
   }
 
   if (want('puzzle')) {
@@ -1605,6 +1610,94 @@ async function run([W, H], scheme) {
     await shot('r6-backup-settings');
     await home();
     await p.waitForTimeout(500);
+  }
+
+  // play-coach-card: Home's Play card (no Coached / Match switch, no coach chip) and the Play Coach
+  // card; both options sheets; a Play Coach game (Sam, the aids, "practice"); a real game (no aids).
+  if (R('play-coach-card')) {
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(300);
+    await home();
+    await p.waitForTimeout(1200);
+    const homeText = await p.locator('[data-testid="play-card"]').textContent();
+    if (/Coached|Coach:|Match/.test(homeText ?? '')) errors.push(`play-coach-card: the Play card still reads ${homeText}`);
+    const card = p.locator('[data-testid="play-coach-card"]');
+    await card.scrollIntoViewIfNeeded().catch(() => {});
+    const cardText = await card.textContent();
+    if (!/Play Coach.*Sam plays at your level and teaches as you go\..*Easier.*Your level.*Harder/.test(cardText ?? '')) errors.push(`play-coach-card: the card reads ${cardText}`);
+    await shot('r7-home-coach');
+    await p.locator('[data-testid="play-card"] button:has-text("Options")').click();
+    await p.waitForTimeout(800);
+    const charOpts = await p.locator('[data-testid="options-sheet"] .section-title').allTextContents();
+    if (charOpts.join(',') !== 'You play,Clock') errors.push(`play-coach-card: character options are ${charOpts.join(',')}`);
+    await shot('r7-options-characters');
+    await p.locator('[data-testid="options-sheet"] button:has-text("Done")').click();
+    await p.waitForTimeout(600);
+    await card.locator('button:has-text("Options")').click();
+    await p.waitForTimeout(800);
+    const coachOpts = await p.locator('[data-testid="options-sheet"] .section-title').allTextContents();
+    if (coachOpts.join(',') !== 'You play,Sam talks') errors.push(`play-coach-card: Play Coach options are ${coachOpts.join(',')}`);
+    await shot('r7-options-coach');
+    await p.locator('[data-testid="options-sheet"] button:has-text("Done")').click();
+    await p.waitForTimeout(600);
+    // A Play Coach game: Sam at your level, all the help.
+    await card.locator('button:has-text("Harder")').click();
+    await p.locator('[data-testid="play-coach-button"]').click();
+    await p.waitForTimeout(900);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitFor(p, ['userTurn'], 60000);
+    await p.waitForTimeout(800);
+    const cg = await p.evaluate(() => { const g = window.__play.getState().game; return { coach: g.coach, opp: g.opponentId, match: !!g.match, elo: g.elo }; });
+    const rating = await p.evaluate(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      return (await import(find('/src/lib/playerRating.ts'))).getPlayerRating();
+    });
+    if (cg.coach !== 'harder' || cg.opp !== 'coach' || cg.match || cg.elo !== Math.max(100, Math.round(rating + 150))) errors.push(`play-coach-card: the coach game is ${JSON.stringify(cg)} (rating ${rating})`);
+    const top = await p.evaluate(() => ({ title: document.querySelector('[data-testid="game-title"]')?.textContent, sub: document.querySelector('[data-testid="game-title"]')?.nextElementSibling?.textContent }));
+    if (top.sub !== 'Harder · practice') errors.push(`play-coach-card: the top bar reads ${JSON.stringify(top)}`);
+    const dock = await p.evaluate(() => [...document.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') || b.textContent).filter((t) => /^(Hint|Take back|Threats)/.test(t ?? '')).length);
+    if (dock < 3) errors.push('play-coach-card: no Hint / Take back / Threats in Play Coach');
+    await shot('r7-coach-game');
+    await p.evaluate(() => window.__play.getState().abandon?.());
+    await p.waitForTimeout(500);
+    // A real game against a character: no help at all.
+    await p.evaluate(() => window.__play.getState().newGame('w', 400, undefined, 'tom', { match: true }));
+    await p.waitForTimeout(900);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitFor(p, ['userTurn'], 60000);
+    await p.waitForTimeout(800);
+    const realDock = await p.evaluate(() => [...document.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') || b.textContent).filter((t) => /^(Hint|Take back|Threats)/.test(t ?? '')).length);
+    if (realDock) errors.push('play-coach-card: a real game shows help buttons');
+    const sub = await p.evaluate(() => document.querySelector('[data-testid="game-title"]')?.nextElementSibling?.textContent);
+    if (sub !== 'Rated · no clock') errors.push(`play-coach-card: a real game's top bar reads ${sub}`);
+    await shot('r7-real-game');
+    await p.evaluate(() => window.__play.getState().abandon?.());
+    await p.evaluate(() => window.__settings.getState().set({ coachStrength: 'your' }));
+    await home();
+    await p.waitForTimeout(500);
+  }
+
+  // badges-new: the badge sheet with Comeback (id clean) and With a clock (id match), earned ones gold.
+  if (R('badges-new')) {
+    await kv('opponentStats', { tom: { w: 4, l: 1, d: 0, stars: 4, bestAccuracy: 80, badges: ['white', 'clean', 'match'], streak: 0 } });
+    await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      (await import(find('/src/lib/changes.ts'))).announceChange('records');
+    });
+    await p.evaluate(() => window.__settings.getState().set({ opponentId: 'tom' }));
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(300);
+    await home();
+    await p.waitForTimeout(1200);
+    await p.locator('[data-testid="badge-line"]').click();
+    await p.waitForTimeout(900);
+    const tiles = await p.evaluate(() => [...document.querySelectorAll('[data-badge-tile]')].map((t) => `${t.getAttribute('data-badge-tile')}${t.hasAttribute('data-on') ? '*' : ''}:${t.textContent}`));
+    const want = ['clean*:ComebackWin a game you were losing', 'match*:With a clockWin a timed game'];
+    for (const w of want) if (!tiles.includes(w)) errors.push(`badges-new: no tile ${w} (${tiles.join(' | ')})`);
+    await shot('r7-badges-new');
+    await p.locator('[data-testid="badge-sheet"] [aria-label="Close"]').click().catch(() => {});
+    await p.waitForTimeout(600);
   }
 
   if (R('laurel-shop')) {

@@ -7,16 +7,14 @@ import type { AnyGame } from '../lib/store/types';
 const base = { checkBeforeMove: true, botNotes: true, safetyOverlay: true, showEvalBar: true, coachStyle: 'gentle' as const };
 
 describe('Match conditions and coach levels', () => {
-  it('Match conditions turns every aid off', () => {
-    const a = aidsFor(base, { match: true });
-    expect(Object.values(a).every((v) => v === false)).toBe(true);
+  it('a real game (anything but Play Coach) has every aid off, clock or not', () => {
+    for (const g of [undefined, {}, { coachLevel: 'full' as const }]) expect(Object.values(aidsFor({ ...base, coachLevel: 'full' }, g)).every((v) => v === false)).toBe(true);
   });
-  it('coach levels: full keeps the settings, warnings keeps only the blunder check, silent keeps nothing', () => {
-    expect(aidsFor({ ...base, coachLevel: 'full' })).toMatchObject({ comments: true, precheck: true, botNotes: true, safetyOverlay: true, requests: true });
-    expect(aidsFor({ ...base, coachLevel: 'warnings' })).toMatchObject({ comments: false, precheck: true, botNotes: false, safetyOverlay: false, evalBar: false, requests: true });
-    expect(aidsFor({ ...base, coachLevel: 'silent' })).toMatchObject({ comments: false, precheck: false, botNotes: false, safetyOverlay: false, requests: true });
+  it('Play Coach follows Sam talks: All keeps the settings, Only when it matters keeps the blunder check', () => {
+    expect(aidsFor({ ...base, coachLevel: 'full' }, { coach: 'your' })).toMatchObject({ comments: true, precheck: true, botNotes: true, safetyOverlay: true, requests: true });
+    expect(aidsFor({ ...base, coachLevel: 'warnings' }, { coach: 'your' })).toMatchObject({ comments: false, precheck: true, botNotes: false, safetyOverlay: false, evalBar: false, requests: true });
     // The level a game started with wins over a later change in Settings.
-    expect(aidsFor({ ...base, coachLevel: 'full' }, { coachLevel: 'silent' }).precheck).toBe(false);
+    expect(aidsFor({ ...base, coachLevel: 'full' }, { coach: 'easier', coachLevel: 'warnings' }).comments).toBe(false);
   });
   it('suggests one step down after 5 wins at the current level (since it was chosen)', () => {
     const win = (lvl: 'full' | 'warnings', t: number, over = {}) => ({ coachLevel: lvl, userResult: 'win', endedAt: t, ...over });
@@ -65,11 +63,11 @@ describe('gap tracker', () => {
     expect(band.coached).toEqual({ n: 5, pct: 70 });
     expect(band.match).toEqual({ n: 4, pct: 25 });
     expect(r.chessCom).toEqual({ n: 3, pct: 33, avgOpp: 620 });
-    expect(r.sentence).toBe('You score 70% coached but 25% in Match conditions vs the same opponents (and 33% on chess.com) — the safety net is doing a lot of work. Play more Match-conditions games.');
+    expect(r.sentence).toBe('You score 70% with help but 25% in real games vs the same opponents (and 33% on chess.com) — the safety net is doing a lot of work. Play more real games.');
   });
   it('plain sentences for the other cases', () => {
-    expect(gapSentence([], { n: 5, pct: 60 }, { n: 0, pct: 0 }, { n: 0, pct: 0 })).toMatch(/^Play a few games in Match conditions/);
-    expect(gapSentence([], { n: 5, pct: 60 }, { n: 1, pct: 100 }, { n: 0, pct: 0 })).toMatch(/^1 Match-conditions game so far/);
+    expect(gapSentence([], { n: 5, pct: 60 }, { n: 0, pct: 0 }, { n: 0, pct: 0 })).toMatch(/^Play a few real games/);
+    expect(gapSentence([], { n: 5, pct: 60 }, { n: 1, pct: 100 }, { n: 0, pct: 0 })).toMatch(/^1 real game so far/);
     expect(gapSentence([], { n: 5, pct: 50 }, { n: 5, pct: 70 }, { n: 0, pct: 0 })).toMatch(/don't need the safety net/);
     expect(gapSentence([], { n: 5, pct: 55 }, { n: 5, pct: 50 }, { n: 0, pct: 0 })).toMatch(/holds up without help/);
   });
