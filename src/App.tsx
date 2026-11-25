@@ -1,5 +1,6 @@
 import { migrateRatingScale } from './lib/migrate';
 import { migrateBadges } from './lib/people/record';
+import { migrateColour } from './lib/colour';
 import { Onboarding } from './components/Onboarding';
 import { getGameRating } from './lib/rewards/rating';
 import { setPlayerRating } from './lib/playerRating';
@@ -304,7 +305,9 @@ export function App() {
       // Badges replaced stars (round 4): challenges already opened by five wins stay open.
       .then(() => migrateBadges().catch(() => false));
     void migrated.then(() => getGameRating()).then((r) => setPlayerRating(r.rating));
-    void migrated.then(() => useSettings.getState().load()).then(() => {
+    void migrated.then(() => useSettings.getState().load()).then(async () => {
+      // Colours alternate now (round 6): installs still on the old White default move to Alternate once.
+      await migrateColour().catch(() => false);
       const st = useSettings.getState();
       if (st.reminderEnabled) void applyReminder(true, st.reminderTime);
       // Measure engine speed (cached for a month) so analysis fits this phone; runs alongside loading.

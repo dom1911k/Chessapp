@@ -25,6 +25,8 @@
 // summary-fix, fix-mode, fix-done, fix-skip, end-message, over-win-long, opponent-badges,
 // badge-sheet, profile-cc, odo-zoom, insights-skills, laurel-shop.
 //
+// Round 6 QA (in round4 too, or by name): colour-alternate.
+//
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
 // imports then return a different store instance than the app's.
@@ -1188,6 +1190,82 @@ async function run([W, H], scheme) {
       window.__settings.getState().set({ ccUsername: '' });
     }, saved);
     await p.waitForTimeout(400);
+  }
+  // colour-alternate: an install still on the old White default moves to Alternate (the one-time
+  // line under the chips), the chip names the next game's colour, a finished game flips it, and a
+  // rematch swaps colours (its versus card says so).
+  if (R('colour-alternate')) {
+    const imp = (path) => inPage(async (path) => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      return !!(await import(find(path)));
+    }, path);
+    await imp('/src/lib/colour.ts');
+    const chipOf = () => p.evaluate(() => {
+      const c = [...document.querySelectorAll('[data-testid="colour-chip"]')].find((e) => e.offsetParent);
+      return c ? `${c.textContent.trim()}:${c.getAttribute('data-dot')}` : null;
+    });
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const { db } = await import(find('/src/lib/db.ts'));
+      await db.kv.bulkDelete(['colourAlternateV1', 'lastColour', 'colourNews']);
+      window.__settings.getState().set({ colorPref: 'w' });
+      await (await import(find('/src/lib/colour.ts'))).migrateColour();
+    });
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(300);
+    await home();
+    await p.waitForTimeout(1200);
+    if ((await p.evaluate(() => window.__settings.getState().colorPref)) !== 'alternate') errors.push('colour-alternate: the migration did not move White to Alternate');
+    let chip = await chipOf();
+    if (chip !== 'White:half') errors.push(`colour-alternate: before a game the chip reads ${chip}`);
+    if (!(await p.locator('[data-testid="colour-news"]').count())) errors.push('colour-alternate: no one-time line after the migration');
+    await shot('r6-colour-news');
+    await p.locator('button:has-text("Options")').first().click();
+    await p.waitForTimeout(800);
+    const segs = await p.evaluate(() => [...document.querySelectorAll('[data-value]')].filter((e) => e.offsetParent && ['w', 'b', 'alternate', 'random'].includes(e.getAttribute('data-value'))).map((e) => `${e.getAttribute('data-value')}:${e.scrollWidth > e.clientWidth + 1 ? 'clipped' : 'fits'}`).join(','));
+    if (segs !== 'w:fits,b:fits,alternate:fits,random:fits') errors.push(`colour-alternate: the You play row reads ${segs}`);
+    const hint = await p.locator('[data-testid="colour-hint"]').textContent().catch(() => null);
+    if (!/Next game: White\./.test(hint ?? '')) errors.push(`colour-alternate: the hint reads ${hint}`);
+    await shot('r6-colour-options');
+    await p.keyboard.press('Escape');
+    await p.locator('button:has-text("Done")').last().click().catch(() => {});
+    await p.waitForTimeout(500);
+    // A finished game as White: the chip turns to Black and the one-time line goes.
+    await p.evaluate(() => window.__play.getState().newGame('w', 400, '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1', 'tom'));
+    await p.waitForTimeout(800);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitFor(p, ['userTurn'], 60000);
+    await p.waitForTimeout(500);
+    await p.evaluate(() => window.__play.getState().userMove({ from: 'a1', to: 'a8' }));
+    await p.locator('[data-testid="results-sheet"]').waitFor({ timeout: 15000 }).catch(() => {});
+    await p.waitForTimeout(2500);
+    // Rematch from the results sheet: colours swap.
+    await p.locator('[data-testid="results-sheet"] button:has-text("Rematch")').click();
+    await p.waitForTimeout(700);
+    const vs = await p.evaluate(() => document.querySelector('[data-testid="versus"]')?.textContent ?? '');
+    if (!/Black/.test(vs)) errors.push(`colour-alternate: the rematch's versus card reads ${vs}`);
+    await shot('r6-colour-rematch-versus');
+    const uc = await p.evaluate(() => window.__play.getState().game?.userColor);
+    if (uc !== 'b') errors.push(`colour-alternate: the rematch gave ${uc}`);
+    await p.waitForTimeout(1500);
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(300);
+    await home();
+    await p.waitForTimeout(1200);
+    // The rematch's colour (Black) is the last colour: next is White. The one-time line has gone.
+    chip = await chipOf();
+    if (chip !== 'White:half') errors.push(`colour-alternate: after the rematch the chip reads ${chip}`);
+    if (await p.locator('[data-testid="colour-news"]').count()) errors.push('colour-alternate: the one-time line stayed after a game');
+    await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      await (await import(find('/src/lib/colour.ts'))).setLastColour('w');
+    });
+    await p.waitForTimeout(500);
+    chip = await chipOf();
+    if (chip !== 'Black:half') errors.push(`colour-alternate: after a game as White the chip reads ${chip}`);
+    await shot('r6-colour-after');
   }
   if (R('laurel-shop')) {
     // A Steady Hand bought up to II before: kept, but no longer listed as an upgrade. The Run tab

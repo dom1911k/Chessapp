@@ -3,11 +3,15 @@ import { type ReactNode } from 'react';
 import { EllipsisVertical } from 'lucide-react';
 import { useNav } from '../../lib/nav';
 import { usePlay } from '../../lib/store/play';
+import { setLastColour } from '../../lib/colour';
 
-/** Same opponent, colour, strength, time control and mode (match or coached). */
+/** Same opponent, strength, time control and mode (match or coached), colours swapped like on
+ *  chess.com. The colour you get counts as the last colour for Alternate. */
 export function rematch(s: ReturnType<typeof usePlay.getState>) {
   const g = s.game!;
-  s.newGame(g.userColor, g.elo, undefined, g.opponentId, g.match ? { match: true, timeControl: g.timeControl } : { timeControl: g.timeControl });
+  const color = g.userColor === 'w' ? 'b' : 'w';
+  void setLastColour(color).catch(() => undefined);
+  s.newGame(color, g.elo, undefined, g.opponentId, g.match ? { match: true, timeControl: g.timeControl } : { timeControl: g.timeControl });
 }
 
 export type ActionKind = 'paused' | 'precheck' | 'over';

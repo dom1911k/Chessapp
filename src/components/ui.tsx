@@ -90,14 +90,16 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
   );
 }
 
-export function Segmented<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: ReactNode }[]; onChange: (v: T) => void }) {
+/** `dense`: tighter padding for four or more options on a small phone. */
+export function Segmented<T extends string>({ value, options, onChange, dense = false }: { value: T; options: { value: T; label: ReactNode }[]; onChange: (v: T) => void; dense?: boolean }) {
   return (
     <div className="flex rounded-[8px] bg-stone-200 p-1 dark:bg-stone-900">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-[6px] px-3 py-2 text-sm font-bold transition ${value === o.value ? 'bg-white text-stone-900 shadow-[0_1px_2px_rgba(0,0,0,0.12)] dark:bg-stone-800 dark:text-white dark:shadow-none' : 'text-stone-500 active:text-stone-700 dark:text-stone-400'}`}
+          data-value={o.value}
+          className={`flex min-w-0 flex-1 items-center justify-center rounded-[6px] py-2 text-sm font-bold whitespace-nowrap transition ${dense ? 'gap-1 px-1' : 'gap-1.5 px-3'} ${value === o.value ? 'bg-white text-stone-900 shadow-[0_1px_2px_rgba(0,0,0,0.12)] dark:bg-stone-800 dark:text-white dark:shadow-none' : 'text-stone-500 active:text-stone-700 dark:text-stone-400'}`}
         >
           {o.label}
         </button>

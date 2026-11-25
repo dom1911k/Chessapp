@@ -1,10 +1,20 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { colourLine } from '../lib/coach/startLine';
 import { db, kvSet } from '../lib/db';
 import { botsLine, getGameRating, lastRestart, rateGame, restartGameRating } from '../lib/rewards/rating';
+
+vi.mock('@capacitor/preferences', () => {
+  const store = new Map<string, string>();
+  return {
+    Preferences: {
+      get: async ({ key }: { key: string }) => ({ value: store.get(key) ?? null }),
+      set: async ({ key, value }: { key: string; value: string }) => void store.set(key, value),
+    },
+  };
+});
 
 beforeEach(async () => {
   await db.kv.clear();
@@ -54,5 +64,65 @@ describe('round 6 · 0.3 Profile after a restart', () => {
     await rateGame(500, 0, 0);
     await rateGame(500, 0.5, 0);
     expect(botsLine(await getGameRating(), day)).toBe('3 games since 24 Nov');
+  });
+});
+
+describe('round 6 · 1 colours like chess.com', async () => {
+  const { COLOUR_NEWS_KEY, colourAfterGame, colourChip, getLastColour, migrateColour, nextColour } = await import('../lib/colour');
+  const { useSettings, DEFAULT_SETTINGS } = await import('../lib/settings');
+  const { kvGet } = await import('../lib/db');
+  it('Alternate is the default and gives the opposite of the last game; the first game is White', () => {
+    expect(DEFAULT_SETTINGS.colorPref).toBe('alternate');
+    expect(nextColour('alternate', null)).toBe('w');
+    expect(nextColour('alternate', 'w')).toBe('b');
+    expect(nextColour('alternate', 'b')).toBe('w');
+    expect(nextColour('w', 'w')).toBe('w');
+    expect(nextColour('b', 'b')).toBe('b');
+    expect(nextColour('random', 'w', () => 0.2)).toBe('w');
+    expect(nextColour('random', 'w', () => 0.8)).toBe('b');
+  });
+  it('the chip shows the next colour, with the two-tone dot for Alternate', () => {
+    expect(colourChip('alternate', 'w')).toEqual({ label: 'Black', dot: 'half' });
+    expect(colourChip('alternate', null)).toEqual({ label: 'White', dot: 'half' });
+    expect(colourChip('b', 'b')).toEqual({ label: 'Black', dot: 'b' });
+    expect(colourChip('w', 'w')).toEqual({ label: 'White', dot: 'w' });
+    expect(colourChip('random', 'w')).toEqual({ label: 'Random', dot: 'random' });
+  });
+  it('a finished game sets the last colour and ends the one-time line', async () => {
+    await colourAfterGame('b');
+    expect(await getLastColour()).toBe('b');
+    expect(await kvGet(COLOUR_NEWS_KEY, true)).toBe(false);
+    expect(nextColour('alternate', await getLastColour())).toBe('w');
+  });
+  it('Rematch swaps colours and updates the last colour', async () => {
+    const { rematch } = await import('../screens/play/GameActions');
+    const newGame = vi.fn();
+    const s = { game: { userColor: 'w', elo: 400, opponentId: 'tom', match: true, timeControl: '600+0' }, newGame } as never;
+    rematch(s);
+    expect(newGame).toHaveBeenCalledWith('b', 400, undefined, 'tom', { match: true, timeControl: '600+0' });
+    await vi.waitFor(async () => expect(await getLastColour()).toBe('b'));
+    const s2 = { game: { userColor: 'b', elo: 600, opponentId: 'maya', match: false, timeControl: '' }, newGame } as never;
+    rematch(s2);
+    expect(newGame).toHaveBeenLastCalledWith('w', 600, undefined, 'maya', { timeControl: '' });
+    await vi.waitFor(async () => expect(await getLastColour()).toBe('w'));
+  });
+  it('the migration moves White to Alternate once and never again', async () => {
+    useSettings.setState({ colorPref: 'w' });
+    expect(await migrateColour()).toBe(true);
+    expect(useSettings.getState().colorPref).toBe('alternate');
+    expect(await kvGet(COLOUR_NEWS_KEY, false)).toBe(true);
+    // Choosing White afterwards sticks.
+    useSettings.setState({ colorPref: 'w' });
+    expect(await migrateColour()).toBe(false);
+    expect(useSettings.getState().colorPref).toBe('w');
+  });
+  it('the migration leaves Black and Random alone', async () => {
+    for (const pref of ['b', 'random'] as const) {
+      await db.kv.clear();
+      useSettings.setState({ colorPref: pref });
+      expect(await migrateColour()).toBe(false);
+      expect(useSettings.getState().colorPref).toBe(pref);
+      expect(await kvGet(COLOUR_NEWS_KEY, false)).toBe(false);
+    }
   });
 });

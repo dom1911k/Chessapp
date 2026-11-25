@@ -24,7 +24,7 @@ import { cosmeticById, type Cosmetic } from '../../lib/rewards/cosmetics';
 import { CosmeticPreview } from '../../components/CosmeticPreview';
 import { WeekRing } from '../../components/Gamification';
 import { LastChessComGames } from '../../components/ChessCom';
-import { db } from '../../lib/db';
+import { db, kvGet } from '../../lib/db';
 import { defaultMatchTc, mostCommonTimeControl, offeredTimeControls } from '../../lib/clock';
 import { timeControlLabel } from '../../lib/chesscom/parse';
 import { COACH_LEVELS, nextLevel, stepDownSuggestion } from '../../lib/coach/level';
@@ -32,6 +32,8 @@ import { HomeHero } from '../../components/HomeHero';
 import { UpNextCard } from '../../components/UpNextCard';
 import { OpponentCarousel } from '../../components/OpponentCarousel';
 import { needsHomeScreenHint } from '../../lib/pwa';
+import { COLOUR_NEWS_KEY, colourChip, getLastColour, nextColour } from '../../lib/colour';
+import type { Color } from '../../lib/chess/pos';
 
 const sparringTagline = (s: SparringState | null) => (s && s.games ? `Keeps you near 50% · ${s.w}W ${s.d}D ${s.l}L` : 'Its rating follows yours, game by game');
 
@@ -62,9 +64,21 @@ export function SetupView() {
   const prevName = opp ? OPPONENTS[OPPONENTS.indexOf(opp) - 1]?.name : undefined;
   const rec = opp ? records[opp.id] : undefined;
   const running = usePlay((s) => (s.game && s.phase !== 'over' && s.phase !== 'setup' ? s.game : null));
+  // Your last game's colour (for Alternate) and the one-time line after the move to Alternate, from kv.
+  const [lastColour, setLastColourState] = useState<Color | null>(null);
+  const [colourNews, setColourNews] = useState(false);
+  useEffect(() => {
+    const read = () => {
+      void getLastColour().then(setLastColourState);
+      void kvGet<boolean>(COLOUR_NEWS_KEY, false).then(setColourNews);
+    };
+    read();
+    return onChange('colour', read);
+  }, [phaseNow]);
+  const chip = colourChip(settings.colorPref, lastColour);
   const start = async () => {
     if (locked) return;
-    const color = settings.colorPref === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : settings.colorPref;
+    const color = nextColour(settings.colorPref, lastColour);
     // Starting over ends the game in progress (counts as resigned after a few moves).
     if (running) await usePlay.getState().abandon();
     newGame(color, botElo, undefined, opp?.id, { ...(match ? { match: true, timeControl: matchTc } : { timeControl: settings.coachedTimeControl || undefined }), sparring });
@@ -72,7 +86,6 @@ export function SetupView() {
   const [sheet, setSheet] = useState<'opponent' | 'options' | null>(null);
   const tc = match ? matchTc : settings.coachedTimeControl;
   const chOpen = challengeOpen(rec);
-  const colorLabel = settings.colorPref === 'w' ? 'White' : settings.colorPref === 'b' ? 'Black' : 'Random colour';
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <HomeHero right={<SettingsButton />} />
@@ -112,14 +125,20 @@ export function SetupView() {
             ]}
           />
           <button className="flex w-full flex-wrap items-center gap-1.5 rounded-[8px] p-1 text-left press" onClick={() => setSheet('options')}>
-            <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">
-              {settings.colorPref === 'random' ? <Shuffle size={12} /> : <span className={`h-3 w-3 rounded-full ring-1 ${settings.colorPref === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-600'}`} />} {colorLabel}
+            {/* The next game's colour (Alternate: a two-tone dot). */}
+            <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200" data-testid="colour-chip" data-dot={chip.dot}>
+              <ColourDot kind={chip.dot} size={12} /> {chip.label}
             </span>
             <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200"><Timer size={12} /> {tc ? timeControlLabel(tc) : 'No clock'}</span>
             <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">{settings.opponentEngine === 'maia' ? <><Brain size={12} /> Human-like</> : <><Bot size={12} /> Classic</>}</span>
             {!match && <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200">Coach: {COACH_LEVELS.find((l) => l.id === settings.coachLevel)?.label}</span>}
             <span className="ml-auto text-sm font-semibold text-brand-700 dark:text-brand-500">Options</span>
           </button>
+          {colourNews && settings.colorPref === 'alternate' && (
+            <p className="rounded-[8px] bg-stone-100 px-2.5 py-2 text-[12px] leading-snug text-stone-600 dark:bg-white/[0.05] dark:text-stone-300" data-testid="colour-news">
+              Colours now alternate, like on chess.com. Change it in Options.
+            </p>
+          )}
           {match && <p className="px-1 text-xs text-stone-500">Like a real chess.com game: clock on, no help until it ends — then the full Game Review.</p>}
           <button className="btn-primary !min-h-14 w-full text-[18px] !font-extrabold" disabled={locked} onClick={() => void start()}>
             {locked ? <><Lock size={16} /> Beat {prevName} first</> : running ? 'Start a new game' : 'Play'}
@@ -175,15 +194,23 @@ export function SetupView() {
         <div className="space-y-4">
           <div>
             <div className="mb-1.5 section-title">You play</div>
+            {/* Four choices: on a small phone the dots go so the words fit. */}
             <Segmented
+              dense
               value={settings.colorPref}
               onChange={(v) => settings.set({ colorPref: v })}
               options={[
-                { value: 'w', label: <><span className="h-3.5 w-3.5 rounded-full bg-white ring-1 ring-stone-400" /> White</> },
-                { value: 'b', label: <><span className="h-3.5 w-3.5 rounded-full bg-stone-900 ring-1 ring-stone-600" /> Black</> },
-                { value: 'random', label: <><Shuffle size={15} /> Random</> },
+                { value: 'w', label: <><span className="max-[380px]:hidden"><ColourDot kind="w" size={13} /></span> White</> },
+                { value: 'b', label: <><span className="max-[380px]:hidden"><ColourDot kind="b" size={13} /></span> Black</> },
+                { value: 'alternate', label: <><span className="max-[380px]:hidden"><ColourDot kind="half" size={13} /></span> Alternate</> },
+                { value: 'random', label: <><span className="max-[380px]:hidden"><ColourDot kind="random" size={13} /></span> Random</> },
               ]}
             />
+            {settings.colorPref === 'alternate' && (
+              <p className="mt-1.5 px-1 text-xs text-stone-500" data-testid="colour-hint">
+                Like chess.com: you switch colours every game, and Rematch swaps too. <b className="font-semibold text-stone-700 dark:text-stone-300">Next game: {chip.label}.</b>
+              </p>
+            )}
           </div>
           <div>
             <div className="mb-1.5 section-title">Clock</div>
@@ -219,6 +246,13 @@ export function SetupView() {
       </Dialog>
     </div>
   );
+}
+
+/** The colour dot: white, black, half and half (Alternate), or the shuffle icon (Random). */
+function ColourDot({ kind, size }: { kind: 'w' | 'b' | 'half' | 'random'; size: number }) {
+  if (kind === 'random') return <Shuffle size={size} className="shrink-0" />;
+  const bg = kind === 'w' ? '#ffffff' : kind === 'b' ? '#1c1917' : 'linear-gradient(90deg, #ffffff 50%, #1c1917 50%)';
+  return <span className="block shrink-0 rounded-full ring-1 ring-stone-400 dark:ring-stone-500" style={{ width: size, height: size, background: bg }} />;
 }
 
 /** Quiet links under the Play card, chess.com style: training due, past games. */

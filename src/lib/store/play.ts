@@ -30,6 +30,7 @@ import { cap, moveWords } from '../chess/words';
 import { specialMove, tacticsOfMove, TACTIC_KEYS, type Special, type TacticCounts, type TacticKey } from '../rewards/career';
 import { endVerdict, resultLines } from '../coach/endLine';
 import { colourLine } from '../coach/startLine';
+import { colourAfterGame } from '../colour';
 export { resultLines };
 import { checkAchievements } from '../progress/achievements';
 import { setPlayActiveCheck } from '../chesscom/store';
@@ -264,6 +265,8 @@ export const usePlay = create<PlayStore>((set, get) => {
     useCelebrate.getState().setMuted(true);
     const info = await finishGame(g, result, reason);
     countGames();
+    // Alternate gives the opposite of this game's colour next time.
+    void colourAfterGame(g.userColor).catch(() => undefined);
     if (!info) {
       // Already recorded (e.g. the app was closed right after the game ended).
       useCelebrate.getState().setMuted(false);

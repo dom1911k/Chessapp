@@ -14,7 +14,8 @@ export interface Settings {
   maiaVersion: 'maia1' | 'maia3';
   /** Chosen opponent, or 'custom' for the strength slider. */
   opponentId: string;
-  colorPref: 'w' | 'b' | 'random';
+  /** You play: White, Black, Alternate (the opposite of your last game, like chess.com) or Random. */
+  colorPref: 'w' | 'b' | 'alternate' | 'random';
   safetyOverlay: boolean;
   showEvalBar: boolean;
   /** Show the move list under the board while playing. */
@@ -168,7 +169,7 @@ export const DEFAULT_SETTINGS: Settings = {
   opponentEngine: 'maia',
   maiaVersion: 'maia3',
   opponentId: 'tom',
-  colorPref: 'w',
+  colorPref: 'alternate',
   safetyOverlay: false,
   showEvalBar: false,
   showMoveList: true,

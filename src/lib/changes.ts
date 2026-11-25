@@ -1,6 +1,6 @@
 // Tells open screens that stored progress changed elsewhere (e.g. a reset in Settings), so they
 // reload instead of showing what they read when they first appeared.
-export type ChangeKind = 'records' | 'rating';
+export type ChangeKind = 'records' | 'rating' | 'colour';
 const EVENT = 'cc:changed';
 
 export function announceChange(kind: ChangeKind): void {
