@@ -11,7 +11,7 @@ import { allGames, opponentLabel } from './games';
 import { fixMoments, reviewGame } from './review';
 import { CHAPTERS, courseLevel, courseState, type CourseStep } from './course';
 import { boardName, getPathState, levelAt } from './puzzles/path';
-import { dueCount } from './store/daily';
+import { dueCount, gameToday, SHORT_SIZE } from './store/daily';
 import { opponentById } from './people';
 import { recordAttempt } from './puzzles/record';
 import type { PuzzleSpec } from './puzzles/spec';
@@ -61,7 +61,8 @@ export async function practiseMoment(g: Pick<AnyGame, 'id' | 'plies'>, ply: numb
 export type UpNext =
   /** "Fix 2 moments": opens the fix flow for that game (`cc`: a chess.com game). */
   | { kind: 'review'; gameId: number | string; opponent: string; moments: number; cc?: boolean }
-  | { kind: 'daily'; due: number }
+  /** `short`: a game was finished today, so today's plan is the 6-puzzle set. */
+  | { kind: 'daily'; due: number; short?: boolean }
   | { kind: 'course'; step: CourseStep; level: number; chapter: string }
   | { kind: 'puzzles'; board: string; level: number; toNext: number };
 
@@ -69,6 +70,8 @@ export interface UpNextInput {
   last?: { gameId: number | string; opponent: string; moments: number; fixed: boolean; cc?: boolean };
   dailyDone: boolean;
   due: number;
+  /** A game was finished today. */
+  gameToday?: boolean;
   course?: { step: CourseStep; level: number; chapter: string } | null;
   points: number;
 }
@@ -76,7 +79,7 @@ export interface UpNextInput {
 /** The rules, in order (pure, for the tests). */
 export function chooseUpNext(i: UpNextInput): UpNext {
   if (i.last && i.last.moments > 0 && !i.last.fixed) return { kind: 'review', gameId: i.last.gameId, opponent: i.last.opponent, moments: i.last.moments, ...(i.last.cc ? { cc: true } : {}) };
-  if (!i.dailyDone) return { kind: 'daily', due: i.due };
+  if (!i.dailyDone) return { kind: 'daily', due: i.due, ...(i.gameToday ? { short: true } : {}) };
   if (i.course) return { kind: 'course', ...i.course };
   const pos = levelAt(i.points);
   return { kind: 'puzzles', board: boardName(pos.board), level: pos.level, toNext: pos.cost - pos.into };
@@ -85,6 +88,7 @@ export function chooseUpNext(i: UpNextInput): UpNext {
 /** Title and the one muted line under it. */
 export function upNextText(u: UpNext): { title: string; detail: string } {
   if (u.kind === 'review') return { title: `Fix ${u.moments} moment${u.moments === 1 ? '' : 's'}`, detail: `From your ${u.cc ? 'chess.com ' : ''}game vs ${u.opponent}` };
+  if (u.kind === 'daily' && u.short) return { title: 'Daily training', detail: `${SHORT_SIZE} puzzles · ~5 min` };
   if (u.kind === 'daily') return { title: 'Daily training', detail: u.due ? `${u.due} position${u.due === 1 ? '' : 's'} from your mistakes` : 'Puzzles picked for your weak spots' };
   if (u.kind === 'course') return { title: `Continue: ${u.step.label}`, detail: `Course · level ${u.level}, ${u.chapter}` };
   return { title: 'Solve puzzles', detail: `${u.board} ${u.level}, ${u.toNext.toLocaleString('en-US')} points to level ${u.level === 20 ? 1 : u.level + 1}` };
@@ -92,7 +96,7 @@ export function upNextText(u: UpNext): { title: string; detail: string } {
 
 /** Everything the rules need, read from storage. */
 export async function loadUpNext(): Promise<UpNext> {
-  const [games, path, due, st] = await Promise.all([allGames(), getPathState(), dueCount(), courseState()]);
+  const [games, path, due, st, played] = await Promise.all([allGames(), getPathState(), dueCount(), courseState(), gameToday()]);
   let last: UpNextInput['last'];
   const g = games[0];
   if (g) {
@@ -110,6 +114,7 @@ export async function loadUpNext(): Promise<UpNext> {
     last,
     dailyDone: path.flatDays.dailyTrainingDone === today(),
     due,
+    gameToday: played,
     course: step ? { step, level: lv.level, chapter: CHAPTERS[lv.level - 1].title } : null,
     points: path.points,
   });

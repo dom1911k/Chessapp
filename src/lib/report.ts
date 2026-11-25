@@ -31,6 +31,12 @@ export function recurringPattern(games: PlyRecord[][]): GameSummary['pattern'] {
 /** True when the game has analysed moves of yours (else there's no accuracy: show "—"). */
 export const hasAccuracy = (summary: Pick<GameSummary, 'counts'>): boolean => Object.values(summary.counts).some((n) => n > 0);
 
+/** Your average accuracy over your last `n` games with one (newest first), once there are `min`; else null. */
+export function accuracyAverage(games: { summary: Pick<GameSummary, 'counts' | 'accuracy'> }[], n = 10, min = 3): number | null {
+  const withAcc = games.filter((g) => hasAccuracy(g.summary)).slice(0, n);
+  return withAcc.length >= min ? Math.round(withAcc.reduce((a, g) => a + g.summary.accuracy, 0) / withAcc.length) : null;
+}
+
 /** Accuracy as text: "84%" (or "84.0%" with `digits`), "—" when none of your moves were analysed. */
 export const accuracyText = (accuracy: number, moves: boolean, digits = 0): string => (moves ? `${accuracy.toFixed(digits)}%` : '—');
 

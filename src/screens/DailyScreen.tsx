@@ -15,7 +15,7 @@ import { weakestThemes } from '../lib/puzzles/select';
 import { themeLabel } from '../lib/puzzles/themes';
 import { formatDue } from '../lib/srs';
 import { currentStreak } from '../lib/stats';
-import { dueCount, MAX_REVIEWS, SESSION_SIZE, useDaily } from '../lib/store/daily';
+import { dueCount, gameToday, planFor, SHORT_SIZE, useDaily } from '../lib/store/daily';
 import { WeeklyGoalCard } from '../components/Gamification';
 import { Medallion } from '../components/Glyph';
 import { lessonById } from '../lib/lessons/data';
@@ -25,7 +25,7 @@ export function DailyScreen() {
   const d = useDaily();
   const onTop = useNav((s) => s.stack[s.stack.length - 1]?.name === 'daily');
   const [inSession, setInSession] = useState(false);
-  const [info, setInfo] = useState<{ due: number; streak: number; weak: string[]; doneToday: boolean; nextDue: string | null } | null>(null);
+  const [info, setInfo] = useState<{ due: number; streak: number; weak: string[]; doneToday: boolean; nextDue: string | null; short: boolean } | null>(null);
 
   useEffect(() => {
     if (inSession) return;
@@ -38,6 +38,7 @@ export function DailyScreen() {
         weak: await weakestThemes(3),
         doneToday: !!act?.dailyDone,
         nextDue: next ? formatDue(next) : null,
+        short: await gameToday(),
       });
     })();
   }, [inSession]);
@@ -63,7 +64,9 @@ export function DailyScreen() {
 
   if (inSession) return <Session onExit={leave} />;
 
-  const reviewsToday = Math.min(info?.due ?? 0, MAX_REVIEWS);
+  // After a game today, the plan is the short set (~5 min); otherwise ~10–15 min.
+  const plan = planFor(!!info?.short, info?.due ?? 0);
+  const reviewsToday = plan.reviews;
   return (
     <div className="flex h-full flex-col">
       <Header title="Daily training" back />
@@ -98,14 +101,14 @@ export function DailyScreen() {
             </button>
           }
         >
-          <p className="font-semibold">Today's plan (~10–15 min)</p>
+          <p className="font-semibold" data-testid="daily-plan">Today's plan ({plan.minutes})</p>
           <ul className="list-disc pl-5 text-[15px]">
             <li>
               {reviewsToday > 0 ? `${reviewsToday} review${reviewsToday === 1 ? '' : 's'} of positions you missed` : 'No reviews due'}
               {reviewsToday === 0 && info?.nextDue ? ` (next ${info.nextDue})` : ''}
             </li>
             <li>
-              {Math.max(3, SESSION_SIZE - reviewsToday)} new puzzles
+              {plan.fresh} new puzzle{plan.fresh === 1 ? '' : 's'}
               {info?.weak.length ? ` on ${info.weak.map(themeLabel).join(', ').toLowerCase()}` : ''}
             </li>
           </ul>
@@ -165,7 +168,19 @@ function Session({ onExit }: { onExit: () => void }) {
       <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto pb-4 land:max-w-6xl">
         {finished ? (
           <div className="p-4">
-            <CoachBubble actions={<button className="btn-primary" onClick={onExit}>Done</button>}>
+            <CoachBubble
+              actions={
+                <>
+                  {/* After the short set: 6 more, for a longer session. */}
+                  {d.short && (
+                    <button className="btn-primary" disabled={d.building} onClick={() => void d.more()} data-testid="daily-more">
+                      {d.building ? <Spinner /> : `Keep going (${SHORT_SIZE} more)`}
+                    </button>
+                  )}
+                  <button className={d.short ? 'btn-secondary' : 'btn-primary'} onClick={onExit}>Done</button>
+                </>
+              }
+            >
               <p className="font-semibold">Great work today!</p>
               <p>You solved {solved} of {d.items.length}. The ones you missed will come back tomorrow.</p>
               {doneAward && (

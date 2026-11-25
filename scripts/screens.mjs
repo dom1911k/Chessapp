@@ -25,7 +25,8 @@
 // summary-fix, fix-mode, fix-done, fix-skip, end-message, over-win-long, opponent-badges,
 // badge-sheet, profile-cc, odo-zoom, insights-skills, laurel-shop.
 //
-// Round 6 QA (in round4 too, or by name): colour-alternate, week-card, week-sheet.
+// Round 6 QA (in round4 too, or by name): colour-alternate, week-card, week-sheet, daily-short,
+// history-filters, backup-card.
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
@@ -996,6 +997,9 @@ async function run([W, H], scheme) {
         fen = mv.fen;
       });
       await db.current.put({ id: 'play', userColor: 'w', elo: 400, opponentId: 'tom', startFen: start, startedAt: Date.now() - 420000, plies, takebacks: 0, hintsUsed: 0, told: [] });
+      // Three earlier games with an accuracy, so the tile has its average (round 6).
+      const prior = (k, acc) => ({ userColor: 'w', elo: 400, opponentId: 'tom', startFen: start, startedAt: Date.now() - (k + 1) * 864e5 - 6e5, endedAt: Date.now() - (k + 1) * 864e5, takebacks: 0, hintsUsed: 0, told: [], result: '1-0', reason: 'checkmate', userResult: 'win', plies: [], summary: { accuracy: acc, counts: { best: 5, good: 1, inaccuracy: 0, mistake: 0, blunder: 0 }, biggestMistakePly: null } });
+      if ((await db.games.toArray()).filter((g) => Object.values(g.summary?.counts ?? {}).some((n) => n > 0)).length < 3) await db.games.bulkAdd([prior(3, 55), prior(4, 58), prior(5, 61)]);
     });
     await p.evaluate(() => window.__play.getState().load());
     await waitTurn();
@@ -1004,6 +1008,9 @@ async function run([W, H], scheme) {
     await p.waitForTimeout(7500);
     const tiles = await p.evaluate(() => [...document.querySelectorAll('[data-testid="results-sheet"] .pp-stat')].map((e) => e.textContent).join(' | '));
     if (!/Game rating/.test(tiles)) errors.push(`over-win-long: tiles ${tiles}`);
+    // Round 6: the accuracy has its context, your average over the previous games.
+    const avg = await p.locator('[data-testid="results-accuracy-avg"]').textContent().catch(() => null);
+    if (!/^Accuracy · avg \d+%$/.test(avg ?? '')) errors.push(`over-win-long: the accuracy label reads ${avg}`);
     await shot('r4-over-win-long');
     await p.evaluate(() => (window.__play.getState().closeRewards?.(), window.__play.getState().leaveGame?.()));
     await home();
@@ -1401,6 +1408,156 @@ async function run([W, H], scheme) {
     await p.locator('[data-testid="week-sheet"] [aria-label="Close"]').click();
     await p.waitForTimeout(800);
   }
+  // daily-short: a game finished today makes today's Daily training the short set (~5 min, 6
+  // puzzles; Up next says so), and its done screen offers Keep going (6 more).
+  if (R('daily-short')) {
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const { db } = await import(find('/src/lib/db.ts'));
+      const F = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+      // A clean win today (nothing to fix, so Up next moves on to Daily training).
+      await db.games.add({ userColor: 'w', elo: 400, opponentId: 'tom', startFen: F, startedAt: Date.now() - 6e5, endedAt: Date.now() - 1000, takebacks: 0, hintsUsed: 0, told: [], result: '1-0', reason: 'checkmate', userResult: 'win', plies: [], summary: { accuracy: 90, counts: { best: 5, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 }, biggestMistakePly: null } });
+      const { usePathStore } = await import(find('/src/lib/puzzles/path.ts')).catch(() => ({}));
+      void usePathStore;
+      (await import(find('/src/lib/store/daily.ts'))).useDaily.getState().reset();
+    });
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(300);
+    await home();
+    await p.waitForTimeout(1500);
+    const up = p.locator('[data-testid="up-next"]');
+    if ((await up.getAttribute('data-kind').catch(() => null)) === 'daily') {
+      const t = await up.textContent();
+      if (!/Daily training6 puzzles · ~5 min/.test(t ?? '')) errors.push(`daily-short: Up next reads ${t}`);
+    }
+    await push({ name: 'daily' });
+    await p.waitForTimeout(1500);
+    const plan = await p.locator('[data-testid="daily-plan"]').textContent().catch(() => null);
+    if (plan !== "Today's plan (~5 min)") errors.push(`daily-short: the plan reads ${plan}`);
+    await shot('r6-daily-short');
+    await p.locator('button:has-text("Start training"), button:has-text("Train some more"), button:has-text("Continue session")').first().click();
+    await p.waitForTimeout(3500);
+    const n = await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const d = (await import(find('/src/lib/store/daily.ts'))).useDaily;
+      const st = d.getState();
+      const len = st.items.length;
+      d.setState({ index: len, items: st.items.map((x) => ({ ...x, result: true })) });
+      return { len, short: st.short };
+    });
+    if (n.len !== 6 || !n.short) errors.push(`daily-short: the session has ${n.len} items (short ${n.short})`);
+    await p.waitForTimeout(1500);
+    const more = p.locator('[data-testid="daily-more"]');
+    if (!(await more.count())) errors.push('daily-short: no Keep going on the done screen');
+    else if ((await more.textContent()) !== 'Keep going (6 more)') errors.push(`daily-short: Keep going reads ${await more.textContent()}`);
+    await shot('r6-daily-done');
+    await more.click().catch(() => {});
+    await p.waitForTimeout(3500);
+    const len2 = await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      return (await import(find('/src/lib/store/daily.ts'))).useDaily.getState().items.length;
+    });
+    if (len2 !== 12) errors.push(`daily-short: Keep going made ${len2} items`);
+    await shot('r6-daily-more');
+    await p.locator('button:has-text("Close")').first().click().catch(() => {});
+    await p.waitForTimeout(500);
+    await home();
+    await p.waitForTimeout(500);
+  }
+
+  // history-filters: one row of chips (All · Wins · Losses · App · chess.com), week and month
+  // headers with counts, a result chip with a source chip, the filter kept while the app is open,
+  // and an empty filter.
+  if (R('history-filters')) {
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await seedWeeks();
+    await push({ name: 'history' });
+    await p.waitForTimeout(1500);
+    const chips = await p.evaluate(() => [...document.querySelectorAll('[data-testid="history-chips"] button')].map((b) => `${b.textContent}${b.hasAttribute('data-on') ? '*' : ''}`).join(','));
+    if (chips !== 'All*,Wins,Losses,App,chess.com') errors.push(`history-filters: the chips read ${chips}`);
+    const heads = () => p.evaluate(() => [...document.querySelectorAll('[data-testid="history-header"]')].map((h) => h.textContent).join(' | '));
+    let h = await heads();
+    if (!/^This week · 3 \| Last week · 6 \| /.test(h)) errors.push(`history-filters: the headers read ${h}`);
+    await shot('r6-history');
+    await p.locator('[data-testid="history-chips"] button:has-text("Losses")').click();
+    await p.locator('[data-testid="history-chips"] button:has-text("chess.com")').click();
+    await p.waitForTimeout(500);
+    h = await heads();
+    if (!/^Last week · 1 \| [A-Z][a-z]+( \d{4})? · 1$/.test(h)) errors.push(`history-filters: Losses on chess.com read ${h}`);
+    await shot('r6-history-filtered');
+    // Kept while the app is open.
+    await p.evaluate(() => window.__nav.getState().pop());
+    await p.waitForTimeout(700);
+    await push({ name: 'history' });
+    await p.waitForTimeout(1200);
+    const kept = await p.evaluate(() => [...document.querySelectorAll('[data-testid="history-chips"] button[data-on]')].map((b) => b.textContent).join(','));
+    if (kept !== 'Losses,chess.com') errors.push(`history-filters: the filter came back as ${kept}`);
+    await p.locator('[data-testid="history-chips"] button:has-text("All")').click();
+    await p.waitForTimeout(400);
+    h = await heads();
+    if (!/^This week · 3 \| Last week · 6/.test(h)) errors.push(`history-filters: All did not clear the filter (${h})`);
+    // Without chess.com games (a username set): the import line.
+    await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      await (await import(find('/src/lib/db.ts'))).db.imported.clear();
+      window.__settings.getState().set({ ccUsername: 'MyName', ccAutoSync: false });
+    });
+    await p.evaluate(() => window.__nav.getState().pop());
+    await p.waitForTimeout(700);
+    await push({ name: 'history' });
+    await p.waitForTimeout(1200);
+    await p.locator('[data-testid="history-chips"] button:has-text("chess.com")').click();
+    await p.waitForTimeout(400);
+    const empty = await p.locator('[data-testid="history-empty"]').textContent().catch(() => null);
+    if (empty !== 'No chess.com games yet. Import them in More → chess.com import.') errors.push(`history-filters: the empty filter reads ${empty}`);
+    await shot('r6-history-empty');
+    await p.locator('[data-testid="history-chips"] button:has-text("All")').click();
+    await p.evaluate(() => window.__settings.getState().set({ ccUsername: '' }));
+    await home();
+    await p.waitForTimeout(500);
+  }
+
+  // backup-card: 10+ games and no backup: More shows the reminder above Settings; Later hides it for
+  // 30 days; Settings says "Last backup: never".
+  if (R('backup-card')) {
+    await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const { db } = await import(find('/src/lib/db.ts'));
+      await db.kv.bulkDelete(['lastBackupAt', 'backupLaterUntil']);
+    });
+    if ((await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      return (await import(find('/src/lib/db.ts'))).db.games.count();
+    })) < 10) await seedWeeks();
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(1500);
+    const card = p.locator('[data-testid="backup-card"]');
+    await card.scrollIntoViewIfNeeded().catch(() => {});
+    if (!(await card.count())) errors.push('backup-card: no reminder with 10+ games and no backup');
+    const order = await p.evaluate(() => {
+      const c = document.querySelector('[data-testid="backup-card"]');
+      const s = [...document.querySelectorAll('button')].find((b) => b.textContent.startsWith('Settings'));
+      return !!c && !!s && !!(c.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    if (!order) errors.push('backup-card: the reminder is not above Settings');
+    await shot('r6-backup-card');
+    await p.locator('[data-testid="backup-later"]').click();
+    await p.waitForTimeout(400);
+    await home();
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(1200);
+    if (await card.count()) errors.push('backup-card: Later did not hide it');
+    await push({ name: 'settings' });
+    await p.waitForTimeout(1500);
+    const last = p.locator('[data-testid="backup-last"]');
+    await last.scrollIntoViewIfNeeded().catch(() => {});
+    if ((await last.textContent().catch(() => null)) !== 'Last backup: never') errors.push(`backup-card: Settings reads ${await last.textContent().catch(() => null)}`);
+    await shot('r6-backup-settings');
+    await home();
+    await p.waitForTimeout(500);
+  }
+
   if (R('laurel-shop')) {
     // A Steady Hand bought up to II before: kept, but no longer listed as an upgrade. The Run tab
     // loads the Cups code, so open it before patching (the module isn't loaded until then).

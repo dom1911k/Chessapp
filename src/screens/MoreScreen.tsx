@@ -2,7 +2,8 @@
 // list, one row per screen.
 import { UserAvatar } from '../components/UserAvatar';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Award, ChevronRight, CloudDownload, Gem, History, Lightbulb, Map, Microscope, Settings, Target } from 'lucide-react';
+import { Award, ChevronRight, CloudDownload, Gem, HardDriveDownload, History, Lightbulb, Map, Microscope, Settings, Target } from 'lucide-react';
+import { backupReminder, exportBackup, remindBackupLater } from '../lib/backup';
 import { Header } from '../components/ui';
 import { SeenNumber } from '../components/Odometer';
 import { getGameRating } from '../lib/rewards/rating';
@@ -69,10 +70,62 @@ export function MoreScreen() {
             </div>
           </section>
         ))}
+        <BackupReminder />
         <div className="card divide-y divide-stone-100 overflow-hidden !p-0 dark:divide-white/[0.06]">
           <Row item={{ icon: <CloudDownload size={19} />, label: 'chess.com import', sub: ccUser ? `Linked to ${ccUser}` : 'Bring in your games (optional, uses the internet)', to: { name: 'settings' } }} onClick={() => push({ name: 'settings' })} />
           <Row item={{ icon: <Settings size={19} />, label: 'Settings', sub: 'Board, sounds, coach, backup', to: { name: 'settings' } }} onClick={() => push({ name: 'settings' })} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Above Settings, with 10 or more games and no backup in 30 days: Back up (the export) or Later (30 days). No toast, no Home card. */
+function BackupReminder() {
+  const tab = useNav((s) => s.tab);
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (tab === 'more') void backupReminder().then(setShow);
+  }, [tab]);
+  if (!show) return null;
+  const backUp = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await exportBackup();
+      setShow(false);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="card space-y-2.5 !p-3.5" data-testid="backup-card">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-stone-200 text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+          <HardDriveDownload size={18} />
+        </span>
+        <p className="min-w-0 flex-1 pt-1.5 text-[15px] leading-snug font-semibold">Your games and progress live only on this phone.</p>
+      </div>
+      {err && <p className="text-[13px] text-danger-700">{err}</p>}
+      <div className="flex gap-2">
+        <button className="btn-primary flex-1" disabled={busy} onClick={() => void backUp()} data-testid="backup-now">
+          Back up
+        </button>
+        <button
+          className="btn-secondary flex-1"
+          disabled={busy}
+          onClick={() => {
+            setShow(false);
+            void remindBackupLater();
+          }}
+          data-testid="backup-later"
+        >
+          Later
+        </button>
       </div>
     </div>
   );

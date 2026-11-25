@@ -2,7 +2,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
-import { db, today } from './db';
+import { db, kvGet, kvSet, today } from './db';
 import { pickSettings, replaceSettings, useSettings, type Settings } from './settings';
 
 const FORMAT = 'chess-coach-backup';
@@ -27,8 +27,41 @@ export async function buildBackup(): Promise<Backup> {
 export async function exportBackup(): Promise<string> {
   const name = `chess-coach-backup-${today()}.json`;
   await shareJsonFile(name, JSON.stringify(await buildBackup()), 'Chess Coach backup');
+  await kvSet(LAST_BACKUP_KEY, Date.now());
   return name;
 }
+
+// ---- The backup reminder: everything lives only on the phone, and an export is the only copy. ----
+
+/** When the last export was made (every export records it). */
+export const LAST_BACKUP_KEY = 'lastBackupAt';
+/** "Later" on More's reminder hides it until then. */
+export const BACKUP_LATER_KEY = 'backupLaterUntil';
+const DAY = 864e5;
+export const REMIND_GAMES = 10;
+export const REMIND_DAYS = 30;
+
+/** "never", "today", "yesterday", "3 days ago". */
+export function backupAgo(at: number | null, now = Date.now()): string {
+  if (!at) return 'never';
+  const days = Math.round((new Date(now).setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / DAY);
+  return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+}
+
+/** More shows the reminder with 10 or more games and no backup in 30 days (unless "Later" hid it). */
+export function shouldRemindBackup(o: { games: number; lastAt: number | null; laterUntil: number | null; now?: number }): boolean {
+  const now = o.now ?? Date.now();
+  if (o.games < REMIND_GAMES) return false;
+  if (o.lastAt && now - o.lastAt < REMIND_DAYS * DAY) return false;
+  return !o.laterUntil || now >= o.laterUntil;
+}
+
+export async function backupReminder(now = Date.now()): Promise<boolean> {
+  const [games, lastAt, laterUntil] = await Promise.all([db.games.count(), kvGet<number | null>(LAST_BACKUP_KEY, null), kvGet<number | null>(BACKUP_LATER_KEY, null)]);
+  return shouldRemindBackup({ games, lastAt, laterUntil, now });
+}
+
+export const remindBackupLater = (now = Date.now()) => kvSet(BACKUP_LATER_KEY, now + REMIND_DAYS * DAY);
 
 /** Hands a JSON file to the Android share sheet (or downloads it in a browser). */
 export async function shareJsonFile(name: string, json: string, title: string): Promise<void> {

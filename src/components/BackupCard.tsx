@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Download, Upload } from 'lucide-react';
-import { describeBackup, exportBackup, parseBackup, restoreBackup, type Backup } from '../lib/backup';
+import { backupAgo, describeBackup, exportBackup, LAST_BACKUP_KEY, parseBackup, restoreBackup, type Backup } from '../lib/backup';
+import { kvGet } from '../lib/db';
 import { Dialog, Spinner } from './ui';
 
 export function BackupCard() {
@@ -8,6 +9,8 @@ export function BackupCard() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, setPending] = useState<Backup | null>(null);
+  const [lastAt, setLastAt] = useState<number | null | undefined>(undefined);
+  useEffect(() => void kvGet<number | null>(LAST_BACKUP_KEY, null).then(setLastAt), [busy]);
 
   const doExport = async () => {
     setBusy(true);
@@ -52,6 +55,7 @@ export function BackupCard() {
         <p className="text-sm text-stone-600 dark:text-stone-300">
           Save all your games, puzzles and progress to one file — keep it in Google Drive or send it to yourself. Use it to move to a new phone.
         </p>
+        {lastAt !== undefined && <p className="mt-1 text-[13px] font-semibold text-stone-500 dark:text-stone-400" data-testid="backup-last">Last backup: {backupAgo(lastAt)}</p>}
       </div>
       <div className="flex gap-2">
         <button className="btn-primary flex-1" onClick={doExport} disabled={busy}>

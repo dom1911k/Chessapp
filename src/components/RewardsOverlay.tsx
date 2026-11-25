@@ -80,7 +80,7 @@ function Stat({ value, label }: { value: ReactNode; label: ReactNode }) {
   return (
     <div className="pp-stat flex flex-col items-center justify-center rounded-[8px] bg-stone-100 px-1 py-2 dark:bg-stone-800">
       <div className="text-[18px] leading-none font-extrabold tabular-nums">{value}</div>
-      <div className="mt-1 text-[12px] font-semibold text-stone-500 dark:text-stone-400">{label}</div>
+      <div className="mt-1 text-center text-[12px] leading-tight font-semibold text-stone-500 dark:text-stone-400">{label}</div>
     </div>
   );
 }
@@ -425,7 +425,19 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               />
             </div>
             <div className={hide}>
-              <Stat value={<span ref={ref('acc')} data-testid="results-accuracy" />} label="Accuracy" />
+              {/* Context: your average over the previous 10 games (neutral, not good or bad). */}
+              <Stat
+                value={<span ref={ref('acc')} data-testid="results-accuracy" />}
+                label={
+                  r.accuracyAvg !== undefined && !r.noMoves ? (
+                    <span data-testid="results-accuracy-avg">
+                      Accuracy <span className="whitespace-nowrap">· avg {r.accuracyAvg}%</span>
+                    </span>
+                  ) : (
+                    'Accuracy'
+                  )
+                }
+              />
             </div>
             {r.gameRating ? (
               <div className={hide}>

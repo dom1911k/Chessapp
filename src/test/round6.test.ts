@@ -236,3 +236,100 @@ describe('round 6 · 2 Your week', async () => {
     expect(html).not.toContain('week-tiles');
   });
 });
+
+describe('round 6 · 3.1 a shorter Daily training on game days', async () => {
+  const { gameToday, planFor, SHORT_SIZE } = await import('../lib/store/daily');
+  const { chooseUpNext, upNextText } = await import('../lib/upNext');
+  beforeEach(async () => {
+    await db.games.clear();
+  });
+  it('after a game today: due reviews first (at most 5), 6 in all, ~5 min', () => {
+    expect(planFor(true, 0)).toEqual({ reviews: 0, fresh: 6, total: 6, minutes: '~5 min' });
+    expect(planFor(true, 3)).toEqual({ reviews: 3, fresh: 3, total: 6, minutes: '~5 min' });
+    expect(planFor(true, 9)).toEqual({ reviews: 5, fresh: 1, total: 6, minutes: '~5 min' });
+    expect(SHORT_SIZE).toBe(6);
+  });
+  it('days without a game: as before', () => {
+    expect(planFor(false, 0)).toEqual({ reviews: 0, fresh: 12, total: 12, minutes: '~10–15 min' });
+    expect(planFor(false, 12)).toEqual({ reviews: 10, fresh: 3, total: 13, minutes: '~10–15 min' });
+  });
+  it('knows whether a game was finished today', async () => {
+    const now = new Date(2026, 10, 25, 15).getTime();
+    expect(await gameToday(now)).toBe(false);
+    await db.games.add({ endedAt: new Date(2026, 10, 24, 23, 59).getTime() } as never);
+    expect(await gameToday(now)).toBe(false);
+    await db.games.add({ endedAt: new Date(2026, 10, 25, 0, 5).getTime() } as never);
+    expect(await gameToday(now)).toBe(true);
+  });
+  it('Up next: "Daily training · 6 puzzles · ~5 min" after a game', () => {
+    const base = { dailyDone: false, due: 3, course: null, points: 0 };
+    expect(upNextText(chooseUpNext({ ...base, gameToday: true }))).toEqual({ title: 'Daily training', detail: '6 puzzles · ~5 min' });
+    expect(upNextText(chooseUpNext({ ...base, gameToday: false }))).toEqual({ title: 'Daily training', detail: '3 positions from your mistakes' });
+  });
+});
+
+describe('round 6 · 3.2 your average on the results sheet', async () => {
+  const { accuracyAverage } = await import('../lib/report');
+  const g = (accuracy: number, moves = true) => ({ summary: { accuracy, counts: { best: moves ? 5 : 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 } } });
+  it('shows once there are 3 games with an accuracy, over the last 10', () => {
+    expect(accuracyAverage([g(50), g(60)])).toBeNull();
+    expect(accuracyAverage([g(50), g(60), g(0, false), g(70)])).toBe(60);
+    expect(accuracyAverage([...Array.from({ length: 10 }, () => g(58)), g(10), g(10)])).toBe(58);
+  });
+});
+
+describe('round 6 · 3.3 Game history filters and weeks', async () => {
+  const { emptyText, filterGames, groupGames, NO_FILTER } = await import('../lib/games/history');
+  const now = new Date(2026, 10, 25, 15).getTime(); // Wednesday
+  const at = (m: number, d: number, h = 12) => new Date(2026, m, d, h).getTime();
+  const games = [
+    { endedAt: at(10, 25), userResult: 'loss' },
+    { endedAt: at(10, 24), userResult: 'win', source: 'chess.com' },
+    { endedAt: at(10, 23, 0), userResult: 'win' },
+    { endedAt: at(10, 22, 23), userResult: 'loss' },
+    { endedAt: at(10, 17), userResult: 'draw', source: 'chess.com' },
+    { endedAt: at(10, 10), userResult: 'win' },
+    { endedAt: at(9, 12), userResult: 'loss' },
+    { endedAt: new Date(2025, 11, 30).getTime(), userResult: 'win' },
+  ] as { endedAt: number; userResult: 'win' | 'loss' | 'draw'; source?: 'chess.com' }[];
+  it('a result chip and a source chip can both be on; All clears both', () => {
+    expect(filterGames(games, NO_FILTER)).toHaveLength(8);
+    expect(filterGames(games, { result: 'loss', source: null })).toHaveLength(3);
+    expect(filterGames(games, { result: 'win', source: 'chess.com' })).toHaveLength(1);
+    expect(filterGames(games, { result: null, source: 'app' })).toHaveLength(6);
+  });
+  it('sections: This week, Last week, then months (with the year when it isn’t this one)', () => {
+    expect(groupGames(games, now).map((x) => `${x.label} · ${x.games.length}`)).toEqual(['This week · 3', 'Last week · 2', 'November · 1', 'October · 1', 'December 2025 · 1']);
+  });
+  it('an empty filter says so', () => {
+    expect(emptyText({ result: 'loss', source: null }, true)).toBe('No losses yet.');
+    expect(emptyText({ result: null, source: 'chess.com' }, false)).toBe('No chess.com games yet. Import them in More → chess.com import.');
+    expect(emptyText({ result: 'win', source: 'chess.com' }, true)).toBe('No wins on chess.com yet.');
+  });
+});
+
+describe('round 6 · 3.4 a backup reminder', async () => {
+  const { backupAgo, backupReminder, remindBackupLater, shouldRemindBackup, LAST_BACKUP_KEY } = await import('../lib/backup');
+  const now = new Date(2026, 10, 25, 15).getTime();
+  const D = 864e5;
+  it('Settings: "Last backup: never" or "3 days ago"', () => {
+    expect(backupAgo(null, now)).toBe('never');
+    expect(backupAgo(now - 3600e3, now)).toBe('today');
+    expect(backupAgo(now - D, now)).toBe('yesterday');
+    expect(backupAgo(now - 3 * D, now)).toBe('3 days ago');
+  });
+  it('More reminds with 10+ games and no backup in 30 days; Later hides it for 30 days', async () => {
+    expect(shouldRemindBackup({ games: 9, lastAt: null, laterUntil: null, now })).toBe(false);
+    expect(shouldRemindBackup({ games: 10, lastAt: null, laterUntil: null, now })).toBe(true);
+    expect(shouldRemindBackup({ games: 10, lastAt: now - 29 * D, laterUntil: null, now })).toBe(false);
+    expect(shouldRemindBackup({ games: 10, lastAt: now - 31 * D, laterUntil: null, now })).toBe(true);
+    await db.games.clear();
+    await db.games.bulkAdd(Array.from({ length: 10 }, (_, i) => ({ endedAt: i })) as never);
+    expect(await backupReminder(now)).toBe(true);
+    await remindBackupLater(now);
+    expect(await backupReminder(now + 29 * D)).toBe(false);
+    expect(await backupReminder(now + 31 * D)).toBe(true);
+    await kvSet(LAST_BACKUP_KEY, now + 31 * D);
+    expect(await backupReminder(now + 32 * D)).toBe(false);
+  });
+});

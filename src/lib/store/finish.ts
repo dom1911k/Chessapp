@@ -3,7 +3,7 @@ import { recordRematch } from '../rematch';
 import { START_FEN, type GameResult } from '../chess/game';
 import { bumpActivity, db, kvGet, kvSet } from '../db';
 import { detectOpening } from '../openings';
-import { hasAccuracy, recurringPattern, summarize } from '../report';
+import { hasAccuracy, recurringPattern, summarize, accuracyAverage } from '../report';
 import { recordOpponentGame } from '../people/record';
 import { progress } from '../progress';
 import { newCardDue, type Card } from '../srs';
@@ -47,6 +47,8 @@ export interface GameRewards {
   reason: string;
   opponentId?: string;
   accuracy: number;
+  /** Your average over the previous 10 games with an accuracy (once there are 3): "Accuracy · avg 58%". */
+  accuracyAvg?: number;
   /** None of your moves were analysed (resigned before moving): the sheet shows "—". */
   noMoves?: boolean;
   /** Badges from this game against this opponent. */
@@ -152,6 +154,8 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
   const focus = summary.pattern?.theme ?? summary.lessonTheme;
   if (focus) await kvSet(FOCUS_KEY, { theme: focus, until: Date.now() + 7 * 864e5 });
 
+  // Context for the accuracy: your previous games (not this one).
+  const avg = accuracyAverage(await db.games.orderBy('endedAt').reverse().filter((x) => x.id !== gameId).limit(40).toArray());
   const skillsAfter = await skillStates();
   const streakNow = await currentWinStreak();
   const bestBefore = await kvGet<number>(BEST_WIN_STREAK, 0);
@@ -163,6 +167,7 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     reason,
     opponentId: g.opponentId,
     accuracy: summary.accuracy,
+    ...(avg !== null ? { accuracyAvg: avg } : {}),
     noMoves: !hasAccuracy(summary) || undefined,
     challengeOpened: rec?.challengeOpened ?? false,
     challengeDone: rec?.challengeDone ?? false,
