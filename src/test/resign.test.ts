@@ -9,24 +9,33 @@ const rate = (o: Parameters<typeof shouldResign>[0], n = 2000) => {
 };
 const lost = (n: number, cp = -900) => Array.from({ length: n }, () => cp);
 
-describe('human-like resigning', () => {
-  it('from about 1400: resigns when clearly lost for four moves', () => {
-    expect(rate({ elo: 1400, moveNo: 30, evals: lost(4) })).toBeGreaterThan(0.6);
-    expect(shouldResign({ elo: 1400, moveNo: 30, evals: lost(3) }, always)).toBe(false);
+describe('human-like resigning (round 7: fitted to how people\'s games end)', () => {
+  it('once clearly lost for three moves, a small chance on each move; stronger players a little more', () => {
+    expect(rate({ elo: 1000, moveNo: 30, evals: lost(3) })).toBeGreaterThanOrEqual(0.05);
+    expect(rate({ elo: 1000, moveNo: 30, evals: lost(3) })).toBeLessThan(0.08);
+    expect(rate({ elo: 200, moveNo: 30, evals: lost(3) })).toBeLessThan(rate({ elo: 700, moveNo: 30, evals: lost(3) }));
+    expect(shouldResign({ elo: 1400, moveNo: 30, evals: lost(2) }, always)).toBe(false);
     expect(shouldResign({ elo: 1400, moveNo: 30, evals: [...lost(3), -300] }, always)).toBe(false);
-    expect(shouldResign({ elo: 1400, moveNo: 30, evals: lost(4, -500) }, always)).toBe(false);
+    expect(shouldResign({ elo: 1400, moveNo: 30, evals: lost(3, -300) }, always)).toBe(false);
+    // Stronger players count a game as lost sooner (−4 at 1400, −5 below 1000).
+    expect(shouldResign({ elo: 800, moveNo: 30, evals: lost(3, -450) }, always)).toBe(false);
+    expect(shouldResign({ elo: 1400, moveNo: 30, evals: lost(3, -450) }, always)).toBe(true);
   });
 
-  it('facing a forced mate counts as lost at once', () => {
+  it('over a lost stretch most players give up in the end; beginners often play on', () => {
+    const giveUp = (elo: number, moves: number) => 1 - (1 - rate({ elo, moveNo: 30, evals: lost(3) })) ** moves;
+    expect(giveUp(1000, 20)).toBeGreaterThan(0.65);
+    expect(giveUp(200, 20)).toBeLessThan(0.5);
+    expect(giveUp(200, 20)).toBeGreaterThan(0.25);
+  });
+
+  it('facing a forced mate counts as lost at once from 1200 (now and then)', () => {
     const mateIn3Against = -(10000 - 30);
-    expect(rate({ elo: 1600, moveNo: 30, evals: [100, mateIn3Against] })).toBeGreaterThan(0.75);
+    expect(rate({ elo: 1600, moveNo: 30, evals: [100, mateIn3Against] })).toBeGreaterThan(0.2);
+    expect(rate({ elo: 1600, moveNo: 30, evals: [100, mateIn3Against] })).toBeLessThan(0.3);
+    expect(rate({ elo: 800, moveNo: 30, evals: [100, mateIn3Against] })).toBe(0);
     // Being the one who mates is no reason to resign.
     expect(shouldResign({ elo: 1600, moveNo: 30, evals: [10000 - 30] }, always)).toBe(false);
-  });
-
-  it('below 1000: almost never, even when hopelessly lost or about to be mated', () => {
-    expect(rate({ elo: 800, moveNo: 40, evals: lost(20, -2000) })).toBeLessThan(0.02);
-    expect(rate({ elo: 600, moveNo: 40, evals: [-(10000 - 20)] })).toBeLessThan(0.02);
   });
 
   it('never in a Cups final before move 20, nor in the first moves of any game', () => {

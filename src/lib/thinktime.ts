@@ -46,7 +46,7 @@ export const THINK = {
   /** Endgames are played faster (by rating: weaker players speed up more). */
   endgameFactor: [[100, 0.6], [1000, 0.6], [1600, 0.7]] as Curve,
   /** Opening moves by rating: weaker players spend longer on them, stronger ones know them. */
-  openingScale: [[100, 1.3], [400, 1.3], [600, 1.15], [800, 1.3], [1000, 0.97], [1200, 0.86], [1600, 0.72]] as Curve,
+  openingScale: [[100, 1.3], [400, 1.3], [600, 1.15], [800, 1.3], [1000, 1.25], [1200, 1.0], [1600, 0.72]] as Curve,
   /** Extra chance of a quick, instinctive move (weaker players play more of them). */
   quickChance: [[100, 0.08], [600, 0.04], [1000, 0]] as Curve,
   /** Opening moves (by move number) are quicker. */
@@ -68,7 +68,7 @@ export const THINK = {
   longThinkChance: 0.35,
   longThink: [2.0, 3.5] as [number, number],
   /** Never more than this share of the time left, and never more than this. */
-  maxShare: 0.22,
+  maxShare: 0.28,
   maxMs: 90_000,
   floorMs: 300,
   /** Time pressure starts below this share of the starting time (at least `pressureMinMs`; fitted to people's games lost on time). */
@@ -84,11 +84,14 @@ export const THINK = {
   /** Seconds of increment count this many times towards the budget of a time control (instant moves). */
   incMoves: 40,
   /**
-   * Share of the increment a player spends on top of its think, by rating: up to about 700 people
-   * barely use it (they play 15+10 nearly like 15+0 and finish with most of their clock); strong
-   * players spend most of it. Fitted to chess.com 15+10 games per band.
+   * Share of the increment a player spends on top of its think, by rating, fitted to chess.com
+   * 15+10 games per band: people at 300–500 barely use it (they play 15+10 nearly like 15+0 and
+   * finish with 90% of their clock), at 100–300 and 500–900 they spend most of it, and from 1000
+   * they think longer than the whole increment.
    */
-  incUse: [[700, 0.05], [1300, 0.9]] as Curve,
+  incUse: [[200, 1], [400, 0], [600, 0.7], [800, 0.8], [1000, 1.4], [1400, 1.4]] as Curve,
+  /** In the first 10 moves people use less of it (they play the opening fast and bank the time). */
+  incOpening: 0.5,
   /**
    * Time controls other than 10+0: the think is stretched by (budget / budget at 10+0)^k, k by
    * rating (fitted to chess.com games at 3+2, 5+0, 15+10 and 30+0), times `openingK` in the first
@@ -106,19 +109,19 @@ export const THINK = {
   handSpread: 300,
   handMinMs: 600,
   handMaxMs: 1600,
-  /** Under time pressure, the chance per move that a player forgets the clock and thinks as usual. */
-  forgetChance: [[400, 0.15], [800, 0.08], [801, 0]] as Curve,
+  /** Under time pressure, the chance per move that a player forgets the clock and thinks as usual (most often up to 800). */
+  forgetChance: [[400, 0.15], [800, 0.08], [2000, 0.05]] as Curve,
   /** At longer time controls even obvious moves take a moment: instant moves × ratio^instantK. */
   instantK: 1.2,
   /**
    * People spend at a habitual pace and only partly adjust to what's left: the budget is this share
    * of a fixed plan (the time control over `planMoves` moves) and the rest a share of the time left.
    */
-  planWeight: 0.8,
+  planWeight: 1,
   planMoves: 40,
   /** Each game a player is a little quicker or slower than usual (log-normal), so some games end in a scramble. */
-  gamePaceSigma: 0.6,
-  gamePace: [0.6, 1.6] as [number, number],
+  gamePaceSigma: 0.7,
+  gamePace: [0.55, 1.8] as [number, number],
 };
 
 /** A time control's budget against 10+0's: base plus `incMoves` increments. */
@@ -258,7 +261,7 @@ export function botThinkMs(o: ThinkInput, rng: () => number = Math.random): numb
   //    time control against 10+0 (not in proportion: see tcStretch).
   const movesLeft = Math.max(THINK.minMovesLeft, THINK.movesLeftAt - o.moveNo);
   const fromBase = ((1 - THINK.planWeight) * (thinkLeft / movesLeft) + THINK.planWeight * (base / THINK.planMoves)) * tcStretch(o.tc, o.elo, o.moveNo);
-  const budget = fromBase + inc * lerp(THINK.incUse, o.elo);
+  const budget = fromBase + inc * lerp(THINK.incUse, o.elo) * (o.moveNo <= 10 ? THINK.incOpening : 1);
   const w = lerp(THINK.difficultyWeight, o.elo);
   const diff = 1 + w * (difficulty(o) - 1);
   let ms = budget * (o.pace ?? 1) * lerp(THINK.useOfBudget, o.elo) * lerp(THINK.phase, o.moveNo) * (o.endgame ? lerp(THINK.endgameFactor, o.elo) : 1) * (o.moveNo <= 10 ? lerp(THINK.openingScale, o.elo) : 1) * diff * Math.exp(THINK.sigma * normal(rng) - THINK.sigma ** 2 / 2);

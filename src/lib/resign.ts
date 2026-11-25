@@ -1,7 +1,10 @@
 // When a human-like opponent resigns (pure).
-// Beginners play on to the bitter end (and sometimes swindle a stalemate); from about 1400 people
-// resign once the game is clearly gone: several moves in a row a rook or more down in evaluation,
-// or facing a forced mate. Cups finals are never resigned early.
+// Fitted to how people's chess.com games end (round 7, scripts/maia3/humanends.mts): the share of
+// games that end in resignation grows from about 30% at 100–300 to about 60% from 900, and people
+// resign when the engine has them several pawns down (about −7 to −9 below 1000, sooner above).
+// Once clearly lost for a few moves, a bot resigns with a small chance on each move, so beginners
+// often play on and some swindle a stalemate, while stronger players resign sooner. Cups finals are
+// never resigned early.
 
 type Curve = [number, number][];
 const lerp = (c: Curve, x: number) => {
@@ -11,18 +14,18 @@ const lerp = (c: Curve, x: number) => {
   return c[c.length - 1][1];
 };
 
-/** Resignation tuning. */
+/** Resignation tuning (fitted to chess.com end reasons per band; see humanends.mts and thinkfit.mts ends). */
 export const RESIGN = {
   /** Evaluation (cp, for the bot) at or below which the game counts as clearly lost. */
-  lostCp: [[1000, -1200], [1400, -800], [2000, -600]] as Curve,
+  lostCp: [[200, -500], [1000, -500], [1400, -400], [2000, -350]] as Curve,
   /** Bot moves in a row at or below `lostCp` before resigning is considered. */
-  lostMoves: [[1000, 6], [1400, 4], [2000, 3]] as Curve,
-  /** Chance per bot move, once lost for long enough, that it resigns. Below 1000: almost never. */
-  chance: [[400, 0.003], [999, 0.01], [1000, 0.15], [1400, 0.7], [2000, 0.9]] as Curve,
+  lostMoves: [[200, 3], [2000, 3]] as Curve,
+  /** Chance per bot move, once lost for long enough, that it resigns. */
+  chance: [[200, 0.025], [400, 0.04], [700, 0.05], [1000, 0.06], [1200, 0.04], [2000, 0.035]] as Curve,
   /** Facing a forced mate within this many moves counts as lost at once (from `mateFrom`). */
   mateWithin: 6,
   mateFrom: 1200,
-  mateChance: [[1200, 0.4], [1400, 0.8], [2000, 0.95]] as Curve,
+  mateChance: [[1200, 0.2], [2000, 0.3]] as Curve,
   /** Proud types (any rating): resign once at or below `lostCp` for `moves` moves, or facing mate. */
   proud: { lostCp: -700, moves: 3, chance: 0.85 },
   /** Never before this move number (and never before `cupFinalMinMove` in a Cups final). */

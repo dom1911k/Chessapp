@@ -112,4 +112,21 @@ if (time.length) {
     console.log(`| ${b.label} | ${h10?.timeouts ?? '–'} | ${b10?.timeouts ?? '–'} | ${a10?.timeouts ?? '–'} | ${h5?.timeouts ?? '–'} | ${b5?.timeouts ?? '–'} | ${a5?.timeouts ?? '–'} | ${within} |`);
   }
 }
+// 6. How games end: resignations and game length (--ends-humans humanends.mts, --ends-before /
+//    --ends-after thinkfit.mts ends --resign).
+const eh = new Map(rows('ends-humans').map((r) => [r.band, r]));
+const eb = new Map(rows('ends-before').map((r) => [r.band, r]));
+const ea = rows('ends-after');
+if (ea.length) {
+  console.log('\n**How games end** (share ending in resignation %, game length in plies, and at resignation the resigner\'s material and engine evaluation; people: all five time controls; bots: self-play replays at 10+0)\n');
+  console.log('| band | games (people / bots) | resigned % people / before / after | plies people / before / after | material at resignation people / after | eval at resignation people / after |');
+  console.log('|---|---|---|---|---|---|');
+  const f = (x: unknown) => (x === null || x === undefined ? '–' : String(x));
+  for (const a of ea) {
+    const h = eh.get(a.band);
+    const b = eb.get(a.band);
+    if (!h) continue;
+    console.log(`| ${a.band} | ${h.games} / ${a.games} | ${h.resigned} / ${f(b?.resigned)} / ${a.resigned} | ${h.plies} / ${f(b?.plies)} / ${a.plies} | ${f(h.resignMaterial)} / ${f(a.resignMaterial)} | ${f(h.resignEval)} / ${f(a.resignEval)} |`);
+  }
+}
 process.exit(0);

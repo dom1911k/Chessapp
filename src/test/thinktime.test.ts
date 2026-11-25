@@ -79,7 +79,7 @@ describe('bot think time', () => {
   it('stays within bounds', () => {
     for (const x of sample({ ...mid, second: -400, leftMs: 900_000, tc: '1800+0' })) expect(x).toBeLessThanOrEqual(THINK.maxMs);
     // With an increment the cap still holds when the clock is low.
-    for (const x of sample({ ...mid, leftMs: 5000, tc: '180+2' })) expect(x).toBeLessThanOrEqual(5000 * THINK.maxShare);
+    for (const x of sample({ ...mid, leftMs: 5000, tc: '180+2', forget: 0 })) expect(x).toBeLessThanOrEqual(5000 * THINK.maxShare);
     for (const x of sample({ ...mid, book: true, tc: '180+2', leftMs: 180_000 })) expect(x).toBeGreaterThanOrEqual(THINK.floorMs);
   });
 });
@@ -125,7 +125,8 @@ describe('think time across time controls (round 7)', () => {
   });
 
   it('below 10 s with no increment only hand speed is left, so a bot can lose on time (round 7)', () => {
-    const low = { ...mid, leftMs: 4000, tc: '300+0' };
+    // (forget: 0 — a player who forgets the clock is a separate case, below.)
+    const low = { ...mid, leftMs: 4000, tc: '300+0', forget: 0 };
     const forced = sample({ ...low, forced: true });
     expect(Math.min(...forced)).toBeGreaterThanOrEqual(THINK.handInstantMs[0]);
     expect(Math.max(...forced)).toBeLessThanOrEqual(THINK.handInstantMs[1] + 1);
@@ -141,6 +142,18 @@ describe('think time across time controls (round 7)', () => {
     expect(Math.max(...sample({ ...low, tc: '300+2' }))).toBeLessThanOrEqual(4000 * THINK.maxShare);
   });
 
+  it('increment use by rating (fitted to 15+10): about none at 400, most of it at 600, more than all of it from 1000; half in the opening', () => {
+    const at = (elo: number, tc: string, moveNo = 20) => pct(sample({ ...mid, elo, moveNo, tc, leftMs: 800_000, forget: 0 }), 0.5);
+    // At 400 a +10 increment adds next to nothing to the think.
+    expect(at(400, '900+10') / at(400, '900+0')).toBeLessThan(1.1);
+    // At 600 and 1000 it adds a lot (1000 more than 600).
+    expect(at(600, '900+10') / at(600, '900+0')).toBeGreaterThan(1.3);
+    expect(at(1000, '900+10') - at(1000, '900+0')).toBeGreaterThan(at(600, '900+10') - at(600, '900+0'));
+    // In the opening people bank the increment: less of it is used there.
+    const opening = at(1000, '900+10', 8) / at(1000, '900+0', 8);
+    expect(opening).toBeLessThan(at(1000, '900+10') / at(1000, '900+0'));
+  });
+
   it("a type's think factor (Time Trouble, Speedster) stays inside the time cap", () => {
     const slow = sample({ ...mid, leftMs: 100_000, mult: 3, second: -300 });
     expect(Math.max(...slow)).toBeLessThanOrEqual(100_000 * THINK.maxShare + 1);
@@ -148,12 +161,14 @@ describe('think time across time controls (round 7)', () => {
     expect(pct(sample({ ...mid, mult: 0.5 }), 0.5)).toBeLessThan(pct(sample(mid), 0.5));
   });
 
-  it('under pressure, players up to 800 now and then forget the clock (Time Trouble more often)', () => {
+  it('under pressure, players now and then forget the clock: most often up to 800, Time Trouble more', () => {
     const pressed = { ...mid, elo: 600, leftMs: 15_000, tc: '600+0' };
     // Longer than the time-pressure cap allows: only a player who forgot the clock thinks that long.
     const long = (xs: number[]) => xs.filter((x) => x > 15_000 * THINK.maxShare * 0.75 + 1).length / xs.length;
     expect(long(sample(pressed))).toBeGreaterThan(0);
     expect(long(sample({ ...pressed, forget: 3 }))).toBeGreaterThan(long(sample(pressed)));
-    expect(long(sample({ ...pressed, elo: 1400 }))).toBe(0);
+    // Stronger players forget less often (fitted to people's games lost on time per band).
+    expect(long(sample({ ...pressed, elo: 1600 }))).toBeLessThan(long(sample(pressed)));
+    expect(long(sample({ ...pressed, forget: 0 }))).toBe(0);
   });
 });

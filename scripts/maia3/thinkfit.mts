@@ -114,6 +114,7 @@ function replay(gs: Rec[], tc: string, seed0 = 1): Map<number, TimeAcc> {
       spent.push(ms / 1000);
       clocks.push(clock[side] / 1000);
     }
+    if (opt('debug') && Number(opt('debug')) === g.elo) console.error(JSON.stringify({ gi, plies: g.plies.length, played: spent.length, resigned, lost, minW: Math.min(...clocks.filter((_, i) => i % 2 === 0)), minB: Math.min(...clocks.filter((_, i) => i % 2 === 1)) }));
     if (!byElo.has(g.elo)) byElo.set(g.elo, timeStats.empty());
     timeStats.addGame(byElo.get(g.elo)!, { tc, phases: g.plies.slice(0, spent.length).map((p) => p.phase), spent, clocks, lostOnTime: lost });
     if (!ends.has(g.elo)) ends.set(g.elo, { games: 0, resigned: 0, flagged: 0, plies: [], mat: [], evals: [] });
