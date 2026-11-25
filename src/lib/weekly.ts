@@ -63,19 +63,27 @@ export function ccSpan(imported: Pick<ImportedGame, 'timeClass' | 'myRating' | '
   return null;
 }
 
+/** ccSpan over the week's chess.com games plus, for the start, your last game of that kind before it. */
+async function ccRatingOf(week: ImportedGame[], start: number, end: number): Promise<WeekStats['ccRating']> {
+  const cls = (['rapid', 'blitz'] as const).find((c) => week.some((g) => g.timeClass === c && g.myRating > 0));
+  if (!cls) return null;
+  const prev = await db.imported.where('endedAt').below(start).reverse().filter((g) => g.timeClass === cls && g.myRating > 0).first();
+  return ccSpan(prev ? [prev, ...week] : week, start, end);
+}
+
 const analysed = (g: AnyGame) => g.source !== 'chess.com' || (g as ImportedGame).analyzed;
 
 /** Everything for the calendar week starting at `start` (a Monday 00:00 from weekStart()). */
 export async function weekStats(start: number): Promise<WeekStats> {
   const end = nextWeek(start);
-  const [app, imported, attempts, rating, goal] = await Promise.all([
+  // Only the week's games (by the endedAt index), not every import with all its moves.
+  const [app, ccWeek, attempts, rating, goal] = await Promise.all([
     db.games.where('endedAt').between(start, end, true, false).toArray(),
-    db.imported.toArray(),
+    db.imported.where('endedAt').between(start, end, true, false).toArray(),
     db.attempts.where('at').between(start, end, true, false).toArray(),
     getGameRating(),
     kvGet<number>(GOAL_KEY, 4),
   ]);
-  const ccWeek = imported.filter((g) => g.endedAt >= start && g.endedAt < end);
   const games: AnyGame[] = [...app, ...ccWeek];
   const done = games.filter(analysed);
   const withAcc = done.filter((g) => hasAccuracy(g.summary));
@@ -101,7 +109,7 @@ export async function weekStats(start: number): Promise<WeekStats> {
     accuracy: withAcc.length ? Math.round(withAcc.reduce((a, g) => a + g.summary.accuracy, 0) / withAcc.length) : null,
     blundersPerGame: done.length ? Math.round((done.reduce((a, g) => a + g.summary.counts.blunder, 0) / done.length) * 10) / 10 : null,
     rating: ratingSpan(rating, start, end),
-    ccRating: ccSpan(imported, start, end),
+    ccRating: await ccRatingOf(ccWeek, start, end),
     fixes: { found: fixes.filter((a) => a.success).length, tried: fixes.length },
     puzzles: attempts.filter((a) => a.success && a.source !== 'review').length,
     activeDays,
