@@ -69,18 +69,17 @@ const hOpen = new Map(humans.filter((h) => h.kind === 'opening').map((h) => [h.b
 const open = rows('open');
 const openBefore = rows('open-before');
 if (open.length || openBefore.length) {
-  console.log('\n**Openings, plies 1–20** (early queen by move 6 %, castled by move 10 %, theory share of plies 1–12 %, first ply out of theory; ±5 points)\n');
-  console.log('| Bot | band: people | before | after (types on) | after (no types) | within (types on) |');
-  console.log('|---|---|---|---|---|---|');
-  const f = (o?: { earlyQueen: number; castled: number; theory: number; leave: number; games?: number }) => (o ? `${o.earlyQueen} / ${o.castled} / ${o.theory} / ${o.leave}` : '–');
+  console.log('\n**Openings, plies 1–20** (early queen by move 6 %, castled by move 10 %, theory share of plies 1–12 %, first ply out of theory; ±5 points, ±0.5 ply)\n');
+  console.log('| Bot | people (band, games) | before | after | within |');
+  console.log('|---|---|---|---|---|');
+  const f = (o?: { earlyQueen: number; castled: number; theory: number; leave: number }) => (o ? `${o.earlyQueen} / ${o.castled} / ${o.theory} / ${o.leave}` : '–');
   for (const [id, elo] of [['lily', 200], ['tom', 400], ['maya', 600], ['jonas', 800]] as const) {
     const band = bandOf(elo + 1)!.label;
     const h = hOpen.get(band);
     const bef = openBefore.find((r) => r.label === id);
     const on = open.find((r) => r.spec?.id === id && !r.spec.types)?.opening;
-    const off = open.find((r) => r.spec?.id === id && r.spec.types)?.opening;
     const within = h && on ? ok(...(['earlyQueen', 'castled', 'theory'] as const).map((k) => Math.abs(on[k] - h[k]) <= 5), Math.abs(on.leave - h.leave) <= 0.5) : '–';
-    console.log(`| ${id} (${elo}) | ${band}: ${f(h)} (${h?.games ?? 0} games) | ${f(bef)} | ${f(on)} | ${f(off)} | ${within} |`);
+    console.log(`| ${id[0].toUpperCase() + id.slice(1)} (${elo}) | ${f(h)} (${band}, ${h?.games ?? 0}) | ${f(bef)} | ${f(on)} | ${within} |`);
   }
 }
 
