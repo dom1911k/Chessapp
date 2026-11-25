@@ -370,7 +370,8 @@ export const usePlay = create<PlayStore>((set, get) => {
         ? comment.ruleIds.some((r) => r.startsWith('praise-') && r !== 'praise-generic')
         : !comment.ruleIds.every((r) => r === 'praise-generic');
       const notable = special || (slip || cls === 'inaccuracy' ? (gentle ? hurts : true) : praiseWorthy && praiseDue);
-      if (ends && !quiet) endVerdictText = endVerdict(ply.san, cls ?? 'good', special, TACTIC_KEYS.find((k) => tactics[k] && FLASHY.has(k)) as TacticKey | undefined);
+      // The game's over: its one short line ("Ra8# — back-rank mate.") isn't help, so real games get it too.
+      if (ends) endVerdictText = endVerdict(ply.san, cls ?? 'good', special, TACTIC_KEYS.find((k) => tactics[k] && FLASHY.has(k)) as TacticKey | undefined);
       if (notable && !quiet && !ends) {
         let text = special ? [SPECIAL_TEXT[special], ...comment.text.filter((t) => !/best move|exactly right|engine's choice/i.test(t))] : comment.text;
         if (gentle && hurts) text = [pick(GENTLE_OPENERS), ...text.slice(0, 2).map((t, k) => (k ? t : cap(t.replace(/^(Oops|Ouch|Careful)\s*[!,—–-]*\s*/, ''))))];
