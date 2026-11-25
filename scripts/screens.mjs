@@ -1010,7 +1010,8 @@ async function run([W, H], scheme) {
     if (!/Game rating/.test(tiles)) errors.push(`over-win-long: tiles ${tiles}`);
     // Round 6: the accuracy has its context, your average over the previous games.
     const avg = await p.locator('[data-testid="results-accuracy-avg"]').textContent().catch(() => null);
-    if (!/^Accuracy · avg \d+%$/.test(avg ?? '')) errors.push(`over-win-long: the accuracy label reads ${avg}`);
+    // Round 7: "avg 59%" on its own line under "Accuracy", no dot.
+    if (!/^Accuracyavg \d+%$/.test(avg ?? '')) errors.push(`over-win-long: the accuracy label reads ${avg}`);
     await shot('r4-over-win-long');
     await p.evaluate(() => (window.__play.getState().closeRewards?.(), window.__play.getState().leaveGame?.()));
     await home();
@@ -1480,7 +1481,22 @@ async function run([W, H], scheme) {
       return { len, short: st.short };
     });
     if (n.len !== 6 || !n.short) errors.push(`daily-short: the session has ${n.len} items (short ${n.short})`);
-    await p.waitForTimeout(1500);
+    // Round 7: toasts wait for the done card, then come one at a time below the header.
+    const seen = await p.evaluate(() => new Promise((res) => {
+      let max = 0, early = 0, top = 999;
+      const t0 = performance.now();
+      const tick = () => {
+        const ts = [...document.querySelectorAll('[data-testid="toasts"] > div')];
+        const at = performance.now() - t0;
+        if (at < 600 && ts.length) early++;
+        max = Math.max(max, ts.length);
+        ts.forEach((t) => (top = Math.min(top, t.getBoundingClientRect().top)));
+        if (at < 4500) requestAnimationFrame(tick);
+        else res({ max, early, top: Math.round(top) });
+      };
+      tick();
+    }));
+    if (seen.early || seen.max > 1 || (seen.max && seen.top < 56)) errors.push(`daily-short: toasts on the done card ${JSON.stringify(seen)}`);
     const more = p.locator('[data-testid="daily-more"]');
     if (!(await more.count())) errors.push('daily-short: no Keep going on the done screen');
     else if ((await more.textContent()) !== 'Keep going (6 more)') errors.push(`daily-short: Keep going reads ${await more.textContent()}`);

@@ -10,6 +10,7 @@ import { usePathTally } from '../components/path/usePathTally';
 import { SkillStrip } from '../components/path/SkillStrip';
 import { LiveCrest, LiveDots, LiveFlame, LivePathCard } from '../components/path/PathUI';
 import { useSettings } from '../lib/settings';
+import { useCelebrate } from '../lib/celebrate';
 import { progress } from '../lib/progress';
 import { weakestThemes } from '../lib/puzzles/select';
 import { themeLabel } from '../lib/puzzles/themes';
@@ -131,6 +132,17 @@ function Session({ onExit }: { onExit: () => void }) {
   const [doneAward, setDoneAward] = useState<PathAward | null>(null);
   const showRating = useSettings((st) => st.puzzleShowRating) ?? true;
 
+  // The done card settles first: toasts (achievements from the session) queue meanwhile, then come
+  // one at a time below the header.
+  useEffect(() => {
+    if (!finished || !d.items.length) return;
+    useCelebrate.getState().setHold(true, { queue: true });
+    const t = setTimeout(() => useCelebrate.getState().setHold(false), 900);
+    return () => {
+      clearTimeout(t);
+      useCelebrate.getState().setHold(false);
+    };
+  }, [finished, d.items.length]);
   useEffect(() => {
     if (finished && d.items.length) {
       void (async () => {

@@ -431,7 +431,8 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
                 label={
                   r.accuracyAvg !== undefined && !r.noMoves ? (
                     <span data-testid="results-accuracy-avg">
-                      Accuracy <span className="whitespace-nowrap">· avg {r.accuracyAvg}%</span>
+                      Accuracy
+                      <span className="block font-medium">avg {r.accuracyAvg}%</span>
                     </span>
                   ) : (
                     'Accuracy'

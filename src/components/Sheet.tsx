@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode, type RefObject } from 'react';
 import { SOFT, UI_EASE, animate, haptic, reduced } from '../lib/motion';
 import { addBackHandler } from '../lib/nav';
+import { useCelebrate } from '../lib/celebrate';
 
 export const SHEET = { backdrop: 220, close: 240, closeEase: 'cubic-bezier(.4,0,.8,.4)', snap: 260, closeAt: 0.3, flick: 0.6, resist: 0.25, slop: 8 } as const;
 
@@ -182,6 +183,12 @@ export function Sheet({
   if (open) kept.current = children;
 
   if (open && !mounted) setMounted(true);
+  // While a sheet is on screen, toasts wait (they'd cover its header) and come one at a time after.
+  useEffect(() => {
+    if (!mounted) return;
+    useCelebrate.getState().sheetOpen(true);
+    return () => useCelebrate.getState().sheetOpen(false);
+  }, [mounted]);
 
   useLayoutEffect(() => {
     if (!open || !mounted) return;
