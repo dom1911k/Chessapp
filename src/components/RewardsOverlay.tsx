@@ -551,13 +551,14 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
           {(onRematch || onNewOpponent) && (
             <div className="grid grid-cols-2 gap-2">
               {onRematch && (
-                <button className="btn-secondary" onClick={onRematch}>
+                <button className="btn-secondary whitespace-nowrap" onClick={onRematch}>
                   <RotateCcw size={16} /> Rematch
                 </button>
               )}
               {onNewOpponent && (
-                <button className="btn-secondary" onClick={onNewOpponent}>
-                  <Users size={16} /> {r.stranger ? 'New opponent' : 'New bot'}
+                <button className="btn-secondary whitespace-nowrap" onClick={onNewOpponent} data-testid="results-new-opponent">
+                  {/* On a small phone the icon goes so "New opponent" stays on one line. */}
+                  <Users size={16} className={r.stranger ? 'max-[380px]:hidden' : ''} /> {r.stranger ? 'New opponent' : 'New bot'}
                 </button>
               )}
             </div>

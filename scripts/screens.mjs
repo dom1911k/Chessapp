@@ -1824,6 +1824,8 @@ async function run([W, H], scheme) {
     await p.waitForTimeout(4500);
     const res = await p.evaluate(() => ({ opp: document.querySelector('[data-testid="results-opponent"]')?.textContent, style: document.querySelector('[data-testid="row-style"]')?.textContent, rivalry: !!document.querySelector('[data-testid="row-rivalry"]'), buttons: [...document.querySelectorAll('button')].map((b) => b.textContent?.trim()).filter((t) => t === 'Rematch' || t === 'New opponent' || t === 'New bot') }));
     if (res.opp !== g.name || !/^.+(Their style: .+|No particular style)$/.test(res.style ?? '') || res.rivalry || !res.buttons.includes('New opponent') || res.buttons.includes('New bot')) errors.push(`quick-results: the sheet reads ${JSON.stringify(res)}`);
+    const btn = await p.locator('[data-testid="results-new-opponent"]').evaluate((b) => ({ fits: b.scrollWidth <= b.clientWidth + 1, h: b.getBoundingClientRect().height })).catch(() => null);
+    if (!btn || !btn.fits || btn.h > 56) errors.push(`quick-results: the New opponent button wraps or clips (${JSON.stringify(btn)})`);
     await shot('r7-quick-results');
     // New opponent: pairing again, then someone else.
     await p.locator('button:has-text("New opponent")').click();
