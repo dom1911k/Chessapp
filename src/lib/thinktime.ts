@@ -83,8 +83,12 @@ export const THINK = {
   pressureFree: 120,
   /** Seconds of increment count this many times towards the budget of a time control (instant moves). */
   incMoves: 40,
-  /** Share of the increment a player spends on top of its think. */
-  incUse: 0.9,
+  /**
+   * Share of the increment a player spends on top of its think, by rating: up to about 700 people
+   * barely use it (they play 15+10 nearly like 15+0 and finish with most of their clock); strong
+   * players spend most of it. Fitted to chess.com 15+10 games per band.
+   */
+  incUse: [[700, 0.05], [1300, 0.9]] as Curve,
   /**
    * Time controls other than 10+0: the think is stretched by (budget / budget at 10+0)^k, k by
    * rating (fitted to chess.com games at 3+2, 5+0, 15+10 and 30+0), times `openingK` in the first
@@ -254,7 +258,7 @@ export function botThinkMs(o: ThinkInput, rng: () => number = Math.random): numb
   //    time control against 10+0 (not in proportion: see tcStretch).
   const movesLeft = Math.max(THINK.minMovesLeft, THINK.movesLeftAt - o.moveNo);
   const fromBase = ((1 - THINK.planWeight) * (thinkLeft / movesLeft) + THINK.planWeight * (base / THINK.planMoves)) * tcStretch(o.tc, o.elo, o.moveNo);
-  const budget = fromBase + inc * THINK.incUse;
+  const budget = fromBase + inc * lerp(THINK.incUse, o.elo);
   const w = lerp(THINK.difficultyWeight, o.elo);
   const diff = 1 + w * (difficulty(o) - 1);
   let ms = budget * (o.pace ?? 1) * lerp(THINK.useOfBudget, o.elo) * lerp(THINK.phase, o.moveNo) * (o.endgame ? lerp(THINK.endgameFactor, o.elo) : 1) * (o.moveNo <= 10 ? lerp(THINK.openingScale, o.elo) : 1) * diff * Math.exp(THINK.sigma * normal(rng) - THINK.sigma ** 2 / 2);

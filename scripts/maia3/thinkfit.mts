@@ -6,6 +6,9 @@
 //   npx tsx scripts/maia3/thinkfit.mts replay <rec.jsonl…> [--tcs=180+2,…] [--model=<thinktime.ts>]
 //       seconds per move by phase, quick moves, clock left at the end, games lost on time, per
 //       time control and rating (JSON lines; --model replays another version of the model)
+//   npx tsx scripts/maia3/thinkfit.mts ends <rec.jsonl…> --resign [--tc=600+0] [--rset=…]
+//       how the games end per rating: resignations, games lost on time, length, and the material
+//       and evaluation at resignation (compare with humanends.mts)
 //   npx tsx scripts/maia3/thinkfit.mts fit <rec.jsonl…> --humans=<humanstats.jsonl>
 //       the time-control exponent k per rating that best matches people (sec/move per phase and
 //       clock left at 3+2, 5+0, 15+10 and 30+0)
@@ -13,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import { parseTc } from '../../src/lib/clock.ts';
 import { bandOf } from '../../src/lib/benchmark/bands.ts';
 import { timeStats, type TimeAcc, type TimeSummary } from '../../src/lib/benchmark/timestats.ts';
+import { RESIGN, shouldResign } from '../../src/lib/resign.ts';
 
 const [mode, ...rest] = process.argv.slice(2);
 const opt = (k: string) => rest.find((a) => a.startsWith(`--${k}=`))?.slice(k.length + 3);
@@ -26,9 +30,17 @@ if (opt('openingK')) THINK.openingK = Number(opt('openingK'));
 // --set=instantK:0.8,gamePaceSigma:0.3  other numbers of THINK.
 for (const kv of opt('set')?.split(',') ?? []) {
   const [k, v] = kv.split(':');
-  THINK[k] = k === 'gamePace' ? v.split('/').map(Number) : k === 'forgetChance' ? v.split('/').map((x) => x.split('@').map(Number).reverse()) : Number(v);
+  // A curve is written value@rating/value@rating (e.g. incUse:0@700/0.9@1300).
+  THINK[k] = k === 'gamePace' ? v.split('/').map(Number) : v.includes('@') ? v.split('/').map((x) => x.split('@').map(Number).reverse()) : Number(v);
 }
 const drawPace: ((r: () => number) => number) | undefined = M.drawPace;
+// --resign: end games where the app's resignation rules (src/lib/resign.ts) would resign (record
+// games with {"noResign": true}); --rset=chance:0.01@400/0.2@1000,lostMoves:3 tries other numbers.
+const RESIGNING = rest.includes('--resign');
+for (const kv of opt('rset')?.split(',') ?? []) {
+  const [k, v] = kv.split(':');
+  (RESIGN as unknown as Record<string, unknown>)[k] = v.includes('@') ? v.split('/').map((x) => x.split('@').map(Number).reverse()) : Number(v);
+}
 
 /** A small seeded generator (mulberry32), so replays are repeatable. */
 const rng = (seed: number) => () => {
@@ -59,9 +71,13 @@ if (opt('lengths')) {
   }
 }
 
-/** Replay `gs` under `tc`: clock use per rating. */
+interface Ends { games: number; resigned: number; flagged: number; plies: number[]; mat: number[]; evals: number[] }
+const ends = new Map<number, Ends>();
+
+/** Replay `gs` under `tc`: clock use per rating (and how the games end, in `ends`). */
 function replay(gs: Rec[], tc: string, seed0 = 1): Map<number, TimeAcc> {
   const byElo = new Map<number, TimeAcc>();
+  ends.clear();
   const { base, inc } = parseTc(tc);
   gs.forEach((g0, gi) => {
     const r = rng(seed0 + gi);
@@ -73,10 +89,20 @@ function replay(gs: Rec[], tc: string, seed0 = 1): Map<number, TimeAcc> {
     const swing = [swingTracker(), swingTracker()];
     const spent: number[] = [];
     const clocks: number[] = [];
+    const evals: number[][] = [[], []];
     let lost = false;
+    let resigned = -1;
     for (let i = 0; i < g.plies.length; i++) {
       const p = g.plies[i];
       const side = i % 2;
+      // Resigning instead of moving (not from a book move), as in the app.
+      if (RESIGNING && !p.book && p.best !== undefined) {
+        evals[side].push(p.best);
+        if (shouldResign({ elo: g.elo, moveNo: p.moveNo, evals: evals[side] }, r)) {
+          resigned = i;
+          break;
+        }
+      }
       // As in the app: the type's think factor on top (its pressure factor only loosens the moves).
       const ms = botThinkMs({ ...p, tc, leftMs: clock[side], swing: swing[side](gi, p.best), pace: pace[side], mult: p.mult ?? 1 }, r) * (M.THINK.incUse === undefined ? (p.mult ?? 1) : 1);
       clock[side] -= ms;
@@ -90,8 +116,27 @@ function replay(gs: Rec[], tc: string, seed0 = 1): Map<number, TimeAcc> {
     }
     if (!byElo.has(g.elo)) byElo.set(g.elo, timeStats.empty());
     timeStats.addGame(byElo.get(g.elo)!, { tc, phases: g.plies.slice(0, spent.length).map((p) => p.phase), spent, clocks, lostOnTime: lost });
+    if (!ends.has(g.elo)) ends.set(g.elo, { games: 0, resigned: 0, flagged: 0, plies: [], mat: [], evals: [] });
+    const e = ends.get(g.elo)!;
+    e.games++;
+    if (lost) e.flagged++;
+    if (resigned >= 0) {
+      e.resigned++;
+      e.mat.push(Number(g.plies[resigned].mat ?? 0));
+      e.evals.push(Math.max(-2000, Math.min(2000, Number(g.plies[resigned].best ?? 0))));
+    }
+    e.plies.push(resigned >= 0 ? resigned : spent.length || g.plies.length);
   });
   return byElo;
+}
+
+if (mode === 'ends') {
+  // How the replayed games end per rating, at one time control (default 10+0).
+  replay(games, opt('tc') ?? '600+0');
+  const med = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] : null);
+  for (const [elo, e] of [...ends].sort((x, y) => x[0] - y[0]))
+    console.log(JSON.stringify({ who: 'bot', kind: 'ends', elo, band: bandOf(elo + 1)?.label, games: e.games, resigned: Math.round((e.resigned / e.games) * 1000) / 10, timeout: Math.round((e.flagged / e.games) * 1000) / 10, plies: Math.round(e.plies.reduce((a, b) => a + b, 0) / e.games), pliesMedian: med(e.plies), resignMaterial: med(e.mat), resignEval: med(e.evals) }));
+  process.exit(0);
 }
 
 if (mode === 'replay') {

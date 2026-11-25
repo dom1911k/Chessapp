@@ -732,14 +732,14 @@ export const usePlay = create<PlayStore>((set, get) => {
         const last = opponentId ? recs[opponentId]?.last : undefined;
         say(last === 'win' ? 'greetRevenge' : last === 'loss' ? 'greetRematch' : 'greet');
       });
-      const o = opponentById(opponentId);
-      post({
-        kind: 'info',
-        ply: -1,
-        text: opts.coach
-          ? [`Play Coach: I'm playing at about ${elo}. Ask for a hint, take a move back or check the threats whenever you like.`, colourLine(color, o?.name, gamesDone)]
-          : [`You're playing ${o ? o.name : opts.rematch ? `a stand-in for ${opts.rematch.name}` : 'the bot'} (${elo}).`, colourLine(color, o?.name, gamesDone)],
-      });
+      // Sam opens Play Coach games; in a real game he stays out of it (the versus card says who you
+      // play and with which colour).
+      if (opts.coach)
+        post({
+          kind: 'info',
+          ply: -1,
+          text: [`Play Coach: I'm playing at about ${elo}. Ask for a hint, take a move back or check the threats whenever you like.`, colourLine(color, opponentById(opponentId)?.name, gamesDone)],
+        });
       if (turnOf(startFen) !== color) void botMove();
       else {
         set({ phase: 'userTurn' });

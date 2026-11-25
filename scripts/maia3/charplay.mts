@@ -39,6 +39,12 @@ interface Spec {
   plies?: number;
   record?: string;
   label?: string;
+  /** Play to the end: no resignations (resignation rules are then fitted offline on the record). */
+  noResign?: boolean;
+  /** A match instead of self-play: the other side (same rating) is this (default: a plain bot). */
+  vs?: { id?: string; types?: string[]; book?: boolean; form?: boolean };
+  /** Score a clearly decided game (|eval| at or above this after move 20) without playing it out. */
+  adjudicate?: number;
 }
 type Side = 'w' | 'b';
 
@@ -58,6 +64,8 @@ const prof = new Profile();
 const openings = new OpeningProfile();
 const times = timeStats.empty();
 const results = { w: 0, d: 0, b: 0, flags: 0, resigns: 0, plies: 0 };
+// Matches: the main player's score and its games lost on time (it plays White in even games).
+const match = { score: 0, flagsA: 0, flagsB: 0, adjudicated: 0 };
 const bal = (fen: string, me: Side) => (me === 'w' ? 1 : -1) * material(fen).diff;
 
 for (let g = 0; g < games; g++) {
@@ -67,8 +75,14 @@ for (let g = 0; g < games; g++) {
   const ucis: string[] = [];
   const clock: Record<Side, number> = { w: base, b: base };
   const swing = { w: swingTracker(), b: swingTracker() };
-  const types: Record<Side, string[]> = { w: S.types ?? typesFor(who), b: S.types ?? typesFor(who) };
-  const form: Record<Side, number> = { w: S.form === false ? 0 : drawForm(), b: S.form === false ? 0 : drawForm() };
+  // In a match the main player ("A") is White in even games; the other side follows S.vs.
+  const aSide: Side = g % 2 === 0 ? 'w' : 'b';
+  const isA = (sd: Side) => !S.vs || sd === aSide;
+  const vsWho = opponentById(S.vs?.id);
+  const typesOf = (sd: Side) => (isA(sd) ? (S.types ?? typesFor(who)) : (S.vs!.types ?? typesFor(vsWho)));
+  const formOf = (sd: Side) => ((isA(sd) ? S.form : S.vs!.form) === false ? 0 : drawForm());
+  const types: Record<Side, string[]> = { w: typesOf('w'), b: typesOf('b') };
+  const form: Record<Side, number> = { w: formOf('w'), b: formOf('b') };
   const pace: Record<Side, number> = { w: drawPace(), b: drawPace() };
   const plan: Record<Side, number> = { w: Math.random(), b: Math.random() };
   const state: Record<Side, Record<string, number>> = { w: {}, b: {} };
@@ -91,10 +105,11 @@ for (let g = 0; g < games; g++) {
     const ctx: QuirkCtx = { fen, sans: [...sans], moveNo, bot: side, me: opp, botEval: evals[side].at(-1), botLeftMs: clock[side], state: state[side], lastUserUci: ucis.at(-1), fromStart: true, plan: plan[side] };
     // Openings: the types' plans first, then the character's book (below 1200 only its first moves).
     const planned = ids.length ? typeOpening(ids, ctx, Math.random) : null;
-    const book = planned?.uci ?? (S.book !== false && own[side] < bookDepth(elo) ? bookMove(S.id, sans) : null);
+    const bookId = isA(side) ? (S.book !== false ? S.id : undefined) : S.vs!.book === false ? undefined : S.vs!.id;
+    const book = planned?.uci ?? (bookId && own[side] < bookDepth(elo) ? bookMove(bookId, sans) : null);
     let uci = book;
     let mods = quirkEffects(ids, ctx);
-    const pressure = timePressure(clock[side] / mods.pressure, tc);
+    const pressure = base ? timePressure(clock[side] / mods.pressure, tc) : 0;
     const playElo = Math.max(100, elo + form[side] + mods.elo);
     let seen: { logits?: Map<string, number>; cand?: Map<string, number> } = {};
     if (!uci) {
@@ -109,7 +124,12 @@ for (let g = 0; g < games; g++) {
     }
     const bestNow = seen.cand?.size ? Math.max(...seen.cand.values()) : undefined;
     if (bestNow !== undefined) evals[side].push(bestNow);
-    if (!book && shouldResign({ elo, moveNo, evals: evals[side], temperament: who?.resign ?? mods.resign })) {
+    if (S.adjudicate && bestNow !== undefined && moveNo > 20 && Math.abs(bestNow) >= S.adjudicate) {
+      result = (bestNow > 0) === (side === 'w') ? '1-0' : '0-1';
+      match.adjudicated++;
+      break;
+    }
+    if (!S.noResign && !book && shouldResign({ elo, moveNo, evals: evals[side], temperament: (isA(side) ? who : vsWho)?.resign ?? mods.resign })) {
       result = side === 'w' ? '0-1' : '1-0';
       results.resigns++;
       break;
@@ -121,13 +141,14 @@ for (let g = 0; g < games; g++) {
     const forget = ids.includes('timeTrouble') ? TYPE_TUNING.timeTrouble.forget : 1;
     const think = { elo, moveNo, tc, book: !!book, forced, ...info, endgame, forget };
     const ms = base ? botThinkMs({ ...think, leftMs: clock[side], swing: swing[side](g, info.best), pace: pace[side], mult: mods.think }) : 0;
-    rec.push({ ...think, phase: phaseOf(fen, moveNo), mult: mods.think });
+    rec.push({ ...think, phase: phaseOf(fen, moveNo), mult: mods.think, mat: bal(fen, side) });
     if (base) {
       clock[side] -= ms;
       if (clock[side] <= 0) {
         lostOnTime = true;
         result = flagResult(fen, side).result;
         results.flags++;
+        if (S.vs) match[isA(side) ? 'flagsA' : 'flagsB']++;
         break;
       }
       clock[side] += inc;
@@ -167,6 +188,7 @@ for (let g = 0; g < games; g++) {
   if (result === '1-0') results.w++;
   else if (result === '0-1') results.b++;
   else if (result) results.d++;
+  if (S.vs) match.score += result === '1/2-1/2' || !result ? 0.5 : (result === '1-0') === (aSide === 'w') ? 1 : 0;
   results.plies += sans.length;
   openings.add(sans);
   if (base) timeStats.addGame(times, { tc, phases, spent, clocks, lostOnTime });
@@ -190,6 +212,7 @@ const line = JSON.stringify({
   opening: openings.summary(),
   ...(base ? { time: timeStats.summary(times) } : {}),
   results: { ...results, avgPlies: Math.round(results.plies / Math.max(1, games)) },
+  ...(S.vs ? { match: { ...match, games, pct: Math.round((match.score / Math.max(1, games)) * 1000) / 10 } } : {}),
 });
 console.log(line);
 if (out) appendFileSync(out, line + '\n');

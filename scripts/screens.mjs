@@ -1737,6 +1737,8 @@ async function run([W, H], scheme) {
     await p.evaluate(() => window.__play.getState().endIntro());
     await waitFor(p, ['userTurn'], 60000);
     await p.waitForTimeout(600);
+    // No Sam in a real game: the versus card already said who you play and with which colour.
+    if (await p.evaluate(() => /You're playing|You have the (white|black) pieces/.test(document.body.textContent))) errors.push('draw-offer: Sam still opens a real game');
     const drawBtn = p.locator('button[aria-label="Draw"], button:has-text("Draw")').first();
     if (!(await drawBtn.count()) || !(await drawBtn.isDisabled())) errors.push('draw-offer: the Draw button is not there, or on before move 10');
     const offer = () => p.evaluate(() => { const s = window.__play; const g = s.getState().game; s.setState({ game: { ...g, draws: { ...g.draws, pending: 'bot', botCount: (g.draws?.botCount ?? 0) + 1, botAt: g.plies.length } } }); });
