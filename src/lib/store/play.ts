@@ -29,6 +29,7 @@ import type { FeedItem, SavedGame } from './types';
 import { cap, moveWords } from '../chess/words';
 import { specialMove, tacticsOfMove, TACTIC_KEYS, type Special, type TacticCounts, type TacticKey } from '../rewards/career';
 import { endVerdict, resultLines } from '../coach/endLine';
+import { colourLine } from '../coach/startLine';
 export { resultLines };
 import { checkAchievements } from '../progress/achievements';
 import { setPlayActiveCheck } from '../chesscom/store';
@@ -37,6 +38,11 @@ import { flagResult, lowTime as isLowTime, newClock, pressClock, timeLeft } from
 import { botThinkMs, positionInfo, pressureParams, swingTracker, timePressure } from '../thinktime';
 import { evalHistory, shouldResign } from '../resign';
 import { phaseOf } from '../benchmark/profile';
+
+/** Your finished games, for the start message's tap hint (first three games only). */
+let gamesDone: number | null = null;
+const countGames = () => void Promise.resolve().then(() => db.games.count()).then((n) => (gamesDone = n)).catch(() => undefined);
+countGames();
 
 const swingOf = swingTracker();
 const evalsOf = evalHistory();
@@ -257,6 +263,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     // The results screen shows the rewards; keep the usual toasts quiet meanwhile.
     useCelebrate.getState().setMuted(true);
     const info = await finishGame(g, result, reason);
+    countGames();
     if (!info) {
       // Already recorded (e.g. the app was closed right after the game ended).
       useCelebrate.getState().setMuted(false);
@@ -644,7 +651,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         ply: -1,
         text: opts.match ? [`Match conditions vs ${o ? o.name : opts.rematch ? `a stand-in for ${opts.rematch.name}` : 'the bot'} (${elo}): no hints, no take-backs, no warnings. Play it like a real game — I'll go through it with you afterwards.`] : [
           o ? `You're playing ${o.name} (${o.elo}). ${REPERTOIRES[o.id] ? `Watch out — ${o.name.split(' ').pop()} likes the ${REPERTOIRES[o.id].favourite}.` : 'Expect surprises!'}` : 'New game — good luck!',
-          color === 'w' ? 'You have the white pieces, so you move first. Tap a piece, then a square.' : 'You have black, so your opponent moves first.',
+          colourLine(color, o?.name, gamesDone),
         ],
       });
       if (turnOf(startFen) !== color) void botMove();

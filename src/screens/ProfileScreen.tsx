@@ -1,7 +1,6 @@
 // Profile & stats, chess.com style: your ratings per mode, your record, accuracy over time and
 // best wins up top; then games, puzzles and activity.
 import { hasAccuracy } from '../lib/report';
-import { plural } from '../lib/plural';
 import { RematchRecords, TurningStat } from '../components/TurningCards';
 import { AvatarPicker, UserAvatar, useMyTitle } from '../components/UserAvatar';
 import { Pencil } from 'lucide-react';
@@ -14,7 +13,7 @@ import { useNav, type RushMode } from '../lib/nav';
 import { allGames } from '../lib/games';
 import { profileStats, scorePct, type Profile } from '../lib/games/profile';
 import { opponentById } from '../lib/people';
-import { getGameRating } from '../lib/rewards/rating';
+import { botsLine, getGameRating } from '../lib/rewards/rating';
 import { useSettings } from '../lib/settings';
 import { rushBestKey } from './RushScreen';
 import type { ImportedGame } from '../lib/store/types';
@@ -44,7 +43,7 @@ interface Data {
   themes: ThemeStat[];
   days: { day: string; n: number }[];
   week: Awaited<ReturnType<typeof weeklySummary>>;
-  bots: { rating: number; peak: number; games: number };
+  bots: { rating: number; peak: number; games: number; /** "12 rated games", or after a restart "Started at 512 · 24 Nov". */ line: string };
   rush: number;
   survival: number;
   /** Latest chess.com rating per time class. */
@@ -83,7 +82,7 @@ export function ProfileScreen() {
       const bot = await getGameRating();
       const rushBest = async (m: RushMode) => kvGet<number>(rushBestKey(m), 0);
       setD({
-        bots: { rating: bot.rating, peak: bot.peak, games: bot.games },
+        bots: { rating: bot.rating, peak: bot.peak, games: bot.games, line: botsLine(bot) },
         rush: Math.max(await rushBest('3'), await rushBest('5')),
         survival: await rushBest('survival'),
         cc: ['bullet', 'blitz', 'rapid', 'daily'].filter((c) => cc.has(c)).map((cls) => ({ cls, rating: cc.get(cls)! })),
@@ -149,7 +148,7 @@ export function ProfileScreen() {
           <>
             <CcRatingStart variant="card" onDone={() => setReload((n) => n + 1)} />
             <div className="card divide-y divide-stone-100 !p-0 dark:divide-stone-800">
-              <RatingRow label="Bots" sub={`${plural(d.bots.games, 'rated game')}`} value={d.bots.rating} best={d.bots.peak} onClick={() => push({ name: 'journey' })} seenKey="stats.rating" />
+              <RatingRow label="Bots" sub={d.bots.line} value={d.bots.rating} best={d.bots.peak} onClick={() => push({ name: 'journey' })} seenKey="stats.rating" />
               {/* No number until there is one: "—" before the first rated puzzle, "Try it" before a Rush. */}
               <RatingRow label="Puzzles" sub={d.puzzles.total ? `${d.puzzles.solved} of ${d.puzzles.total} solved` : 'No puzzles yet'} value={d.ratings.length > 1 ? d.rating : null} empty="—" best={Math.max(d.rating, ...d.ratings)} />
               {d.rush || d.survival ? (

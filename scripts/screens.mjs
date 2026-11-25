@@ -873,6 +873,7 @@ async function run([W, H], scheme) {
     await p.waitForTimeout(1200);
     const head = await p.locator('[data-testid="fix-done"] p').first().textContent().catch(() => null);
     if (head !== '0 of 2 fixed') errors.push(`fix-skip: the done card reads ${head}`);
+    if (!(await p.locator('[data-testid="fix-done-target"]').count())) errors.push('fix-skip: 0 found still shows a check');
     await shot('r5-fix-skip-done');
     await p.locator('[data-testid="fix-finish"]').click();
     await p.waitForTimeout(1200);
@@ -1157,6 +1158,8 @@ async function run([W, H], scheme) {
     const top = await p.evaluate(() => document.querySelector('[data-testid="profile-rating"]')?.textContent);
     if (!top?.endsWith('Rating 512')) errors.push(`profile-cc: the header reads "${top}"`);
     if (await p.locator('[data-testid="delta-chip"]').count()) errors.push('profile-cc: a delta chip after the start');
+    const botsSub = await p.locator('text=/^Started at 512 · /').count();
+    if (!botsSub) errors.push('profile-cc: the Bots row does not read "Started at 512 · …"');
     await shot('r5-profile-cc-done');
     await p.locator('[data-testid="cc-start-done"]').click();
     await p.waitForTimeout(1200);

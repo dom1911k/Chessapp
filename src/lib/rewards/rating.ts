@@ -4,6 +4,8 @@
 import { announceChange } from '../changes';
 import { kvGet, kvSet } from '../db';
 import { setPlayerRating } from '../playerRating';
+import { shortDate } from '../dates';
+import { plural } from '../plural';
 
 export interface GameRating {
   rating: number;
@@ -55,6 +57,20 @@ export async function restartGameRating(rating: number, opts: { keepPeak?: boole
   setPlayerRating(rating);
   announceChange('rating');
   return fresh;
+}
+
+/** The last restart (from chess.com or a fresh start), while its first entry is still in the history:
+ *  a restart leaves one entry before the games it counts, so the history has one more than games. */
+export function lastRestart(r: GameRating): { at: number; rating: number } | null {
+  return r.history.length > 0 && r.history.length === r.games + 1 ? r.history[0] : null;
+}
+
+/** Profile → Bots, under the rating: "Started at 512 · 24 Nov" until the next game, then "3 games
+ *  since 24 Nov"; without a restart, "12 rated games". */
+export function botsLine(r: GameRating, now = Date.now()): string {
+  const rs = lastRestart(r);
+  if (!rs) return plural(r.games, 'rated game');
+  return r.games ? `${plural(r.games, 'game')} since ${shortDate(rs.at, now)}` : `Started at ${rs.rating} · ${shortDate(rs.at, now)}`;
 }
 
 export interface Milestone {

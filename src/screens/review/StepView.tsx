@@ -4,7 +4,7 @@
 // Show me or Skip, the puzzle marks on the board, a strip of the moments, "Next moment ›", and a
 // done card with one row per moment.
 import { forwardRef, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ChartLine, Play, Square, FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope, Check, Eye, Minus, ArrowRight, SkipForward } from 'lucide-react';
+import { ChartLine, Play, Square, FlipVertical2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, RotateCcw, TriangleAlert, Lightbulb, MessageCircleQuestion, Microscope, Check, Eye, Minus, ArrowRight, SkipForward, Target } from 'lucide-react';
 import { MoveMark, type SquareMark } from '../../components/PuzzleFx';
 import { Board } from '../../components/Board';
 import { EvalGraph } from '../../components/Charts';
@@ -542,7 +542,7 @@ function FixStrip({ g, plies, results, current }: { g: AnyGame; plies: number[];
 }
 
 /** The done card: "1 of 2 fixed" (or "Both fixed"), one row per moment, and Done. */
-const FixDone = forwardRef<HTMLDivElement, { g: AnyGame; plies: number[]; results: FixResult[]; allFixed: boolean; onFinish: () => void }>(function FixDone({ g, plies, results, allFixed, onFinish }, ref) {
+export const FixDone = forwardRef<HTMLDivElement, { g: AnyGame; plies: number[]; results: FixResult[]; allFixed: boolean; onFinish: () => void }>(function FixDone({ g, plies, results, allFixed, onFinish }, ref) {
   const n = plies.length;
   const found = results.filter((x) => x === 'fixed').length;
   const head = allFixed ? (n === 1 ? 'Fixed' : n === 2 ? 'Both fixed' : `All ${n} fixed`) : `${found} of ${n} fixed`;
@@ -551,7 +551,8 @@ const FixDone = forwardRef<HTMLDivElement, { g: AnyGame; plies: number[]; result
     <div ref={ref} className="card !px-4 !py-4" data-testid="fix-done" data-all={allFixed || undefined}>
       <div className="flex flex-col items-center gap-2">
         <span data-done-icon className={`flex h-11 w-11 items-center justify-center rounded-full ${allFixed ? 'bg-brand-500 text-white' : 'bg-stone-100 text-stone-600 dark:bg-white/[0.08] dark:text-stone-300'}`}>
-          <Check size={24} strokeWidth={3} />
+          {/* Nothing found (all skipped or shown): the fix flow's target, not a check. */}
+          {found ? <Check size={24} strokeWidth={3} /> : <Target size={22} strokeWidth={2.4} data-testid="fix-done-target" />}
         </span>
         <p className="text-[18px] font-extrabold tracking-[-0.01em]">{head}</p>
       </div>
