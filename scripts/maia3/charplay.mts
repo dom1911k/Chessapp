@@ -26,6 +26,7 @@ import { opponentById, typesFor } from '../../src/lib/people/index.ts';
 import { bookDepth, bookMove, castleWeight, openingTemperature, OPENING_CASTLE, OPENING_TEMP } from '../../src/lib/people/openings.ts';
 import { quirkById, quirkEffects, typeOpening, TYPE_TUNING, type QuirkCtx } from '../../src/lib/playerTypes.ts';
 import { drawForm } from '../../src/lib/form.ts';
+import { strangerFor } from '../../src/lib/people/stranger.ts';
 import { material } from '../../src/cups/material.ts';
 
 interface Spec {
@@ -45,6 +46,8 @@ interface Spec {
   vs?: { id?: string; types?: string[]; book?: boolean; form?: boolean };
   /** Score a clearly decided game (|eval| at or above this after move 20) without playing it out. */
   adjudicate?: number;
+  /** Quick match opponents (people/stranger.ts): each side a new person per game (types from the seed), no book. */
+  stranger?: boolean;
 }
 type Side = 'w' | 'b';
 
@@ -79,7 +82,7 @@ for (let g = 0; g < games; g++) {
   const aSide: Side = g % 2 === 0 ? 'w' : 'b';
   const isA = (sd: Side) => !S.vs || sd === aSide;
   const vsWho = opponentById(S.vs?.id);
-  const typesOf = (sd: Side) => (isA(sd) ? (S.types ?? typesFor(who)) : (S.vs!.types ?? typesFor(vsWho)));
+  const typesOf = (sd: Side) => (S.stranger ? strangerFor(Math.floor(Math.random() * 2 ** 31), elo).types : isA(sd) ? (S.types ?? typesFor(who)) : (S.vs!.types ?? typesFor(vsWho)));
   const formOf = (sd: Side) => ((isA(sd) ? S.form : S.vs!.form) === false ? 0 : drawForm());
   const types: Record<Side, string[]> = { w: typesOf('w'), b: typesOf('b') };
   const form: Record<Side, number> = { w: formOf('w'), b: formOf('b') };

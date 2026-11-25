@@ -355,3 +355,120 @@ describe('round 7 · 2.7 quiet with a clock', async () => {
     expect(keepsQuiet({ timeControl: '600+0', coach: 'your' }, 'botCheck')).toBe(false);
   });
 });
+
+describe('round 7 · settings moves run once (their flags are saved)', async () => {
+  const { Preferences } = await import('@capacitor/preferences');
+  const { useSettings } = await import('../lib/settings');
+  it('a clock you chose stays, the sparring partner becomes Tom, and Quick match opens once', async () => {
+    await Preferences.set({ key: 'settings', value: JSON.stringify({ opponentId: 'sparring', charTimeControl: '300+0', matchMode: true, matchTimeControl: '900+10', playSide: 'characters' }) });
+    await useSettings.getState().load();
+    let s = useSettings.getState();
+    expect([s.charTimeControl, s.opponentId, s.playSide, s.playModesV1, s.quickMatchV1]).toEqual(['300+0', 'tom', 'quick', true, true]);
+    // You pick Characters and a clock; the next start keeps both.
+    s.set({ playSide: 'characters', charTimeControl: '180+2' });
+    await useSettings.getState().load();
+    s = useSettings.getState();
+    expect([s.playSide, s.charTimeControl]).toEqual(['characters', '180+2']);
+  });
+});
+
+describe('round 7 · 3 Quick match: a new person every game', async () => {
+  const { db, kvSet } = await import('../lib/db');
+  const { strangerFor, styleLine, typeWeights, makeUsername, seeded, BLOCKLIST, STRANGER_COLORS, avatarFor } = await import('../lib/people/stranger');
+  const { bookMove } = await import('../lib/people/openings');
+  const { typeOpening } = await import('../lib/playerTypes');
+  it('the same seed gives the same person (a rematch gets them back)', () => {
+    expect(strangerFor(12345, 512)).toEqual(strangerFor(12345, 512));
+    expect(strangerFor(12345, 512).name).not.toBe(strangerFor(54321, 512).name);
+    const s = strangerFor(777, 900);
+    expect(s.avatar).toBe(avatarFor(s.name));
+    expect(s.avatar).toBeLessThan(STRANGER_COLORS.length);
+  });
+  it('the rating is within ±100 of yours and never the same', () => {
+    const offs = Array.from({ length: 3000 }, (_, i) => strangerFor(i + 1, 1000).rating - 1000);
+    expect(Math.max(...offs.map(Math.abs))).toBeLessThanOrEqual(100);
+    expect(offs.includes(0)).toBe(false);
+    const sd = Math.sqrt(offs.reduce((a, x) => a + x * x, 0) / offs.length);
+    expect(sd).toBeGreaterThan(35);
+    expect(sd).toBeLessThan(50);
+    expect(strangerFor(1, 120).rating).toBeGreaterThanOrEqual(100);
+  });
+  it('types: 0–2, about 30% none; low-rated common ones below 800, high-rated ones above 1000', () => {
+    const count = (rating: number, ids: string[]) => {
+      let k = 0;
+      let none = 0;
+      for (let i = 1; i <= 3000; i++) {
+        const t = strangerFor(i * 7919, rating).types;
+        if (!t.length) none++;
+        expect(t.length).toBeLessThanOrEqual(2);
+        if (t.some((x) => ids.includes(x))) k++;
+      }
+      return { share: k / 3000, none: none / 3000 };
+    };
+    const low = ['earlyQueen', 'speedster', 'pawnGrabber'];
+    const high = ['endgameGrinder', 'trapper', 'fastStarter'];
+    const at500 = count(500, low);
+    expect(at500.none).toBeGreaterThan(0.25);
+    expect(at500.none).toBeLessThan(0.35);
+    expect(at500.share).toBeGreaterThan(count(1400, low).share);
+    expect(count(1400, high).share).toBeGreaterThan(count(500, high).share);
+    expect(typeWeights(500).find(([t]) => t === 'speedster')![1]).toBeGreaterThan(typeWeights(1400).find(([t]) => t === 'speedster')![1]);
+    // Types that undo each other never come together.
+    for (let i = 1; i <= 2000; i++) {
+      const t = strangerFor(i, 1000).types;
+      expect(t.includes('fastStarter') && t.includes('slowStarter')).toBe(false);
+    }
+  });
+  it('usernames look like chess.com handles and never contain a blocked name', () => {
+    const r = seeded(9);
+    for (let i = 0; i < 2000; i++) {
+      const n = makeUsername(r);
+      expect(n).toMatch(/^[a-z0-9_.-]{3,24}$/);
+      for (const b of BLOCKLIST) expect(n.includes(b)).toBe(false);
+    }
+  });
+  it('no book: Maia plays from move 1, except where a type has an opening plan', () => {
+    expect(bookMove(undefined, [])).toBeNull();
+    expect(bookMove(undefined, ['e4', 'e5'])).toBeNull();
+    const ctx = { fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2', sans: ['e4', 'e5'], moveNo: 2, bot: 'w' as const, me: 'b' as const, botLeftMs: 600_000, state: {}, fromStart: true, plan: 0.1 };
+    expect(typeOpening(['gambiteer'], ctx, () => 0)?.uci).toBe('f2f4');
+  });
+  it("the results sheet's style line", () => {
+    expect(styleLine(['gambiteer', 'speedster'])).toBe('Their style: Gambiteer · Speedster');
+    expect(styleLine(['earlyQueen'])).toBe('Their style: Overconfident');
+    expect(styleLine([])).toBe('No particular style');
+  });
+  it('rematch keeps the person and swaps colours; New opponent pairs a new one at the same clock', async () => {
+    const { rematch, newOpponent } = await import('../screens/play/GameActions');
+    const stranger = strangerFor(42, 600);
+    const calls: unknown[][] = [];
+    const s = { game: { userColor: 'w', elo: stranger.rating, timeControl: '900+10', stranger }, newGame: (...a: unknown[]) => calls.push(a), quickMatch: async (...a: unknown[]) => void calls.push(['quick', ...a]) } as never;
+    rematch(s);
+    expect(calls[0][0]).toBe('b');
+    expect(calls[0][1]).toBe(stranger.rating);
+    expect((calls[0][4] as { stranger: unknown; timeControl: string }).stranger).toEqual(stranger);
+    expect((calls[0][4] as { timeControl: string }).timeControl).toBe('900+10');
+    await newOpponent(s);
+    expect(calls[1][0]).toBe('quick');
+    expect(calls[1][1]).toBe('900+10');
+  });
+  it('a Quick match game is rated, keeps the person for history, and has no badges or rivalry', async () => {
+    const { finishGame } = await import('../lib/store/finish');
+    const { getOpponentRecords } = await import('../lib/people/record');
+    await db.games.clear();
+    await kvSet('opponentStats', {});
+    const stranger = strangerFor(99, 512);
+    const fen = '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1';
+    const after = 'R5k1/5ppp/8/8/8/8/5PPP/6K1 b - - 1 1';
+    const g = { id: 'play' as const, userColor: 'w' as const, elo: stranger.rating, stranger, types: stranger.types, match: true, timeControl: '600+0', startFen: fen, startedAt: Date.now() - 6e5, takebacks: 0, hintsUsed: 0, told: [],
+      plies: [{ uci: 'a1a8', san: 'Ra8#', color: 'w' as const, fenBefore: fen, fenAfter: after, isUser: true, classification: 'best' as const }] };
+    const out = await finishGame(g, '1-0', 'checkmate');
+    expect(out!.rewards.stranger).toEqual({ name: stranger.name, avatar: stranger.avatar, types: stranger.types });
+    expect(out!.rewards.ratingAfter).toBeGreaterThan(out!.rewards.ratingBefore);
+    expect(out!.rewards.rivalry).toBeUndefined();
+    expect(await getOpponentRecords()).toEqual({});
+    const saved = (await db.games.toArray())[0];
+    expect(saved.opponentName).toBe(stranger.name);
+    expect(saved.stranger?.seed).toBe(99);
+  });
+});

@@ -16,6 +16,7 @@ import { ChevronRight, Sparkles, Lightbulb, Target } from 'lucide-react';
 import { Board } from '../../components/Board';
 import { EvalGraph } from '../../components/Charts';
 import { CoachAvatar, Portrait } from '../../components/Coach';
+import { StrangerAvatar } from '../../components/StrangerAvatar';
 import { Header } from '../../components/ui';
 import { classInk, ReviewIcon } from '../../components/ReviewIcon';
 import { CauseBreakdown, CauseIcon } from '../../components/Causes';
@@ -72,6 +73,8 @@ function PlayerChip({ g, me }: { g: AnyGame; me: boolean }) {
         <UserAvatar size={44} />
       ) : o ? (
         <Portrait id={o.id} size={44} />
+      ) : 'stranger' in g && g.stranger ? (
+        <StrangerAvatar avatar={g.stranger.avatar} size={44} />
       ) : (
         <span className="flex h-11 w-11 items-center justify-center rounded-md bg-chesscom text-lg font-black text-white">{oppName(g)[0]?.toUpperCase()}</span>
       )}

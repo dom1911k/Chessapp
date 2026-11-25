@@ -24,6 +24,10 @@ import { opponentById, pickLine, typesFor, wantsSummaryLine, type ChatEvent, typ
 import { bookDepth, bookMove, castleWeight, openingTemperature } from '../people/openings';
 import { quirkById, quirkEffects, typeOpening, TYPE_TUNING, type QuirkCtx } from '../playerTypes';
 import { keepsQuiet, timedQuiet } from '../people/quiet';
+import { newStrangerSeed, strangerFor, type Stranger } from '../people/stranger';
+
+/** How long pairing takes (ms). */
+const PAIRING_MS = [1200, 1900];
 import { formFor } from '../form';
 import { botAcceptsDraw, botOffersDraw, canOfferDraw, repeatedTwice } from '../draws';
 import { detectOpening } from '../openings';
@@ -82,7 +86,7 @@ interface PlayStore {
   precheck: { move: MoveInput; uci: string; check: PreCheck; revealed: boolean } | null;
   load(): Promise<void>;
   /** Every game is a real game (no help) unless `coach`: a Play Coach game against Sam. */
-  newGame(color: Color, elo: number, startFen?: string, opponentId?: string, opts?: { match?: boolean; timeControl?: string; sparring?: boolean; rematch?: RematchInfo; coach?: CoachStrength; challenge?: boolean }): void;
+  newGame(color: Color, elo: number, startFen?: string, opponentId?: string, opts?: { match?: boolean; timeControl?: string; sparring?: boolean; rematch?: RematchInfo; coach?: CoachStrength; challenge?: boolean; stranger?: Stranger }): void;
   userMove(m: MoveInput, force?: boolean): boolean;
   /** Play the move the "are you sure?" check stopped. */
   confirmPrecheck(): void;
@@ -102,6 +106,10 @@ interface PlayStore {
   declineDraw(): void;
   /** When the bot last declined your offer ("Draw declined" pill, 2 s). */
   drawDeclined: number | null;
+  /** Quick match (round 7): "Finding an opponent…" for a moment, then a game against someone new. */
+  pairing: { tc: string; at: number } | null;
+  quickMatch(tc: string, color: Color): Promise<void>;
+  cancelPairing(): void;
   /** Start over: very short games are discarded, longer ones count as resigned. */
   abandon(): Promise<void>;
   /** End the game before each side has made 2 moves (canAbort): nothing is recorded, back to the menu. */
@@ -632,6 +640,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     away: false,
     lowTime: false,
     drawDeclined: null,
+    pairing: null,
     intro: null,
     endIntro() {
       set({ intro: null });
@@ -711,9 +720,10 @@ export const usePlay = create<PlayStore>((set, get) => {
         clocks: opts.timeControl ? [] : undefined,
         sparring: opts.sparring || undefined,
         rematch: opts.rematch,
-        // Round 7: the character's player types (Mei picks one per game) and today's form. Play
-        // Coach has neither: Sam is steady.
-        types: opts.coach ? undefined : typesFor(opponentById(opponentId)),
+        // Round 7: the character's player types (Mei picks one per game; a Quick match opponent's come
+        // with them) and today's form. Play Coach has neither: Sam is steady.
+        types: opts.coach ? undefined : opts.stranger ? opts.stranger.types : typesFor(opponentById(opponentId)),
+        stranger: opts.stranger,
         form: formFor(opts),
         pace: opts.coach ? undefined : drawPace(),
         challenge: opts.challenge || undefined,
@@ -921,6 +931,21 @@ export const usePlay = create<PlayStore>((set, get) => {
       const g = get().game;
       if (!g || get().over || g.draws?.pending !== 'bot') return;
       await endGame('1/2-1/2', 'agreement');
+    },
+
+    async quickMatch(tc, color) {
+      // Pairing takes a moment, as online (1–2 s); a new seed is a new person near your rating.
+      const at = Date.now();
+      set({ pairing: { tc, at } });
+      await sleep(PAIRING_MS[0] + Math.random() * (PAIRING_MS[1] - PAIRING_MS[0]));
+      if (get().pairing?.at !== at) return;
+      const stranger = strangerFor(newStrangerSeed(), getPlayerRating());
+      set({ pairing: null });
+      get().newGame(color, stranger.rating, undefined, undefined, { match: true, timeControl: tc, stranger });
+    },
+
+    cancelPairing() {
+      set({ pairing: null });
     },
 
     declineDraw() {

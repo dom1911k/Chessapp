@@ -6,6 +6,8 @@
 import { UserAvatar, useMyName } from './UserAvatar';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { PieceIcon } from './PieceIcon';
+import type { Stranger } from '../lib/people/stranger';
+import { StrangerAvatar } from './StrangerAvatar';
 import { opponentById } from '../lib/people';
 import { getGameRating } from '../lib/rewards/rating';
 import { BOUNCE, POP, SOFT, UI_EASE, animate, crossfade, haptic, sleep, token } from '../lib/motion';
@@ -49,7 +51,7 @@ function flyPortrait(from: Element | null, to: HTMLElement | null, frame: HTMLEl
   });
 }
 
-export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { opponentId?: string; elo: number; userColor: 'w' | 'b'; line?: string; onDone: () => void }) {
+export function VersusIntro({ opponentId, stranger, elo, userColor, line, onDone }: { opponentId?: string; stranger?: Stranger; elo: number; userColor: 'w' | 'b'; line?: string; onDone: () => void }) {
   const o = opponentById(opponentId);
   const [rating, setRating] = useState<number | null>(null);
   const name = useMyName();
@@ -160,11 +162,11 @@ export function VersusIntro({ opponentId, elo, userColor, line, onDone }: { oppo
         <div className="flex flex-col items-end gap-3 self-end">
           <div ref={ref('op')} className="flex items-center gap-4 opacity-0">
             <span className="text-right">
-              <span className="block font-display text-3xl font-semibold">{o ? o.name : 'Bot'}</span>
+              <span className="block font-display text-3xl font-semibold" data-testid="versus-name">{o ? o.name : stranger ? stranger.name : 'Bot'}</span>
               <span ref={ref('opChip')} className="mt-1 inline-flex rounded-full bg-black/30 px-2 py-0.5 text-xs font-semibold opacity-0">{elo}{o ? ` · ${o.tagline}` : ''}</span>
             </span>
             <span ref={ref('opImg')} className="block overflow-hidden rounded-[8px]" style={{ boxShadow: ringFor(userColor === 'w' ? 'b' : 'w') }}>
-              {o ? <Portrait id={o.id} size={96} mood="happy" className="block" /> : <span className="block h-24 w-24 bg-stone-700" />}
+              {o ? <Portrait id={o.id} size={96} mood="happy" className="block" /> : stranger ? <StrangerAvatar avatar={stranger.avatar} size={96} className="!block !rounded-none" /> : <span className="block h-24 w-24 bg-stone-700" />}
             </span>
           </div>
           {line && (

@@ -6,6 +6,7 @@ import { Clock as ClockIcon, Bot } from 'lucide-react';
 import { getPlayerRating } from '../../lib/playerRating';
 import { povScore, scoreToCp } from '../../lib/chess/evaluation';
 import { currentFen, turnOf, usePlay } from '../../lib/store/play';
+import { StrangerAvatar } from '../../components/StrangerAvatar';
 import { Portrait } from '../../components/Coach';
 import { opponentById, type Mood } from '../../lib/people';
 import { Captured } from '../../components/Captured';
@@ -41,6 +42,8 @@ export function PlayerBar({ me }: { me: boolean }) {
           <UserAvatar size={36} />
         ) : o ? (
           <Portrait id={o.id} mood={mood} size={36} />
+        ) : g.stranger ? (
+          <StrangerAvatar avatar={g.stranger.avatar} size={36} />
         ) : (
           <span className="flex h-9 w-9 items-center justify-center rounded-[4px] bg-stone-200 text-stone-600 dark:bg-stone-800"><Bot size={18} /></span>
         )}
@@ -52,7 +55,7 @@ export function PlayerBar({ me }: { me: boolean }) {
       </span>
       <div className="min-w-0 flex-1 leading-tight">
         <div className="truncate text-[14px] font-bold">
-          {me ? myName : o ? o.name : g.rematch ? rematchLabel(g.rematch.name) : g.sparring ? 'Sparring partner' : 'Bot'}{' '}
+          {me ? myName : o ? o.name : g.stranger ? g.stranger.name : g.rematch ? rematchLabel(g.rematch.name) : g.sparring ? 'Sparring partner' : 'Bot'}{' '}
           <span className="text-[13px] font-medium text-stone-500 tabular-nums">({rating})</span>
         </div>
         <Captured fen={currentFen(g)} startFen={g.startFen} side={side} />

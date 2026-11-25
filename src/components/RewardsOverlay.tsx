@@ -25,6 +25,8 @@ import { sfx } from '../lib/sfx';
 import { countTo, odo } from '../lib/numbers';
 import type { GameRewards } from '../lib/store/finish';
 import { CoachAvatar, Portrait } from './Coach';
+import { StrangerAvatar } from './StrangerAvatar';
+import { styleLine } from '../lib/people/stranger';
 import { CosmeticPreview } from './CosmeticPreview';
 import { Medallion } from './Glyph';
 import { Sheet, sheetExit, useSheetDrag } from './Sheet';
@@ -398,13 +400,15 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
                 )}
                 {o ? (
                   <Portrait id={o.id} mood={r.userResult === 'win' ? 'worried' : r.userResult === 'loss' ? 'happy' : 'neutral'} size={56} />
+                ) : r.stranger ? (
+                  <StrangerAvatar avatar={r.stranger.avatar} size={56} />
                 ) : (
                   <span className="flex h-14 w-14 items-center justify-center rounded-md bg-stone-200 text-stone-500 dark:bg-stone-800">
                     <Users size={24} />
                   </span>
                 )}
               </span>
-              <span className="w-full truncate text-center text-xs font-semibold text-stone-600 dark:text-stone-300">{o ? o.name : 'Bot'}</span>
+              <span className="w-full truncate text-center text-xs font-semibold text-stone-600 dark:text-stone-300" data-testid="results-opponent">{o ? o.name : r.stranger ? r.stranger.name : 'Bot'}</span>
             </div>
           </div>
 
@@ -456,6 +460,12 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
         {/* The rows, grouped (four at most); on a small phone they scroll under the fixed header. */}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-2 pb-3" data-testid="results-rows">
           <div className="divide-y divide-black/5 dark:divide-white/[0.06]">
+            {/* A Quick match opponent: who they were and how they played (no badges with strangers). */}
+            {r.stranger && (
+              <div className={hide}>
+                <RewardRow testId="row-style" icon={<StrangerAvatar avatar={r.stranger.avatar} size={30} />} title={r.stranger.name} sub={styleLine(r.stranger.types)} />
+              </div>
+            )}
             {o && (r.rivalry || challengeLine) && (
               <div className={hide}>
                 <RewardRow
@@ -547,7 +557,7 @@ export function RewardsOverlay({ r, onClose, onReport, onRematch, onNewOpponent,
               )}
               {onNewOpponent && (
                 <button className="btn-secondary" onClick={onNewOpponent}>
-                  <Users size={16} /> New bot
+                  <Users size={16} /> {r.stranger ? 'New opponent' : 'New bot'}
                 </button>
               )}
             </div>

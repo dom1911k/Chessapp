@@ -4,6 +4,7 @@ import { usePlay } from '../lib/store/play';
 import { Spinner } from '../components/ui';
 import { GameView } from './play/GameView';
 import { SetupView } from './play/SetupView';
+import { PairingView } from './play/PairingView';
 
 export { SettingsButton } from './play/SetupView';
 
@@ -11,7 +12,10 @@ export function PlayScreen() {
   const phase = usePlay((s) => s.phase);
   const game = usePlay((s) => s.game);
   const away = usePlay((s) => s.away);
+  const pairing = usePlay((s) => s.pairing);
   if (phase === 'loading') return <div className="flex h-full items-center justify-center"><Spinner /></div>;
+  // Quick match: "Finding an opponent…" until the game starts.
+  if (pairing) return <PairingView />;
   if (!game || phase === 'setup' || away) return <SetupView />;
   return <GameView />;
 }

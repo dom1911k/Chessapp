@@ -1,3 +1,4 @@
+import type { Stranger } from '../people/stranger';
 import type { Classification, Score } from '../chess/evaluation';
 import type { GameResult } from '../chess/game';
 import type { Color } from '../chess/pos';
@@ -81,6 +82,8 @@ export interface SavedGame {
   form?: number;
   /** This game's think pace for the opponent (round 7; 1 = its usual speed, some games quicker or slower). */
   pace?: number;
+  /** A Quick match opponent (round 7): the person, from one seed (a rematch gets them back). */
+  stranger?: Stranger;
   /** Draw offers this game (real games only): see src/lib/draws.ts. */
   draws?: import('../draws').DrawState;
   /** Played while their special challenge was open: a fair attempt, so no form. */

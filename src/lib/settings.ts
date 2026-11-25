@@ -58,6 +58,9 @@ export interface Settings {
   moveStripV1: boolean;
   /** Bot strength setting already on the chess.com scale. */
   ccScaleV1: boolean;
+  /** One-time moves of round 7 (declared so they're saved: a flag that isn't would re-run each start). */
+  playModesV1: boolean;
+  quickMatchV1: boolean;
   /** Set once chess.com sync on opening the app became the default. */
   ccSyncV1: boolean;
   /** Dots on the squares a selected piece can go to. */
@@ -82,6 +85,8 @@ export interface Settings {
   charTimeControl: string;
   /** Home's Play card: Quick match or Characters (remembered). */
   playSide: 'quick' | 'characters';
+  /** Quick match's clock (always one; round 7). */
+  quickTimeControl: string;
   /** Play Coach: Sam at your rating, 150 below or above. */
   coachStrength: 'easier' | 'your' | 'harder';
   /** Your avatar (id in AVATARS), its frame (id in FRAMES) and your title ('' = your level's title). */
@@ -201,6 +206,8 @@ export const DEFAULT_SETTINGS: Settings = {
   soundsV2: true,
   moveStripV1: true,
   ccScaleV1: true,
+  playModesV1: true,
+  quickMatchV1: true,
   ccSyncV1: true,
   showLegalMoves: true,
   moveSpeed: 'normal',
@@ -212,7 +219,8 @@ export const DEFAULT_SETTINGS: Settings = {
   matchTimeControl: '',
   coachedTimeControl: '',
   charTimeControl: '600+0',
-  playSide: 'characters',
+  playSide: 'quick',
+  quickTimeControl: '600+0',
   coachStrength: 'your',
   avatar: 'a01',
   avatarFrame: 'none',
@@ -266,8 +274,17 @@ export const useSettings = create<SettingsStore>((set, get) => ({
         // One-time (round 7): Classic (Stockfish with noise) is no longer an opponent style.
         if (saved.opponentEngine === 'stockfish') saved.opponentEngine = 'maia';
         if (!saved.playModesV1) {
-          saved.charTimeControl = saved.matchMode ? saved.matchTimeControl || '600+0' : saved.coachedTimeControl ?? '';
+          // (Until v1.64 this flag wasn't saved and the move re-ran on every start; a clock you
+          // already have stays.)
+          if (saved.charTimeControl === undefined) saved.charTimeControl = saved.matchMode ? saved.matchTimeControl || '600+0' : saved.coachedTimeControl ?? '';
           saved.playModesV1 = true;
+        }
+        // One-time (round 7, Quick match): the sparring partner left the opponent picker; whoever had
+        // it chosen gets Tom (its record and games stay). The Play card opens on Quick match once.
+        if (!saved.quickMatchV1) {
+          if (saved.opponentId === 'sparring') saved.opponentId = 'tom';
+          saved.playSide = 'quick';
+          saved.quickMatchV1 = true;
         }
         migrateUiV2(saved);
         set({ ...DEFAULT_SETTINGS, ...saved });

@@ -51,6 +51,8 @@ export interface GameRewards {
   accuracyAvg?: number;
   /** A Play Coach game: unrated, no badges (the sheet says "Practice" for the rating). */
   practice?: boolean;
+  /** A Quick match opponent: the sheet shows their username, avatar and style, no badge row. */
+  stranger?: { name: string; avatar: number; types: string[] };
   /** None of your moves were analysed (resigned before moving): the sheet shows "—". */
   noMoves?: boolean;
   /** Badges from this game against this opponent. */
@@ -110,7 +112,7 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     summary,
     opening: g.startFen === START_FEN ? detectOpening(g.plies.map((p) => p.san))?.name : undefined,
     tactics: gameTactics(g),
-    opponentName: g.sparring ? 'Sparring partner' : g.rematch ? `${g.rematch.name} (stand-in)` : undefined,
+    opponentName: g.stranger ? g.stranger.name : g.sparring ? 'Sparring partner' : g.rematch ? `${g.rematch.name} (stand-in)` : undefined,
   };
   const gameId = await db.transaction('rw', [db.games, db.current, db.cards], async () => {
     const id = await db.games.add(record);
@@ -173,6 +175,7 @@ export async function finishGame(g: SavedGame, result: GameResult, reason: strin
     reason,
     opponentId: g.opponentId,
     ...(practice ? { practice: true } : {}),
+    ...(g.stranger ? { stranger: { name: g.stranger.name, avatar: g.stranger.avatar, types: g.stranger.types } } : {}),
     accuracy: summary.accuracy,
     ...(avg !== null ? { accuracyAvg: avg } : {}),
     noMoves: !hasAccuracy(summary) || undefined,

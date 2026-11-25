@@ -3,6 +3,7 @@
 // app lives in the tabs.
 import { BadgeLine } from '../../components/Rivalry';
 import { PlaysLine } from '../../components/PlaysLine';
+import { StrangerAvatar } from '../../components/StrangerAvatar';
 import { TurningPrompt } from '../../components/TurningCards';
 import { useEffect, useState } from 'react';
 import { ChevronRight, Timer, Bot, Check, Lock, Settings, Share, Shuffle, SlidersHorizontal, Dumbbell, Sparkles, Star, Trophy } from 'lucide-react';
@@ -34,8 +35,6 @@ import { OpponentCarousel } from '../../components/OpponentCarousel';
 import { needsHomeScreenHint } from '../../lib/pwa';
 import { coachElo } from '../../lib/coach/level';
 
-/** Quick match (Phase 3 of round 7) shows the Play card's switch. */
-const QUICK_MATCH = false;
 import { COLOUR_NEWS_KEY, colourChip, getLastColour, nextColour } from '../../lib/colour';
 import type { Color } from '../../lib/chess/pos';
 
@@ -89,6 +88,13 @@ export function SetupView() {
     if (running) await usePlay.getState().abandon();
     newGame(color, coachElo(getPlayerRating(), settings.coachStrength), undefined, 'coach', { coach: settings.coachStrength });
   };
+  /** Quick match: a new person near your rating every game (the colour follows You play). */
+  const startQuick = async () => {
+    const color = nextColour(settings.colorPref, lastColour);
+    if (running) await usePlay.getState().abandon();
+    void usePlay.getState().quickMatch(settings.quickTimeControl || '600+0', color);
+  };
+  const quick = settings.playSide === 'quick';
   const [sheet, setSheet] = useState<'opponent' | 'options' | 'coach' | null>(null);
   const tc = settings.charTimeControl;
   const chOpen = challengeOpen(rec);
@@ -102,11 +108,13 @@ export function SetupView() {
         <HomeScreenHint />
         {/* The Play card: real games (Characters; Quick match joins it). */}
         <div className="card space-y-3 overflow-hidden !p-0 !pb-3" data-testid="play-card" data-side={settings.playSide}>
-          {QUICK_MATCH && (
-            <div className="px-3 pt-3">
-              <Segmented value={settings.playSide} onChange={(v) => settings.set({ playSide: v })} options={[{ value: 'quick', label: 'Quick match' }, { value: 'characters', label: 'Characters' }]} />
-            </div>
-          )}
+          <div className="px-3 pt-3">
+            <Segmented value={settings.playSide} onChange={(v) => settings.set({ playSide: v })} options={[{ value: 'quick', label: 'Quick match' }, { value: 'characters', label: 'Characters' }]} />
+          </div>
+          {quick ? (
+            <QuickSide running={!!running} onPlay={() => void startQuick()} />
+          ) : (
+          <>
           <button
             className="relative flex w-full items-center gap-3.5 px-3.5 pt-3.5 pb-3 text-left transition-[filter] duration-100 active:brightness-95"
             style={{ background: opp ? `linear-gradient(115deg, color-mix(in srgb, ${portraitColors(opp.id)[1]} 12%, transparent), transparent 70%)` : undefined }}
@@ -145,8 +153,10 @@ export function SetupView() {
           </button>
           {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
           </div>
+          </>
+          )}
         </div>
-        {opp && chOpen && !rec?.challengeDone && <ChallengeCard opponentId={opp.id} badges={badgeCount(rec)} open done={false} />}
+        {!quick && opp && chOpen && !rec?.challengeDone && <ChallengeCard opponentId={opp.id} badges={badgeCount(rec)} open done={false} />}
         <PlayCoachCard running={!!running} onPlay={() => void startCoach()} onOptions={() => setSheet('coach')} />
         <WeekRing />
         <UpNextCard />
@@ -185,9 +195,12 @@ export function SetupView() {
               <SlidersHorizontal size={14} /> {custom ? 'Opponents' : 'Custom'}
             </button>
           )}
-          <button className="btn-ghost flex-1 text-sm" onClick={() => settings.set({ opponentId: sparring ? OPPONENTS[1].id : 'sparring' })}>
-            <Dumbbell size={14} /> {sparring ? 'Opponents' : 'Sparring'}
-          </button>
+          {/* The sparring partner left the picker (Quick match does its job); a game against it can still be resumed. */}
+          {sparring && (
+            <button className="btn-ghost flex-1 text-sm" onClick={() => settings.set({ opponentId: OPPONENTS[1].id })}>
+              <Dumbbell size={14} /> Opponents
+            </button>
+          )}
           <button className="btn-primary flex-1" onClick={() => setSheet(null)}>Done</button>
         </div>
       </Dialog>
@@ -242,6 +255,53 @@ export function SetupView() {
 }
 
 /** The Play Coach card: Sam, the line, the level switch and its own button. */
+/** Quick match's clocks (always one), as on chess.com. */
+const QUICK_TCS = ['180+2', '300+0', '600+0', '900+10', '1800+0'];
+const quickTcLabel = (tc: string) => (tc.endsWith('+0') ? `${Number(tc.split('+')[0]) / 60} min` : `${Number(tc.split('+')[0]) / 60}|${tc.split('+')[1]}`);
+
+/** The Quick match side of the Play card: someone new near your rating every game, a clock, Play. */
+function QuickSide({ running, onPlay }: { running: boolean; onPlay: () => void }) {
+  const settings = useSettings();
+  const tc = settings.quickTimeControl || '600+0';
+  const rating = getPlayerRating();
+  return (
+    <div className="space-y-3 px-3" data-testid="quick-side">
+      <div className="px-0.5 pt-1">
+        {/* Three greyed default avatars: someone new each time. */}
+        <span className="flex -space-x-2" aria-hidden>
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="rounded-[7px] ring-2 ring-white dark:ring-[#262421]">
+              <StrangerAvatar avatar={i} size={40} grey />
+            </span>
+          ))}
+        </span>
+        <div className="mt-2 text-[22px] leading-tight font-extrabold tracking-[-0.015em]">Quick match</div>
+        <div className="mt-0.5 text-sm text-stone-600 dark:text-stone-400" data-testid="quick-line">
+          A new opponent near <b className="text-stone-800 tabular-nums dark:text-stone-100">{rating}</b> every game
+        </div>
+      </div>
+      <div className="flex gap-1.5" role="radiogroup" aria-label="Time control" data-testid="quick-tcs">
+        {QUICK_TCS.map((t) => (
+          <button
+            key={t}
+            role="radio"
+            aria-checked={t === tc}
+            data-value={t}
+            className={`min-w-0 flex-1 rounded-[8px] px-1 py-2 text-[13px] font-bold whitespace-nowrap tabular-nums press ${t === tc ? 'bg-brand-500 text-white' : 'bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200'}`}
+            onClick={() => settings.set({ quickTimeControl: t })}
+          >
+            {quickTcLabel(t)}
+          </button>
+        ))}
+      </div>
+      <button className="btn-primary !min-h-14 w-full text-[18px] !font-extrabold" onClick={onPlay} data-testid="quick-play">
+        {running ? 'Start a new game' : 'Play'}
+      </button>
+      {running && <p className="-mt-1 text-center text-xs text-stone-500">This ends your game in progress.</p>}
+    </div>
+  );
+}
+
 function PlayCoachCard({ running, onPlay, onOptions }: { running: boolean; onPlay: () => void; onOptions: () => void }) {
   const level = useSettings((s) => s.coachStrength);
   const set = useSettings((s) => s.set);
@@ -292,10 +352,10 @@ function ResumeCard() {
   const moves = Math.ceil(g.plies.length / 2);
   return (
     <button className="card tile flex w-full items-center gap-3 !p-3 text-left ring-2 ring-brand-500 transition-[filter] active:brightness-95" onClick={() => s.setAway(false)}>
-      {o ? <Portrait id={o.id} size={48} /> : <span className="flex h-12 w-12 items-center justify-center rounded-md bg-stone-200 dark:bg-stone-800"><Bot size={24} /></span>}
+      {o ? <Portrait id={o.id} size={48} /> : g.stranger ? <StrangerAvatar avatar={g.stranger.avatar} size={48} /> : <span className="flex h-12 w-12 items-center justify-center rounded-md bg-stone-200 dark:bg-stone-800"><Bot size={24} /></span>}
       <span className="flex-1">
         <span className="block text-xs font-bold tracking-wider text-brand-700 uppercase dark:text-brand-500">Game in progress</span>
-        <span className="block font-semibold">vs {o ? o.name : 'the bot'}</span>
+        <span className="block font-semibold">vs {o ? o.name : g.stranger ? g.stranger.name : 'the bot'}</span>
         <span className="block text-xs text-stone-500">{moves ? `Move ${moves}` : 'Just started'} · tap to continue</span>
       </span>
       <span className="btn-primary !min-h-9 !px-4 !py-1.5">Continue</span>

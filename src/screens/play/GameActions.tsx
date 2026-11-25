@@ -3,7 +3,8 @@ import { type ReactNode } from 'react';
 import { EllipsisVertical } from 'lucide-react';
 import { useNav } from '../../lib/nav';
 import { usePlay } from '../../lib/store/play';
-import { setLastColour } from '../../lib/colour';
+import { nextColour, setLastColour } from '../../lib/colour';
+import { useSettings } from '../../lib/settings';
 
 /** Same opponent, strength, time control and mode (match or coached), colours swapped like on
  *  chess.com. The colour you get counts as the last colour for Alternate. */
@@ -11,9 +12,18 @@ export function rematch(s: ReturnType<typeof usePlay.getState>) {
   const g = s.game!;
   const color = g.userColor === 'w' ? 'b' : 'w';
   void setLastColour(color).catch(() => undefined);
-  // Play Coach again with Sam at the same level; otherwise the same real game, colours swapped.
+  // Play Coach again with Sam at the same level; a Quick match opponent comes back as the same
+  // person (same rating, types); otherwise the same real game. Colours swapped.
   if (g.coach) s.newGame(color, g.elo, undefined, 'coach', { coach: g.coach });
+  else if (g.stranger) s.newGame(color, g.stranger.rating, undefined, undefined, { match: true, timeControl: g.timeControl, stranger: g.stranger });
   else s.newGame(color, g.elo, undefined, g.opponentId, { match: true, timeControl: g.timeControl, ...(g.challenge ? { challenge: true } : {}) });
+}
+
+/** Quick match's "New opponent": pairing again at the same time control (the colour follows You play). */
+export async function newOpponent(s: ReturnType<typeof usePlay.getState>) {
+  const g = s.game!;
+  const color = nextColour(useSettings.getState().colorPref, g.userColor);
+  await s.quickMatch(g.timeControl ?? useSettings.getState().quickTimeControl ?? '600+0', color);
 }
 
 export type ActionKind = 'paused' | 'precheck' | 'over';

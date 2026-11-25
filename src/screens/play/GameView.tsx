@@ -28,14 +28,14 @@ import { VersusIntro } from '../../components/VersusIntro';
 import { RewardsOverlay } from '../../components/RewardsOverlay';
 import { THEMES } from '../../lib/themes';
 import { CoachCard, CoachHistory } from './CoachCard';
-import { type ActionKind, GameActions, rematch } from './GameActions';
+import { type ActionKind, GameActions, newOpponent, rematch } from './GameActions';
 import { PlayerBar } from './PlayerBar';
 import { haptic, reduced } from '../../lib/motion';
 import { sfx } from '../../lib/sfx';
 import { END_BEATS, END_STALE_MS, endStinger } from '../../lib/endBeats';
 
 /** The opponent's name for banners: the character, a stand-in, or "Your opponent". */
-const opponentName = (g: { opponentId?: string; rematch?: { name: string } }) => opponentById(g.opponentId)?.name ?? (g.rematch ? g.rematch.name : 'Your opponent');
+const opponentName = (g: { opponentId?: string; rematch?: { name: string }; stranger?: { name: string } }) => opponentById(g.opponentId)?.name ?? g.stranger?.name ?? (g.rematch ? g.rematch.name : 'Your opponent');
 
 /** Slim top row: back to menu, the opening (or the mode), game menu. */
 function GameTopBar({ onMenu }: { onMenu: () => void }) {
@@ -51,7 +51,7 @@ function GameTopBar({ onMenu }: { onMenu: () => void }) {
           <ChevronLeft size={24} strokeWidth={2.2} />
         </IconButton>
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate text-[16px] font-bold tracking-[-0.01em]" data-testid="game-title">{g.coach ? (opening ? opening.name : 'Play Coach') : `vs ${opponentById(g.opponentId)?.name ?? (g.rematch ? `${g.rematch.name} (stand-in)` : g.sparring ? 'Sparring partner' : 'Bot')}`}</div>
+          <div className="truncate text-[16px] font-bold tracking-[-0.01em]" data-testid="game-title">{g.coach ? (opening ? opening.name : 'Play Coach') : g.stranger ? 'Quick match' : `vs ${opponentById(g.opponentId)?.name ?? (g.rematch ? `${g.rematch.name} (stand-in)` : g.sparring ? 'Sparring partner' : 'Bot')}`}</div>
           <div className="truncate text-[12px] font-medium text-stone-500">{sub}</div>
         </div>
         <IconButton label="Game menu" onClick={onMenu}>
@@ -322,13 +322,13 @@ export function GameView() {
           )}
         </div>
       </div>
-      {s.intro && <VersusIntro opponentId={g.opponentId} elo={g.elo} userColor={g.userColor} line={s.chat?.text} onDone={s.endIntro} />}
+      {s.intro && <VersusIntro opponentId={g.opponentId} stranger={g.stranger} elo={g.elo} userColor={g.userColor} line={s.chat?.text} onDone={s.endIntro} />}
       {s.rewards && sheetReady && (
         <RewardsOverlay
           r={s.rewards}
           onClose={s.closeRewards}
           onRematch={() => (s.closeRewards(), rematch(s))}
-          onNewOpponent={() => (s.closeRewards(), s.leaveGame())}
+          onNewOpponent={() => (s.closeRewards(), g.stranger ? void newOpponent(s) : s.leaveGame())}
           onPlayNext={(id) => (settings.set({ opponentId: id }), s.closeRewards(), s.leaveGame())}
           onReport={
             s.over?.gameId
@@ -368,7 +368,7 @@ export function GameView() {
       <Dialog open={overMenu} onClose={() => setOverMenu(false)}>
         <div className="-mx-2 space-y-0.5">
           {s.over?.practice && menuItem(<Dumbbell size={19} />, `Practise: ${THEMES[s.over.practice].label.toLowerCase()}`, () => push({ name: 'practice', theme: s.over!.practice! }))}
-          {menuItem(<Users size={19} />, 'New opponent', () => s.leaveGame())}
+          {menuItem(<Users size={19} />, 'New opponent', () => (g.stranger && s.over ? void newOpponent(s) : s.leaveGame()))}
           {menuItem(<MessagesSquare size={19} />, 'Conversation', () => setHistory(true))}
         </div>
       </Dialog>

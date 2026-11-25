@@ -28,7 +28,8 @@
 // Round 6 QA (in round4 too, or by name): colour-alternate, week-card, week-sheet, week-reduced,
 // daily-short, history-filters, backup-card.
 //
-// Round 7 QA (in round4 too, or by name): play-coach-card, badges-new, home-characters, draw-offer.
+// Round 7 QA (in round4 too, or by name): play-coach-card, badges-new, home-characters, draw-offer,
+// home-quick, quick-pairing, quick-game, quick-results.
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
@@ -225,7 +226,7 @@ async function run([W, H], scheme) {
   }
   await store(p);
   // Round 7: character games are real games (no help); untimed here unless a scene sets a clock.
-  await p.evaluate((scheme) => window.__settings.getState().set({ theme: scheme, coachStyle: 'detailed', coachLevel: 'full', charTimeControl: '' }), scheme);
+  await p.evaluate((scheme) => window.__settings.getState().set({ theme: scheme, coachStyle: 'detailed', coachLevel: 'full', charTimeControl: '', playSide: 'characters' }), scheme);
   await p.waitForTimeout(600);
 
   if (want('home')) await shot('home');
@@ -1768,6 +1769,81 @@ async function run([W, H], scheme) {
     if (!sub) errors.push('draw-offer: the results do not say "by agreement"');
     await shot('r7-draw-agreed');
     await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await home();
+    await p.waitForTimeout(500);
+  }
+
+  // Quick match: Home's Quick match side, pairing, the versus card, the game, the results sheet,
+  // New opponent and the history tag.
+  if (R('home-quick') || R('quick-pairing') || R('quick-game') || R('quick-results')) {
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await p.evaluate(() => window.__settings.getState().set({ playSide: 'quick', quickTimeControl: '600+0' }));
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(300);
+    await home();
+    await p.waitForTimeout(1200);
+    const rating = await p.evaluate(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      return (await import(find('/src/lib/playerRating.ts'))).getPlayerRating();
+    });
+    const qline = await p.locator('[data-testid="quick-line"]').textContent().catch(() => null);
+    if (qline !== `A new opponent near ${rating} every game`) errors.push(`home-quick: the line reads ${qline} (rating ${rating})`);
+    const tcs = await p.evaluate(() => [...document.querySelectorAll('[data-testid="quick-tcs"] [role="radio"]')].map((b) => `${b.textContent}${b.getAttribute('aria-checked') === 'true' ? '*' : ''}`).join(','));
+    if (tcs !== '3|2,5 min,10 min*,15|10,30 min') errors.push(`home-quick: the clocks read ${tcs}`);
+    const fits = await p.evaluate(() => [...document.querySelectorAll('[data-testid="quick-tcs"] [role="radio"]')].every((b) => b.scrollWidth <= b.clientWidth + 1));
+    if (!fits) errors.push('home-quick: a clock chip is clipped');
+    if (!(await p.locator('[data-testid="quick-side"] [data-testid="stranger-avatar"]').count())) errors.push('home-quick: no default avatars');
+    await shot('r7-home-quick');
+    // Pairing at 15|10.
+    await p.locator('[data-testid="quick-tcs"] [data-value="900+10"]').click();
+    await p.locator('[data-testid="quick-play"]').click();
+    await p.waitForTimeout(450);
+    const pairing = await p.locator('[data-testid="pairing"]').textContent().catch(() => null);
+    if (!/Finding an opponent….*15 \| 10 · Rated/.test(pairing ?? '')) errors.push(`quick-pairing: the pairing screen reads ${pairing}`);
+    await shot('r7-quick-pairing');
+    // The versus card: username, avatar and rating; no types.
+    await p.waitForSelector('[data-testid="versus-name"]', { timeout: 8000 }).catch(() => {});
+    await p.waitForTimeout(1600);
+    const g = await p.evaluate(() => { const x = window.__play.getState().game; return { name: x?.stranger?.name, rating: x?.stranger?.rating, elo: x?.elo, tc: x?.timeControl, opp: x?.opponentId, types: x?.types }; });
+    if (!g.name || g.elo !== g.rating || g.tc !== '900+10' || g.opp || Math.abs(g.rating - rating) > 100 || g.rating === rating) errors.push(`quick-game: the game is ${JSON.stringify(g)} (your rating ${rating})`);
+    const vs = await p.locator('[data-testid="versus-name"]').textContent().catch(() => null);
+    if (vs !== g.name) errors.push(`quick-game: the versus card reads ${vs}`);
+    await shot('r7-quick-versus');
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitFor(p, ['userTurn', 'botThinking'], 60000);
+    await p.waitForTimeout(900);
+    const top = await p.evaluate(() => ({ title: document.querySelector('[data-testid="game-title"]')?.textContent, sub: document.querySelector('[data-testid="game-title"]')?.nextElementSibling?.textContent }));
+    if (top.title !== 'Quick match' || top.sub !== 'Rated · 15 | 10') errors.push(`quick-game: the top bar reads ${JSON.stringify(top)}`);
+    const bar = await p.evaluate((name) => document.body.textContent.includes(name), g.name);
+    if (!bar) errors.push('quick-game: the player bar has no username');
+    if (await p.evaluate(() => /You're playing|You have the (white|black) pieces/.test(document.body.textContent))) errors.push('quick-game: Sam opens the game');
+    await shot('r7-quick-game');
+    // The results sheet: their username and style, Rematch and New opponent, no badge row.
+    await p.evaluate(() => window.__play.getState().resign());
+    await waitFor(p, ['over'], 15000);
+    await p.waitForTimeout(4500);
+    const res = await p.evaluate(() => ({ opp: document.querySelector('[data-testid="results-opponent"]')?.textContent, style: document.querySelector('[data-testid="row-style"]')?.textContent, rivalry: !!document.querySelector('[data-testid="row-rivalry"]'), buttons: [...document.querySelectorAll('button')].map((b) => b.textContent?.trim()).filter((t) => t === 'Rematch' || t === 'New opponent' || t === 'New bot') }));
+    if (res.opp !== g.name || !/^.+(Their style: .+|No particular style)$/.test(res.style ?? '') || res.rivalry || !res.buttons.includes('New opponent') || res.buttons.includes('New bot')) errors.push(`quick-results: the sheet reads ${JSON.stringify(res)}`);
+    await shot('r7-quick-results');
+    // New opponent: pairing again, then someone else.
+    await p.locator('button:has-text("New opponent")').click();
+    await p.waitForTimeout(400);
+    if (!(await p.locator('[data-testid="pairing"]').count())) errors.push('quick-results: New opponent did not pair');
+    await p.waitForTimeout(2200);
+    const g2 = await p.evaluate(() => window.__play.getState().game?.stranger?.name);
+    if (!g2 || g2 === g.name) errors.push(`quick-results: New opponent gave ${g2}`);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await p.waitForTimeout(600);
+    await p.evaluate(() => window.__play.getState().abort?.());
+    await p.waitForTimeout(500);
+    // Game history: their avatar and username with a Quick match tag.
+    await push({ name: 'history' });
+    await p.waitForTimeout(1200);
+    const tag = await p.locator('[data-testid="quick-tag"]').first().evaluate((el) => el.parentElement?.textContent).catch(() => null);
+    if (!tag || !tag.includes(g.name)) errors.push(`quick-results: history reads ${tag}`);
+    await shot('r7-history-quick');
+    await p.evaluate(() => window.__nav.getState().pop?.());
+    await p.evaluate(() => window.__settings.getState().set({ playSide: 'characters' }));
     await home();
     await p.waitForTimeout(500);
   }

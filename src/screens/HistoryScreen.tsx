@@ -4,10 +4,11 @@ import { TurningList } from '../components/TurningCards';
 import { History } from 'lucide-react';
 import { Arrive, EmptyState, Header, Skeleton } from '../components/ui';
 import { Portrait } from '../components/Coach';
+import { StrangerAvatar } from '../components/StrangerAvatar';
 import { opponentById } from '../lib/people';
 import { useNav } from '../lib/nav';
 import { shortDate } from '../lib/store/finish';
-import type { AnyGame, ImportedGame } from '../lib/store/types';
+import type { AnyGame, GameRecord, ImportedGame } from '../lib/store/types';
 import { Medallion } from '../components/Glyph';
 import { allGames } from '../lib/games';
 import { emptyText, filterGames, groupGames, NO_FILTER, type HistoryFilter } from '../lib/games/history';
@@ -77,6 +78,8 @@ export function HistoryScreen() {
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-chesscom text-lg font-black text-white">{imported.opponentName[0]?.toUpperCase()}</span>
                 ) : opponentById(g.opponentId) ? (
                   <Portrait id={g.opponentId!} size={40} />
+                ) : !cc && (g as GameRecord).stranger ? (
+                  <StrangerAvatar avatar={(g as GameRecord).stranger!.avatar} size={40} />
                 ) : (
                   <Medallion name="brain" size={40} tint="stone" />
                 )}
@@ -90,6 +93,7 @@ export function HistoryScreen() {
                 <span className="block truncate font-semibold">
                   {cc && <ChessComBadge className="mr-1" />}
                   {g.coach && <span className="mr-1 inline-flex rounded bg-brand-500/15 px-1 py-px align-middle text-[11px] font-bold leading-tight text-brand-700 dark:text-brand-500" data-testid="coach-tag">Coach game</span>}
+                  {!cc && (g as GameRecord).stranger && <span className="mr-1 inline-flex rounded bg-stone-500/15 px-1 py-px align-middle text-[11px] font-bold leading-tight text-stone-600 dark:text-stone-300" data-testid="quick-tag">Quick match</span>}
                   vs {cc ? imported.opponentName : g.opponentName ?? opponentById(g.opponentId)?.name ?? 'Bot'}
                 </span>
                 <span className="block truncate text-[12px] text-stone-500 dark:text-stone-400">
