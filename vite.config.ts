@@ -9,6 +9,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 const pwa = process.env.VITE_PWA === '1';
 
 export default defineConfig({
+  // VITE_CACHE_DIR: a second dev server (the screenshot harness in a git worktree that shares
+  // node_modules) keeps its own pre-bundled deps instead of rebuilding this one's.
+  ...(process.env.VITE_CACHE_DIR ? { cacheDir: process.env.VITE_CACHE_DIR } : {}),
   plugins: [
     react(),
     tailwindcss(),

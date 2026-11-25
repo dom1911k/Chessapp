@@ -2,6 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Flame } from 'lucide-react';
 import { getGameRating } from '../lib/rewards/rating';
+import { onChange } from '../lib/changes';
 import { weeklyGoal } from '../lib/progress/weekly';
 import { currentStreak, trainedToday } from '../lib/stats';
 import { useNav } from '../lib/nav';
@@ -36,6 +37,8 @@ export function HomeHero({ right }: { right?: ReactNode }) {
   const [week, setWeek] = useState<{ days: number; goal: number } | null>(null);
   // Refreshed when you come back from a game or a screen (the stack empties), as well as on celebrations.
   const depth = useNav((s) => s.stack.length);
+  // The rating also follows a restart elsewhere (a chess.com start, a fresh start).
+  useEffect(() => onChange('rating', () => void getGameRating().then((r) => setRating(r.rating))), []);
   useEffect(() => {
     void getGameRating().then((r) => setRating(r.rating));
     void Promise.all([currentStreak(), trainedToday()]).then(([n, done]) => {

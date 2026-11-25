@@ -25,7 +25,7 @@
 // summary-fix, fix-mode, fix-done, fix-skip, end-message, over-win-long, opponent-badges,
 // badge-sheet, profile-cc, odo-zoom, insights-skills, laurel-shop.
 //
-// Round 6 QA (in round4 too, or by name): colour-alternate.
+// Round 6 QA (in round4 too, or by name): colour-alternate, week-card, week-sheet.
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
@@ -1266,6 +1266,140 @@ async function run([W, H], scheme) {
     chip = await chipOf();
     if (chip !== 'Black:half') errors.push(`colour-alternate: after a game as White the chip reads ${chip}`);
     await shot('r6-colour-after');
+  }
+  // Three calendar weeks of play (app and chess.com games, fixes, puzzles, training days), for Your
+  // week and Game history. The week before last is weaker, so last week has trends to show.
+  const seedWeeks = () => inPage(async () => {
+    const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+    const { db, kvSet } = await import(find('/src/lib/db.ts'));
+    const { weekStart, nextWeek } = await import(find('/src/lib/dates.ts'));
+    const F = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    const now = Date.now();
+    const thisW = weekStart(now);
+    const lastW = nextWeek(thisW, -1);
+    const prevW = nextWeek(thisW, -2);
+    const H = 3600e3;
+    const ply = (theme) => ({ san: 'e4', uci: 'e2e4', fenBefore: F, fenAfter: F, color: 'w', isUser: true, classification: theme ? 'mistake' : 'good', comment: theme ? { themes: [theme], text: [], ruleIds: [], arrows: [], highlights: [] } : undefined });
+    const game = (endedAt, res, acc, bl, theme, o = {}) => ({
+      userColor: o.color ?? 'w', elo: o.elo ?? 400, opponentId: o.opp ?? 'tom', startFen: F, startedAt: endedAt - 6e5, endedAt, takebacks: 0, hintsUsed: 0, told: [],
+      result: res === 'win' ? '1-0' : res === 'loss' ? '0-1' : '1/2-1/2', reason: res === 'draw' ? 'repetition' : 'checkmate', userResult: res,
+      plies: [ply(theme), ply(null)],
+      summary: { accuracy: acc, counts: { best: 4, good: 2, inaccuracy: 1, mistake: theme ? 1 : 0, blunder: bl }, biggestMistakePly: 0 },
+    });
+    await Promise.all([db.games.clear(), db.imported.clear(), db.attempts.clear(), db.activity.clear()]);
+    // The week before last: 4 games, weaker.
+    const prev = [game(prevW + 26 * H, 'loss', 50, 3, 'fork'), game(prevW + 50 * H, 'win', 54, 3, null), game(prevW + 74 * H, 'loss', 51, 2, 'defense'), game(prevW + 98 * H, 'win', 57, 2, null)];
+    // Last week: 4 app games (one on Sunday 23:59) and 2 on chess.com; "Spotting threats" in 4 of the 6.
+    const last = [game(lastW + 34 * H, 'win', 64, 1, 'defense'), game(lastW + 58 * H, 'loss', 56, 2, 'defense', { opp: 'maya', elo: 600, color: 'b' }), game(lastW + 82 * H, 'win', 67, 1, null, { color: 'b' }), game(nextWeek(lastW) - 60e3, 'win', 63, 2, 'fork')];
+    // This week: a Monday 00:01 game (when it's past), then two more today.
+    const mine = [game(Math.min(thisW + 60e3, now - 3 * H), 'win', 71, 0, null), game(Math.max(thisW + 2 * 60e3, now - 2 * H), 'loss', 59, 1, 'defense', { color: 'b' }), game(Math.max(thisW + 3 * 60e3, now - H), 'win', 88, 0, null)];
+    await db.games.bulkAdd([...prev, ...last, ...mine]);
+    const cc = (endedAt, myRating, res, theme, name) => ({ ...game(endedAt, res, 58, 1, theme), id: `cc:seed${endedAt}`, source: 'chess.com', analyzed: true, timeClass: 'rapid', myRating, elo: 520, opponentName: name, url: '', pgn: '', timeControl: '600' });
+    await db.imported.bulkAdd([cc(prevW + 60 * H, 512, 'loss', null, 'kasparov_fan'), cc(lastW + 70 * H, 520, 'win', 'defense', 'anna_k'), cc(lastW + 100 * H, 530, 'loss', 'defense', 'bentley42')]);
+    // The game rating after each app game.
+    const ratings = [262, 270, 276, 284, 300, 292, 310, 326, 334, 330, 344];
+    const appGames = [...prev, ...last, ...mine];
+    await kvSet('gameRating', { rating: 344, peak: 344, games: appGames.length, history: appGames.map((g, i) => ({ at: g.endedAt, rating: ratings[i] })) });
+    // Fixes and puzzles last week: 7 of 9 moments, 12 puzzles; training days: 5 last week, 2 this week.
+    const att = (at, success, source) => ({ puzzleId: `p${at}${source}`, at, success, puzzleRating: 800, ratingBefore: 0, ratingAfter: 0, themes: [], source, hintsUsed: 0 });
+    await db.attempts.bulkAdd([...Array.from({ length: 9 }, (_, i) => att(lastW + (30 + i) * H, i < 7, 'review')), ...Array.from({ length: 12 }, (_, i) => att(lastW + (40 + i) * H, true, 'path'))]);
+    const day = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const rows = [0, 1, 2, 3, 5].map((k) => ({ day: day(lastW + k * 24 * H + 12 * H), puzzles: 3, games: 1, reviews: 1 }));
+    rows.push({ day: day(now), puzzles: 2, games: 2, reviews: 0 });
+    if (day(thisW) !== day(now)) rows.push({ day: day(thisW + 12 * H), puzzles: 0, games: 1, reviews: 0 });
+    await db.activity.bulkPut(rows);
+    await db.kv.delete('weekRecap');
+    (await import(find('/src/lib/changes.ts'))).announceChange('rating');
+  });
+
+  // week-card / week-sheet: Home's This week card in its "last week" state (the first visit of a
+  // new week), the Your week sheet on both tabs (focus, chess.com line, trends), the normal card
+  // with its line, Profile's row, and an empty week.
+  if (R('week-card') || R('week-sheet')) {
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await seedWeeks();
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(300);
+    await home();
+    await p.waitForTimeout(1800);
+    const card = p.locator('[data-testid="week-card"]');
+    await card.scrollIntoViewIfNeeded().catch(() => {});
+    const state = await card.getAttribute('data-state').catch(() => null);
+    const cardText = await card.textContent().catch(() => '');
+    if (state !== 'last') errors.push(`week-card: on a new week's first visit the card is ${state}`);
+    if (!/^Last week\+42 · 6 games · 1\.3 blunders a game/.test(cardText ?? '')) errors.push(`week-card: the last-week card reads ${cardText}`);
+    await shot('r6-week-card-last');
+    await card.click();
+    await p.waitForTimeout(1500);
+    const sheet = p.locator('[data-testid="week-sheet"]');
+    if ((await sheet.getAttribute('data-tab').catch(() => null)) !== 'last') errors.push('week-sheet: the card did not open on Last week');
+    const read = (sel) => p.locator(`[data-testid="week-sheet"] ${sel}`).first().textContent().catch(() => null);
+    const rating = await read('[data-testid="week-rating"]');
+    if (!/^Rating284326\+42chess\.comrapid 512 → 530\+18$/.test((rating ?? '').replace(/\s+/g, ' ').replace(/ ?(→) ?/g, ' → ').replace(/Rating ?/, 'Rating').replace(/ (?=\d{3}\+)/, ''))) {
+      if (!/284/.test(rating ?? '') || !/326/.test(rating ?? '') || !/\+42/.test(rating ?? '') || !/rapid 512 → 530/.test(rating ?? '') || !/\+18/.test(rating ?? '')) errors.push(`week-sheet: the rating reads ${rating}`);
+    }
+    const tiles = await p.evaluate(() => [...document.querySelectorAll('[data-testid="week-sheet"] [data-testid="week-tile"]')].map((t) => t.textContent).join(' | '));
+    if (!/^6Games4W · 0D · 2L · 2 on chess\.com \| 61%Accuracywas 54% \| 1\.3Blunders a gamewas 2\.2 \| 5\/7Training daysgoal met$/.test(tiles)) errors.push(`week-sheet: the tiles read ${tiles}`);
+    const extra = await read('[data-testid="week-extra"]');
+    if (extra !== 'Moments fixed: 7 of 9 · Puzzles solved: 12') errors.push(`week-sheet: the line under the tiles reads ${extra}`);
+    const focus = await read('[data-testid="week-focus"]');
+    if (!/Spotting threats/.test(focus ?? '') || !/Came up in 4 of 6 games\. After your opponent moves/.test(focus ?? '')) errors.push(`week-sheet: the focus reads ${focus}`);
+    await shot('r6-week-sheet-last');
+    await p.locator('[data-testid="week-sheet"] button:has-text("This week")').click();
+    await p.waitForTimeout(900);
+    await shot('r6-week-sheet-this');
+    const tiles2 = await p.evaluate(() => [...document.querySelectorAll('[data-testid="week-sheet"] [data-testid="week-tile"]')].map((t) => t.textContent).join(' | '));
+    if (!/^3Games2W · 0D · 1L/.test(tiles2)) errors.push(`week-sheet: this week's tiles read ${tiles2}`);
+    await p.locator('[data-testid="week-sheet"] [aria-label="Close"]').click();
+    await p.waitForTimeout(900);
+    const state2 = await card.getAttribute('data-state').catch(() => null);
+    const line = await p.locator('[data-testid="week-line"]').textContent().catch(() => null);
+    if (state2 !== 'normal') errors.push(`week-card: after opening, the card is ${state2}`);
+    if (line !== '+18 this week · 3 games') errors.push(`week-card: the line reads ${line}`);
+    await shot('r6-week-card');
+    // Practise it opens practice on the theme.
+    await card.click();
+    await p.waitForTimeout(900);
+    await p.locator('[data-testid="week-sheet"] button:has-text("Last week")').click();
+    await p.waitForTimeout(900);
+    await p.locator('[data-testid="week-practise"]').click();
+    await p.waitForTimeout(1200);
+    const top = await p.evaluate(() => window.__nav.getState().stack.at(-1));
+    if (top?.name !== 'practice' || top?.theme !== 'defense') errors.push(`week-sheet: Practise it opened ${JSON.stringify(top)}`);
+    await p.evaluate(() => window.__nav.getState().pop());
+    await p.waitForTimeout(800);
+    // Profile → Activity: one row opens the same sheet.
+    await push({ name: 'profile' });
+    await p.waitForTimeout(1500);
+    await p.locator('button:has-text("Activity")').first().click();
+    await p.waitForTimeout(800);
+    const row = p.locator('[data-testid="week-row"]');
+    await row.scrollIntoViewIfNeeded().catch(() => {});
+    const rowText = await row.textContent().catch(() => null);
+    if (rowText !== 'Your week · +18 · 3 games') errors.push(`week-row: the Profile row reads ${rowText}`);
+    await shot('r6-week-row');
+    await home();
+    await p.waitForTimeout(500);
+    // An empty week.
+    await inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const { db } = await import(find('/src/lib/db.ts'));
+      const { weekStart } = await import(find('/src/lib/dates.ts'));
+      const t = weekStart(Date.now());
+      await db.games.where('endedAt').aboveOrEqual(t).delete();
+      await db.attempts.where('at').aboveOrEqual(t).delete();
+    });
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(300);
+    await home();
+    await p.waitForTimeout(1500);
+    await card.click();
+    await p.waitForTimeout(1200);
+    const empty = await p.locator('[data-testid="week-empty"]').textContent().catch(() => null);
+    if (empty !== 'Nothing played this week yet. One game or a few puzzles is enough to start.') errors.push(`week-sheet: an empty week reads ${empty}`);
+    await shot('r6-week-sheet-empty');
+    await p.locator('[data-testid="week-sheet"] [aria-label="Close"]').click();
+    await p.waitForTimeout(800);
   }
   if (R('laurel-shop')) {
     // A Steady Hand bought up to II before: kept, but no longer listed as an upgrade. The Run tab

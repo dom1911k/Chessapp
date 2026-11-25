@@ -7,7 +7,10 @@ import { GOAL_KEY, weeklyGoal } from '../lib/progress/weekly';
 import { useCelebrate } from '../lib/celebrate';
 import { Portrait } from './Coach';
 import { Header } from './ui';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check, ChevronRight, TrendingDown } from 'lucide-react';
+import { nextWeek, weekStart } from '../lib/dates';
+import { markLastWeekSeen, showLastWeek, signed, weekStats, type WeekStats } from '../lib/weekly';
+import { YourWeekSheet, type WeekTab } from './YourWeek';
 import { Medallion } from './Glyph';
 
 /** Re-reads data whenever celebrations fire (achievements or the weekly goal may have changed). */
@@ -131,6 +134,20 @@ export function WeekRing() {
   const tab = useNav((s) => s.tab);
   const stackEmpty = useNav((s) => s.stack.length === 0);
   useEffect(() => void weeklyGoal().then(setW), [key, tab, stackEmpty]);
+  // This week's line ("+18 this week · 3 games"), and on the first Home visit of a new week, last week.
+  const [week, setWeek] = useState<WeekStats | null>(null);
+  const [last, setLast] = useState<{ week: WeekStats; before: WeekStats } | null>(null);
+  const [sheet, setSheet] = useState<WeekTab | null>(null);
+  useEffect(() => {
+    void weekStats(weekStart(Date.now())).then(setWeek);
+    if (tab !== 'play' || !stackEmpty) return;
+    void showLastWeek().then(async (show) => {
+      if (!show) return setLast(null);
+      const s = nextWeek(weekStart(Date.now()), -1);
+      const [lw, before] = await Promise.all([weekStats(s), weekStats(nextWeek(s, -1))]);
+      setLast({ week: lw, before });
+    });
+  }, [key, tab, stackEmpty]);
   const [seen, setSeen] = useState<number | null>(null);
   useEffect(() => {
     if (!w) return;
@@ -152,45 +169,89 @@ export function WeekRing() {
   const C = 2 * Math.PI * R;
   const from = w && seen !== null ? Math.min(1, seen / w.goal) : 0;
   const to = w ? Math.min(1, w.days / w.goal) : 0;
-  useTween(from, to, { ms: 1100, delay: 350, run: !!w && seen !== null, onFrame: (v) => ring.current?.setAttribute('stroke-dashoffset', String(C * (1 - v))) });
+  useTween(from, to, { ms: 1100, delay: 350, run: !!w && seen !== null && !last, onFrame: (v) => ring.current?.setAttribute('stroke-dashoffset', String(C * (1 - v))) });
   if (!w) return null;
+  const open = () => {
+    if (last) {
+      setSheet('last');
+      void markLastWeekSeen();
+      setLast(null);
+    } else setSheet('this');
+  };
+  const sheetEl = <YourWeekSheet open={sheet !== null} initial={sheet ?? 'this'} onClose={() => setSheet(null)} />;
+  if (last) {
+    const lw = last.week;
+    const down = lw.blundersPerGame !== null && last.before.blundersPerGame !== null && lw.blundersPerGame < last.before.blundersPerGame;
+    const parts = [
+      lw.rating.rated ? signed(lw.rating.end - lw.rating.start) : null,
+      lw.games ? `${lw.games} game${lw.games === 1 ? '' : 's'}` : `${lw.puzzles} puzzle${lw.puzzles === 1 ? '' : 's'} solved`,
+      lw.blundersPerGame !== null ? `${lw.blundersPerGame.toFixed(1)} blunders a game` : null,
+    ].filter((x): x is string => !!x);
+    return (
+      <>
+        <button className="card tile flex w-full items-center gap-3 !p-3.5 text-left" onClick={open} data-testid="week-card" data-state="last">
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] font-bold tracking-[0.1em] text-brand-700 uppercase dark:text-brand-500">Last week</span>
+            <span className="mt-0.5 block text-[16px] leading-snug">
+              {parts.map((t, i) => (
+                <span key={i}>
+                  {i > 0 && ' · '}
+                  {i === 0 && lw.rating.rated ? <b className={`font-extrabold ${lw.rating.end >= lw.rating.start ? 'text-brand-700 dark:text-brand-500' : ''}`}>{t}</b> : t}
+                </span>
+              ))}
+              {down && <TrendingDown size={17} strokeWidth={2.5} className="ml-1.5 inline align-[-3px] text-brand-600 dark:text-brand-500" aria-label="Fewer blunders than the week before" />}
+            </span>
+            <span className="mt-0.5 block text-[12px] text-stone-500 dark:text-stone-400">Tap to see your week</span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-stone-400" />
+        </button>
+        {sheetEl}
+      </>
+    );
+  }
   const grew = seen !== null && w.days > seen;
   const start = new Date();
   start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
   const todayIdx = (new Date().getDay() + 6) % 7;
+  const line = week ? [week.rating.rated ? `${signed(week.rating.end - week.rating.start)} this week` : null, week.games ? `${week.games} game${week.games === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ') : '';
   return (
-    <div className="card flex items-center gap-3.5 !p-3.5">
-      <div className="relative h-14 w-14 shrink-0">
-        <svg viewBox="0 0 56 56" className="h-14 w-14 -rotate-90">
-          <circle cx="28" cy="28" r={R} fill="none" strokeWidth="6" className="stroke-stone-200 dark:stroke-white/10" />
-          <circle ref={ring} cx="28" cy="28" r={R} fill="none" strokeWidth="6" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - from)} className={w.met ? 'stroke-hue-amber-400' : 'stroke-brand-500'} />
-        </svg>
-        <span className={`absolute inset-0 flex items-center justify-center font-display text-lg font-semibold tabular-nums ${grew ? 'animate-count-pop' : ''}`} style={grew ? { animationDelay: '1300ms' } : undefined}>
-          {w.days}<span className="text-xs text-stone-500 dark:text-stone-400">/{w.goal}</span>
-        </span>
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="font-semibold">{w.met ? 'Weekly goal reached!' : 'This week'}</div>
-        <div className="mt-1.5 flex gap-1.5">
-          {DAY_LETTERS.map((d, i) => {
-            const dt = new Date(start);
-            dt.setDate(start.getDate() + i);
-            const k = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-            const done = w.activeDays.includes(k);
-            const fresh = done && i === todayIdx && grew;
-            return (
-              <span
-                key={i}
-                className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${done ? (w.met ? 'bg-hue-amber-400 text-hue-amber-950' : 'bg-brand-700 text-white') : i === todayIdx ? 'text-brand-700 ring-2 ring-brand-500 dark:text-brand-500' : 'bg-stone-100 text-stone-500 dark:text-stone-400 dark:bg-white/[0.06]'} ${fresh ? 'animate-badge-pop' : ''}`}
-                style={fresh ? { animationDelay: '1200ms' } : undefined}
-              >
-                {done ? <Check size={11} strokeWidth={3.5} /> : d}
-              </span>
-            );
-          })}
+    <>
+      <button className="card tile flex w-full items-center gap-3.5 !p-3.5 text-left" onClick={open} data-testid="week-card" data-state="normal">
+        <div className="relative h-14 w-14 shrink-0">
+          <svg viewBox="0 0 56 56" className="h-14 w-14 -rotate-90">
+            <circle cx="28" cy="28" r={R} fill="none" strokeWidth="6" className="stroke-stone-200 dark:stroke-white/10" />
+            <circle ref={ring} cx="28" cy="28" r={R} fill="none" strokeWidth="6" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - from)} className={w.met ? 'stroke-hue-amber-400' : 'stroke-brand-500'} />
+          </svg>
+          <span className={`absolute inset-0 flex items-center justify-center font-display text-lg font-semibold tabular-nums ${grew ? 'animate-count-pop' : ''}`} style={grew ? { animationDelay: '1300ms' } : undefined}>
+            {w.days}<span className="text-xs text-stone-500 dark:text-stone-400">/{w.goal}</span>
+          </span>
         </div>
-      </div>
-    </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold">{w.met ? 'Weekly goal reached!' : 'This week'}</div>
+          <div className="mt-1.5 flex gap-1.5">
+            {DAY_LETTERS.map((d, i) => {
+              const dt = new Date(start);
+              dt.setDate(start.getDate() + i);
+              const k = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+              const done = w.activeDays.includes(k);
+              const fresh = done && i === todayIdx && grew;
+              return (
+                <span
+                  key={i}
+                  className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${done ? (w.met ? 'bg-hue-amber-400 text-hue-amber-950' : 'bg-brand-700 text-white') : i === todayIdx ? 'text-brand-700 ring-2 ring-brand-500 dark:text-brand-500' : 'bg-stone-100 text-stone-500 dark:text-stone-400 dark:bg-white/[0.06]'} ${fresh ? 'animate-badge-pop' : ''}`}
+                  style={fresh ? { animationDelay: '1200ms' } : undefined}
+                >
+                  {done ? <Check size={11} strokeWidth={3.5} /> : d}
+                </span>
+              );
+            })}
+          </div>
+          {line && <div className="mt-1.5 truncate text-[12px] text-stone-500 dark:text-stone-400" data-testid="week-line">{line}</div>}
+        </div>
+        <ChevronRight size={18} className="shrink-0 text-stone-400" />
+      </button>
+      {sheetEl}
+    </>
   );
 }
 

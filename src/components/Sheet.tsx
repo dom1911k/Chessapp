@@ -4,7 +4,7 @@
 // ease-in), otherwise they snap back (260ms, UI_EASE). Every close animates out: the ×, a backdrop
 // tap, the back button, a drag, and a parent closing it (`open` turning false). Transforms only.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode, type RefObject } from 'react';
-import { SOFT, UI_EASE, animate, haptic } from '../lib/motion';
+import { SOFT, UI_EASE, animate, haptic, reduced } from '../lib/motion';
 import { addBackHandler } from '../lib/nav';
 
 export const SHEET = { backdrop: 220, close: 240, closeEase: 'cubic-bezier(.4,0,.8,.4)', snap: 260, closeAt: 0.3, flick: 0.6, resist: 0.25, slop: 8 } as const;
@@ -30,7 +30,9 @@ export function sheetEnter(panel: HTMLElement | null, back: HTMLElement | null) 
   panel.style.transform = '';
   if (back) back.style.opacity = '';
   void animate(back, [{ opacity: 0 }, { opacity: 1 }], { d: SHEET.backdrop, e: 'linear', fill: 'backwards' });
-  void animate(panel, [{ transform: `translateY(${offscreen(panel)}px)` }, { transform: 'translateY(0)' }], { ...SOFT, fill: 'backwards' });
+  // Reduced animations: the sheet fades in, without its slide.
+  if (reduced()) void animate(panel, [{ opacity: 0 }, { opacity: 1 }], { d: 120, e: 'linear', fill: 'backwards' });
+  else void animate(panel, [{ transform: `translateY(${offscreen(panel)}px)` }, { transform: 'translateY(0)' }], { ...SOFT, fill: 'backwards' });
   haptic('select');
 }
 
@@ -41,6 +43,11 @@ export function sheetExit(panel: HTMLElement | null, back: HTMLElement | null, f
   stop(back);
   panel.style.transform = `translateY(${from}px)`;
   const to = offscreen(panel, from);
+  if (reduced())
+    return Promise.all([
+      animate(back, [{ opacity: op }, { opacity: 0 }], { d: SHEET.backdrop, e: 'linear', fill: 'forwards' }),
+      animate(panel, [{ opacity: 1 }, { opacity: 0 }], { d: 120, e: 'linear', fill: 'forwards' }),
+    ]).then(() => undefined);
   return Promise.all([
     animate(back, [{ opacity: op }, { opacity: 0 }], { d: SHEET.backdrop, e: 'linear', fill: 'forwards' }),
     animate(panel, [{ transform: `translateY(${from}px)` }, { transform: `translateY(${to}px)` }], { d: SHEET.close, e: SHEET.closeEase, fill: 'forwards' }),
