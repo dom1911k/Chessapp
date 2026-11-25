@@ -19,9 +19,11 @@ const share = (xs: number[], f: (x: number) => boolean) => xs.filter(f).length /
 const mid: ThinkInput = { elo: 1400, moveNo: 20, leftMs: 400_000, tc: '600+0', topProb: 0.45, sensible: 3, best: 30, second: 0, swing: 20 };
 
 describe('bot think time', () => {
-  it('forced moves, book moves and obvious recaptures come at once', () => {
+  it('forced moves and obvious recaptures come at once; known opening moves nearly so', () => {
     expect(pct(sample({ ...mid, forced: true }), 1)).toBeLessThan(1300);
-    expect(pct(sample({ ...mid, book: true }), 1)).toBeLessThan(1300);
+    // A book move takes a second or two, as people play the moves they know (round 7).
+    expect(pct(sample({ ...mid, book: true }), 1)).toBeLessThanOrEqual(THINK.bookMs[1] + 1);
+    expect(pct(sample({ ...mid, book: true }), 0.5)).toBeLessThan(pct(sample(mid), 0.5) / 2);
     expect(pct(sample({ ...mid, recapture: true, topProb: 0.7 }), 0.8)).toBeLessThan(1300);
     expect(pct(sample({ ...mid, topProb: 0.95 }), 0.8)).toBeLessThan(1300);
     expect(isRecapture('d4e5', true, 'f6e5')).toBe(true);
@@ -53,18 +55,19 @@ describe('bot think time', () => {
     expect(pct(t, 0.9) / pct(t, 0.5)).toBeGreaterThan(1.8);
   });
 
-  it('time pressure starts below a tenth of the start time: faster moves, looser play', () => {
-    expect(timePressure(70_000, '600+0')).toBe(0);
-    expect(timePressure(30_000, '600+0')).toBeCloseTo(0.5);
+  it('time pressure starts below a twentieth of the start time (at least 25 s): faster moves, looser play', () => {
+    // Fitted to people's games lost on time at 10+0 and 5+0 (round 7).
+    expect(timePressure(31_000, '600+0')).toBe(0);
+    expect(timePressure(15_000, '600+0')).toBeCloseTo(0.5);
     expect(timePressure(0, '600+0')).toBe(1);
-    // Short games: pressure from 20 s at least; an increment eases it (five of them count).
+    // Short games: pressure from 25 s at least; an increment eases it (five of them count).
     expect(timePressure(19_000, '180+0')).toBeGreaterThan(0);
     expect(timePressure(19_000, '180+2')).toBe(0);
     expect(timePressure(9_000, '180+2')).toBeGreaterThan(0);
     const relaxed = pct(sample({ ...mid, leftMs: 70_000 }), 0.5);
-    const pressed = sample({ ...mid, leftMs: 15_000 });
+    const pressed = sample({ ...mid, leftMs: 11_000 });
     expect(pct(pressed, 0.5)).toBeLessThan(relaxed * 0.5);
-    expect(share(pressed, (x) => x < 1300)).toBeGreaterThan(0.3);
+    expect(share(pressed, (x) => x < 1300)).toBeGreaterThan(0.2);
     const base = { temperature: 1, minP: 0.01, free: 200 };
     expect(pressureParams(base, 0)).toEqual(base);
     const loose = pressureParams(base, 1);
@@ -113,10 +116,10 @@ describe('think time across time controls (round 7)', () => {
     expect(ratio).toBeGreaterThan(1.05);
     expect(ratio).toBeLessThan(2.9);
     // Stronger players scale their think more with the clock (k grows with rating).
-    const k = (elo: number) => Math.log(tcStretch('1800+0', elo, 20) * 3) / Math.log(3);
-    expect(k(2000)).toBeGreaterThan(k(400));
-    // The opening uses a smaller k: people know their openings whatever the clock.
-    expect(tcStretch('1800+0', 1400, 5) * 3).toBeLessThan(tcStretch('1800+0', 1400, 20) * 3);
+    const k = (elo: number, moveNo = 20) => Math.log(tcStretch('1800+0', elo, moveNo) * 3) / Math.log(3);
+    expect(k(2000)).toBeGreaterThan(k(200));
+    // The opening's k is k × openingK (fitted: people's opening scales with the clock like the rest).
+    expect(k(1400, 5)).toBeCloseTo(k(1400) * THINK.openingK);
     // Blitz: more than a proportional share of the (smaller) budget.
     expect(tcStretch('180+2', 1000, 20)).toBeGreaterThan(1);
   });
@@ -139,8 +142,9 @@ describe('think time across time controls (round 7)', () => {
   });
 
   it('under pressure, players up to 800 now and then forget the clock (Time Trouble more often)', () => {
-    const pressed = { ...mid, elo: 600, leftMs: 30_000, tc: '600+0' };
-    const long = (xs: number[]) => xs.filter((x) => x > 30_000 * THINK.maxShare * 0.75).length / xs.length;
+    const pressed = { ...mid, elo: 600, leftMs: 15_000, tc: '600+0' };
+    // Longer than the time-pressure cap allows: only a player who forgot the clock thinks that long.
+    const long = (xs: number[]) => xs.filter((x) => x > 15_000 * THINK.maxShare * 0.75 + 1).length / xs.length;
     expect(long(sample(pressed))).toBeGreaterThan(0);
     expect(long(sample({ ...pressed, forget: 3 }))).toBeGreaterThan(long(sample(pressed)));
     expect(long(sample({ ...pressed, elo: 1400 }))).toBe(0);

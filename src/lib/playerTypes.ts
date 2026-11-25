@@ -17,7 +17,7 @@ export const TYPE_TUNING = {
   speedster: { think: 0.5, temp: 0.1, pressure: 1.8 },
   timeTrouble: { openingMoves: 12, think: 2.6, lowMs: 60_000, lowTemp: 0.6, pressure: 1.4, forget: 3 },
   gambiteer: { offerMaxMove: 6, openingMoves: 12, openingElo: 0 },
-  earlyQueen: { untilMove: 10, weight: 5, oppo: -60, realPlanChance: 0.5, realWeight: 2 },
+  earlyQueen: { untilMove: 10, weight: 5, oppo: -60, realPlanChance: 0.3, realWeight: 1.5 },
   turtle: { tradeWeight: 2.2, checkWeight: 0.6, temp: -0.15, think: 1.2 },
   tilter: { moves: 6, elo: -120, think: 0.6 },
   comebackKid: { belowCp: -150, elo: 150 },

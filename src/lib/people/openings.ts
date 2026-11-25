@@ -32,11 +32,12 @@ export const REPERTOIRES: Record<string, Repertoire> = {
     ],
   },
   lily: {
-    // Lily (200) plays one book move; her Overconfident type brings the queen out after it.
+    // Lily (200) plays one book move half the time (her own first move the other half, as people at
+    // 200 do); her Overconfident type brings the queen out in some games.
     favourite: 'Early queen attacks',
     lines: [],
-    white: [['e4', 1]],
-    black: [['e4 e5', 3], ['d4 d5', 1], ['c4 e5', 1], ['Nf3 e5', 1]],
+    white: [['e4', 1], ['', 1]],
+    black: [['e4 e5', 3], ['d4 d5', 1], ['c4 e5', 1], ['Nf3 e5', 1], ['', 6]],
   },
   tom: {
     // Tom (400) plays one book move: 1.e4 most of the time, 1.d4 now and then; 1...e5 against 1.e4.
@@ -46,11 +47,12 @@ export const REPERTOIRES: Record<string, Repertoire> = {
     black: [['e4 e5', 5], ['e4 e6', 1], ['d4 d5', 1], ['c4 e5', 1], ['Nf3 d5', 1]],
   },
   maya: {
-    // Maya (600) plays two book moves: the Scandinavian with Black (1...d5 and ...Qxd5).
+    // Maya (600) plays two book moves: the Scandinavian with Black (1...d5, then ...Qxd5 or ...Nf6),
+    // and now and then 1...e5 like most people at her level.
     favourite: 'Scandinavian Defense',
     lines: [],
     white: [['e4 e5 Nf3', 3], ['e4 c5 Nc3', 1], ['d4 d5 c4', 1]],
-    black: [['e4 d5 exd5 Qxd5', 5], ['e4 d5 Nc3 dxe4', 1], ['d4 d5 c4 c6', 2], ['c4 e5', 1], ['Nf3 d5', 1]],
+    black: [['e4 d5 exd5 Qxd5', 1], ['e4 d5 exd5 Nf6', 2], ['e4 d5 Nc3 dxe4', 1], ['e4 e5', 3], ['d4 d5 c4 c6', 2], ['c4 e5', 1], ['Nf3 d5', 1]],
   },
   jonas: {
     // Jonas (800) plays three book moves: the King's Gambit (e4, f4, Nf3); his Gambiteer type
@@ -123,23 +125,45 @@ export const REPERTOIRES: Record<string, Repertoire> = {
   },
 };
 
-/** Next book move (UCI) for the side to move, if the game so far follows one of the lines. */
 /** How many of its own moves a bot plays from its book (round 7): below 1000 people leave theory
  *  almost at once, so a 400 plays one book move and then Maia; from 1200 the whole line. */
 export function bookDepth(elo: number): number {
   return elo < 600 ? 1 : elo < 800 ? 2 : elo < 1000 ? 3 : elo < 1200 ? 4 : Infinity;
 }
 
+/**
+ * Up to about 400, people's first moves are more varied than Maia-3's favourites (odd pawn moves,
+ * early sorties): its temperature is raised by `peak` (by rating) up to move `fullUntil`, fading
+ * out by `endMove`. Matched to chess.com openings per band (benchmark: openings.ts); it stays
+ * clear of the blunder benchmark, which starts at ply 12.
+ */
+export const OPENING_TEMP = { peak: [[200, 1.7], [400, 1.5], [600, 1]] as [number, number][], fullUntil: 4, endMove: 6 };
+
+export function openingTemperature(elo: number, moveNo: number): number {
+  const c = OPENING_TEMP.peak;
+  let peak = c[c.length - 1][1];
+  if (elo <= c[0][0]) peak = c[0][1];
+  else for (let i = 1; i < c.length; i++) if (elo <= c[i][0]) { peak = c[i - 1][1] + ((elo - c[i - 1][0]) / (c[i][0] - c[i - 1][0])) * (c[i][1] - c[i - 1][1]); break; }
+  if (moveNo <= OPENING_TEMP.fullUntil) return peak;
+  if (moveNo >= OPENING_TEMP.endMove) return 1;
+  return peak + ((moveNo - OPENING_TEMP.fullUntil) / (OPENING_TEMP.endMove - OPENING_TEMP.fullUntil)) * (1 - peak);
+}
+
+/** Next book move (UCI) for the side to move, if the game so far follows one of the lines. */
+
 export function bookMove(opponentId: string | undefined, sanHistory: string[], rand: () => number = Math.random): string | null {
   const rep = opponentId ? REPERTOIRES[opponentId] : undefined;
   if (!rep) return null;
   const n = sanHistory.length;
-  // Weighted identity starts for the colour to move, else every line (with weight 1).
+  // Weighted identity starts for the colour to move, else every line (with weight 1). An empty line
+  // is "its own first move": at its first move it may leave the book to Maia.
   const weighted = (n % 2 === 0 ? rep.white : rep.black) ?? rep.lines.map((l) => [l, 1] as [string, number]);
   const options = weighted
+    .filter(([l]) => l !== '')
     .map(([l, w]) => [l.split(' '), w] as [string[], number])
     .filter(([l]) => l.length > n && sanHistory.every((m, i) => l[i] === m))
     .map(([l, w]) => [l[n], w] as [string, number]);
+  if (n < 2 && options.length) for (const [l, w] of weighted) if (l === '') options.push(['', w]);
   if (!options.length) return null;
   let x = rand() * options.reduce((a, [, w]) => a + w, 0);
   let san = options[options.length - 1][0];
@@ -149,6 +173,7 @@ export function bookMove(opponentId: string | undefined, sanHistory: string[], r
       break;
     }
   }
+  if (!san) return null;
   const c = new Chess();
   try {
     for (const m of sanHistory) c.move(m);

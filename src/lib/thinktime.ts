@@ -26,8 +26,10 @@ const lerp = (c: Curve, x: number) => {
  * chess.com 10+0 players per phase (scripts/maia3/profile.mts THINK_ONLY=1 vs humans.mts).
  */
 export const THINK = {
-  /** Instant moves: forced, book, obvious recapture or a move nearly everyone plays. */
+  /** Instant moves: forced, obvious recapture or a move nearly everyone plays. */
   instantMs: [350, 1100] as [number, number],
+  /** A known opening move (from its book): quick, but people still take a second or two. */
+  bookMs: [700, 2600] as [number, number],
   /** Maia probability above which a move is "obvious" (when nothing just happened). */
   obviousProb: 0.8,
   /** An obvious recapture needs at least this probability. */
@@ -42,9 +44,9 @@ export const THINK = {
   /** How strongly difficulty stretches the think (by rating): strong players think where it matters. */
   difficultyWeight: [[100, 0.4], [800, 0.75], [1800, 1.0]] as Curve,
   /** Endgames are played faster (by rating: weaker players speed up more). */
-  endgameFactor: [[100, 0.6], [1000, 0.6], [1600, 1.0]] as Curve,
+  endgameFactor: [[100, 0.6], [1000, 0.6], [1600, 0.7]] as Curve,
   /** Opening moves by rating: weaker players spend longer on them, stronger ones know them. */
-  openingScale: [[100, 1.3], [400, 1.3], [600, 1.4], [800, 1.38], [1000, 0.97], [1200, 0.86], [1600, 0.72]] as Curve,
+  openingScale: [[100, 1.3], [400, 1.3], [600, 1.15], [800, 1.3], [1000, 0.97], [1200, 0.86], [1600, 0.72]] as Curve,
   /** Extra chance of a quick, instinctive move (weaker players play more of them). */
   quickChance: [[100, 0.08], [600, 0.04], [1000, 0]] as Curve,
   /** Opening moves (by move number) are quicker. */
@@ -66,12 +68,12 @@ export const THINK = {
   longThinkChance: 0.35,
   longThink: [2.0, 3.5] as [number, number],
   /** Never more than this share of the time left, and never more than this. */
-  maxShare: 0.18,
+  maxShare: 0.22,
   maxMs: 90_000,
   floorMs: 300,
-  /** Time pressure starts below this share of the starting time (at least `pressureMinMs`). */
-  pressureShare: 0.1,
-  pressureMinMs: 20_000,
+  /** Time pressure starts below this share of the starting time (at least `pressureMinMs`; fitted to people's games lost on time). */
+  pressureShare: 0.05,
+  pressureMinMs: 25_000,
   /** Under full pressure: think times shrink to this share, and instant moves get more common. */
   pressureSpeed: 0.3,
   pressureInstant: 0.4,
@@ -79,15 +81,17 @@ export const THINK = {
   pressureTemp: 0.35,
   pressureMinP: 0.6,
   pressureFree: 120,
-  /** Seconds of increment count this many times towards the budget of a time control. */
+  /** Seconds of increment count this many times towards the budget of a time control (instant moves). */
   incMoves: 40,
+  /** Share of the increment a player spends on top of its think. */
+  incUse: 0.9,
   /**
    * Time controls other than 10+0: the think is stretched by (budget / budget at 10+0)^k, k by
    * rating (fitted to chess.com games at 3+2, 5+0, 15+10 and 30+0), times `openingK` in the first
    * 10 moves (people know their openings whatever the clock).
    */
-  tcExponent: [[400, 0.3], [1000, 0.5], [1600, 0.7], [2000, 0.8]] as Curve,
-  openingK: 0.5,
+  tcExponent: [[200, 0.35], [400, 0.5], [1600, 0.55], [2000, 0.6]] as Curve,
+  openingK: 1,
   /** With an increment, the pressure starts as if this many increments were on the clock too. */
   incPressureMoves: 5,
   /** Below this with no increment, only hand speed is left: the time cap no longer saves the bot. */
@@ -99,17 +103,17 @@ export const THINK = {
   handMinMs: 600,
   handMaxMs: 1600,
   /** Under time pressure, the chance per move that a player forgets the clock and thinks as usual. */
-  forgetChance: [[400, 0.06], [800, 0.03], [801, 0]] as Curve,
+  forgetChance: [[400, 0.15], [800, 0.08], [801, 0]] as Curve,
   /** At longer time controls even obvious moves take a moment: instant moves × ratio^instantK. */
-  instantK: 0.8,
+  instantK: 1.2,
   /**
    * People spend at a habitual pace and only partly adjust to what's left: the budget is this share
    * of a fixed plan (the time control over `planMoves` moves) and the rest a share of the time left.
    */
-  planWeight: 0.4,
+  planWeight: 0.8,
   planMoves: 40,
   /** Each game a player is a little quicker or slower than usual (log-normal), so some games end in a scramble. */
-  gamePaceSigma: 0.3,
+  gamePaceSigma: 0.5,
   gamePace: [0.5, 2] as [number, number],
 };
 
@@ -165,9 +169,12 @@ export function timePressure(leftMs: number, tc: string): number {
   return Math.min(1, 1 - left / start);
 }
 
-/** How much a time control stretches the think against 10+0: (budget / budget at 10+0)^(k − 1) on the per-move budget. */
+/**
+ * How much a time control stretches the think against 10+0: (base / 10 min)^(k − 1) on the part of
+ * the per-move budget that comes from the base time (the increment is added on top: people use it).
+ */
 export function tcStretch(tc: string, elo: number, moveNo: number): number {
-  const ratio = budgetRatio(tc);
+  const ratio = parseTc(tc).base / 600_000;
   if (!(ratio > 0) || ratio === 1) return 1;
   const k = lerp(THINK.tcExponent, elo) * (moveNo <= 10 ? THINK.openingK : 1);
   return ratio ** (k - 1);
@@ -231,8 +238,9 @@ export function botThinkMs(o: ThinkInput, rng: () => number = Math.random): numb
   const pace = ratio > 1 ? ratio ** THINK.instantK : Math.min(1, Math.max(0.45, base / 600_000) ** 0.35);
   const instant = (quick = false) => clamp((THINK.instantMs[0] + (THINK.instantMs[1] - THINK.instantMs[0]) * rng() ** 1.6) * pace * (1 - 0.4 * pressure), quick);
 
-  // 1. Obvious moves come at once.
-  if (o.forced || o.book) return instant(true);
+  // 1. Obvious moves come at once; known opening moves nearly so.
+  if (o.forced) return instant(true);
+  if (o.book) return clamp((THINK.bookMs[0] + (THINK.bookMs[1] - THINK.bookMs[0]) * rng() ** 1.4) * pace * (1 - 0.4 * pressure), true);
   const calm = (o.swing ?? 0) < THINK.swingCp;
   const recapture = !!o.recapture && (o.topProb ?? 0) >= THINK.recaptureProb;
   const obvious = recapture || (calm && (o.topProb ?? 0) >= THINK.obviousProb);
@@ -242,8 +250,8 @@ export function botThinkMs(o: ThinkInput, rng: () => number = Math.random): numb
   // 2. A normal think: a share of the time left, stretched by how hard the position is, and by the
   //    time control against 10+0 (not in proportion: see tcStretch).
   const movesLeft = Math.max(THINK.minMovesLeft, THINK.movesLeftAt - o.moveNo);
-  const plan = (base + THINK.incMoves * inc) / THINK.planMoves;
-  const budget = ((1 - THINK.planWeight) * (thinkLeft / movesLeft + inc * 0.8) + THINK.planWeight * plan) * tcStretch(o.tc, o.elo, o.moveNo);
+  const fromBase = ((1 - THINK.planWeight) * (thinkLeft / movesLeft) + THINK.planWeight * (base / THINK.planMoves)) * tcStretch(o.tc, o.elo, o.moveNo);
+  const budget = fromBase + inc * THINK.incUse;
   const w = lerp(THINK.difficultyWeight, o.elo);
   const diff = 1 + w * (difficulty(o) - 1);
   let ms = budget * (o.pace ?? 1) * lerp(THINK.useOfBudget, o.elo) * lerp(THINK.phase, o.moveNo) * (o.endgame ? lerp(THINK.endgameFactor, o.elo) : 1) * (o.moveNo <= 10 ? lerp(THINK.openingScale, o.elo) : 1) * diff * Math.exp(THINK.sigma * normal(rng) - THINK.sigma ** 2 / 2);

@@ -26,7 +26,7 @@ if (opt('openingK')) THINK.openingK = Number(opt('openingK'));
 // --set=instantK:0.8,gamePaceSigma:0.3  other numbers of THINK.
 for (const kv of opt('set')?.split(',') ?? []) {
   const [k, v] = kv.split(':');
-  THINK[k] = Number(v);
+  THINK[k] = k === 'gamePace' ? v.split('/').map(Number) : k === 'forgetChance' ? v.split('/').map((x) => x.split('@').map(Number).reverse()) : Number(v);
 }
 const drawPace: ((r: () => number) => number) | undefined = M.drawPace;
 

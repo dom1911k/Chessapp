@@ -204,6 +204,31 @@ describe('round 7 · 2.2 human openings below 1000', async () => {
   });
 });
 
+describe('round 7 · 2.2 varied first moves at the lowest ratings', async () => {
+  const { openingTemperature } = await import('../lib/people/openings');
+  it('hotter first moves up to about 400 (moves 1–4, gone by move 6, before the blunder benchmark starts)', () => {
+    expect(openingTemperature(200, 1)).toBeGreaterThan(openingTemperature(400, 1));
+    expect(openingTemperature(400, 1)).toBeGreaterThan(1);
+    expect(openingTemperature(400, 5)).toBeLessThan(openingTemperature(400, 4));
+    expect(openingTemperature(400, 5)).toBeGreaterThan(1);
+    expect(openingTemperature(400, 6)).toBe(1);
+    expect(openingTemperature(600, 1)).toBe(1);
+    expect(openingTemperature(1800, 1)).toBe(1);
+  });
+  it("Lily's first move is her book move about half the time, her own the other half", async () => {
+    const { bookMove } = await import('../lib/people/openings');
+    let seed = 3;
+    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const firsts = Array.from({ length: 400 }, () => bookMove('lily', [], rand));
+    const e4 = firsts.filter((m) => m === 'e2e4').length / firsts.length;
+    expect(e4).toBeGreaterThan(0.35);
+    expect(e4).toBeLessThan(0.65);
+    expect(firsts.every((m) => m === 'e2e4' || m === null)).toBe(true);
+    // Never past her first move.
+    expect(bookMove('lily', ['e4', 'e5'], rand)).toBeNull();
+  });
+});
+
 describe('round 7 · 2.1 player types for the characters', async () => {
   const { OPPONENTS, opponentById, typesFor } = await import('../lib/people');
   const { quirkById, quirkEffects, TYPE_TUNING } = await import('../lib/playerTypes');

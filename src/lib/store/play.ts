@@ -21,7 +21,7 @@ import { useSettings } from '../settings';
 import { playSound } from '../sound';
 import { sfxCls } from '../sfx';
 import { opponentById, pickLine, typesFor, wantsSummaryLine, type ChatEvent, type Mood } from '../people';
-import { bookDepth, bookMove } from '../people/openings';
+import { bookDepth, bookMove, openingTemperature } from '../people/openings';
 import { quirkById, quirkEffects, typeOpening, TYPE_TUNING, type QuirkCtx } from '../playerTypes';
 import { keepsQuiet, timedQuiet } from '../people/quiet';
 import { formFor } from '../form';
@@ -494,7 +494,8 @@ export const usePlay = create<PlayStore>((set, get) => {
           const verbose = new Map(new Chess(fen).moves({ verbose: true }).map((m) => [m.lan, m]));
           const weighted = ids.length ? new Map([...logits].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, verbose.has(m) ? mods.weight(verbose.get(m)!) : 1))])) : logits;
           // Types shift the temperature; short of time, a person also plays faster and looser.
-          const base = { ...humanParams(playElo), temperature: shiftedTemperature(playElo, mods.temp) };
+          // Below 1000 the first moves are more varied, as people's are (openingTemperature).
+          const base = { ...humanParams(playElo), temperature: shiftedTemperature(playElo, mods.temp) * (g.coach ? 1 : openingTemperature(playElo, baseCtx.moveNo)) };
           uci = chooseHumanMove(weighted, playElo, candidates, Math.random, { params: pressure ? pressureParams(base, pressure) : base });
           seen = { logits, candidates };
         } catch (e) {

@@ -23,7 +23,7 @@ import { flagResult, parseTc } from '../../src/lib/clock.ts';
 import { shouldResign } from '../../src/lib/resign.ts';
 import { povScore, scoreToCp } from '../../src/lib/chess/evaluation.ts';
 import { opponentById, typesFor } from '../../src/lib/people/index.ts';
-import { bookDepth, bookMove } from '../../src/lib/people/openings.ts';
+import { bookDepth, bookMove, openingTemperature, OPENING_TEMP } from '../../src/lib/people/openings.ts';
 import { quirkById, quirkEffects, typeOpening, TYPE_TUNING, type QuirkCtx } from '../../src/lib/playerTypes.ts';
 import { drawForm } from '../../src/lib/form.ts';
 import { material } from '../../src/cups/material.ts';
@@ -43,6 +43,8 @@ interface Spec {
 type Side = 'w' | 'b';
 
 const S: Spec = JSON.parse(process.argv[2]);
+// OPENING_TEMP='{"peak":[[200,1.6],…],"fullUntil":4,"endMove":6}' tries other opening temperatures.
+if (process.env.OPENING_TEMP) Object.assign(OPENING_TEMP, JSON.parse(process.env.OPENING_TEMP));
 const games = Number(process.argv[3]);
 const out = process.argv[4];
 const who = opponentById(S.id);
@@ -100,7 +102,7 @@ for (let g = 0; g < games; g++) {
       mods = quirkEffects(ids, { ...ctx, botEval: cand.size ? Math.max(...cand.values()) : undefined });
       const verbose = new Map(c.moves({ verbose: true }).map((m) => [m.lan, m]));
       const weighted = ids.length ? new Map([...logits].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, verbose.has(m) ? mods.weight(verbose.get(m)!) : 1))])) : logits;
-      const p = { ...humanParams(playElo), temperature: shiftedTemperature(playElo, mods.temp) };
+      const p = { ...humanParams(playElo), temperature: shiftedTemperature(playElo, mods.temp) * openingTemperature(playElo, moveNo) };
       uci = chooseHumanMove(weighted, playElo, cand, Math.random, { params: pressure ? pressureParams(p, pressure) : p })!;
       seen = { logits, cand };
     }
