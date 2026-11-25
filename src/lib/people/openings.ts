@@ -47,12 +47,12 @@ export const REPERTOIRES: Record<string, Repertoire> = {
     black: [['e4 e5', 5], ['e4 e6', 1], ['d4 d5', 1], ['c4 e5', 1], ['Nf3 d5', 1]],
   },
   maya: {
-    // Maya (600) plays two book moves: the Scandinavian with Black (1...d5, then ...Qxd5 or ...Nf6),
-    // and now and then 1...e5 like most people at her level.
+    // Maya (600) plays two book moves: the Scandinavian with Black (1...d5 2.exd5 Nf6; ...Qxd5 is
+    // left to her, as people at 600 play it now and then), and 1...e5 like most people at her level.
     favourite: 'Scandinavian Defense',
     lines: [],
     white: [['e4 e5 Nf3', 3], ['e4 c5 Nc3', 1], ['d4 d5 c4', 1]],
-    black: [['e4 d5 exd5 Qxd5', 1], ['e4 d5 exd5 Nf6', 2], ['e4 d5 Nc3 dxe4', 1], ['e4 e5', 3], ['d4 d5 c4 c6', 2], ['c4 e5', 1], ['Nf3 d5', 1]],
+    black: [['e4 d5 exd5 Nf6', 3], ['e4 d5 Nc3 dxe4', 1], ['e4 e5', 3], ['d4 d5 c4 c6', 2], ['c4 e5', 1], ['Nf3 d5', 1]],
   },
   jonas: {
     // Jonas (800) plays three book moves: the King's Gambit (e4, f4, Nf3); his Gambiteer type
@@ -149,8 +149,21 @@ export function openingTemperature(elo: number, moveNo: number): number {
   return peak + ((moveNo - OPENING_TEMP.fullUntil) / (OPENING_TEMP.endMove - OPENING_TEMP.fullUntil)) * (1 - peak);
 }
 
-/** Next book move (UCI) for the side to move, if the game so far follows one of the lines. */
+/**
+ * Between about 500 and 1000, Maia-3 castles later than people do (chess.com: 32–42% castle by move
+ * 10 at 500–900): castling moves get this weight (by rating) in the first `untilMove` moves.
+ */
+export const OPENING_CASTLE = { weight: [[400, 1], [600, 2.5], [800, 2.5], [1000, 1.5], [1200, 1]] as [number, number][], untilMove: 10 };
 
+export function castleWeight(elo: number, moveNo: number, san: string): number {
+  if (moveNo > OPENING_CASTLE.untilMove || !san.startsWith('O-O')) return 1;
+  const c = OPENING_CASTLE.weight;
+  if (elo <= c[0][0]) return c[0][1];
+  for (let i = 1; i < c.length; i++) if (elo <= c[i][0]) return c[i - 1][1] + ((elo - c[i - 1][0]) / (c[i][0] - c[i - 1][0])) * (c[i][1] - c[i - 1][1]);
+  return c[c.length - 1][1];
+}
+
+/** Next book move (UCI) for the side to move, if the game so far follows one of the lines. */
 export function bookMove(opponentId: string | undefined, sanHistory: string[], rand: () => number = Math.random): string | null {
   const rep = opponentId ? REPERTOIRES[opponentId] : undefined;
   if (!rep) return null;

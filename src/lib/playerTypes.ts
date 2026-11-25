@@ -18,13 +18,13 @@ export const TYPE_TUNING = {
   timeTrouble: { openingMoves: 12, think: 2.6, lowMs: 60_000, lowTemp: 0.6, pressure: 1.4, forget: 3 },
   gambiteer: { offerMaxMove: 6, openingMoves: 12, openingElo: 0 },
   earlyQueen: { untilMove: 10, weight: 5, oppo: -60, realPlanChance: 0.3, realWeight: 1.5 },
-  turtle: { tradeWeight: 2.2, checkWeight: 0.6, temp: -0.15, think: 1.2 },
+  turtle: { tradeWeight: 2.2, checkWeight: 0.6, temp: -0.15, realTemp: 0, think: 1.2 },
   tilter: { moves: 6, elo: -120, think: 0.6 },
   comebackKid: { belowCp: -150, elo: 150 },
   slowStarter: { moves: 12, openingElo: -40, laterElo: 60 },
   fastStarter: { moves: 12, openingElo: 200, laterElo: -100, think: 0.7 },
-  endgameGrinder: { evenCp: 80, tradeWeight: 2.5, queenTradeWeight: 4, queensOffElo: 100 },
-  pawnStormer: { fromMove: 6, weight: 3 },
+  endgameGrinder: { evenCp: 80, tradeWeight: 2.5, queenTradeWeight: 4, queensOffElo: 100, realQueensOffElo: 50 },
+  pawnStormer: { fromMove: 6, weight: 3, realWeight: 2 },
   pawnGrabber: { weight: 4 },
   copycat: { untilMove: 4, weight: 100 },
   uncastled: { untilMove: 18, castleWeight: 0.15, noticeAtMove: 12 },
@@ -60,6 +60,8 @@ export interface QuirkCtx {
 
 /** Does the type go for its plan this game? Always in Cups; in real games with `chance`. */
 const goesForPlan = (c: QuirkCtx, chance: number) => c.plan === undefined || c.plan < chance;
+/** A real game (characters, Quick match): some types use numbers calibrated to the human benchmark there. */
+const real = (c: QuirkCtx) => c.plan !== undefined;
 
 export interface Quirk {
   id: string;
@@ -193,7 +195,8 @@ export const QUIRKS: Quirk[] = [
     id: 'turtle', name: 'Turtle', glyph: 'shield', act: 'Turtle: offers a trade',
     text: 'Plays solid, likes even trades and is happy with a draw.',
     type: 'Solid and careful, trades whenever it can and never resigns — it will play on hoping for stalemate.',
-    temp: () => Q.turtle.temp,
+    // In real games the Turtle plays at its rating's usual temperature (cooler made it too clean).
+    temp: (c) => (real(c) ? Q.turtle.realTemp : Q.turtle.temp),
     think: () => Q.turtle.think,
     weight: (_c, m) => (isTrade(m) ? Q.turtle.tradeWeight : m.san.includes('+') ? Q.turtle.checkWeight : 1),
     resign: 'stubborn',
@@ -235,7 +238,7 @@ export const QUIRKS: Quirk[] = [
     id: 'endgameGrinder', name: 'Endgame Grinder', glyph: 'gear', act: 'Endgame Grinder: heading for the endgame',
     text: 'Trades down when the game is even, and is at its best once the queens are off.',
     type: 'Trades down when even, is clearly stronger once the queens are off, and grinds on to the end.',
-    elo: (c) => (queensOff(c.fen) ? Q.endgameGrinder.queensOffElo : 0),
+    elo: (c) => (queensOff(c.fen) ? (real(c) ? Q.endgameGrinder.realQueensOffElo : Q.endgameGrinder.queensOffElo) : 0),
     weight: (c, m) => {
       if (c.botEval === undefined || Math.abs(c.botEval) > Q.endgameGrinder.evenCp || !m.captured) return 1;
       if (m.piece === 'q' && m.captured === 'q') return Q.endgameGrinder.queenTradeWeight;
@@ -252,7 +255,7 @@ export const QUIRKS: Quirk[] = [
       if (m.piece !== 'p' || c.moveNo < Q.pawnStormer.fromMove || m.captured) return 1;
       const kf = kingFile(c.fen, c.me);
       const side = 'fgh'.includes(kf) ? 'fgh' : 'abc'.includes(kf) ? 'abc' : '';
-      return side.includes(m.from[0]) ? Q.pawnStormer.weight : 1;
+      return side.includes(m.from[0]) ? (real(c) ? Q.pawnStormer.realWeight : Q.pawnStormer.weight) : 1;
     },
     acted: (c, m) => m.piece === 'p' && !m.captured && c.moveNo >= Q.pawnStormer.fromMove && ('fgh'.includes(kingFile(c.fen, c.me)) ? 'fgh' : 'abc').includes(m.from[0]),
   },

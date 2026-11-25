@@ -199,7 +199,13 @@ describe('round 7 · 2.2 human openings below 1000', async () => {
   });
   it('Maya plays the Scandinavian with Black, Jonas the King’s Gambit with White', () => {
     expect(bookMove('maya', ['e4'], () => 0)).toBe('d7d5');
-    expect(bookMove('maya', ['e4', 'd5', 'exd5'], () => 0)).toBe('d8d5');
+    // Her book goes 2...Nf6; ...Qxd5 is left to her own play (people at 600 play it now and then).
+    expect(bookMove('maya', ['e4', 'd5', 'exd5'], () => 0)).toBe('g8f6');
+    // Against 1.e4 the Scandinavian stays her favourite: 1...d5 more often than anything else.
+    let seed = 5;
+    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const replies = Array.from({ length: 400 }, () => bookMove('maya', ['e4'], rand));
+    expect(replies.filter((m) => m === 'd7d5').length).toBeGreaterThan(replies.filter((m) => m === 'e7e5').length);
     expect(bookMove('jonas', ['e4', 'e5'], () => 0)).toBe('f2f4');
   });
 });

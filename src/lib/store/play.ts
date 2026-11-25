@@ -21,7 +21,7 @@ import { useSettings } from '../settings';
 import { playSound } from '../sound';
 import { sfxCls } from '../sfx';
 import { opponentById, pickLine, typesFor, wantsSummaryLine, type ChatEvent, type Mood } from '../people';
-import { bookDepth, bookMove, openingTemperature } from '../people/openings';
+import { bookDepth, bookMove, castleWeight, openingTemperature } from '../people/openings';
 import { quirkById, quirkEffects, typeOpening, TYPE_TUNING, type QuirkCtx } from '../playerTypes';
 import { keepsQuiet, timedQuiet } from '../people/quiet';
 import { formFor } from '../form';
@@ -492,7 +492,8 @@ export const usePlay = create<PlayStore>((set, get) => {
           const ctx = { ...baseCtx, botEval: candidates?.size ? Math.max(...candidates.values()) : undefined };
           mods = quirkEffects(ids, ctx);
           const verbose = new Map(new Chess(fen).moves({ verbose: true }).map((m) => [m.lan, m]));
-          const weighted = ids.length ? new Map([...logits].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, verbose.has(m) ? mods.weight(verbose.get(m)!) : 1))])) : logits;
+          // Types' preferences, and people's castling habits below 1000 (castleWeight).
+          const weighted = new Map([...logits].map(([m, v]) => [m, v + Math.log(Math.max(1e-6, verbose.has(m) ? mods.weight(verbose.get(m)!) * (g.coach ? 1 : castleWeight(playElo, baseCtx.moveNo, verbose.get(m)!.san)) : 1))]));
           // Types shift the temperature; short of time, a person also plays faster and looser.
           // Below 1000 the first moves are more varied, as people's are (openingTemperature).
           const base = { ...humanParams(playElo), temperature: shiftedTemperature(playElo, mods.temp) * (g.coach ? 1 : openingTemperature(playElo, baseCtx.moveNo)) };
