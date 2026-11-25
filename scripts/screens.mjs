@@ -25,8 +25,8 @@
 // summary-fix, fix-mode, fix-done, fix-skip, end-message, over-win-long, opponent-badges,
 // badge-sheet, profile-cc, odo-zoom, insights-skills, laurel-shop.
 //
-// Round 6 QA (in round4 too, or by name): colour-alternate, week-card, week-sheet, daily-short,
-// history-filters, backup-card.
+// Round 6 QA (in round4 too, or by name): colour-alternate, week-card, week-sheet, week-reduced,
+// daily-short, history-filters, backup-card.
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
@@ -1408,6 +1408,39 @@ async function run([W, H], scheme) {
     await p.locator('[data-testid="week-sheet"] [aria-label="Close"]').click();
     await p.waitForTimeout(800);
   }
+  // week-reduced: with reduced animations the Your week sheet fades in without its slide, and the
+  // card's change from "last week" back to normal doesn't animate.
+  if (R('week-reduced')) {
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await seedWeeks();
+    await p.evaluate(() => window.__settings.getState().set({ reduceAnimations: 'on' }));
+    await p.evaluate(() => window.__nav.getState().setTab('more'));
+    await p.waitForTimeout(300);
+    await home();
+    await p.waitForTimeout(1500);
+    const card = p.locator('[data-testid="week-card"]');
+    await card.scrollIntoViewIfNeeded().catch(() => {});
+    if ((await card.getAttribute('data-state').catch(() => null)) !== 'last') errors.push('week-reduced: no last-week card to open');
+    await card.click();
+    const anim = await p.evaluate(() => new Promise((res) => requestAnimationFrame(() => {
+      const panel = document.querySelector('[data-testid="week-sheet"]')?.closest('.safe-bottom');
+      const list = panel ? panel.getAnimations() : [];
+      res({ panel: !!panel, slide: list.filter((a) => a.effect?.getKeyframes().some((k) => k.transform && k.transform !== 'none' && k.transform !== 'translateY(0px)')).length, fade: list.filter((a) => a.effect?.getKeyframes().some((k) => k.opacity !== undefined)).length });
+    })));
+    if (!anim.panel || anim.slide !== 0 || anim.fade < 1) errors.push(`week-reduced: the sheet opened with ${JSON.stringify(anim)}`);
+    await p.waitForTimeout(600);
+    await shot('r6-week-reduced');
+    await p.locator('[data-testid="week-sheet"] [aria-label="Close"]').click();
+    const cardAnim = await p.evaluate(() => new Promise((res) => setTimeout(() => {
+      const c = document.querySelector('[data-testid="week-card"]');
+      const moving = c ? [c, ...c.querySelectorAll('*')].flatMap((e) => e.getAnimations()).filter((a) => (a.effect?.getTiming().duration ?? 0) > 20).length : -1;
+      res({ state: c?.getAttribute('data-state'), moving });
+    }, 60)));
+    if (cardAnim.state !== 'normal' || cardAnim.moving !== 0) errors.push(`week-reduced: the card changed with ${JSON.stringify(cardAnim)}`);
+    await p.evaluate(() => window.__settings.getState().set({ reduceAnimations: 'off' }));
+    await p.waitForTimeout(400);
+  }
+
   // daily-short: a game finished today makes today's Daily training the short set (~5 min, 6
   // puzzles; Up next says so), and its done screen offers Keep going (6 more).
   if (R('daily-short')) {
