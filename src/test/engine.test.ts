@@ -22,3 +22,25 @@ describe('owner-scoped cancellation', () => {
     expect((await a).bestMove).toBe('a1a8');
   }, 30000);
 });
+
+describe('every search has a time limit', () => {
+  it('a depth-only search gets the safety movetime; given limits are passed as they are', async () => {
+    const { UciEngine, SAFETY_MOVETIME } = await import('../lib/engine/uci');
+    const sent: string[] = [];
+    let emit: (l: string) => void = () => undefined;
+    const eng = new UciEngine({
+      send: (c) => {
+        sent.push(c);
+        if (c === 'isready') queueMicrotask(() => emit('readyok'));
+        if (c.startsWith('go')) queueMicrotask(() => emit('bestmove e2e4'));
+      },
+      onLine: (cb) => (emit = cb),
+    });
+    const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    await eng.analyze(fen, { depth: 8 });
+    await eng.analyze(fen, { depth: 10, movetime: 1500 });
+    await eng.analyze(fen, { movetime: 500 });
+    await eng.analyze(fen, {});
+    expect(sent.filter((c) => c.startsWith('go'))).toEqual([`go depth 8 movetime ${SAFETY_MOVETIME}`, 'go depth 10 movetime 1500', 'go movetime 500', `go depth 12 movetime ${SAFETY_MOVETIME}`]);
+  });
+});

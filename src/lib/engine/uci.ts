@@ -16,6 +16,9 @@ interface Job {
   cancelled: boolean;
 }
 
+/** The longest any one search may take when the caller gives only a depth (ms). */
+export const SAFETY_MOVETIME = 30_000;
+
 export class CancelledError extends Error {
   constructor() {
     super('cancelled');
@@ -107,9 +110,10 @@ export class UciEngine implements Engine {
     }
     this.transport.send(`position fen ${job.fen}`);
     const parts = ['go'];
-    if (job.opts.depth) parts.push('depth', String(job.opts.depth));
-    if (job.opts.movetime) parts.push('movetime', String(job.opts.movetime));
-    if (parts.length === 1) parts.push('depth', '12');
+    if (job.opts.depth || !job.opts.movetime) parts.push('depth', String(job.opts.depth || 12));
+    // A depth-only search gets a safety limit too: in rare positions a single search can run on for
+    // an hour (seen at depth 10 in a benchmark game). Normal searches finish long before it.
+    parts.push('movetime', String(job.opts.movetime || SAFETY_MOVETIME));
     this.transport.send(parts.join(' '));
   }
 
