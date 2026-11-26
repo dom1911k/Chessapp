@@ -131,12 +131,13 @@ export function chooseMaiaMove(logits: Map<string, number>, temperature: number,
 export function humanParams(elo: number, brain: Brain = currentBrain()): { rating: number; temperature: number; topP: number; minP: number; lossScale: number; free: number; soft: number; alt: number } {
   if (brain === 'maia3') {
     const p = maia3Pipe(elo);
+    const low = lerp(MAIA3.lowTrim, elo);
     return {
       rating: maia3SelfElo(elo),
       temperature: lerp(MAIA3.temperature, elo),
       topP: lerp(MAIA3.topP, p),
-      minP: lerp(MAIA3.minP, p),
-      lossScale: lerp(MAIA3.lossScale, p),
+      minP: lerp(MAIA3.minP, p) * low,
+      lossScale: lerp(MAIA3.lossScale, p) / low,
       free: lerp(MAIA3.free, p),
       soft: lerp(MAIA3.soft, p),
       alt: lerp(MAIA3.alt, elo),

@@ -14,7 +14,7 @@ import { TRAPS } from './traps';
  * think time, `pressure` makes time pressure start earlier (>1).
  */
 export const TYPE_TUNING = {
-  speedster: { think: 0.5, temp: 0.1, pressure: 1.8 },
+  speedster: { think: 0.5, temp: 0.1, realTemp: 0, pressure: 1.8 },
   timeTrouble: { openingMoves: 12, think: 2.6, lowMs: 60_000, lowTemp: 0.6, pressure: 1.4, forget: 3 },
   gambiteer: { offerMaxMove: 6, openingMoves: 12, openingElo: 0, realPlanChance: 0.5 },
   earlyQueen: { untilMove: 10, weight: 5, oppo: -60, realPlanChance: 0.3, realWeight: 1.5 },
@@ -169,7 +169,9 @@ export const QUIRKS: Quirk[] = [
     text: 'Moves fast and a little loose.',
     type: 'Plays everything twice as fast as most people and gets sloppy early when the clock runs down.',
     think: () => Q.speedster.think,
-    temp: () => Q.speedster.temp,
+    // In real games it plays fast at its rating's usual temperature (the extra made Lily blunder
+    // more than people at 200).
+    temp: (c) => (real(c) ? Q.speedster.realTemp : Q.speedster.temp),
     pressure: Q.speedster.pressure,
     acted: (c) => c.moveNo === 1 || c.moveNo % 10 === 0,
   },

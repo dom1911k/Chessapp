@@ -16,9 +16,16 @@ export const MAIA3 = {
    * training data: weaker bots get there with `temperature` and `alt` instead.
    */
   selfElo: [[100, 700], [200, 700], [400, 815], [600, 905], [800, 1020], [1000, 1100], [1200, 1300], [1400, 1520], [1600, 1600], [1800, 1860], [2000, 2100]] as Curve,
-  temperature: [[100, 1.12], [200, 1.0], [2000, 1.0]] as Curve,
+  temperature: [[100, 1.15], [200, 1.1], [400, 1.0], [2000, 1.0]] as Curve,
   /** Extra weight on Maia's 2nd and 3rd choices (weak players go with their second idea more). */
   alt: [[100, 0.3], [200, 0.3], [400, 0], [2000, 0]] as Curve,
+  /**
+   * Below 600 the bots play at Maia-3's floor with the pipeline of about 1000, which trimmed their
+   * howlers like a 1000's: they blundered less than people at 100–500 (14 and 12.5 per 100 moves
+   * against 19.3 and 15.1, over 80–120 games). Below 600 the trimming eases: minP × lowTrim,
+   * lossScale ÷ lowTrim (1 = the pipeline's).
+   */
+  lowTrim: [[100, 0.27], [200, 0.27], [400, 0.57], [600, 1]] as Curve,
 
   /*
    * The rest of the pipeline follows the SelfElo: these curves are keyed by the old app rating

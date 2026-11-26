@@ -31,6 +31,17 @@ describe('human-like move choice (Maia-3 tuning)', () => {
     expect(strong).toBeLessThan(weak * 0.5);
   });
 
+  it('below 600 the howler trimming eases (people at 100–500 blunder more); from 600 it is the pipeline’s', () => {
+    expect(humanParams(200).minP).toBeLessThan(humanParams(400).minP);
+    expect(humanParams(400).minP).toBeLessThan(humanParams(600).minP);
+    expect(humanParams(200).lossScale).toBeGreaterThan(humanParams(400).lossScale);
+    expect(humanParams(400).lossScale).toBeGreaterThan(humanParams(600).lossScale);
+    expect(MAIA3.lowTrim.at(-1)).toEqual([600, 1]);
+    // A 700 cp howler at 200 is played about as often as Maia-3 suggests it.
+    const cands = new Map([['e2e4', 30], ['d2d4', -20], ['g1f3', -700]]);
+    expect(tally(cands, 200).g1f3 ?? 0).toBeGreaterThan(tally(undefined, 200).g1f3 * 0.85);
+  });
+
   it('the veto only applies now and then, and only for strong bots', () => {
     expect(vetoChance(1200, 'maia3')).toBe(0);
     expect(vetoChance(1600, 'maia3')).toBeGreaterThan(0);

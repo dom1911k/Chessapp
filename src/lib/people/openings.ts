@@ -151,9 +151,10 @@ export function openingTemperature(elo: number, moveNo: number): number {
 
 /**
  * Between about 500 and 1000, Maia-3 castles later than people do (chess.com: 32–42% castle by move
- * 10 at 500–900): castling moves get this weight (by rating) in the first `untilMove` moves.
+ * 10 at 500–900), and around 400 a little earlier (18%): castling moves get this weight (by rating)
+ * in the first `untilMove` moves.
  */
-export const OPENING_CASTLE = { weight: [[400, 1], [600, 2.5], [800, 2.5], [1000, 1.5], [1200, 1]] as [number, number][], untilMove: 10 };
+export const OPENING_CASTLE = { weight: [[200, 1], [400, 0.7], [600, 2.5], [800, 2.5], [1000, 1.5], [1200, 1]] as [number, number][], untilMove: 10 };
 
 export function castleWeight(elo: number, moveNo: number, san: string): number {
   if (moveNo > OPENING_CASTLE.untilMove || !san.startsWith('O-O')) return 1;
