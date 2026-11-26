@@ -39,14 +39,17 @@ export const THINK = {
   /** Expected moves left in the game: max(minMovesLeft, movesLeftAt - moveNo). */
   movesLeftAt: 48,
   minMovesLeft: 16,
-  /** Share of the per-move budget a player actually uses (by rating): weaker players play faster. */
-  useOfBudget: [[100, 0.47], [400, 0.65], [800, 0.68], [1000, 0.62], [1200, 0.62], [1600, 0.68], [2000, 0.77]] as Curve,
+  /**
+   * Share of the per-move budget a player actually uses (by rating): weaker players play faster.
+   * From 1100 people use more of their clock (fitted to chess.com games at every time control).
+   */
+  useOfBudget: [[100, 0.47], [400, 0.65], [800, 0.68], [1000, 0.62], [1200, 0.78], [1600, 0.8], [2000, 0.8]] as Curve,
   /** How strongly difficulty stretches the think (by rating): strong players think where it matters. */
   difficultyWeight: [[100, 0.4], [800, 0.75], [1800, 1.0]] as Curve,
   /** Endgames are played faster (by rating: weaker players speed up more). */
-  endgameFactor: [[100, 0.6], [1000, 0.6], [1600, 0.7]] as Curve,
+  endgameFactor: [[100, 0.6], [800, 0.6], [1000, 0.68], [1400, 0.75], [1700, 0.7]] as Curve,
   /** Opening moves by rating: weaker players spend longer on them, stronger ones know them. */
-  openingScale: [[100, 1.3], [400, 1.3], [600, 1.15], [800, 1.3], [1000, 1.25], [1200, 1.0], [1600, 0.72]] as Curve,
+  openingScale: [[100, 1.3], [400, 1.3], [600, 1.15], [800, 1.3], [1000, 1.25], [1200, 1.4], [1600, 1.0], [2000, 0.8]] as Curve,
   /** Extra chance of a quick, instinctive move (weaker players play more of them). */
   quickChance: [[100, 0.08], [600, 0.04], [1000, 0]] as Curve,
   /** Opening moves (by move number) are quicker. */
@@ -89,7 +92,7 @@ export const THINK = {
    * finish with 90% of their clock), at 100–300 and 500–900 they spend most of it, and from 1000
    * they think longer than the whole increment.
    */
-  incUse: [[200, 1], [400, 0], [600, 0.7], [800, 0.8], [1000, 1.8], [1400, 1.4]] as Curve,
+  incUse: [[200, 1], [400, 0], [600, 0.7], [800, 0.8], [1000, 1.8], [1400, 1.4], [1700, 2.0]] as Curve,
   /** In the first 10 moves people use less of it (they play the opening fast and bank the time). */
   incOpening: 0.5,
   /** The time cap allows this many increments on top of a share of the clock left. */
@@ -99,10 +102,10 @@ export const THINK = {
    * rating (fitted to chess.com games at 3+2, 5+0, 15+10 and 30+0), times `openingK` in the first
    * 10 moves (people know their openings whatever the clock).
    */
-  tcExponent: [[200, 0.35], [400, 0.5], [1600, 0.55], [2000, 0.6]] as Curve,
+  tcExponent: [[200, 0.35], [400, 0.5], [1200, 0.55], [1600, 0.65], [2000, 0.7]] as Curve,
   openingK: 1,
   /** With an increment, the pressure starts as if this many increments were on the clock too. */
-  incPressureMoves: 5,
+  incPressureMoves: 3,
   /** Below this with no increment, only hand speed is left: the time cap no longer saves the bot. */
   handMs: 10_000,
   /** A forced move or obvious recapture, and any other move (by rating: weaker players are slower). */

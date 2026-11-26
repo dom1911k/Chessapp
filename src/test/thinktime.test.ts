@@ -45,7 +45,9 @@ describe('bot think time', () => {
 
   it('weaker players play faster; openings are quick', () => {
     expect(pct(sample({ ...mid, elo: 500 }), 0.5)).toBeLessThan(pct(sample({ ...mid, elo: 1800 }), 0.5));
-    expect(pct(sample({ ...mid, moveNo: 4 }), 0.5)).toBeLessThan(pct(sample(mid), 0.5) * 0.5);
+    // A thought-out opening move takes well under the middlegame's (people at 1100–1500 average
+    // about half over the opening, book and instant moves included).
+    expect(pct(sample({ ...mid, moveNo: 4 }), 0.5)).toBeLessThan(pct(sample(mid), 0.5) * 0.7);
   });
 
   it('10+0 averages look human: a few seconds a move in the middlegame, right-skewed', () => {
@@ -60,7 +62,7 @@ describe('bot think time', () => {
     expect(timePressure(31_000, '600+0')).toBe(0);
     expect(timePressure(15_000, '600+0')).toBeCloseTo(0.5);
     expect(timePressure(0, '600+0')).toBe(1);
-    // Short games: pressure from 25 s at least; an increment eases it (five of them count).
+    // Short games: pressure from 25 s at least; an increment eases it (three of them count).
     expect(timePressure(19_000, '180+0')).toBeGreaterThan(0);
     expect(timePressure(19_000, '180+2')).toBe(0);
     expect(timePressure(9_000, '180+2')).toBeGreaterThan(0);
