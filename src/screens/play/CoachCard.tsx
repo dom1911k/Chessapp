@@ -2,7 +2,7 @@
 // whole conversation of the game.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { reduced } from '../../lib/motion';
-import { BookOpen, Crosshair, Flag, Lightbulb, MessagesSquare, ScanSearch, ShieldCheck, Undo2 } from 'lucide-react';
+import { BookOpen, Check, CircleHelp, Crosshair, Flag, Lightbulb, MessagesSquare, ScanSearch, ShieldCheck, Undo2, X } from 'lucide-react';
 import { formatScore } from '../../lib/chess/evaluation';
 import { useSettings } from '../../lib/settings';
 import { usePlay } from '../../lib/store/play';
@@ -58,6 +58,8 @@ function useTypewriter(key: string, total: number, enabled: boolean) {
 function FeedBubble({ it, compact, flag, type }: { it: FeedItem; compact?: boolean; flag?: boolean; type?: boolean }) {
   const g = usePlay((s) => s.game)!;
   const p = it.ply >= 0 ? g.plies[it.ply] : undefined;
+  // Sam's line about his own move (Play Coach): "Coach Sam · 6… Ng4".
+  const samLabel = it.kind === 'sam' && p ? { label: `Coach Sam · ${Number(p.fenBefore.split(' ')[5]) || Math.floor(it.ply / 2) + 1}${p.color === 'b' ? '…' : '.'} ${p.san}`, icon: undefined } : undefined;
   const words = useMemo(() => it.text.map((t) => t.split(' ')), [it.text]);
   const total = words.reduce((n, w) => n + w.length, 0);
   const gentle = useSettings((st) => st.coachStyle === 'gentle');
@@ -69,7 +71,7 @@ function FeedBubble({ it, compact, flag, type }: { it: FeedItem; compact?: boole
     // One verdict only: the "Qh6 is a blunder" row when the move is known, else the class chip.
     <CoachBubble
       compact={compact}
-      {...FEED_LABEL[it.kind]}
+      {...(samLabel ?? FEED_LABEL[it.kind])}
       mood={it.mood ?? 'happy'}
       badge={verdict ? undefined : it.classification}
       special={verdict ? undefined : it.special}
@@ -120,7 +122,8 @@ export function CoachCard({ safetyMessages, onHistory }: { safetyMessages: strin
       </CoachBubble>
     );
   } else if (latest) {
-    card = <FeedBubble key={latest.id} it={latest} flag type compact={stale} />;
+    // A quick question is open: anything longer than Sam's line about his move gets out of its way.
+    card = <FeedBubble key={latest.id} it={latest} flag type compact={stale || (!!s.quiz && latest.kind !== 'sam')} />;
   }
 
   return (
@@ -131,6 +134,7 @@ export function CoachCard({ safetyMessages, onHistory }: { safetyMessages: strin
         </p>
       )}
       {card}
+      {s.quiz && <QuizBubble />}
       {!s.precheck && safetyMessages.length > 0 && settings.safetyOverlay && (
         <p className="flex items-start gap-1.5 px-1 text-[13px] text-stone-600 dark:text-stone-300">
           <ShieldCheck size={15} className="mt-0.5 shrink-0 text-brand-700" />
@@ -157,12 +161,45 @@ export function CoachCard({ safetyMessages, onHistory }: { safetyMessages: strin
   );
 }
 
+/** Play Coach's quick question under Sam's line: the question with Skip, then how it went. */
+function QuizBubble() {
+  const q = usePlay((s) => s.quiz)!;
+  const skip = usePlay((s) => s.skipQuiz);
+  const res = q.result;
+  const box = useRef<HTMLDivElement>(null);
+  // Keep the question (and then its answer) in view in the panel under the board.
+  // (Braces: newer browsers return a promise from scrollIntoView, which mustn't become the cleanup.)
+  useEffect(() => {
+    box.current?.scrollIntoView({ block: 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
+  }, [q.prompt, res]);
+  return (
+    <div ref={box} className="surface-light ml-[50px] rounded-[10px] bg-[#eef6e6] px-3.5 py-3 text-[15px] leading-snug text-[#312e2b] ring-1 ring-brand-500/50 animate-pop" data-testid="quiz" data-state={res ? (res.ok ? 'right' : 'wrong') : 'open'}>
+      <div className="mb-1 flex items-center gap-1 text-[11px] font-bold tracking-[0.06em] text-brand-700 uppercase">
+        <CircleHelp size={12} /> Quick question
+      </div>
+      <p>{q.prompt}</p>
+      {res ? (
+        <p className="mt-1.5 flex items-start gap-1.5 font-semibold" data-testid="quiz-result">
+          {res.ok ? <Check size={16} strokeWidth={3} className="mt-0.5 shrink-0 text-brand-700" /> : <X size={16} strokeWidth={3} className="mt-0.5 shrink-0 text-danger-600" />}
+          <span>{res.ok ? 'Right. ' : 'Not quite. '}{q.why}</span>
+        </p>
+      ) : (
+        <div className="mt-2 flex justify-end">
+          <button className="rounded-[8px] bg-brand-500/15 px-3 py-1.5 text-[13px] font-bold text-brand-700 press" onClick={skip} data-testid="quiz-skip">Skip</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** The whole conversation of this game (newest at the bottom). */
 export function CoachHistory() {
   const g = usePlay((s) => s.game)!;
   const feed = g.feed ?? [];
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), []);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' });
+  }, []);
   return (
     <div className="space-y-2.5">
       {feed.map((it, k) => (

@@ -29,6 +29,7 @@ import { RewardsOverlay } from '../../components/RewardsOverlay';
 import { THEMES } from '../../lib/themes';
 import { CoachCard, CoachHistory } from './CoachCard';
 import { type ActionKind, GameActions, newOpponent, rematch } from './GameActions';
+import { QuizBoard } from './QuizBoard';
 import { PlayerBar } from './PlayerBar';
 import { haptic, reduced } from '../../lib/motion';
 import { sfx } from '../../lib/sfx';
@@ -243,6 +244,8 @@ export function GameView() {
                 premoveColor={!viewing && (s.phase === 'analyzing' || s.phase === 'botThinking') ? g.userColor : null}
                 kingBadges={ended && !viewing && (!s.ending || endBeat >= 1) ? kingBadges(ended.result, ended.reason) : null}
               />
+              {/* Play Coach's quick question: taps answer it. */}
+              {s.quiz && !viewing && !s.over && <QuizBoard quiz={s.quiz} orientation={orientation} onTap={s.answerQuiz} />}
               {/* The bot offers a draw: Accept or Decline (making a move declines too). */}
               {botOffer && !viewing && (
                 <div className="animate-pop absolute inset-x-2 top-2 z-30 flex items-center gap-2 rounded-[10px] bg-stone-900/90 py-1.5 pr-1.5 pl-3 text-white shadow-lg backdrop-blur" data-testid="draw-offer">

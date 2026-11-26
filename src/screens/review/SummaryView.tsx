@@ -17,6 +17,7 @@ import { Board } from '../../components/Board';
 import { EvalGraph } from '../../components/Charts';
 import { CoachAvatar, Portrait } from '../../components/Coach';
 import { StrangerAvatar } from '../../components/StrangerAvatar';
+import { quizLine } from '../../lib/coach/quiz';
 import { Header } from '../../components/ui';
 import { classInk, ReviewIcon } from '../../components/ReviewIcon';
 import { CauseBreakdown, CauseIcon } from '../../components/Causes';
@@ -220,6 +221,8 @@ export function SummaryView({ g, r, trap, onStart, fix }: { g: AnyGame; r: Revie
             {g.source === 'chess.com' && <ChessComBadge />}
             {/* Every game but Play Coach is a real game now (round 7): only practice gets a tag. */}
             {g.coach && <span className="chip bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-100">Coach game</span>}
+            {/* Play Coach's quick questions (round 7). */}
+            {'quiz' in g && quizLine(g.quiz) && <span className="chip bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200" data-testid="quiz-summary">{quizLine(g.quiz)}</span>}
           </div>
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pt-3 pb-4">
             <div className="flex flex-col items-center gap-2">

@@ -29,7 +29,7 @@
 // daily-short, history-filters, backup-card.
 //
 // Round 7 QA (in round4 too, or by name): play-coach-card, badges-new, home-characters, draw-offer,
-// home-quick, quick-pairing, quick-game, quick-results.
+// home-quick, quick-pairing, quick-game, quick-results, coach-explains, coach-question.
 //
 // Gotcha: the app is driven through dev-only store imports (/src/lib/store/play.ts, nav.ts,
 // settings.ts). After editing files, restart the dev server: HMR adds ?t= to module URLs and the
@@ -1848,6 +1848,70 @@ async function run([W, H], scheme) {
     await p.evaluate(() => window.__settings.getState().set({ playSide: 'characters' }));
     await home();
     await p.waitForTimeout(500);
+  }
+
+  // coach-explains: Sam's first-person line about his own move (Play Coach, Sam talks: All).
+  if (R('coach-explains')) {
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await p.evaluate(() => window.__settings.getState().set({ coachLevel: 'full' }));
+    await p.evaluate(() => window.__play.getState().newGame('b', 500, undefined, 'coach', { coach: 'your' }));
+    await p.waitForTimeout(900);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitFor(p, ['userTurn'], 60000);
+    await p.waitForTimeout(1500);
+    const sam = await p.evaluate(() => { const f = window.__play.getState().game.feed ?? []; return f.filter((x) => x.kind === 'sam').map((x) => x.text.join(' ')); });
+    const label = await p.evaluate(() => [...document.querySelectorAll('div')].map((d) => d.textContent ?? '').find((t) => /^Coach Sam · 1\. /i.test(t)) ?? null);
+    const first = await p.evaluate(() => window.__play.getState().game.plies[0]?.san);
+    // Sam's first move: a centre pawn or a developing move gets a line; anything else may not.
+    if (['e4', 'd4', 'Nf3', 'Nc3'].includes(first) && (!sam.length || !label)) errors.push(`coach-explains: after 1.${first} Sam said ${JSON.stringify(sam)} (label ${label})`);
+    await shot('r7-coach-explains');
+    await p.evaluate(() => window.__play.getState().abandon?.());
+    await p.waitForTimeout(500);
+  }
+
+  // coach-question: a quick question (wrong, right, Skip) with taps on the board, stored on the game.
+  if (R('coach-question')) {
+    await p.evaluate(() => window.__play.getState().leaveGame?.());
+    await p.evaluate(() => window.__play.getState().newGame('w', 500, '1r2k3/8/8/1N6/8/8/8/4K3 w - - 0 1', 'coach', { coach: 'your' }));
+    await p.waitForTimeout(900);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitFor(p, ['userTurn'], 60000);
+    const ask = () => inPage(async () => {
+      const find = (x) => performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x) && !y.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((y) => y.includes(x));
+      const { undefendedQuestion } = await import(find('/src/lib/coach/quiz.ts'));
+      window.__play.setState({ quiz: undefendedQuestion('1r2k3/8/8/1N6/8/8/8/4K3 w - - 0 1', 'w') });
+    });
+    await ask();
+    await p.waitForTimeout(600);
+    const open = await p.locator('[data-testid="quiz"]').textContent().catch(() => null);
+    if (!/Quick question.*Which of your pieces is undefended\? Tap it\..*Skip/.test(open ?? '')) errors.push(`coach-question: the question reads ${open}`);
+    // The board takes taps, not moves.
+    if (await p.evaluate(() => window.__play.getState().userMove({ from: 'b5', to: 'c7' }))) errors.push('coach-question: a move went through while the question was open');
+    await shot('r7-coach-question');
+    await p.locator('[data-testid="quiz-board"] [data-sq="e1"]').click();
+    await p.waitForTimeout(500);
+    const wrong = await p.evaluate(() => ({ state: document.querySelector('[data-testid="quiz"]')?.getAttribute('data-state'), marks: [...document.querySelectorAll('[data-quiz-mark]')].map((m) => m.getAttribute('data-quiz-mark')).sort().join(',') }));
+    if (wrong.state !== 'wrong' || wrong.marks !== 'right,wrong') errors.push(`coach-question: a wrong tap shows ${JSON.stringify(wrong)}`);
+    await shot('r7-coach-question-wrong');
+    await ask();
+    await p.waitForTimeout(400);
+    await p.locator('[data-testid="quiz-board"] [data-sq="b5"]').click();
+    await p.waitForTimeout(500);
+    const right = await p.evaluate(() => ({ state: document.querySelector('[data-testid="quiz"]')?.getAttribute('data-state'), text: document.querySelector('[data-testid="quiz-result"]')?.textContent, marks: [...document.querySelectorAll('[data-quiz-mark]')].map((m) => m.getAttribute('data-quiz-mark')).join(',') }));
+    if (right.state !== 'right' || right.marks !== 'right' || !/^Right\. Your knight on b5 can be taken\.$/.test(right.text ?? '')) errors.push(`coach-question: a right tap shows ${JSON.stringify(right)}`);
+    await shot('r7-coach-question-right');
+    await ask();
+    await p.waitForTimeout(400);
+    await p.locator('[data-testid="quiz-skip"]').click();
+    await p.waitForTimeout(400);
+    const stored = await p.evaluate(() => JSON.stringify(window.__play.getState().game.quiz));
+    if (stored !== '[{"kind":"undefended","ok":false},{"kind":"undefended","ok":true},{"kind":"undefended","ok":false,"skipped":true}]' || (await p.locator('[data-testid="quiz"]').count())) errors.push(`coach-question: stored ${stored}`);
+    // After the answer, your move goes through.
+    if (!(await p.evaluate(() => window.__play.getState().userMove({ from: 'b5', to: 'c7' })))) errors.push('coach-question: your move after the question did not go through');
+    await p.waitForTimeout(500);
+    await p.evaluate(() => window.__play.getState().abandon?.());
+    await p.waitForTimeout(500);
+    await home();
   }
 
   if (R('laurel-shop')) {

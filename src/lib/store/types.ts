@@ -1,3 +1,4 @@
+import type { QuizKind } from '../coach/quiz';
 import type { Stranger } from '../people/stranger';
 import type { Classification, Score } from '../chess/evaluation';
 import type { GameResult } from '../chess/game';
@@ -28,7 +29,7 @@ export interface PlyRecord {
 /** One message from Coach Sam in the game's conversation. */
 export interface FeedItem {
   id: number;
-  kind: 'comment' | 'hint' | 'threat' | 'note' | 'info' | 'result' | 'opening' | 'takeback' | 'explain';
+  kind: 'comment' | 'hint' | 'threat' | 'note' | 'info' | 'result' | 'opening' | 'takeback' | 'explain' | 'sam';
   text: string[];
   classification?: Classification;
   /** Brilliant / great move badge. */
@@ -84,6 +85,10 @@ export interface SavedGame {
   pace?: number;
   /** A Quick match opponent (round 7): the person, from one seed (a rematch gets them back). */
   stranger?: Stranger;
+  /** Play Coach quick questions (round 7): each one asked and how it went (skipped ones count as asked). */
+  quiz?: { kind: QuizKind; ok: boolean; skipped?: boolean }[];
+  /** Your move count when the last question was asked (one every 5 of your moves at most). */
+  quizAt?: number;
   /** Draw offers this game (real games only): see src/lib/draws.ts. */
   draws?: import('../draws').DrawState;
   /** Played while their special challenge was open: a fair attempt, so no form. */

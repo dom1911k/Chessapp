@@ -472,3 +472,77 @@ describe('round 7 · 3 Quick match: a new person every game', async () => {
     expect(saved.stranger?.seed).toBe(99);
   });
 });
+
+describe('round 7 · 4.1 Sam explains his own moves', async () => {
+  const { samLine } = await import('../lib/coach/samExplain');
+  it('development, castling, trades, threats and mate threats each get a first-person line', () => {
+    // 1.e4 e5: Nf3 develops and eyes the centre.
+    expect(samLine('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2', 'g1f3')?.text).toBe('Developing my knight — it eyes d4 and e5.');
+    expect(samLine('r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4', 'e1g1')?.text).toBe('Castling, so my king is safe and my rook joins in.');
+    // A pawn up, trading queens.
+    expect(samLine('3qr1k1/ppp2pp1/7p/8/4P3/8/PPP2PPP/3Q1RK1 w - - 0 20', 'd1d8')?.text).toBe("I'm a pawn up, so I'm happy to trade queens.");
+    // (On a back rank with no escape square the same trade threatens mate, and Sam says so.)
+    expect(samLine('3qr1k1/ppp2ppp/8/8/4P3/8/PPP2PPP/3Q1RK1 w - - 0 20', 'd1d8')?.text).toBe("Now I'm threatening Qxe8 mate. Can you stop it?");
+    // ...d5 hits the bishop on c4.
+    const t = samLine('rnbqkb1r/pppp1ppp/5n2/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR b KQkq - 3 3', 'd7d5');
+    expect(t).toEqual({ text: 'My pawn now attacks your bishop on c4.', kind: 'threat' });
+    // Qh5 threatens Qxf7 mate.
+    expect(samLine('r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 2 3', 'd1h5')?.text).toBe("Now I'm threatening Qxf7 mate. Can you stop it?");
+    // Taking back.
+    expect(samLine('rnbqkbnr/ppp1pppp/8/3P4/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2', 'd8d5', { lastUci: 'e4d5' })?.text).toBe('Taking back on d5.');
+  });
+  it('no line on a move with nothing to say; never a plan beyond the next move', () => {
+    expect(samLine('r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4', 'a2a3')).toBeNull();
+    for (const fen of ['rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2'])
+      for (const u of ['g1f3', 'f1c4', 'd2d4']) expect(samLine(fen, u)?.text ?? '').not.toMatch(/next|plan|then I'll|going to/i);
+  });
+  it('"Only when it matters" keeps only threats; a question about the threat isn\'t given away', () => {
+    expect(samLine('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2', 'g1f3', { threatsOnly: true })).toBeNull();
+    expect(samLine('r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 2 3', 'd1h5', { threatsOnly: true })?.kind).toBe('threat');
+    const hidden = samLine('r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 2 3', 'd1h5', { hideThreat: true })!.text;
+    expect(hidden).not.toMatch(/f7|mate/);
+  });
+});
+
+describe('round 7 · 4.2 quick questions', async () => {
+  const { threatQuestion, forkQuestion, undefendedQuestion, pickQuestion, quizAllowed, quizLine } = await import('../lib/coach/quiz');
+  it('each question only when its answer exists', () => {
+    expect(threatQuestion('r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 2 3', 'd1h5')).toMatchObject({ kind: 'threat', answers: ['f7'] });
+    expect(threatQuestion('rnbqkb1r/pppp1ppp/5n2/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR b KQkq - 3 3', 'd7d5')).toMatchObject({ kind: 'threat', answers: ['c4'] });
+    expect(threatQuestion('r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4', 'a2a3')).toBeNull();
+    expect(forkQuestion('r3k3/8/8/1N6/8/8/8/4K3 w - - 0 1')).toMatchObject({ kind: 'fork', answers: ['c7'] });
+    expect(forkQuestion('r3k3/8/8/8/8/8/8/4K1N1 w - - 0 1')).toBeNull();
+    expect(undefendedQuestion('1r2k3/8/8/1N6/8/8/8/4K3 w - - 0 1', 'w')).toMatchObject({ kind: 'undefended', answers: ['b5'] });
+    expect(undefendedQuestion('4k3/8/8/1N6/8/8/8/4K3 w - - 0 1', 'w')).toBeNull();
+    // His threat comes first, then your fork, then your undefended pieces.
+    expect(pickQuestion({ fenBefore: 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 2 3', samUci: 'd1h5', fenAfter: 'r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3', you: 'b' })?.kind).toBe('threat');
+  });
+  it('at most one every 5 of your moves, never in the first 6, never while something else shows', () => {
+    expect(quizAllowed({ yourMoves: 5, busy: false })).toBe(false);
+    expect(quizAllowed({ yourMoves: 6, busy: false })).toBe(true);
+    expect(quizAllowed({ yourMoves: 6, busy: true })).toBe(false);
+    expect(quizAllowed({ yourMoves: 10, lastAt: 6, busy: false })).toBe(false);
+    expect(quizAllowed({ yourMoves: 11, lastAt: 6, busy: false })).toBe(true);
+  });
+  it('right, wrong and Skip are stored on the game; the review line counts them', async () => {
+    const { usePlay } = await import('../lib/store/play');
+    const q = threatQuestion('r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 2 3', 'd1h5')!;
+    const game = { id: 'play', userColor: 'b', elo: 500, coach: 'your', coachLevel: 'full', startFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', startedAt: Date.now(), plies: [], takebacks: 0, hintsUsed: 0, told: [] };
+    usePlay.setState({ game: game as never, quiz: q, phase: 'userTurn' });
+    // The board takes taps for the answer, not moves.
+    expect(usePlay.getState().userMove({ from: 'e7', to: 'e5' })).toBe(false);
+    usePlay.getState().answerQuiz('f7');
+    expect(usePlay.getState().quiz?.result).toEqual({ ok: true, sq: 'f7' });
+    usePlay.setState({ quiz: q });
+    usePlay.getState().answerQuiz('e5');
+    expect(usePlay.getState().quiz?.result).toEqual({ ok: false, sq: 'e5' });
+    usePlay.setState({ quiz: q });
+    usePlay.getState().skipQuiz();
+    expect(usePlay.getState().quiz).toBeNull();
+    const stored = usePlay.getState().game!.quiz;
+    expect(stored).toEqual([{ kind: 'threat', ok: true }, { kind: 'threat', ok: false }, { kind: 'threat', ok: false, skipped: true }]);
+    expect(quizLine(stored)).toBe('Questions: 1 of 3 right');
+    expect(quizLine(undefined)).toBeNull();
+    usePlay.setState({ game: null, quiz: null, phase: 'setup' });
+  });
+});

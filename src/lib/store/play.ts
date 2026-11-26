@@ -25,6 +25,8 @@ import { bookDepth, bookMove, castleWeight, openingTemperature } from '../people
 import { quirkById, quirkEffects, typeOpening, TYPE_TUNING, type QuirkCtx } from '../playerTypes';
 import { keepsQuiet, timedQuiet } from '../people/quiet';
 import { newStrangerSeed, strangerFor, type Stranger } from '../people/stranger';
+import { samLine } from '../coach/samExplain';
+import { pickQuestion, quizAllowed, quizRight, type Question } from '../coach/quiz';
 
 /** How long pairing takes (ms). */
 const PAIRING_MS = [1200, 1900];
@@ -108,6 +110,10 @@ interface PlayStore {
   drawDeclined: number | null;
   /** Quick match (round 7): "Finding an opponent…" for a moment, then a game against someone new. */
   pairing: { tc: string; at: number } | null;
+  /** Play Coach's quick question (round 7): taps on the board answer it; then the result shows until your move. */
+  quiz: (Question & { result?: { ok: boolean; sq: string } }) | null;
+  answerQuiz(sq: string): void;
+  skipQuiz(): void;
   quickMatch(tc: string, color: Color): Promise<void>;
   cancelPairing(): void;
   /** Start over: very short games are discarded, longer ones count as resigned. */
@@ -588,6 +594,22 @@ export const usePlay = create<PlayStore>((set, get) => {
         const recent = !!lastNote && g.plies.length - lastNote.ply <= 6;
         if (note.level === 'check' || note.level === 'pawn' || (note.level !== 'mate' && recent)) note = null;
       }
+      if (g.coach) {
+        // Play Coach (round 7): Sam explains his own move in one line, and now and then asks a quick
+        // question you answer by tapping the board. "Only when it matters": threats only, no questions.
+        const ga2 = get().game!;
+        const full = g.coachLevel === 'full';
+        const yourMoves = ga2.plies.filter((p) => p.isUser).length;
+        const q = full && quizAllowed({ yourMoves, lastAt: ga2.quizAt, busy: !!get().precheck }) ? pickQuestion({ fenBefore: fen, samUci: uci, fenAfter: r.fen, you: g.userColor }) : null;
+        const lastUser = [...ga2.plies].reverse().find((p) => p.isUser)?.uci;
+        const line = samLine(fen, uci, { threatsOnly: !full, hideThreat: q?.kind === 'threat', lastUci: lastUser });
+        // The board's threat arrows would give a question's answer away.
+        set({ phase: 'userTurn', botNote: q ? null : note, quiz: q });
+        if (q) update((gg) => void (gg.quizAt = yourMoves));
+        if (line) post({ kind: 'sam', text: [line.text], mood: line.kind === 'threat' ? 'concerned' : 'happy' });
+        prefetch();
+        return;
+      }
       set({ phase: 'userTurn', botNote: note });
       if (note) post({ kind: 'note', text: [note.text], mood: 'concerned' });
       prefetch();
@@ -641,6 +663,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     lowTime: false,
     drawDeclined: null,
     pairing: null,
+    quiz: null,
     intro: null,
     endIntro() {
       set({ intro: null });
@@ -677,7 +700,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       token++;
       // A coached game's clock was paused while the app was closed; Match conditions kept running.
       if (saved.clock && !saved.match) saved.clock = { ...saved.clock, turnStart: Date.now() };
-      set({ game: saved, over: null, ending: null, hint: null, message: null, comment: null, lowTime: false });
+      set({ game: saved, over: null, ending: null, hint: null, message: null, comment: null, lowTime: false, quiz: null });
       if (saved.clock) startTicker();
       const last = saved.plies[saved.plies.length - 1];
       const lastUser = [...saved.plies].reverse().findIndex((p) => p.isUser);
@@ -731,7 +754,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       };
       lastBestTag = -99;
       endVerdictText = null;
-      set({ game, over: null, ending: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: Date.now(), lowTime: false });
+      set({ game, over: null, ending: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: Date.now(), lowTime: false, quiz: null });
       awayAt = null;
       if (game.clock) startTicker();
       useCelebrate.getState().setMuted(false);
@@ -758,12 +781,15 @@ export const usePlay = create<PlayStore>((set, get) => {
     },
 
     userMove(m, force = false) {
-      const { game, phase } = get();
+      const { game, phase, quiz } = get();
       if (!game || phase !== 'userTurn') return false;
+      // A quick question waiting for its answer: the board takes taps for it, not moves.
+      if (quiz && !quiz.result) return false;
       const fen = currentFen(game);
       if (turnOf(fen) !== game.userColor) return false;
       const r = tryMove(fen, m);
       if (!r) return false;
+      if (quiz) set({ quiz: null });
       if (!force && aidsOf(game).precheck) {
         const check = preMoveCheck(fen, r.move.lan);
         if (check) {
@@ -843,6 +869,8 @@ export const usePlay = create<PlayStore>((set, get) => {
       token++;
       getEngine().cancelAll('play');
       const undone = g.plies[lastUserIdx];
+      // A question about the position that's gone goes with it.
+      if (get().quiz) set({ quiz: null });
       update((gg) => {
         gg.plies = gg.plies.slice(0, lastUserIdx);
         gg.takebacks++;
@@ -944,6 +972,22 @@ export const usePlay = create<PlayStore>((set, get) => {
       get().newGame(color, stranger.rating, undefined, undefined, { match: true, timeControl: tc, stranger });
     },
 
+    answerQuiz(sq) {
+      const q = get().quiz;
+      if (!q || q.result) return;
+      const ok = quizRight(q, sq);
+      playSound(ok ? 'notify' : 'illegal');
+      set({ quiz: { ...q, result: { ok, sq } } });
+      update((gg) => void (gg.quiz = [...(gg.quiz ?? []), { kind: q.kind, ok }]));
+    },
+
+    skipQuiz() {
+      const q = get().quiz;
+      if (!q) return;
+      set({ quiz: null });
+      if (!q.result) update((gg) => void (gg.quiz = [...(gg.quiz ?? []), { kind: q.kind, ok: false, skipped: true }]));
+    },
+
     cancelPairing() {
       set({ pairing: null });
     },
@@ -975,7 +1019,7 @@ export const usePlay = create<PlayStore>((set, get) => {
     leaveGame() {
       token++;
       getEngine().cancelAll('play');
-      set({ game: null, phase: 'setup', over: null, ending: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: null });
+      set({ game: null, phase: 'setup', over: null, ending: null, comment: null, hint: null, message: null, threat: null, botNote: null, chat: null, precheck: null, rewards: null, flash: null, away: false, intro: null, quiz: null });
       useCelebrate.getState().setMuted(false);
     },
   };
