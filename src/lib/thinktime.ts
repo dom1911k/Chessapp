@@ -92,6 +92,8 @@ export const THINK = {
   incUse: [[200, 1], [400, 0], [600, 0.7], [800, 0.8], [1000, 1.4], [1400, 1.4]] as Curve,
   /** In the first 10 moves people use less of it (they play the opening fast and bank the time). */
   incOpening: 0.5,
+  /** The time cap allows this many increments on top of a share of the clock left. */
+  incCap: 1.2,
   /**
    * Time controls other than 10+0: the think is stretched by (budget / budget at 10+0)^k, k by
    * rating (fitted to chess.com games at 3+2, 5+0, 15+10 and 30+0), times `openingK` in the first
@@ -234,7 +236,9 @@ export function botThinkMs(o: ThinkInput, rng: () => number = Math.random): numb
   const forgot = pressure > 0 && rng() < lerp(THINK.forgetChance, o.elo) * (o.forget ?? 1);
   const thinkLeft = forgot ? Math.max(left, pressureStart(base)) : left;
   if (forgot) pressure = 0;
-  const cap = Math.min(THINK.maxMs, thinkLeft * THINK.maxShare * (1 - 0.5 * pressure));
+  // With an increment people treat it as theirs to spend, even when that's more than the clock
+  // holds right now (that's how 3+2 games are lost on time).
+  const cap = Math.min(THINK.maxMs, thinkLeft * THINK.maxShare * (1 - 0.5 * pressure) + inc * THINK.incCap);
   const floor = left < 15_000 ? THINK.floorMs - 80 : THINK.floorMs;
   // Below 10 s with no increment only hand speed is left: the cap no longer keeps the flag up.
   const hands = !inc && left < THINK.handMs;

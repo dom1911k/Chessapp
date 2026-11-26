@@ -79,7 +79,8 @@ describe('bot think time', () => {
   it('stays within bounds', () => {
     for (const x of sample({ ...mid, second: -400, leftMs: 900_000, tc: '1800+0' })) expect(x).toBeLessThanOrEqual(THINK.maxMs);
     // With an increment the cap still holds when the clock is low.
-    for (const x of sample({ ...mid, leftMs: 5000, tc: '180+2', forget: 0 })) expect(x).toBeLessThanOrEqual(5000 * THINK.maxShare);
+    // With an increment the cap is a share of the clock plus the increment (people spend it).
+    for (const x of sample({ ...mid, leftMs: 5000, tc: '180+2', forget: 0 })) expect(x).toBeLessThanOrEqual(5000 * THINK.maxShare + 2000 * THINK.incCap + 1);
     for (const x of sample({ ...mid, book: true, tc: '180+2', leftMs: 180_000 })) expect(x).toBeGreaterThanOrEqual(THINK.floorMs);
   });
 });
@@ -138,8 +139,11 @@ describe('think time across time controls (round 7)', () => {
     expect(avg(sample({ ...low, elo: 400 }))).toBeGreaterThan(avg(sample({ ...low, elo: 2000 })));
     // At 1.5 s left a beginner's normal move can take longer than the clock has: the flag can fall.
     expect(sample({ ...low, elo: 500, leftMs: 1500 }).some((x) => x > 1500)).toBe(true);
-    // With an increment the old cap still applies.
-    expect(Math.max(...sample({ ...low, tc: '300+2' }))).toBeLessThanOrEqual(4000 * THINK.maxShare);
+    // With an increment there's no hand-speed floor, but the cap includes the increment: a player
+    // low on time can still take longer than the clock holds and lose on time (3+2 games).
+    const inc = sample({ ...low, tc: '180+2', leftMs: 2000 });
+    expect(Math.max(...inc)).toBeLessThanOrEqual(2000 * THINK.maxShare + 2000 * THINK.incCap + 1);
+    expect(inc.some((x) => x > 2000)).toBe(true);
   });
 
   it('increment use by rating (fitted to 15+10): about none at 400, most of it at 600, more than all of it from 1000; half in the opening', () => {
