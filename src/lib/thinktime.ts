@@ -89,7 +89,7 @@ export const THINK = {
    * finish with 90% of their clock), at 100–300 and 500–900 they spend most of it, and from 1000
    * they think longer than the whole increment.
    */
-  incUse: [[200, 1], [400, 0], [600, 0.7], [800, 0.8], [1000, 1.4], [1400, 1.4]] as Curve,
+  incUse: [[200, 1], [400, 0], [600, 0.7], [800, 0.8], [1000, 1.8], [1400, 1.4]] as Curve,
   /** In the first 10 moves people use less of it (they play the opening fast and bank the time). */
   incOpening: 0.5,
   /** The time cap allows this many increments on top of a share of the clock left. */
