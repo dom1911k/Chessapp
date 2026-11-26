@@ -24,7 +24,7 @@ import { shouldResign } from '../../src/lib/resign.ts';
 import { povScore, scoreToCp } from '../../src/lib/chess/evaluation.ts';
 import { opponentById, typesFor } from '../../src/lib/people/index.ts';
 import { bookDepth, bookMove, castleWeight, openingTemperature, OPENING_CASTLE, OPENING_TEMP } from '../../src/lib/people/openings.ts';
-import { quirkById, quirkEffects, typeOpening, TYPE_TUNING, type QuirkCtx } from '../../src/lib/playerTypes.ts';
+import { netLoss, quirkById, quirkEffects, typeOpening, TYPE_TUNING, type QuirkCtx } from '../../src/lib/playerTypes.ts';
 import { drawForm } from '../../src/lib/form.ts';
 import { strangerFor } from '../../src/lib/people/stranger.ts';
 import { material } from '../../src/cups/material.ts';
@@ -167,7 +167,8 @@ for (let g = 0; g < games; g++) {
     // Tilter: each own move counts it down; losing material to the other side's move sets it off
     // (for the other side this move is "your move", as in a game against you).
     if ((state[side].tilt ?? 0) > 0) state[side].tilt--;
-    const oppLost = bal(fen, opp) - bal(c.fen(), opp);
+    // Net over the exchange, as in the app: from before the other side's own last move.
+    const oppLost = netLoss(fens.at(-3) ?? fen, c.fen(), opp);
     if (oppLost > 0)
       for (const id of types[opp]) {
         const ch = quirkById(id)?.afterUserMove?.({ ...ctx, bot: opp, me: side }, oppLost);

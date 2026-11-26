@@ -264,6 +264,33 @@ describe('round 7 · 2.1 player types for the characters', async () => {
     expect(quirkEffects(['turtle', 'endgameGrinder'], ctx).resign).toBe('stubborn');
     expect(quirkEffects(['timeTrouble'], ctx).pressure).toBeGreaterThan(1);
   });
+  it('Gambiteer in real games: the gambit comes in half the games (Cups: always)', () => {
+    const g = quirkById('gambiteer')!;
+    const fen = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
+    const ctx = { fen, sans: ['e4', 'e5'], moveNo: 2, bot: 'w' as const, me: 'b' as const, botLeftMs: 600_000, state: {}, fromStart: true };
+    expect(g.opening!({ ...ctx, plan: TYPE_TUNING.gambiteer.realPlanChance - 0.01 }, () => 0)).toBe('f2f4');
+    expect(g.opening!({ ...ctx, plan: TYPE_TUNING.gambiteer.realPlanChance + 0.01 }, () => 0)).toBeNull();
+    expect(g.opening!(ctx, () => 0)).toBe('f2f4');
+  });
+  it('Tilter in real games: an even trade or a pawn does not set it off; a piece does', async () => {
+    const { materialEdge, netLoss } = await import('../lib/playerTypes');
+    // Black (the bot) took your knight with its bishop and you took back: even over the exchange.
+    const beforeBot = 'r1bqk1nr/pppp1ppp/2n5/4p3/1b2P3/2N2N2/PPPP1PPP/R1BQKB1R b KQkq - 0 4';
+    const afterTrade = 'r1bqk1nr/pppp1ppp/2n5/4p3/4P3/2P2N2/PPP2PPP/R1BQKB1R b KQkq - 0 5';
+    expect(materialEdge(beforeBot, 'b')).toBe(0);
+    expect(netLoss(beforeBot, afterTrade, 'b')).toBe(0);
+    // Its knight simply taken: three points lost; a knight for a pawn: two.
+    const pieceDown = 'r1bqk1nr/pppp1ppp/8/4p3/1b2P3/2N2N2/PPPP1PPP/R1BQKB1R b KQkq - 0 5';
+    expect(materialEdge(pieceDown, 'b')).toBe(-3);
+    expect(netLoss(beforeBot, pieceDown, 'b')).toBe(3);
+    expect(netLoss('r1bqkb1r/pppp1ppp/2n2n2/4p3/3PP3/2N5/PPP2PPP/R1BQKBNR b KQkq - 0 4', 'r1bqkb1r/pppp1ppp/2n5/4p3/3PN3/8/PPP2PPP/R1BQKBNR b KQkq - 0 5', 'b')).toBe(2);
+    const tilter = quirkById('tilter')!;
+    const real = { fen: afterTrade, sans: [], moveNo: 5, bot: 'b' as const, me: 'w' as const, botLeftMs: 600_000, state: {}, fromStart: true, plan: 0.5 };
+    expect(tilter.afterUserMove!(real, 1)).toBeNull();
+    expect(tilter.afterUserMove!(real, 3)).toEqual({ tilt: TYPE_TUNING.tilter.moves });
+    // Cups keep their rule: any material your move takes.
+    expect(tilter.afterUserMove!({ ...real, plan: undefined }, 1)).toEqual({ tilt: TYPE_TUNING.tilter.moves });
+  });
 });
 
 describe('round 7 · 2.3 good days and bad days', async () => {

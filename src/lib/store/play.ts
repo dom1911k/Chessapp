@@ -22,7 +22,7 @@ import { playSound } from '../sound';
 import { sfxCls } from '../sfx';
 import { opponentById, pickLine, typesFor, wantsSummaryLine, type ChatEvent, type Mood } from '../people';
 import { bookDepth, bookMove, castleWeight, openingTemperature } from '../people/openings';
-import { quirkById, quirkEffects, typeOpening, TYPE_TUNING, type QuirkCtx } from '../playerTypes';
+import { netLoss, quirkById, quirkEffects, typeOpening, TYPE_TUNING, type QuirkCtx } from '../playerTypes';
 import { keepsQuiet, timedQuiet } from '../people/quiet';
 import { newStrangerSeed, strangerFor, type Stranger } from '../people/stranger';
 import { samLine } from '../coach/samExplain';
@@ -135,6 +135,8 @@ let token = 0;
 /** The help that's on for this game (coach level, or nothing in Match conditions). */
 const aidsOf = (g: SavedGame | null) => aidsFor({ ...useSettings.getState() }, g ?? undefined);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Whether a real game's types go for their opening plans: one draw per game in [0, 1), from its start time. */
+const planDraw = (startedAt: number) => (((startedAt % 233280) * 9301 + 49297) % 233280) / 233280;
 
 export function currentFen(g: SavedGame | null): string {
   return g?.plies.length ? g.plies[g.plies.length - 1].fenAfter : (g?.startFen ?? START_FEN);
@@ -475,8 +477,7 @@ export const usePlay = create<PlayStore>((set, get) => {
         state: g.qstate ?? {},
         lastUserUci: [...g.plies].reverse().find((p) => p.isUser)?.uci,
         fromStart: g.startFen === START_FEN,
-        // Whether its types go for their opening plans this game: one draw per game (from its start time).
-        plan: (((g.startedAt % 233280) * 9301 + 49297) % 233280) / 233280,
+        plan: planDraw(g.startedAt),
       };
       // Openings: the types' plans first (a gambit, a trap line, the early queen), then the book: a
       // stand-in's lines, or the character's own (below 1200 only the first few moves of it).
@@ -807,12 +808,14 @@ export const usePlay = create<PlayStore>((set, get) => {
       reactToUserMove(fen, r.fen, r.move);
       // Making a move declines the bot's draw offer (as on chess.com).
       if (get().game?.draws?.pending === 'bot') update((gg) => void (gg.draws = { ...gg.draws, pending: undefined }));
-      // Types that react to your move (Tilter: it just lost material).
-      const lost = r.move.captured ? VALUE[r.move.captured as PieceType] : 0;
+      // Types that react to your move (Tilter: it just lost material, net over the exchange).
       const tg = get().game!;
+      const bot = other(tg.userColor);
+      const botLast = tg.plies.slice(0, -1).reverse().find((p) => !p.isUser);
+      const lost = netLoss(botLast?.fenBefore ?? fen, r.fen, bot);
       if (lost > 0 && tg.types?.length)
         for (const id of tg.types) {
-          const change = quirkById(id)?.afterUserMove?.({ fen: r.fen, sans: tg.plies.map((p) => p.san), moveNo: Math.floor(tg.plies.length / 2) + 1, bot: other(tg.userColor), me: tg.userColor, botLeftMs: Infinity, state: tg.qstate ?? {}, fromStart: tg.startFen === START_FEN }, lost);
+          const change = quirkById(id)?.afterUserMove?.({ fen: r.fen, sans: tg.plies.map((p) => p.san), moveNo: Math.floor(tg.plies.length / 2) + 1, bot, me: tg.userColor, botLeftMs: Infinity, state: tg.qstate ?? {}, fromStart: tg.startFen === START_FEN, plan: planDraw(tg.startedAt) }, lost);
           if (change) update((gg) => void (gg.qstate = { ...gg.qstate, ...change }));
         }
       set({ hint: null, message: null, threat: null, botNote: null });

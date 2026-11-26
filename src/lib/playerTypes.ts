@@ -16,15 +16,15 @@ import { TRAPS } from './traps';
 export const TYPE_TUNING = {
   speedster: { think: 0.5, temp: 0.1, pressure: 1.8 },
   timeTrouble: { openingMoves: 12, think: 2.6, lowMs: 60_000, lowTemp: 0.6, pressure: 1.4, forget: 3 },
-  gambiteer: { offerMaxMove: 6, openingMoves: 12, openingElo: 0 },
+  gambiteer: { offerMaxMove: 6, openingMoves: 12, openingElo: 0, realPlanChance: 0.5 },
   earlyQueen: { untilMove: 10, weight: 5, oppo: -60, realPlanChance: 0.3, realWeight: 1.5 },
-  turtle: { tradeWeight: 2.2, checkWeight: 0.6, temp: -0.15, realTemp: 0, think: 1.2 },
-  tilter: { moves: 6, elo: -120, realElo: -60, think: 0.6 },
+  turtle: { tradeWeight: 2.2, realTradeWeight: 1.5, checkWeight: 0.6, temp: -0.15, realTemp: 0, think: 1.2 },
+  tilter: { moves: 6, elo: -120, realElo: -60, think: 0.6, realMinLoss: 2 },
   comebackKid: { belowCp: -150, elo: 150 },
   slowStarter: { moves: 12, openingElo: -40, laterElo: 60 },
   fastStarter: { moves: 12, openingElo: 200, laterElo: -100, think: 0.7 },
   endgameGrinder: { evenCp: 80, tradeWeight: 2.5, queenTradeWeight: 4, queensOffElo: 100, realQueensOffElo: 50 },
-  pawnStormer: { fromMove: 6, weight: 3, realWeight: 2 },
+  pawnStormer: { fromMove: 6, weight: 3, realWeight: 1.4 },
   pawnGrabber: { weight: 4 },
   copycat: { untilMove: 4, weight: 100 },
   uncastled: { untilMove: 18, castleWeight: 0.15, noticeAtMove: 12 },
@@ -90,7 +90,11 @@ export interface Quirk {
   opening?(c: QuirkCtx, rand: () => number): string | null;
   /** Did this quirk visibly act with the move just played? */
   acted?(c: QuirkCtx, m: Move, fromOpening: boolean): boolean;
-  /** After your move: change the quirk's counters (e.g. you just won material from it). */
+  /**
+   * After your move: change the quirk's counters (e.g. you just won material from it).
+   * `botMaterialLost`: in real games what it lost net since before its own last move (an even
+   * trade loses nothing, see `netLoss`); in Cups what your move took.
+   */
   afterUserMove?(c: QuirkCtx, botMaterialLost: number): Record<string, number> | null;
 }
 
@@ -109,6 +113,19 @@ export function lineMove(lines: string[][], sans: string[], fen: string, rand: (
 
 const isTrade = (m: Move) => !!m.captured && VAL[m.captured] === VAL[m.piece] && m.piece !== 'p';
 const queensOff = (fen: string) => !/q/i.test(fen.split(' ')[0]);
+
+/** Material of `color` minus the other side's (pawn 1, knight and bishop 3, rook 5, queen 9). */
+export function materialEdge(fen: string, color: Color): number {
+  let edge = 0;
+  for (const ch of fen.split(' ')[0]) {
+    const v = VAL[ch.toLowerCase()];
+    if (v) edge += (ch === ch.toLowerCase() ? 'b' : 'w') === color ? v : -v;
+  }
+  return edge;
+}
+
+/** What `bot` lost net from `before` (the position before its own last move) to `now`: 0 after an even trade. */
+export const netLoss = (before: string, now: string, bot: Color) => Math.max(0, materialEdge(before, bot) - materialEdge(now, bot));
 const kingFile = (fen: string, color: Color) => {
   const c = new Chess(fen);
   for (const row of c.board()) for (const sq of row) if (sq && sq.type === 'k' && sq.color === color) return sq.square[0];
@@ -169,7 +186,8 @@ export const QUIRKS: Quirk[] = [
     id: 'gambiteer', name: 'Gambiteer', glyph: 'dice', act: 'Gambiteer: offers a pawn',
     text: 'Opens with a gambit and gives up a pawn for quick play.',
     type: 'Opens with gambits and gives up a pawn for quick play; after that, an ordinary player.',
-    opening: (c, r) => (c.fromStart ? lineMove(GAMBITS[c.bot], c.sans, c.fen, r) : null),
+    // In real games the gambit is part of half the games (every game made it sloppier than people).
+    opening: (c, r) => (c.fromStart && goesForPlan(c, Q.gambiteer.realPlanChance) ? lineMove(GAMBITS[c.bot], c.sans, c.fen, r) : null),
     elo: (c) => (opening(c, Q.gambiteer.openingMoves) ? Q.gambiteer.openingElo : 0),
     acted: (c, m, fromOpening) => fromOpening && m.piece === 'p' && c.moveNo <= Q.gambiteer.offerMaxMove && GAMBITS[c.bot].some((l) => l.length === c.sans.length + 1 && l[c.sans.length] === m.san),
   },
@@ -195,10 +213,11 @@ export const QUIRKS: Quirk[] = [
     id: 'turtle', name: 'Turtle', glyph: 'shield', act: 'Turtle: offers a trade',
     text: 'Plays solid, likes even trades and is happy with a draw.',
     type: 'Solid and careful, trades whenever it can and never resigns — it will play on hoping for stalemate.',
-    // In real games the Turtle plays at its rating's usual temperature (cooler made it too clean).
+    // In real games the Turtle plays at its rating's usual temperature and trades a little less
+    // eagerly (both made it cleaner than people at its rating).
     temp: (c) => (real(c) ? Q.turtle.realTemp : Q.turtle.temp),
     think: () => Q.turtle.think,
-    weight: (_c, m) => (isTrade(m) ? Q.turtle.tradeWeight : m.san.includes('+') ? Q.turtle.checkWeight : 1),
+    weight: (c, m) => (isTrade(m) ? (real(c) ? Q.turtle.realTradeWeight : Q.turtle.tradeWeight) : m.san.includes('+') ? Q.turtle.checkWeight : 1),
     resign: 'stubborn',
     acted: (_c, m) => isTrade(m),
   },
@@ -208,7 +227,8 @@ export const QUIRKS: Quirk[] = [
     type: 'Fine until it loses material — then it plays fast and badly for a few moves, and resigns early when it is lost.',
     elo: (c) => ((c.state.tilt ?? 0) > 0 ? (real(c) ? Q.tilter.realElo : Q.tilter.elo) : 0),
     think: (c) => ((c.state.tilt ?? 0) > 0 ? Q.tilter.think : 1),
-    afterUserMove: (_c, lost) => (lost > 0 ? { tilt: Q.tilter.moves } : null),
+    // In real games it takes a real loss to set it off (a piece, the exchange or two pawns), not a pawn.
+    afterUserMove: (c, lost) => (lost >= (real(c) ? Q.tilter.realMinLoss : 1) ? { tilt: Q.tilter.moves } : null),
     resign: 'proud',
   },
   {
