@@ -4,7 +4,7 @@
 // "board": an iso chessboard ground (grass, stone, sand…) with 20 level tiles zig-zagging up it,
 // props beside the path (seeded, so the world never changes), clouds at the border and the next
 // board beyond. Pure: it builds SVG markup strings from the path state; <PathWorld> mounts them.
-// API: ISO.build(width, { b, lvl, w0, w1, mt, uid, span }) → { html, G, … }; ISO.cell(w, i);
+// API: ISO.build(width, { b, lvl, w0, w1, mt, uid, span, avatar, ring }) → { html, G, … }; ISO.cell(w, i);
 // ISO.sp(G, gx, gy); ISO.geom; ISO.tileSVG; ISO.pawnSVG; ISO.badge; ISO.defs; ISO.TH; ISO.CELLS.
 const ISO={};
 (()=>{
@@ -182,7 +182,7 @@ function cloud(x,y,s,r,w){/* a soft cumulus: rows of shaded puffs (each a little
 /* build: worlds [w0..w1] (inclusive), state {b (current world), lvl (current level index 0..19)} */
 const SYMK=new Set(["tree","apple","cypress","bush","bush2","bushS","rock","rockS","rockI","obsidian","pine","pineS","cactus","palm","crystal","crystalP","spike","mushroom","column","goldTree","flowers","flowersW","flowersG"]);
 const hs=t=>{let h=7;for(const c of t)h=(h*31+c.charCodeAt(0))>>>0;return h;};
-ISO.build=(W,opt)=>{const G=geom(W,opt.span||8.6),cur=opt.b,lvl=opt.lvl,w0=opt.w0??0,w1=opt.w1??7,mt=opt.mt??90,U=G.uid=(opt.uid||"w")+"x";
+ISO.build=(W,opt)=>{const G=geom(W,opt.span||8.6),cur=opt.b,lvl=opt.lvl,w0=opt.w0??0,w1=opt.w1??7,mt=opt.mt??90,U=G.uid=(opt.uid||"w")+"x";G.avatar=opt.avatar||"";G.ring=opt.ring||"";
  const SYM=new Map(),useP=(kind,v)=>{const key=kind+v;if(!SYM.has(key))SYM.set(key,PROPS[kind](G,rng(hs(kind)+v*977)));return `<use href="#${U}_p_${key}"/>`;};
  const first=ISO.cell(w0,0),last=ISO.cell(w1,19),sMin=first.gx+first.gy-3,sMax=last.gx+last.gy+(w1<7?9:5);
  G.Y0=mt+sMax*G.sy;const H=Math.ceil(G.Y0-sMin*G.sy+30);G.H=H;
@@ -226,7 +226,12 @@ ISO.build=(W,opt)=>{const G=geom(W,opt.span||8.6),cur=opt.b,lvl=opt.lvl,w0=opt.w
 function pawnSVG(G){const S=G.sx*1.06,r=rng(777),P=["#2f7a17","#68ba36","#92d758","#e4fbb4","#4f9c28"],rb=S*.042;
  const body=[];for(let k=0;k<=9;k++){const t=k/9,y=-S*(.2+t*.5),x=S*(.24-.13*Math.pow(t,.75));body.push([x,y]);}for(let k=9;k>=0;k--){const t=k/9,y=-S*(.2+t*.5),x=S*(.24-.13*Math.pow(t,.75));body.push([-x,y]);}
  return `<g class="pb">`+leafMass(wob(0,-S*.12,S*.35,S*.135,22,r,.03),r,P,rb,1)+leafMass(body,r,P,rb*.9,1)+leafMass(wob(0,-S*.73,S*.2,S*.07,16,r,.02),r,P,rb*.8,0)+leafMass(wob(0,-S*.97,S*.21,S*.2,22,r,.02),r,P,rb,1)+`<ellipse cx="${f1(-S*.07)}" cy="${f1(-S*1.06)}" rx="${f1(S*.06)}" ry="${f1(S*.035)}" fill="#fff" opacity=".35" transform="rotate(-30 ${f1(-S*.07)} ${f1(-S*1.06)})"/></g>`;}
-function tagSVG(G){const S=G.sx*1.02,z=S*.36,y=-S*1.5;return `<g class="ptag" transform="translate(${f1(S*.56)},${f1(y)})"><g class="tb"><path d="M${f1(-S*.06)},${f1(z*.5-1)} L0,${f1(z*.5+S*.07)} L${f1(S*.06)},${f1(z*.5-1)} Z" fill="#fff"/><rect x="${f1(-z/2-2)}" y="${f1(-z/2-2)}" width="${f1(z+4)}" height="${f1(z+4)}" rx="3" fill="#fff"/><rect x="${f1(-z/2)}" y="${f1(-z/2)}" width="${f1(z)}" height="${f1(z)}" rx="2" fill="#5d7f9e"/><circle cx="0" cy="${f1(-z*.1)}" r="${f1(z*.2)}" fill="#e9eef2"/><path d="M${f1(-z*.36)},${f1(z/2)} Q${f1(-z*.34)},${f1(z*.14)} 0,${f1(z*.14)} Q${f1(z*.34)},${f1(z*.14)} ${f1(z*.36)},${f1(z/2)} Z" fill="#e9eef2"/></g></g>`;}
+/* your marker over the pawn: your avatar in a rounded square (white border, or your frame's colour) with a pointer,
+   centred above the topiary's head, its tip 4px above it. The grey silhouette only when there's no avatar. */
+function tagSVG(G){const S=G.sx*1.02,k=1.3,z=S*.36*k,b=2*k,pl=S*.07*k,pw=S*.06*k,top=-G.sx*1.06*1.21,cy=top-4-pl-z/2-b,bc=G.ring||"#fff",id=`${G.uid}tagc`;
+ const face=G.avatar?`<clipPath id="${id}"><rect x="${f1(-z/2)}" y="${f1(-z/2)}" width="${f1(z)}" height="${f1(z)}" rx="${f1(2*k)}"/></clipPath><rect x="${f1(-z/2)}" y="${f1(-z/2)}" width="${f1(z)}" height="${f1(z)}" rx="${f1(2*k)}" fill="#5d7f9e"/><image href="${G.avatar}" x="${f1(-z/2)}" y="${f1(-z/2)}" width="${f1(z)}" height="${f1(z)}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id})"/>`
+  :`<rect x="${f1(-z/2)}" y="${f1(-z/2)}" width="${f1(z)}" height="${f1(z)}" rx="${f1(2*k)}" fill="#5d7f9e"/><circle cx="0" cy="${f1(-z*.1)}" r="${f1(z*.2)}" fill="#e9eef2"/><path d="M${f1(-z*.36)},${f1(z/2)} Q${f1(-z*.34)},${f1(z*.14)} 0,${f1(z*.14)} Q${f1(z*.34)},${f1(z*.14)} ${f1(z*.36)},${f1(z/2)} Z" fill="#e9eef2"/>`;
+ return `<g class="ptag" data-avatar="${G.avatar?1:0}" transform="translate(0,${f1(cy)})"><g class="tb"><path d="M${f1(-pw)},${f1(z/2+b-1)} L0,${f1(z/2+b+pl)} L${f1(pw)},${f1(z/2+b-1)} Z" fill="${bc}"/><rect x="${f1(-z/2-b)}" y="${f1(-z/2-b)}" width="${f1(z+2*b)}" height="${f1(z+2*b)}" rx="${f1(3*k)}" fill="${bc}"/>${face}</g></g>`;}
 ISO.pawnSVG=pawnSVG;ISO.defs=defs;
 function defs(){return `<radialGradient id="cldB" cx=".36" cy=".28" r=".8"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f6fafc"/><stop offset=".78" stop-color="#dbe9f0"/><stop offset="1" stop-color="#bdd4df"/></radialGradient><radialGradient id="shG"><stop offset="0" stop-color="#000" stop-opacity=".42"/><stop offset=".6" stop-color="#000" stop-opacity=".2"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient><linearGradient id="hedgeTop" x1="0" y1="0" x2=".7" y2="1"><stop offset="0" stop-color="#8fd04e"/><stop offset="1" stop-color="#5fae2e"/></linearGradient><linearGradient id="hedgeSide" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f9a24"/><stop offset="1" stop-color="#3a7a18"/></linearGradient><linearGradient id="pwB" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9ee35e"/><stop offset=".45" stop-color="#6fc23a"/><stop offset="1" stop-color="#3f8a1c"/></linearGradient><linearGradient id="pwC" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b5ec7c"/><stop offset="1" stop-color="#4f9a24"/></linearGradient><radialGradient id="pwH" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#c8f593"/><stop offset=".5" stop-color="#78c840"/><stop offset="1" stop-color="#3f8a1c"/></radialGradient>`;}
 })();

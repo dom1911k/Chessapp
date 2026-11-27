@@ -11,7 +11,7 @@ import { CONFETTI, emit } from '../lib/fx';
 import { sfx } from '../lib/sfx';
 import { BOARD_FACTORS, SETTING_MULT, boardName, getPathState, levelAt, markPathSeen, round5, type PathState } from '../lib/puzzles/path';
 import { usePathUi } from '../lib/puzzles/pathUi';
-import { buildScene, cellPoint, walkTiles, type Scene, type WPos } from '../lib/puzzles/walk';
+import { buildScene, cellPoint, pathTag, walkTiles, type Scene, type WPos } from '../lib/puzzles/walk';
 import { ISO } from '../lib/puzzles/world';
 import { useSettings } from '../lib/settings';
 
@@ -32,7 +32,7 @@ export function PuzzlePathScreen() {
     const a = wposOf(at);
     const b = wposOf(to);
     const y = h.scrollTop;
-    const sc = buildScene(h, { b: a.i, lvl: a.l, w0: Math.max(0, a.i - 1), w1: Math.min(7, b.i + 2), mt: 120 }, 'pt');
+    const sc = buildScene(h, { b: a.i, lvl: a.l, w0: Math.max(0, a.i - 1), w1: Math.min(7, b.i + 2), mt: 120, ...pathTag() }, 'pt');
     scene.current = sc;
     const pp = cellPoint(sc, a);
     h.scrollTop = keepScroll ? y : pp.y - h.clientHeight * 0.6;

@@ -3,13 +3,18 @@
 // ahead shows; the pawn hops one tile per level (the tile left grows into a hedge). Then the board
 // dims behind the level badge: a white puzzle-piece silhouette pops, the badge brightens in its
 // place with a glow, a ring and slow rays, chips of the badge's material drift out, "You Completed
-// Level 4!". It stays until Next. Crossing a board parts its clouds and a new-board card follows.
+// Level 4!". It gets out of your way (round 8): a tap on the board or the panel closes it (even
+// mid-walk: the points are saved and the crest already shows the new level), and 1.2 s after the
+// level has popped it closes by itself. "See path" opens the Path. It ends at the dock's top edge,
+// so Again, Analyse and Next puzzle stay in reach. Crossing a board parts its clouds and a new-board
+// card follows when it closes.
 import { useEffect, useRef, useState } from 'react';
-import { BOUNCE, POP, SOFT, D, animate, buzz, reduced, sleep, token, tween } from '../../lib/motion';
+import { ChevronRight } from 'lucide-react';
+import { BOUNCE, POP, SOFT, D, animate, buzz, reduced, sleep, token, tween, type Token } from '../../lib/motion';
 import { CONFETTI, confettiRain, emit } from '../../lib/fx';
 import { sfx } from '../../lib/sfx';
 import { BOARD_FACTORS, boardName, levelAt, markPathSeen, round5 } from '../../lib/puzzles/path';
-import { buildScene, cellPoint, walkTiles, type WPos } from '../../lib/puzzles/walk';
+import { buildScene, cellPoint, pathTag, walkTiles, type WPos } from '../../lib/puzzles/walk';
 import { ISO } from '../../lib/puzzles/world';
 import { MAT, PathBadge, PZ } from './PathUI';
 
@@ -20,8 +25,37 @@ const wpos = (points: number): WPos => {
 };
 const rect = (el: Element) => el.getBoundingClientRect();
 
-export function LevelUpPanel({ from, to, board, instant, onOpenPath, onTierCard }: { from: number; to: number; board: HTMLElement; instant: boolean; onOpenPath?: () => void; onTierCard?: (b: number) => void }) {
+/** The panel's bottom: the dock's top edge, measured (the old fixed guess only when there's no dock). */
+function useDockTop(): string {
+  const [bottom, setBottom] = useState('calc(56px + env(safe-area-inset-bottom))');
+  useEffect(() => {
+    const docks = [...document.querySelectorAll<HTMLElement>('[data-dock]')];
+    const dock = docks[docks.length - 1];
+    if (!dock) return;
+    const upd = () => setBottom(`${Math.max(0, Math.round(innerHeight - dock.getBoundingClientRect().top))}px`);
+    upd();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(upd) : null;
+    ro?.observe(dock);
+    addEventListener('resize', upd);
+    return () => {
+      ro?.disconnect();
+      removeEventListener('resize', upd);
+    };
+  }, []);
+  return bottom;
+}
+
+export const LEVELUP_HOLD = 1200;
+
+/**
+ * `closing`: close now (a tap, Again or the timer): the overlay fades (160 ms), the panel slides
+ * down (240 ms), then `onClosed(board)` — with the new board's number when the walk crossed one.
+ */
+export function LevelUpPanel({ from, to, board, instant, closing, onClose, onClosed, onOpenPath }: { from: number; to: number; board: HTMLElement; instant: boolean; closing: boolean; onClose: () => void; onClosed: (tierBoard?: number) => void; onOpenPath?: () => void }) {
   const host = useRef<HTMLDivElement>(null);
+  const over = useRef<HTMLDivElement>(null);
+  const run = useRef<Token | null>(null);
+  const bottom = useDockTop();
   const dim = useRef<HTMLDivElement>(null);
   const sil = useRef<HTMLDivElement>(null);
   const badge = useRef<HTMLDivElement>(null);
@@ -37,13 +71,21 @@ export function LevelUpPanel({ from, to, board, instant, onOpenPath, onTierCard 
     const r = rect(board);
     setGeo({ top: r.bottom, bl: r.left, bt: r.top, bw: r.width });
   }, [board]);
+  // Closing: stop the walk where it is (it's only a picture) and get out of the way.
+  useEffect(() => {
+    if (!closing) return;
+    if (run.current) run.current.skip = true;
+    const crossed = b.i > a.i ? levelAt(to).board : undefined;
+    void Promise.all([animate(over.current, [{ opacity: 1 }, { opacity: 0 }], { d: 160 }), animate(host.current, [{ transform: 'translateY(0)' }, { transform: 'translateY(105%)' }], { ...SOFT, d: 240 })]).then(() => onClosed(crossed));
+  }, [closing]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!geo || !host.current) return;
     const tk = token();
+    run.current = tk;
     const h = host.current;
     const H = h.clientHeight;
     const start = instant ? b : a;
-    const sc = buildScene(h, { b: start.i, lvl: start.l, w0: start.i, w1: Math.min(7, Math.max(b.i, start.i) + 1), mt: 60 }, 'lv');
+    const sc = buildScene(h, { b: start.i, lvl: start.l, w0: start.i, w1: Math.min(7, Math.max(b.i, start.i) + 1), mt: 60, ...pathTag() }, 'lv');
     const pp = cellPoint(sc, start);
     let camY = H * 0.38 - pp.y;
     const put = () => (sc.inner.style.transform = `translateY(${camY.toFixed(1)}px)`);
@@ -86,7 +128,8 @@ export function LevelUpPanel({ from, to, board, instant, onOpenPath, onTierCard 
         put();
         await overlay(true);
         seen();
-        if (b.i > a.i) onTierCard?.(levelAt(to).board);
+        await sleep(LEVELUP_HOLD, tk);
+        if (!tk.skip) onClose();
         return;
       }
       void animate(h, [{ opacity: 0 }, { opacity: 1 }], { d: 260 });
@@ -108,7 +151,9 @@ export function LevelUpPanel({ from, to, board, instant, onOpenPath, onTierCard 
       if (tk.skip) return;
       await overlay(false);
       seen();
-      if (b.i > a.i) setTimeout(() => !tk.skip && onTierCard?.(levelAt(to).board), D(1500));
+      // The level has popped: a moment to take it in, then it closes by itself.
+      await sleep(LEVELUP_HOLD, tk);
+      if (!tk.skip) onClose();
     })();
     return () => {
       tk.skip = true;
@@ -119,7 +164,7 @@ export function LevelUpPanel({ from, to, board, instant, onOpenPath, onTierCard 
   return (
     <>
       {/* The board overlay */}
-      <div className="pointer-events-none fixed z-[60]" style={{ left: geo.bl, top: geo.bt, width: geo.bw, height: geo.bw }} data-testid="level-overlay">
+      <div ref={over} className="pointer-events-none fixed z-[60]" style={{ left: geo.bl, top: geo.bt, width: geo.bw, height: geo.bw }} data-testid="level-overlay">
         <div ref={dim} className="absolute inset-0 opacity-0" style={{ background: 'rgba(14,13,11,.72)' }} />
         <div ref={rays} className="absolute top-[46%] left-1/2 opacity-0" style={{ width: S * 0.8, height: S * 0.8, margin: `-${S * 0.4}px 0 0 -${S * 0.4}px`, borderRadius: '50%', background: 'repeating-conic-gradient(rgba(255,236,190,.16) 0 9deg,transparent 9deg 22.5deg)', WebkitMask: 'radial-gradient(circle,#000 18%,transparent 66%)', mask: 'radial-gradient(circle,#000 18%,transparent 66%)', animation: 'ppspin 16s linear infinite' }} />
         <div ref={glow} className="absolute top-[46%] left-1/2 opacity-0" style={{ width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,236,190,.55),rgba(255,236,190,0) 65%)' }} />
@@ -137,15 +182,24 @@ export function LevelUpPanel({ from, to, board, instant, onOpenPath, onTierCard 
         </div>
       </div>
       {/* The path panel under the board */}
-      <div
-        ref={host}
-        className="fixed inset-x-0 z-[55] overflow-hidden"
-        style={{ top: geo.top, bottom: 'calc(56px + env(safe-area-inset-bottom))', background: ISO.TH[a.i].g[0] }}
-        onClick={onOpenPath}
-        data-testid="level-panel"
-      >
+      <div ref={host} className="fixed inset-x-0 z-[55] overflow-hidden" style={{ top: geo.top, bottom, background: ISO.TH[a.i].g[0] }} onClick={onClose} data-testid="level-panel">
         <div className="isoIn absolute inset-x-0 top-0 will-change-transform" />
         <div className="wlight" />
+        {onOpenPath && (
+          // "See path ›": the way to the full Path (a 44px+ tap target around the pill; not a close tap).
+          <button
+            className="absolute top-0 right-0 z-10 flex h-[52px] items-start justify-end pt-[10px] pr-[10px] pl-4"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenPath();
+            }}
+            data-testid="levelup-seepath"
+          >
+            <span className="flex items-center gap-0.5 rounded-full py-1 pr-1.5 pl-2.5 text-[13px] font-bold text-white backdrop-blur-sm" style={{ background: 'rgba(20,30,15,.55)' }}>
+              See path <ChevronRight size={15} strokeWidth={2.6} />
+            </span>
+          </button>
+        )}
       </div>
     </>
   );
@@ -183,7 +237,7 @@ export function TierUpCard({ board, onClose, onOpenPath }: { board: number; onCl
     sfx('tierUp');
     // The window onto the new board: the pawn on tile 1, the old board's last hedges behind it.
     if (win.current) {
-      const sc = buildScene(win.current, { b: t, lvl: 0, w0: Math.max(0, t - 1), w1: Math.min(7, t + 1), mt: 40 }, 'tw');
+      const sc = buildScene(win.current, { b: t, lvl: 0, w0: Math.max(0, t - 1), w1: Math.min(7, t + 1), mt: 40, ...pathTag() }, 'tw');
       const p1 = cellPoint(sc, { i: t, l: 1 });
       sc.inner.style.transform = `translateY(${(win.current.clientHeight * 0.58 - p1.y).toFixed(1)}px)`;
     }

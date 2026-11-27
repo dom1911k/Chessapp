@@ -52,6 +52,11 @@ export const FRAMES: Frame[] = [
 ];
 
 export const frameById = (id: string) => FRAMES.find((f) => f.id === id) ?? FRAMES[0];
+/** A frame's middle colour (the pawn's tag on the Puzzle Path uses it for its border); '' for no frame. */
+export function frameMid(f: Frame): string {
+  const stops = f.ring.match(/#[0-9a-fA-F]{6}/g) ?? [];
+  return stops[Math.floor(stops.length / 2)] ?? '';
+}
 
 export interface Title {
   id: string;

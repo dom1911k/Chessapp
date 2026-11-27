@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 
 export function Dock({ children, sticky = false }: { children: ReactNode; /** Stick to the bottom of a scrolling parent instead of sitting below it. */ sticky?: boolean }) {
   return (
-    <div className={`safe-bottom z-10 shrink-0 border-t border-black/[0.08] bg-white dark:border-white/[0.06] dark:bg-stone-900 ${sticky ? 'sticky bottom-0 mt-auto' : ''}`}>
+    <div className={`safe-bottom z-10 shrink-0 border-t border-black/[0.08] bg-white dark:border-white/[0.06] dark:bg-stone-900 ${sticky ? 'sticky bottom-0 mt-auto' : ''}`} data-dock>
       <div className="mx-auto flex h-14 max-w-md items-stretch gap-1 px-2 py-1.5">{children}</div>
     </div>
   );

@@ -491,6 +491,100 @@ async function run([W, H], scheme) {
   if (P('tally')) await rated({ at: [0, 3, 0], streak: 2 }, [[1850, 'path-tally-impact'], [2450, 'path-tally-orb'], [5200, 'path-tally-done']]);
   if (P('levelup')) await rated({ at: [0, 5, -5] }, [[4700, 'path-levelup-open'], [5850, 'path-levelup-hop'], [7600, 'path-levelup-overlay']]);
   if (P('tierup')) await rated({ at: [1, 1, -5] }, [[5800, 'path-tierup-clouds'], [8000, 'path-tierup-overlay'], [10000, 'path-tierup-card']]);
+  // ---- Round 8: the level-up gets out of your way ----
+  /** On a puzzle screen: the dock sits on the bottom edge; during a level-up the panel ends at its top. */
+  const dockCheck = async (name) => {
+    const r = await p.evaluate(() => {
+      const d = [...document.querySelectorAll('[data-dock]')].pop();
+      if (!d) return null;
+      const b = d.getBoundingClientRect();
+      const pn = document.querySelector('[data-testid="level-panel"]')?.getBoundingClientRect();
+      return { bottom: Math.round(b.bottom), top: Math.round(b.top), vh: innerHeight, panel: pn ? Math.round(pn.bottom) : null };
+    });
+    if (!r) return errors.push(`${name}: no dock`);
+    if (Math.abs(r.bottom - r.vh) > 1) errors.push(`${name}: the dock ends at ${r.bottom}px, the screen at ${r.vh}px`);
+    if (r.panel !== null && r.panel > r.top + 1) errors.push(`${name}: the level-up panel (bottom ${r.panel}px) covers the dock (top ${r.top}px)`);
+  };
+  /** Solve a rated puzzle into a level-up; resolves when its panel is up (null if it never came). */
+  const intoLevelUp = async (patch, name) => {
+    await setPath(patch);
+    await push({ name: 'puzzle', mode: { kind: 'rated' } });
+    await p.waitForTimeout(3500);
+    await dockCheck(`${name} (puzzle)`);
+    if (!(await solveOpen())) return null;
+    const ok = await p.waitForSelector('[data-testid="level-panel"]', { timeout: 15000 }).then(() => true).catch(() => false);
+    if (!ok) errors.push(`${name}: no level-up after the solve`);
+    return ok ? Date.now() : null;
+  };
+  const levelGone = () => p.evaluate(() => !document.querySelector('[data-testid="level-panel"]') && !document.querySelector('[data-testid="level-overlay"]'));
+  if (P('path-levelup-closed-tap')) {
+    if (await intoLevelUp({ at: [0, 5, -5] }, 'path-levelup-closed-tap')) {
+      // 1 s into the walk: a tap on the board closes it; the solved board and the coach card are back.
+      await p.waitForTimeout(1000);
+      await dockCheck('path-levelup-closed-tap (open)');
+      await p.locator('[data-testid="levelup-close"]').click({ timeout: 3000 }).catch(() => errors.push('path-levelup-closed-tap: no tap layer over the board'));
+      await p.waitForTimeout(900);
+      if (!(await levelGone())) errors.push('path-levelup-closed-tap: the level-up still shows after a tap on the board');
+      await shot('path-levelup-closed-tap');
+    }
+    await home();
+  }
+  if (P('path-levelup-closed-auto')) {
+    const t0 = await intoLevelUp({ at: [0, 5, -5] }, 'path-levelup-closed-auto');
+    if (t0) {
+      await p.waitForFunction(() => !document.querySelector('[data-testid="level-panel"]'), null, { timeout: 12000 }).catch(() => {});
+      const took = Date.now() - t0;
+      if (!(await levelGone()) || took > 7000) errors.push(`path-levelup-closed-auto: closed itself after ${took} ms (${(await levelGone()) ? 'closed' : 'still open'})`);
+      await p.waitForTimeout(400);
+      await shot('path-levelup-closed-auto');
+    }
+    await home();
+  }
+  if (P('path-levelup-seepath')) {
+    if (await intoLevelUp({ at: [0, 5, -5] }, 'path-levelup-seepath')) {
+      await p.waitForTimeout(1600);
+      const pill = await p.locator('[data-testid="levelup-seepath"]').boundingBox();
+      if (!pill || pill.height < 44) errors.push(`path-levelup-seepath: the pill's tap target is ${JSON.stringify(pill)}`);
+      await shot('path-levelup-seepath');
+      await p.locator('[data-testid="levelup-seepath"]').click();
+      await p.waitForTimeout(1500);
+      const top = await p.evaluate(() => window.__nav.getState().stack.at(-1)?.name);
+      if (top !== 'puzzlePath') errors.push(`path-levelup-seepath: the pill opened ${top}`);
+      await shot('path-levelup-seepath-path');
+    }
+    await home();
+  }
+  if (P('path-tag-avatar')) {
+    // Your avatar on the pawn's tag, bordered in your frame's colour: on the Path, in the panel, on the hub card.
+    await p.evaluate(() => window.__settings.getState().set({ avatar: 'a07', avatarFrame: 'gold' }));
+    const crop = async (name, sel) => {
+      const b = await p.evaluate((sel) => {
+        const pw = [...document.querySelectorAll(sel)].map((e) => e.getBoundingClientRect()).find((r) => r.width > 0 && r.top > 0 && r.bottom < innerHeight);
+        return pw ? { x: pw.x, y: pw.y, w: pw.width, h: pw.height } : null;
+      }, sel);
+      const tag = await p.evaluate((sel) => document.querySelector(`${sel} .ptag`)?.getAttribute('data-avatar'), sel);
+      if (!b || tag !== '1') return errors.push(`path-tag-avatar: ${name}: no avatar on the tag (${tag})`);
+      const pad = 26;
+      await p.screenshot({ path: join(OUT, `${tag0}-path-tag-avatar-${name}.png`), clip: { x: Math.max(0, b.x - pad), y: Math.max(0, b.y - pad), width: b.w + 2 * pad, height: b.h + 2 * pad } });
+    };
+    const tag0 = tag;
+    await setPath({ at: [0, 6, 0] });
+    await push({ name: 'puzzlePath' });
+    await p.waitForTimeout(1600);
+    await crop('path', '.pawn');
+    await home();
+    if (await intoLevelUp({ at: [0, 5, -5] }, 'path-tag-avatar')) {
+      await p.waitForTimeout(2600);
+      await crop('panel', '[data-testid="level-panel"] .pawn');
+    }
+    await home();
+    await setPath({ at: [0, 4, 30] });
+    await p.evaluate(() => window.__nav.getState().setTab('puzzles'));
+    await p.waitForTimeout(1800);
+    await crop('hub', '[data-testid="path-window"] .pawn');
+    await p.evaluate(() => window.__settings.getState().set({ avatar: 'a01', avatarFrame: 'none' }));
+    await home();
+  }
   if (P('moments')) {
     await rated({ at: [0, 6, 0], dailyDay: 'TODAY', dailyCount: 2 }, [[5500, 'path-mom-daily3'], [7400, 'path-mom-daily3-orb']]);
     await rated({ at: [0, 6, 0], dailyDay: 'TODAY', dailyCount: 9 }, [[5700, 'path-mom-daily10'], [7600, 'path-mom-daily10-orb']]);

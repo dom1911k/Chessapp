@@ -31,7 +31,7 @@ export function usePathTally(opts: PathTallyOpts = {}) {
   const [tallying, setTallying] = useState(false);
   const moms = useRef<MomToken | null>(null);
   const [momenting, setMomenting] = useState(false);
-  const [levelUp, setLevelUp] = useState<{ from: number; to: number; instant: boolean } | null>(null);
+  const [levelUp, setLevelUp] = useState<{ from: number; to: number; instant: boolean; closing?: boolean } | null>(null);
   const [banner, setBanner] = useState<number | null>(null);
   const [tierCard, setTierCard] = useState<number | null>(null);
   // The award has landed (after the tally and moments): the skill strip may show.
@@ -130,7 +130,18 @@ export function usePathTally(opts: PathTallyOpts = {}) {
     else skipTally();
   };
 
-  /** The header badge, the level-up panel or "See your new board": land everything, open the Path. */
+  /**
+   * Close the level-up (a tap on the board or the panel, or its own timer): the panel plays its exit,
+   * then `levelUp` clears (and the new-board card shows if the walk crossed a board). It doesn't
+   * touch `banner` or `tierCard`.
+   */
+  const closeLevelUp = () => setLevelUp((l) => (l && !l.closing ? { ...l, closing: true } : l));
+  const levelClosed = (tierBoard?: number) => {
+    setLevelUp(null);
+    if (tierBoard !== undefined) setTierCard(tierBoard);
+  };
+
+  /** The header badge, "See path" or "See your new board": land everything, open the Path. */
   const openPath = () => {
     if (tally.current) skipTally(true);
     stopMoments();
@@ -196,16 +207,18 @@ export function usePathTally(opts: PathTallyOpts = {}) {
   const boardOverlay: ReactNode = (
     <>
       {active && <div className="absolute inset-0 z-40" onClick={tap} data-testid="tally-skip" />}
+      {/* While the level-up shows, a tap on the (dimmed) board closes it. */}
+      {!active && levelUp && !levelUp.closing && <div className="absolute inset-0 z-40" onClick={closeLevelUp} data-testid="levelup-close" />}
       {banner !== null && <LevelBanner points={banner} onDone={() => setBanner(null)} />}
     </>
   );
   /** Rendered at the screen's root: the level-up panel and the new-board card. */
   const panels: ReactNode = (
     <>
-      {levelUp && board.current && <LevelUpPanel key={`${levelUp.from}-${levelUp.to}`} from={levelUp.from} to={levelUp.to} board={board.current.el} instant={levelUp.instant} onTierCard={setTierCard} onOpenPath={openPath} />}
+      {levelUp && board.current && <LevelUpPanel key={`${levelUp.from}-${levelUp.to}`} from={levelUp.from} to={levelUp.to} board={board.current.el} instant={levelUp.instant} closing={!!levelUp.closing} onClose={closeLevelUp} onClosed={levelClosed} onOpenPath={openPath} />}
       {tierCard !== null && <TierUpCard board={tierCard} onClose={() => setTierCard(null)} onOpenPath={openPath} />}
     </>
   );
 
-  return { path, award, onBoard, begin, show, reset, tap, active, landed, boardOverlay, panels, openPath };
+  return { path, award, onBoard, begin, show, reset, tap, active, landed, boardOverlay, panels, openPath, closeLevelUp, levelUp: !!levelUp };
 }

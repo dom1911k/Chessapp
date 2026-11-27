@@ -7,6 +7,8 @@ import { BOUNCE, POP, D, animate, buzz, eios, tween, type Token } from '../motio
 import { emit } from '../fx';
 import { sfx } from '../sfx';
 import { ISO } from './world';
+import { useSettings } from '../settings';
+import { avatarUrl, frameById, frameMid } from '../avatars';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface Scene {
@@ -23,8 +25,15 @@ export interface WPos {
 }
 export const LEAVES = ['#4c9a28', '#79c241', '#9bd65a', '#c6f08f'];
 
-/** Build the world into host's `.isoIn` child. opt: { b, lvl, w0, w1, mt }. */
-export function buildScene(host: HTMLElement, opt: { b: number; lvl: number; w0?: number; w1?: number; mt?: number }, uid: string): Scene {
+/** Your marker on the pawn's tag: your avatar, and your frame's middle colour for its border (read when drawn). */
+export function pathTag(): { avatar: string; ring: string } {
+  const s = useSettings.getState();
+  const f = frameById(s.avatarFrame);
+  return { avatar: avatarUrl(s.avatar), ring: f.id === 'none' ? '' : frameMid(f) };
+}
+
+/** Build the world into host's `.isoIn` child. opt: { b, lvl, w0, w1, mt, avatar, ring }. */
+export function buildScene(host: HTMLElement, opt: { b: number; lvl: number; w0?: number; w1?: number; mt?: number; avatar?: string; ring?: string }, uid: string): Scene {
   const W = host.clientWidth || 374;
   const r = ISO.build(W, { ...opt, uid });
   const inner = host.querySelector('.isoIn') as HTMLElement;

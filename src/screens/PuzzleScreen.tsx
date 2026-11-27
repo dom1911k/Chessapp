@@ -151,7 +151,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
           </div>
         }
       />
-      <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto pb-4 land:max-w-6xl">
+      <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto land:max-w-6xl">
         {empty && <p className="p-6 text-center text-stone-500">{mode.kind === 'yours' ? 'No positions from your games yet — they appear once your games are analysed and your opponents slip.' : "You've done every puzzle in this set. Amazing!"}</p>}
         {!spec && !empty && (
           <div className="flex justify-center p-10">

@@ -177,7 +177,7 @@ function Session({ onExit }: { onExit: () => void }) {
           <div key={i} className={`h-1.5 flex-1 rounded-full ${x.result === true ? 'bg-brand-500' : x.result === false ? 'bg-danger-500' : i === d.index ? 'bg-stone-400' : 'bg-stone-200 dark:bg-stone-800'}`} />
         ))}
       </div>
-      <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto pb-4 land:max-w-6xl">
+      <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto land:max-w-6xl">
         {finished ? (
           <div className="p-4">
             <CoachBubble
