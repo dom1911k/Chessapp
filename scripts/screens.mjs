@@ -611,6 +611,93 @@ async function run([W, H], scheme) {
     }
   }
   if (P('hint')) await rated({ at: [0, 3, 0], streak: 3 }, [[2600, 'path-hint-solve']], { hint: true });
+  // ---- Round 8, Phase 4: board complete ----
+  const crest = () => p.evaluate(() => document.querySelector('[data-testid="path-crest"] svg[aria-label]')?.getAttribute('aria-label') ?? null);
+  /** Solve into the end of Wood (today's tierup setup) and wait for the board moment to start. */
+  const intoBoardDone = async (name) => {
+    await setPath({ at: [1, 1, -5], boards: [{ start: '2026-10-22', solved: 185, bestStreak: 14 }] });
+    await push({ name: 'puzzle', mode: { kind: 'rated' } });
+    await p.waitForTimeout(3500);
+    if (!(await solveOpen())) return null;
+    const ok = await p.waitForSelector('[data-testid="board-complete"]', { timeout: 20000 }).then(() => true).catch(() => false);
+    if (!ok) errors.push(`${name}: no board-complete moment after the solve`);
+    return ok ? Date.now() : null;
+  };
+  if (['board-complete-lookback', 'board-complete-trophy', 'board-complete-climb', 'board-complete-card'].some(P)) {
+    const t0 = await intoBoardDone('board-complete');
+    if (t0) {
+      // The header holds the old board, its bar full, until the pawn lands on the new one.
+      const held = await crest();
+      if (!/^Wood level 20$/.test(held ?? '')) errors.push(`board-complete: the header crest reads ${held} during the moment`);
+      await shotsAt(t0, [[2100, 'board-complete-lookback'], [4500, 'board-complete-trophy']]);
+      const midCrest = await crest();
+      if (!/^Wood level 20$/.test(midCrest ?? '')) errors.push(`board-complete: the header crest reads ${midCrest} before the landing`);
+      await shotsAt(t0, [[6900, 'board-complete-climb']]);
+      await p.waitForSelector('[data-testid="tierup-card"]', { timeout: 8000 }).catch(() => errors.push('board-complete: no new-board card after the moment'));
+      const after = await crest();
+      if (!/^Stone level 1$/.test(after ?? '')) errors.push(`board-complete: the header crest reads ${after} after the landing`);
+      await p.waitForTimeout(1600);
+      await shot('board-complete-card');
+      // Keep climbing: back to the solved puzzle and its dock, nothing left over.
+      await p.locator('[data-testid="tierup-keep"]').click();
+      await p.waitForTimeout(800);
+      const left = await p.evaluate(() => ['board-complete', 'tierup-card', 'level-panel', 'level-overlay'].filter((t) => document.querySelector(`[data-testid="${t}"]`)));
+      if (left.length) errors.push(`board-complete: after Keep climbing ${left.join(', ')} still show`);
+      await dockCheck('board-complete (after)');
+    }
+    await home();
+  }
+  if (P('board-complete-skip')) {
+    const t0 = await intoBoardDone('board-complete-skip');
+    if (t0) {
+      await p.waitForTimeout(1000);
+      await p.locator('[data-testid="board-complete"]').click();
+      await p.waitForTimeout(700);
+      const card = await p.locator('[data-testid="tierup-card"]').count();
+      const c = await crest();
+      if (!card || !/^Stone level 1$/.test(c ?? '')) errors.push(`board-complete-skip: card ${card}, crest ${c}`);
+      await shot('board-complete-skip');
+    }
+    await home();
+  }
+  if (P('board-complete-reduced')) {
+    await p.evaluate(() => window.__settings.getState().set({ reduceAnimations: 'on' }));
+    const t0 = await intoBoardDone('board-complete-reduced');
+    if (t0) {
+      await p.waitForTimeout(500);
+      const still = await p.evaluate(() => !!document.querySelector('[data-testid="board-complete"][data-still]'));
+      if (!still) errors.push('board-complete-reduced: no still card');
+      await shot('board-complete-reduced');
+      await p.waitForSelector('[data-testid="tierup-card"]', { timeout: 4000 }).catch(() => errors.push('board-complete-reduced: no new-board card after 2 s'));
+    }
+    await p.evaluate(() => window.__settings.getState().set({ reduceAnimations: 'off' }));
+    await home();
+  }
+  if (P('path-trophy') || P('path-trophy-card')) {
+    await setPath({ at: [1, 3, 0], boards: [{ start: '2026-10-22', done: '2026-11-27', solved: 186, bestStreak: 14 }, { start: '2026-11-27', solved: 3, bestStreak: 3 }] });
+    await push({ name: 'puzzlePath' });
+    await p.waitForTimeout(1600);
+    const tb = await p.evaluate(() => {
+      const t = document.querySelector('[data-testid="path-world"] .trophy');
+      if (!t) return null;
+      t.scrollIntoView({ block: 'center' });
+      const r = t.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, board: t.getAttribute('data-board') };
+    });
+    await p.waitForTimeout(400);
+    if (!tb || tb.board !== '0') errors.push(`path-trophy: Wood's trophy isn't on the Path (${JSON.stringify(tb)})`);
+    await shot('path-trophy');
+    if (tb) {
+      const r = await p.evaluate(() => { const t = document.querySelector('[data-testid="path-world"] .trophy').getBoundingClientRect(); return { x: t.left + t.width / 2, y: t.top + t.height * 0.55 }; });
+      await p.mouse.click(r.x, r.y);
+      await p.waitForTimeout(600);
+      const card = await p.locator('[data-testid="trophy-card"]').textContent().catch(() => null);
+      if (!/Wood board.*Finished 27 Nov 2026.*186 puzzles · 37 days.*Best streak 14/.test(card ?? '')) errors.push(`path-trophy-card: the card reads ${card}`);
+      await shot('path-trophy-card');
+    }
+    await home();
+  }
+
   // ---- Round 8, Phase 2: solving ----
   const marks = () => p.evaluate(() => ({ marks: document.querySelectorAll('.pp-mark').length, arrows: document.querySelectorAll('[marker-end]').length }));
   const openRated = async (patch) => {

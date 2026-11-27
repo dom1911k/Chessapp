@@ -6,10 +6,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Header, Dialog } from '../components/ui';
 import { PathBadge } from '../components/path/PathUI';
 import { wposOf } from '../components/path/PathWorld';
-import { BOUNCE, animate, buzz, reduced, sleep, token, type Token } from '../lib/motion';
+import { BOUNCE, POP, animate, buzz, reduced, sleep, token, type Token } from '../lib/motion';
 import { CONFETTI, emit } from '../lib/fx';
 import { sfx } from '../lib/sfx';
-import { BOARD_FACTORS, SETTING_MULT, boardName, getPathState, levelAt, markPathSeen, round5, type PathState } from '../lib/puzzles/path';
+import { BOARD_FACTORS, SETTING_MULT, boardName, boardStats, getPathState, levelAt, markPathSeen, round5, type BoardRecord, type PathState } from '../lib/puzzles/path';
 import { usePathUi } from '../lib/puzzles/pathUi';
 import { buildScene, cellPoint, pathTag, walkTiles, type Scene, type WPos } from '../lib/puzzles/walk';
 import { ISO } from '../lib/puzzles/world';
@@ -21,6 +21,8 @@ export function PuzzlePathScreen() {
   const [st, setSt] = useState<PathState | null>(null);
   const [promo, setPromo] = useState<number | null>(null);
   const [how, setHow] = useState(false);
+  // A finished board's trophy, tapped: its card (the board, when, how many puzzles and days).
+  const [trophy, setTrophy] = useState<{ board: number; x: number; y: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const scene = useRef<Scene | null>(null);
   const walk = useRef<Token | null>(null);
@@ -105,7 +107,13 @@ export function PuzzlePathScreen() {
           ref={box}
           className="isoBox absolute inset-0 overflow-y-auto overscroll-contain [scrollbar-width:none]"
           style={{ background: st ? ISO.TH[Math.min(7, wposOf(st.seen).i)].g[1] : '#2a6127' }}
-          onClick={() => walk.current && st && finish(st)}
+          onClick={(e) => {
+            if (walk.current && st) return finish(st);
+            const t = (e.target as Element).closest?.('.trophy') as SVGGElement | null;
+            if (!t) return setTrophy(null);
+            const r = t.getBoundingClientRect();
+            setTrophy({ board: Number(t.dataset.board), x: r.left + r.width / 2, y: r.top });
+          }}
           data-testid="path-world"
         >
           <div className="isoIn" />
@@ -125,6 +133,7 @@ export function PuzzlePathScreen() {
         )}
         {promo !== null && <NewBoardPill board={promo} />}
       </div>
+      {trophy && st && <TrophyCard board={trophy.board} x={trophy.x} y={trophy.y} record={st.boards?.[trophy.board]} onClose={() => setTrophy(null)} />}
       {/* Sticky bottom bar */}
       {pos && st && (
         <div className="safe-bottom flex items-center gap-3 border-t border-black/5 bg-white px-4 py-2.5 dark:border-white/5 dark:bg-[#262522]" data-testid="path-bar">
@@ -140,6 +149,32 @@ export function PuzzlePathScreen() {
         </div>
       )}
       <HowPointsWork open={how} onClose={() => setHow(false)} points={st?.points ?? 0} />
+    </div>
+  );
+}
+
+/** "Wood board · Finished 27 Nov 2026 · 186 puzzles · 34 days · Best streak 14" over its trophy. */
+function TrophyCard({ board, x, y, record, onClose }: { board: number; x: number; y: number; record?: BoardRecord; onClose: () => void }) {
+  const st = boardStats(record);
+  const el = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    void animate(el.current, [{ opacity: 0, transform: 'translateY(8px) scale(.94)' }, { opacity: 1, transform: 'none' }], POP);
+  }, [board]);
+  const W = 228;
+  const left = Math.max(12, Math.min(innerWidth - W - 12, x - W / 2));
+  const when = st ? (([yy, mm, dd]) => new Date(yy, mm - 1, dd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }))(st.done.split('-').map(Number)) : '';
+  return (
+    <div ref={el} className="fixed z-30 rounded-2xl bg-white px-4 py-3 text-[#312e2b] shadow-[0_10px_28px_rgba(0,0,0,.4)]" style={{ left, top: Math.max(64, y - 132), width: W }} onClick={onClose} data-testid="trophy-card">
+      <b className="block text-[16px] font-extrabold">{boardName(board)} board</b>
+      <span className="block text-[13px] text-stone-500">Finished{when ? ` ${when}` : ''}</span>
+      {st && (
+        <>
+          <span className="mt-1.5 block text-[14px]">
+            <b>{st.puzzles}</b> puzzle{st.puzzles === 1 ? '' : 's'} · <b>{st.days}</b> day{st.days === 1 ? '' : 's'}
+          </span>
+          <span className="block text-[13px] text-stone-600">Best streak {st.bestStreak}</span>
+        </>
+      )}
     </div>
   );
 }

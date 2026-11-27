@@ -10,8 +10,8 @@
 // card follows when it closes.
 import { useEffect, useRef, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { BOUNCE, POP, SOFT, D, animate, buzz, reduced, sleep, token, tween, type Token } from '../../lib/motion';
-import { CONFETTI, confettiRain, emit } from '../../lib/fx';
+import { BOUNCE, POP, SOFT, D, animate, buzz, sleep, token, tween, type Token } from '../../lib/motion';
+import { CONFETTI, emit } from '../../lib/fx';
 import { sfx } from '../../lib/sfx';
 import { BOARD_FACTORS, boardName, levelAt, markPathSeen, round5 } from '../../lib/puzzles/path';
 import { buildScene, cellPoint, pathTag, walkTiles, type WPos } from '../../lib/puzzles/walk';
@@ -218,7 +218,8 @@ export function TierUpCard({ board, onClose, onOpenPath }: { board: number; onCl
     const o = root.current;
     if (!o) return;
     const q = (s: string) => o.querySelector(s);
-    void animate(o, [{ opacity: 0 }, { opacity: 1 }], { d: 260 });
+    // It crossfades in from the world (the board moment fades out under it).
+    void animate(o, [{ opacity: 0 }, { opacity: 1 }], { d: 300 });
     void animate(q('.tc-rays'), [{ transform: 'scale(.25)', opacity: 0 }, { transform: 'scale(1)', opacity: 0.42 }], { d: 1000, e: 'cubic-bezier(.2,.9,.3,1)' });
     void animate(q('.tc-lab'), [{ opacity: 0, transform: 'translateY(8px)', letterSpacing: '.4em' }, { opacity: 1, transform: 'none', letterSpacing: '.14em' }], { d: 600, e: 'cubic-bezier(.2,.8,.3,1)', delay: 120 });
     void animate(crest.current, [{ transform: 'translateY(-240px) scale(.5) rotate(-20deg)', opacity: 0 }, { transform: 'translateY(0) scale(1) rotate(0)', opacity: 1 }], { d: BOUNCE.d + 120, e: BOUNCE.e, delay: 160 });
@@ -233,7 +234,7 @@ export function TierUpCard({ board, onClose, onOpenPath }: { board: number; onCl
       sfx('pawnLand');
       buzz([30, 40, 60]);
     }, D(160) + BOUNCE.d * 0.35);
-    if (!reduced()) confettiRain(innerWidth, 90);
+    // (No confetti rain here: the board moment had it.)
     sfx('tierUp');
     // The window onto the new board: the pawn on tile 1, the old board's last hedges behind it.
     if (win.current) {

@@ -32,9 +32,13 @@ export function pathTag(): { avatar: string; ring: string } {
   return { avatar: avatarUrl(s.avatar), ring: f.id === 'none' ? '' : frameMid(f) };
 }
 
-/** Build the world into host's `.isoIn` child. opt: { b, lvl, w0, w1, mt, avatar, ring }. */
-export function buildScene(host: HTMLElement, opt: { b: number; lvl: number; w0?: number; w1?: number; mt?: number; avatar?: string; ring?: string }, uid: string): Scene {
-  const W = host.clientWidth || 374;
+/**
+ * Build the world into host's `.isoIn` child. opt: { b, lvl, w0, w1, mt, avatar, ring }, and
+ * optionally W (the world's width, default the host's) and span (tiles across it: a wider world
+ * with the same tile size, for zooming out).
+ */
+export function buildScene(host: HTMLElement, opt: { b: number; lvl: number; w0?: number; w1?: number; mt?: number; avatar?: string; ring?: string; W?: number; span?: number }, uid: string): Scene {
+  const W = opt.W || host.clientWidth || 374;
   const r = ISO.build(W, { ...opt, uid });
   const inner = host.querySelector('.isoIn') as HTMLElement;
   inner.innerHTML = r.svg;

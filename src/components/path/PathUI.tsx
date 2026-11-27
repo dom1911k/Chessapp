@@ -6,19 +6,9 @@ import { odo, reg, usePathUi } from '../../lib/puzzles/pathUi';
 import { boardName, levelAt } from '../../lib/puzzles/path';
 import { PuzzleTimer } from '../PuzzleProgress';
 
-/** The badge outline (60×60 box), from the prototype. */
-export const PZ = 'M14,14 H23 C22,10 24,6.5 28.5,6.5 C33,6.5 35,10 34,14 H42 Q46,14 46,18 V25 C50,24 53.5,26 53.5,30.5 C53.5,35 50,37 46,36 V46 Q46,50 42,50 H14 Q10,50 10,46 V18 Q10,14 14,14 Z';
-/** Each board's material: highlight, mid, shade (Wood adds grain). */
-export const MAT: [string, string, string][] = [
-  ['#e3b27a', '#b8773f', '#7d4a22'],
-  ['#eef0f2', '#b3b9be', '#7d848b'],
-  ['#f7c48c', '#c97a3c', '#7a3f16'],
-  ['#ffffff', '#c6d0d9', '#7e8b97'],
-  ['#e6fbff', '#5cc8e6', '#1a7e9e'],
-  ['#e2c8ff', '#9b5de5', '#4a1d8a'],
-  ['#ffb3b3', '#e0383e', '#7a1018'],
-  ['#fff3b0', '#f2b51c', '#8a5a05'],
-];
+export { MAT, PZ } from '../../lib/puzzles/art';
+import { MAT, PZ, TROPHY_H, TROPHY_W, trophyMarkup } from '../../lib/puzzles/art';
+import { ISO } from '../../lib/puzzles/world';
 
 export function PathBadge({ tier, level, size = 32, tilt = -12, className = '', title }: { tier: number; level: number; size?: number; tilt?: number; className?: string; title?: string }) {
   const id = useId().replace(/:/g, '');
@@ -230,4 +220,11 @@ export function LivePathCard({ rating, ratingDelta, onTap, extra }: { rating?: n
       {extra}
     </div>
   );
+}
+
+/** A finished board's trophy (the board-complete moment and the Path's trophy card). */
+export function BoardTrophy({ board, size = 170, className = '' }: { board: number; size?: number; className?: string }) {
+  const u = `bt${useId().replace(/[^a-z0-9]/gi, '')}`;
+  const t = Math.min(7, board);
+  return <svg className={`overflow-visible ${className}`} width={size} height={(size * TROPHY_H) / TROPHY_W} viewBox={`0 0 ${TROPHY_W} ${TROPHY_H}`} role="img" aria-label={`${boardName(board)} trophy`} dangerouslySetInnerHTML={{ __html: trophyMarkup(t, boardName(board), ISO.TH[t], u) }} />;
 }

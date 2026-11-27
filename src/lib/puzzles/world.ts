@@ -6,6 +6,7 @@
 // board beyond. Pure: it builds SVG markup strings from the path state; <PathWorld> mounts them.
 // API: ISO.build(width, { b, lvl, w0, w1, mt, uid, span, avatar, ring }) → { html, G, … }; ISO.cell(w, i);
 // ISO.sp(G, gx, gy); ISO.geom; ISO.tileSVG; ISO.pawnSVG; ISO.badge; ISO.defs; ISO.TH; ISO.CELLS.
+import { trophyMarkup, TROPHY_W } from './art';
 const ISO={};
 (()=>{
 /* route: 19 moves inside a world (9 up-right "x", 10 up-left "y"), then an "x" step into the next world.
@@ -179,6 +180,10 @@ function cloud(x,y,s,r,w){/* a soft cumulus: rows of shaded puffs (each a little
  P.slice().sort((a,b)=>b.y-a.y).forEach(p=>{bd+=`<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${f1(p.r)}" fill="url(#cldB)"/>`;});
  P.filter(p=>p.y<-s*.3).forEach(p=>{hl+=cir(p.x-p.r*.3,p.y-p.r*.36,p.r*.3,"#ffffff",.55);});
  return `<g class="cloudW" data-w="${w}" data-x="${f1(x)}" transform="translate(${f1(x)},${f1(y)})"><g class="cloud" style="--dx:${f1((r()-.5)*s*.2)}px;animation-delay:${f1(-r()*8)}s">${sh}${bd}${hl}</g></g>`;}
+/* a finished board's trophy: beside its level 20, on the side away from the path's last step, on its plinth (~1.8 tiles wide) */
+function trophyCell(w){const c19=ISO.cell(w,19),c18=ISO.cell(w,18),right=(c18.gx-c18.gy)<(c19.gx-c19.gy);return right?{gx:c19.gx+1,gy:c19.gy-1}:{gx:c19.gx-1,gy:c19.gy+1};}
+function trophyAt(G,w){const c=trophyCell(w),p=sp(G,c.gx,c.gy),k=1.8*G.sx/TROPHY_W;return{x:p.x,y:p.y,k,svg:`<g class="trophy" data-board="${w}" transform="translate(${f1(p.x)},${f1(p.y)}) scale(${k.toFixed(3)})"><g transform="translate(${-TROPHY_W/2},-134)">${trophyMarkup(w,TH[w].n,TH[w],`${G.uid}tr${w}`)}</g></g>`};}
+ISO.trophyCell=trophyCell;ISO.trophyAt=trophyAt;
 /* build: worlds [w0..w1] (inclusive), state {b (current world), lvl (current level index 0..19)} */
 const SYMK=new Set(["tree","apple","cypress","bush","bush2","bushS","rock","rockS","rockI","obsidian","pine","pineS","cactus","palm","crystal","crystalP","spike","mushroom","column","goldTree","flowers","flowersW","flowersG"]);
 const hs=t=>{let h=7;for(const c of t)h=(h*31+c.charCodeAt(0))>>>0;return h;};
@@ -196,7 +201,7 @@ ISO.build=(W,opt)=>{const G=geom(W,opt.span||8.6),cur=opt.b,lvl=opt.lvl,w0=opt.w
    items.push({y:p.y,s:`<g class="tile" data-w="${w}" data-i="${i}" transform="translate(${f1(p.x)},${f1(p.y)})"><g class="tin">${tileSVG(G,th,st,i+1)}</g></g>`});}
   /* props: features at fixed slots, then scattered */
   const r=rng(w*7331+17),path=new Set(),near=new Set();for(let i=0;i<20;i++){const c=ISO.cell(w,i);path.add(c.gx+","+c.gy);for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]])near.add((c.gx+dx)+","+(c.gy+dy));}
-  const taken=new Set(path);const place=(gx,gy,kind)=>{const k=gx+","+gy;if(taken.has(k))return false;taken.add(k);const p=sp(G,gx,gy),jx=(r()-.5)*G.sx*.25,jy=(r()-.5)*G.sy*.2;const v=(r()*3)|0,flip=r()<.5&&kind!=="cabin";items.push({y:p.y+jy,s:`<g class="prop" transform="translate(${f1(p.x+jx)},${f1(p.y+jy)})${flip&&SYMK.has(kind)?" scale(-1,1)":""}">${SYMK.has(kind)?useP(kind,v):PROPS[kind](G,r)}</g>`});return true;};
+  const taken=new Set(path);if(w<cur){const tc=trophyCell(w);taken.add(tc.gx+","+tc.gy);items.push({y:sp(G,tc.gx,tc.gy).y,s:trophyAt(G,w).svg});}const place=(gx,gy,kind)=>{const k=gx+","+gy;if(taken.has(k))return false;taken.add(k);const p=sp(G,gx,gy),jx=(r()-.5)*G.sx*.25,jy=(r()-.5)*G.sy*.2;const v=(r()*3)|0,flip=r()<.5&&kind!=="cabin";items.push({y:p.y+jy,s:`<g class="prop" transform="translate(${f1(p.x+jx)},${f1(p.y+jy)})${flip&&SYMK.has(kind)?" scale(-1,1)":""}">${SYMK.has(kind)?useP(kind,v):PROPS[kind](G,r)}</g>`});return true;};
   th.feat.forEach((f,k)=>{const i=[4,10,15][k],c=ISO.cell(w,i),side=(k%2?1:-1)*(w%2?-1:1);for(let t=2;t<=3;t++){if(place(c.gx+(side>0?t:0),c.gy+(side<0?t:0),f))break;}});
   for(let gx=w*10-1;gx<=w*10+10;gx++)for(let gy=gx-6;gy<=gx+6;gy++){const k=gx+","+gy,d=gx-gy;if(taken.has(k)||Math.abs(d)>5)continue;if(gx<w*10||gx>w*10+9)continue;if(r()<(near.has(k)?.15:.25)*(locked?.55:1))place(gx,gy,th.props[(r()*th.props.length)|0]);}
   /* ground detail: grass tufts and flowers on Wood, pebbles elsewhere; pollen drifting over the boards you can see */

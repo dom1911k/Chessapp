@@ -41,3 +41,66 @@ describe('round 8 · 2.3 the first hint skips what the prompt already says', asy
     expect(hintSteps(undefined)).toEqual([1, 2, 3]);
   });
 });
+
+describe('round 8 · 4.5 each board keeps its own numbers', async () => {
+  const P = await import('../lib/puzzles/path');
+  const solve = (o: Partial<Parameters<typeof P.scorePuzzle>[1]> = {}) => ({ source: 'full' as const, success: true, hintsUsed: 0, correctMoves: 2, seconds: 8, userMoves: 2, puzzleRating: 800, ratingBefore: 800, ratingAfter: 812, promptLevel: 3 as const, today: '2026-11-20', ...o });
+  it('a clean solve counts on the current board and its best streak follows the streak; misses and hints do not', () => {
+    let s = P.newPathState(800);
+    s = P.scorePuzzle(s, solve()).state;
+    expect(s.boards[0]).toEqual({ start: '2026-11-20', solved: 1, bestStreak: 1 });
+    s = P.scorePuzzle(s, solve()).state;
+    s = P.scorePuzzle(s, solve({ success: false })).state;
+    s = P.scorePuzzle(s, solve({ hintsUsed: 1 })).state;
+    s = P.scorePuzzle(s, solve()).state;
+    expect(s.boards[0].solved).toBe(3);
+    expect(s.boards[0].solved).toBe(s.cleanSolved);
+    expect(s.boards[0].bestStreak).toBe(2);
+  });
+  it('crossing into a new board finishes the old one today and starts the new one today', () => {
+    const s0 = { ...P.newPathState(800), points: P.pointsAtLevel(1, 1) - 5, boards: [{ start: '2026-10-01', solved: 180, bestStreak: 14 }] };
+    const { state, award } = P.scorePuzzle(s0, solve({ today: '2026-11-27' }));
+    expect(award.boardUp).toBe(1);
+    expect(state.boards[0]).toEqual({ start: '2026-10-01', done: '2026-11-27', solved: 181, bestStreak: 14 });
+    expect(state.boards[1]).toEqual({ start: '2026-11-27', solved: 0, bestStreak: 0 });
+    expect(P.boardStats(state.boards[0])).toEqual({ done: '2026-11-27', days: 58, puzzles: 181, bestStreak: 14 });
+    // Daily training's bonus can cross a board too.
+    const e = P.scoreEvent({ ...s0, points: P.pointsAtLevel(1, 1) - 1 }, { event: 'dailyTrainingDone', today: '2026-11-28' }).state;
+    expect(e.boards[0].done).toBe('2026-11-28');
+    expect(e.boards[1].start).toBe('2026-11-28');
+  });
+  it('migration, still on Wood: Wood takes your clean solves and best streak, from your first puzzle', () => {
+    const old = { ...P.newPathState(800), points: P.pointsAtLevel(0, 9), cleanSolved: 57, bestStreak: 9 } as Partial<ReturnType<typeof P.newPathState>>;
+    delete old.boards;
+    expect(P.migrateBoards(old as never, '2026-09-14', '2026-11-27')).toEqual([{ start: '2026-09-14', solved: 57, bestStreak: 9 }]);
+  });
+  it('migration, on a later board: it counts from today; the boards behind show "Finished" with no numbers', () => {
+    const old = { ...P.newPathState(800), points: P.pointsAtLevel(2, 4), cleanSolved: 400, bestStreak: 22 } as Partial<ReturnType<typeof P.newPathState>>;
+    delete old.boards;
+    const b = P.migrateBoards(old as never, '2026-06-01', '2026-11-27');
+    expect(b).toEqual([{ start: '', done: '', solved: 0, bestStreak: 0 }, { start: '', done: '', solved: 0, bestStreak: 0 }, { start: '2026-11-27', solved: 0, bestStreak: 0 }]);
+    expect(P.boardStats(b[0])).toBeNull();
+  });
+});
+
+describe('round 8 · 4.2 / 4.5 the trophy', async () => {
+  const { trophyMarkup } = await import('../lib/puzzles/art');
+  const { boardName } = await import('../lib/puzzles/path');
+  const { ISO } = await import('../lib/puzzles/world');
+  it("its ribbon carries the board's name in caps (Legend II and on too)", () => {
+    expect(trophyMarkup(0, boardName(0), ISO.TH[0], 'x')).toContain('>WOOD</text>');
+    expect(trophyMarkup(7, boardName(8), ISO.TH[7], 'y')).toContain('>LEGEND II</text>');
+    expect(trophyMarkup(7, boardName(9), ISO.TH[7], 'z')).toContain('>LEGEND III</text>');
+  });
+  it('every finished board in view keeps its trophy beside its level 20, never on the path', () => {
+    const svg = ISO.build(360, { b: 2, lvl: 4, w0: 0, w1: 3, uid: 'tw' }).svg as string;
+    expect(svg).toContain('class="trophy" data-board="0"');
+    expect(svg).toContain('class="trophy" data-board="1"');
+    expect(svg).not.toContain('data-board="2"');
+    for (const w of [0, 1, 2]) {
+      const c = ISO.trophyCell(w);
+      const onPath = ISO.CELLS.some((x: { gx: number; gy: number }) => x.gx === c.gx && x.gy === c.gy);
+      expect(onPath).toBe(false);
+    }
+  });
+});

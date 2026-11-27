@@ -6,7 +6,7 @@
 //
 // Pure: scorePuzzle / scoreEvent / nextPuzzleSpec / levelAt. The async wrapper at the bottom
 // reads and writes kv('puzzlePath'), so backups include it.
-import { kvGet, kvSet, today as todayStr } from '../db';
+import { db, kvGet, kvSet, today as todayStr } from '../db';
 
 export const BOARD_NAMES = ['Wood', 'Stone', 'Bronze', 'Silver', 'Crystal', 'Elite', 'Champion', 'Legend'] as const;
 export const BOARD_TOTALS = [3000, 11000, 25000, 44000, 63000, 82000, 102000, 125000];
@@ -183,6 +183,18 @@ export interface PathState {
   ease: number;
   missesInARow: number;
   flatDays: Record<'dailyPuzzle' | 'dailyTrainingDone', string>;
+  /**
+   * Each board's own numbers, indexed by board (round 8): the day you started it and finished it
+   * ("YYYY-MM-DD"), its clean solves and best streak. `done: ''` is a board finished before these
+   * were kept: it shows "Finished" with no numbers.
+   */
+  boards: BoardRecord[];
+}
+export interface BoardRecord {
+  start: string;
+  done?: string;
+  solved: number;
+  bestStreak: number;
 }
 
 export function newPathState(rating: number | null): PathState {
@@ -190,7 +202,38 @@ export function newPathState(rating: number | null): PathState {
     v: 1, points: 0, seen: 0, streak: 0, bestStreak: 0, cleanSolved: 0, hardSolved: 0, hardestSolved: 0,
     dailyDay: '', dailyCount: 0, weekRun: 0, weekDay: '', ladderStart: ladderStartFor(rating), ease: 0, missesInARow: 0,
     flatDays: { dailyPuzzle: '', dailyTrainingDone: '' },
+    boards: [{ start: '', solved: 0, bestStreak: 0 }],
   };
+}
+
+/**
+ * The one-time move to per-board numbers (a saved path without `boards`). Still on Wood: Wood takes
+ * your clean solves and best streak so far, started on the day of your first puzzle. On a later
+ * board: it starts counting today, and the boards behind it are finished with no numbers.
+ */
+export function migrateBoards(s: Omit<PathState, 'boards'> & { boards?: BoardRecord[] }, firstDay: string, today: string): BoardRecord[] {
+  if (s.boards) return s.boards;
+  const cur = levelAt(s.points).board;
+  if (cur === 0) return [{ start: firstDay || today, solved: s.cleanSolved, bestStreak: s.bestStreak }];
+  return [...Array.from({ length: cur }, () => ({ start: '', done: '', solved: 0, bestStreak: 0 })), { start: today, solved: 0, bestStreak: 0 }];
+}
+
+/** The boards list with an entry up to `cur` (gaps behind it count as finished with no numbers). */
+function boardsUpTo(list: BoardRecord[] | undefined, cur: number, today: string): BoardRecord[] {
+  const out = (list ?? []).map((b) => ({ ...b }));
+  for (let i = 0; i <= cur; i++) if (!out[i]) out[i] = i < cur ? { start: '', done: '', solved: 0, bestStreak: 0 } : { start: today, solved: 0, bestStreak: 0 };
+  if (!out[cur].start) out[cur].start = today;
+  return out;
+}
+
+/** A finished board's numbers for its trophy card: days (calendar days, start and finish counted) and puzzles. */
+export function boardStats(b: BoardRecord | undefined): { done: string; days: number; puzzles: number; bestStreak: number } | null {
+  if (!b?.done || !b.start) return null;
+  const day = (d: string) => {
+    const [y, m, dd] = d.split('-').map(Number);
+    return Date.UTC(y, m - 1, dd) / 86_400_000;
+  };
+  return { done: b.done, days: Math.max(1, Math.round(day(b.done) - day(b.start)) + 1), puzzles: b.solved, bestStreak: b.bestStreak };
 }
 
 // ---------- The next puzzle ----------
@@ -290,10 +333,17 @@ export function prevDay(day: string): string {
 const FLAT_RAW = { review: 8, yours: 15, dailyPuzzle: 25, dailyTrainingDone: 40, rushRecord: 50 } as const;
 const FLAT_LABEL = { review: 'Review', yours: 'From your game', dailyPuzzle: 'Daily Puzzle', dailyTrainingDone: 'Training complete', rushRecord: 'Rush record' } as const;
 
-function finish(before: PathState, s: PathState, parts: Part[], moments: Moment[], extra: Partial<PathAward>): { state: PathState; award: PathAward } {
+function finishAt(before: PathState, s: PathState, parts: Part[], moments: Moment[], extra: Partial<PathAward>, today = ''): { state: PathState; award: PathAward } {
   const total = parts.reduce((a, p) => a + p.points, 0) + moments.reduce((a, m) => a + m.points, 0);
   s.points = before.points + total;
   const from = levelAt(before.points);
+  // Crossing into a new board: the one behind is finished today, the new one starts today.
+  const toBoard = levelAt(s.points).board;
+  if (toBoard > from.board && today) {
+    s.boards = boardsUpTo(s.boards, toBoard, today);
+    for (let b = from.board; b < toBoard; b++) s.boards[b].done = today;
+    for (let b = from.board + 1; b <= toBoard; b++) if (b < toBoard || !s.boards[b].solved) s.boards[b].start = today;
+  }
   const levelsCrossed: { board: number; level: number }[] = [];
   let pos = from;
   while (true) {
@@ -316,7 +366,8 @@ function finish(before: PathState, s: PathState, parts: Part[], moments: Moment[
 
 /** Score one puzzle attempt. Pure: returns the new state and the award (never touches `seen`). */
 export function scorePuzzle(prev: PathState, input: SolveInput): { state: PathState; award: PathAward } {
-  const s: PathState = { ...prev, flatDays: { ...prev.flatDays } };
+  const s: PathState = { ...prev, flatDays: { ...prev.flatDays }, boards: boardsUpTo(prev.boards, levelAt(prev.points).board, input.today) };
+  const finish = (b: PathState, st: PathState, parts: Part[], moments: Moment[], extra: Partial<PathAward>) => finishAt(b, st, parts, moments, extra, input.today);
   if (s.dailyDay !== input.today) {
     s.dailyDay = input.today;
     s.dailyCount = 0;
@@ -362,6 +413,10 @@ export function scorePuzzle(prev: PathState, input: SolveInput): { state: PathSt
   s.ease = Math.min(0, s.ease + 12);
   s.streak += 1;
   s.cleanSolved += 1;
+  // This board's own count (the same as cleanSolved) and best streak.
+  const here = s.boards[pos.board];
+  here.solved += 1;
+  here.bestStreak = Math.max(here.bestStreak, s.streak);
   s.dailyCount += 1;
   parts.push({ kind: 'base', label: BAND_LABEL[band], points: Math.round(BAND_RAW[band] * g * sm) });
   const T = (10 + 8 * (Math.max(1, input.userMoves) - 1)) * BAND_TIME[band];
@@ -408,7 +463,8 @@ export function scorePuzzle(prev: PathState, input: SolveInput): { state: PathSt
 
 /** The two event bonuses: finishing Daily training (once a day) and a Puzzle Rush record. */
 export function scoreEvent(prev: PathState, e: PathEvent): { state: PathState; award: PathAward } {
-  const s: PathState = { ...prev, flatDays: { ...prev.flatDays } };
+  const s: PathState = { ...prev, flatDays: { ...prev.flatDays }, boards: boardsUpTo(prev.boards, levelAt(prev.points).board, e.today) };
+  const finish = (b: PathState, st: PathState, parts: Part[], moments: Moment[], extra: Partial<PathAward>) => finishAt(b, st, parts, moments, extra, e.today);
   const g = boardFactor(levelAt(prev.points).board);
   if (e.event === 'dailyTrainingDone') {
     if (s.flatDays.dailyTrainingDone === e.today) return finish(prev, s, [], [], {});
@@ -424,7 +480,14 @@ export const PATH_KEY = 'puzzlePath';
 /** The saved path, created on first use (the ladder starts from the puzzle rating, once). */
 export async function getPathState(): Promise<PathState> {
   const s = await kvGet<PathState | null>(PATH_KEY, null);
-  if (s && s.v === 1) return s;
+  if (s && s.v === 1 && s.boards) return s;
+  if (s && s.v === 1) {
+    // Once: per-board numbers for a path saved before they were kept.
+    const first = await db.attempts.orderBy('at').first().catch(() => undefined);
+    const migrated = { ...s, boards: migrateBoards(s, first ? todayStr(new Date(first.at)) : '', todayStr()) };
+    await kvSet(PATH_KEY, migrated);
+    return migrated;
+  }
   const { getRating } = await import('./rating');
   const r = await getRating();
   const fresh = newPathState(r.games > 0 ? r.rating : null);

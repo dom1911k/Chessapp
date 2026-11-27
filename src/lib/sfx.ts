@@ -318,6 +318,14 @@ const SND = {
     [1568, 2093, 2637, 3136].forEach((f, i) => bell(f, 0.5 + i * 0.07, 0.05, { pan: -0.45 + i * 0.3, dec: 1.3 }));
     shimmer(0.8, 10, 0.012);
   },
+  /** A whole board finished (round 8): three rising notes, a warm chord and a shimmer. */
+  boardDone: () => {
+    thump(0, 0.18, { f: 98, from: 2, dec: 0.45, click: 900, rev: 0.3 });
+    [523, 659, 784].forEach((f, i) => brass(f, i * 0.15, 0.34, 0.034, { dec: 0.55, pan: (i - 1) * 0.3 }));
+    pad([523, 659, 784, 1047], 0.45, 0.9, 0.018, { a: 0.05, dec: 1.8, open: 4, lpT: 0.7 });
+    [1568, 2093, 2637, 3136].forEach((f, i) => bell(f, 0.52 + i * 0.06, 0.05, { pan: -0.45 + i * 0.3, dec: 1.4 }));
+    shimmer(0.6, 14, 0.014, { step: 0.05 });
+  },
   /** The pawn takes off: a sprung "boing" and a rustle of leaves. */
   hop: () => {
     tone(300, 0, { g: 0.05, dec: 0.12, to: 560, dur: 0.09, type: 'sine', rev: 0.12 });

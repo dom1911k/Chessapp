@@ -132,6 +132,12 @@ async function levelCross(points: number, tk: Token) {
   await sleep(300, tk);
 }
 
+/**
+ * Finishing a board (round 8): the header crest and the path card stay on the old board, its bar
+ * full ("Wood · Level 20"), until the board-complete moment lands the pawn on the new one.
+ */
+export const boardHold = { on: false };
+
 /** Fill the bar from one total to another, flipping the level at every boundary crossed. */
 export async function fillTo(from: number, to: number, tk: Token) {
   let v = from;
@@ -139,6 +145,16 @@ export async function fillTo(from: number, to: number, tk: Token) {
     if (tk.skip) return;
     const P = levelAt(v);
     const end = P.start + P.cost;
+    if (to >= end && boardHold.on && levelAt(end).board > P.board) {
+      // The board's last level fills, and the bar stays full on it.
+      const a = v;
+      await tween(300, (k) => {
+        const x = a + (end - a) * eo3(k);
+        barAt(Math.min(x, end - 1), Math.min(x - P.start, P.cost));
+      }, tk);
+      barAt(end - 1, P.cost);
+      return;
+    }
     if (to >= end) {
       const a = v;
       await tween(300, (k) => {

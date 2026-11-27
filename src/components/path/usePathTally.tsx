@@ -7,12 +7,13 @@ import { today } from '../../lib/db';
 import { useCelebrate } from '../../lib/celebrate';
 import { buzz, reduced, token, type Token } from '../../lib/motion';
 import { endMoments, momentSplit, runMoments, type MomToken } from '../../lib/puzzles/moments';
-import { getPathState, levelAt, markPathSeen, pathBehind, type PathAward, type PathState } from '../../lib/puzzles/path';
+import { getPathState, levelAt, markPathSeen, pathBehind, pointsAtLevel, type PathAward, type PathState } from '../../lib/puzzles/path';
 import { usePathUi } from '../../lib/puzzles/pathUi';
-import { barAt, boardMark, boardRing, clearBoardFx, flameOut, runTally, type BoardRef } from '../../lib/puzzles/tally';
+import { barAt, boardHold, boardMark, boardRing, clearBoardFx, flameOut, runTally, type BoardRef } from '../../lib/puzzles/tally';
 import { sfx } from '../../lib/sfx';
 import { useNav } from '../../lib/nav';
 import { LevelBanner, LevelUpPanel, TierUpCard } from './LevelUp';
+import { BoardComplete } from './BoardComplete';
 
 /** Show a saved state in the header and card. */
 export const syncPathUi = (st: PathState, gain = 0) => usePathUi.getState().set({ points: st.points, streak: st.streak, daily: st.dailyDay === today() ? st.dailyCount : 0, gain, behind: pathBehind(st.seen, st.points) });
@@ -34,6 +35,8 @@ export function usePathTally(opts: PathTallyOpts = {}) {
   const [levelUp, setLevelUp] = useState<{ from: number; to: number; instant: boolean; closing?: boolean } | null>(null);
   const [banner, setBanner] = useState<number | null>(null);
   const [tierCard, setTierCard] = useState<number | null>(null);
+  // Finishing a board: its own moment (round 8) instead of the level-up panel, then the new-board card.
+  const [boardDone, setBoardDone] = useState<{ from: number; to: number; still: boolean } | null>(null);
   // The award has landed (after the tally and moments): the skill strip may show.
   const [landed, setLanded] = useState(false);
   const lastSquare = useRef<string | undefined>(undefined);
@@ -55,20 +58,48 @@ export function usePathTally(opts: PathTallyOpts = {}) {
 
   /** The final numbers, celebrations released, then the level-up. `quiet` just lands the numbers. */
   const land = (a: PathAward, saved: PathState, skipped: boolean, quiet = false) => {
-    syncPathUi(saved, a.total);
-    barAt(saved.points);
-    useCelebrate.getState().setHold(false);
+    const crossing = a.boardUp !== undefined && !quiet;
+    if (crossing) {
+      // The header and the card stay on the old board, its bar full, until the pawn lands on the
+      // new one; the board's achievement toast waits for the new-board card to close.
+      const hold = pointsAtLevel(a.boardUp!, 1) - 1;
+      syncPathUi({ ...saved, points: hold }, a.total);
+      barAt(hold, levelAt(hold).cost);
+    } else {
+      boardHold.on = false;
+      syncPathUi(saved, a.total);
+      barAt(saved.points);
+      useCelebrate.getState().setHold(false);
+    }
     if (quiet) return;
     if (a.parts.length) setLanded(true);
     if (a.levelsCrossed.length) {
-      // The panel (or the banner) shows these hops, so the Path won't replay them.
+      // The panel (or the banner, or the board moment) shows these hops, so the Path won't replay them.
       void markPathSeen(levelAt(a.after).start);
       usePathUi.getState().set({ behind: false });
-      if (reduced()) {
-        setBanner(a.after);
-        if (a.boardUp !== undefined) setTimeout(() => setTierCard(a.boardUp!), 900);
-      } else setLevelUp({ from: a.before, to: a.after, instant: skipped });
+      if (crossing) setBoardDone({ from: a.before, to: a.after, still: reduced() });
+      else if (reduced()) setBanner(a.after);
+      else setLevelUp({ from: a.before, to: a.after, instant: skipped });
     } else live.current.opts.onLanded?.(a);
+  };
+  /** The board moment's pawn has landed on the new board: now the header and the card roll over. */
+  const boardLanded = () => {
+    const { award: a, path: p } = live.current;
+    boardHold.on = false;
+    if (p) {
+      syncPathUi(p, a?.total ?? 0);
+      barAt(p.points);
+    }
+  };
+  /** The board moment hands over to the new-board card (a 300 ms crossfade). */
+  const boardEnded = (board: number) => {
+    setTierCard(board);
+    setTimeout(() => setBoardDone(null), 320);
+  };
+  /** The new-board card closed: everything held for it (the board's achievement toast) shows now. */
+  const tierClosed = () => {
+    setTierCard(null);
+    useCelebrate.getState().setHold(false);
   };
 
   /**
@@ -148,6 +179,9 @@ export function usePathTally(opts: PathTallyOpts = {}) {
     setLevelUp(null);
     setBanner(null);
     setTierCard(null);
+    setBoardDone(null);
+    if (boardHold.on) boardLanded();
+    useCelebrate.getState().setHold(false);
     useNav.getState().push({ name: 'puzzlePath' });
   };
 
@@ -159,6 +193,8 @@ export function usePathTally(opts: PathTallyOpts = {}) {
     setLevelUp(null);
     setBanner(null);
     setTierCard(null);
+    setBoardDone(null);
+    if (boardHold.on) boardLanded();
     setAward(null);
     setLanded(false);
     usePathUi.getState().set({ gain: 0 });
@@ -197,6 +233,8 @@ export function usePathTally(opts: PathTallyOpts = {}) {
     const tk = token();
     tally.current = tk;
     setTallying(true);
+    // Finishing a board: the bar stops full on its last level (the moment rolls it over).
+    boardHold.on = a.boardUp !== undefined;
     useCelebrate.getState().setHold(true, { queue: true });
     const natural = await runTally(a, b, square, tk, { onMark: () => boardMark(b, square, 'good') });
     if (tally.current === tk) finish(a, saved, square, !natural);
@@ -216,7 +254,8 @@ export function usePathTally(opts: PathTallyOpts = {}) {
   const panels: ReactNode = (
     <>
       {levelUp && board.current && <LevelUpPanel key={`${levelUp.from}-${levelUp.to}`} from={levelUp.from} to={levelUp.to} board={board.current.el} instant={levelUp.instant} closing={!!levelUp.closing} onClose={closeLevelUp} onClosed={levelClosed} onOpenPath={openPath} />}
-      {tierCard !== null && <TierUpCard board={tierCard} onClose={() => setTierCard(null)} onOpenPath={openPath} />}
+      {boardDone && <BoardComplete key={`${boardDone.from}-${boardDone.to}`} from={boardDone.from} to={boardDone.to} still={boardDone.still} record={live.current.path?.boards?.[levelAt(boardDone.from).board]} onLanded={boardLanded} onDone={boardEnded} />}
+      {tierCard !== null && <TierUpCard board={tierCard} onClose={tierClosed} onOpenPath={openPath} />}
     </>
   );
 
