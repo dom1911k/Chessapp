@@ -40,7 +40,8 @@ export default defineConfig({
       workbox: {
         // Everything — app, engine and puzzles — so it works fully offline.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,wasm,json,bin,mp3}'],
-        maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
+        // The largest is onnxruntime's wasm for Maia-3 (14.8 MB).
+        maximumFileSizeToCacheInBytes: 16 * 1024 * 1024,
         cleanupOutdatedCaches: true,
       },
     }),
