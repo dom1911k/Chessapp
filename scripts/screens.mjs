@@ -768,6 +768,62 @@ async function run([W, H], scheme) {
     await home();
   }
 
+  // ---- Round 8, Phase 3: around puzzles ----
+  if (P('rush-strip') || P('rush-score-5') || P('rush-end-strip')) {
+    // 3 minutes: five solves, a miss (the run strip under the puzzle), then two more misses end it.
+    await setPath({ at: [0, 3, 0] });
+    await p.evaluate(async () => {
+      const find = (n) => performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n) && !x.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n));
+      const db = await import(find('/src/lib/db.ts'));
+      await db.kvSet('rushBest', 0);
+    });
+    await push({ name: 'rush', mode: '3' });
+    await p.waitForTimeout(2500);
+    await p.locator('button:has-text("Start")').first().click();
+    await p.waitForTimeout(2500);
+    for (let i = 0; i < 5; i++) {
+      await solveOpen();
+      await p.waitForTimeout(1900);
+    }
+    const score = await p.evaluate(() => [...document.querySelectorAll('[data-testid="rush-score"]')].map((e) => e.textContent));
+    if (score.length !== 1 || score[0] !== '5') errors.push(`rush-score-5: the header's score nodes read ${JSON.stringify(score)}`);
+    if (P('rush-score-5')) await shot('rush-score-5');
+    await solveOpen({ wrong: true });
+    await p.waitForTimeout(1900);
+    const strip = await p.evaluate(() => [...document.querySelectorAll('[data-testid="rush-strip"] [data-run]')].map((e) => e.getAttribute('data-run')).join(','));
+    if (strip !== 'ok,ok,ok,ok,ok,miss') errors.push(`rush-strip: the run strip reads ${strip}`);
+    if (P('rush-strip')) await shot('rush-strip');
+    for (let i = 0; i < 2; i++) {
+      await solveOpen({ wrong: true });
+      await p.waitForTimeout(1900);
+    }
+    await p.waitForTimeout(2500);
+    const end = await p.evaluate(() => ({ cells: document.querySelectorAll('[data-testid="rush-end-strip"] button').length, best0: /Best 0\b/.test(document.body.innerText) }));
+    if (end.cells !== 8 || end.best0) errors.push(`rush-end-strip: ${JSON.stringify(end)}`);
+    if (P('rush-end-strip')) {
+      await shot('rush-end-strip');
+      await p.locator('[data-testid="rush-end-strip"] button').last().click();
+      await p.waitForTimeout(1500);
+      const top = await p.evaluate(() => window.__nav.getState().stack.at(-1));
+      if (top?.name !== 'explore' || !top.line?.length) errors.push(`rush-end-strip: a tap opened ${JSON.stringify(top)}`);
+      await shot('rush-end-strip-analyse');
+    }
+    await home();
+  }
+  if (P('yours-empty')) {
+    await p.evaluate(async () => {
+      const find = (n) => performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n) && !x.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n));
+      const db = await import(find('/src/lib/db.ts'));
+      await db.db.games.clear();
+    });
+    await push({ name: 'puzzle', mode: { kind: 'yours' } });
+    await p.waitForTimeout(2500);
+    const y = await p.evaluate(() => ({ empty: !!document.querySelector('[data-testid="yours-empty"]'), title: document.querySelector('h1')?.textContent, play: !!document.querySelector('[data-testid="yours-empty"] button.btn-primary') }));
+    if (!y.empty || y.title !== 'Your games' || !y.play) errors.push(`yours-empty: ${JSON.stringify(y)}`);
+    await shot('yours-empty');
+    await home();
+  }
+
   // ---- Polish round 3 QA (opt-in: --only=polish3, or any of these names) ----
   // versus-stamp, versus-handoff, end-badges, over-win-mid, over-win-levelup, over-loss-end,
   // review-reveal-mid, review-reveal-end, step-brilliant, step-blunder, tabs-mid, push-mid,

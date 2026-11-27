@@ -90,7 +90,7 @@ export function PuzzlesScreen() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">Daily Puzzle</span>
-                <span className="block truncate text-xs text-stone-500 dark:text-stone-400">{d?.dailySolved ? 'Solved today ✓ — come back tomorrow' : 'A new puzzle every day'}</span>
+                <span className="block truncate text-xs text-stone-500 dark:text-stone-400">{d?.dailySolved ? 'Solved today · a new one tomorrow' : 'A new puzzle every day'}</span>
               </span>
               {d && d.dailyStreak > 0 && (
                 <span className="flex items-center gap-0.5 font-bold text-hue-orange-600">

@@ -358,9 +358,13 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
         </div>
       </div>
       {fast ? (
-        <div className="px-3 pt-2 text-center section-title">
-          {state === 'solving' ? `${side} to move` : state === 'wrong' ? 'Missed' : state === 'solved' ? 'Solved' : '…'}
-        </div>
+        <>
+          <div className="px-3 pt-2 text-center section-title">
+            {state === 'solving' ? `${side} to move` : state === 'wrong' ? 'Missed' : state === 'solved' ? 'Solved' : '…'}
+          </div>
+          {/* (Rush: the run strip, right under whose move it is.) */}
+          {footer}
+        </>
       ) : (
         <div className="space-y-2.5 px-3 pt-2.5">
           {/* Coach Sam: whose move, then the verdict. Steady height so nothing jumps. */}

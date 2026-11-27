@@ -21,14 +21,14 @@ import { useSettings } from '../lib/settings';
 import { useContext } from 'react';
 import { PuzzleTimer } from '../components/PuzzleProgress';
 import { dailyPick, dailyStreak, gamePuzzles, markDailySolved } from '../lib/puzzles/sources';
-import { Flame } from 'lucide-react';
+import { Flame, Swords, Trophy } from 'lucide-react';
 import { loadRange } from '../lib/puzzles/data';
 import { allGames } from '../lib/games';
 
 const YOURS_KEY = 'yourPuzzlesDone';
 /** The daily puzzle comes from this rating range (the same for everyone on a given day). */
 export const DAILY_RANGE = [1000, 1500] as const;
-const MODE_TITLE: Partial<Record<PuzzleMode['kind'], string>> = { rated: 'Puzzles', learn: 'Unrated puzzles', yours: 'From your games', dailyPuzzle: 'Daily Puzzle' };
+const MODE_TITLE: Partial<Record<PuzzleMode['kind'], string>> = { rated: 'Puzzles', learn: 'Unrated puzzles', yours: 'Your games', dailyPuzzle: 'Daily Puzzle' };
 /** Streak lengths that get a banner. */
 const isMilestone = (n: number) => n === 3 || n === 5 || (n >= 10 && n % 5 === 0);
 
@@ -140,22 +140,47 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   const delta = outcome?.ratingAfter !== undefined && outcome.ratingBefore !== undefined ? outcome.ratingAfter - outcome.ratingBefore : null;
   const title = drill ? `${drill.label} · ${Math.min(drillSolved, drill.count)}/${drill.count}` : course ? `${course.label}${solvedInStep !== null ? ` · ${Math.min(solvedInStep, course.count)}/${course.count}` : ''}` : theme ? themeLabel(theme) : MODE_TITLE[mode.kind] ?? 'Puzzles';
   const streak = path?.streak ?? 0;
+  const yoursEmpty = empty && mode.kind === 'yours';
 
   return (
     <div className="flex h-full flex-col">
       <Header
         title={title}
         back
-        leading={path ? <LiveCrest size={32} onClick={pt.openPath} /> : undefined}
+        leading={path && !yoursEmpty ? <LiveCrest size={32} onClick={pt.openPath} /> : undefined}
         right={
-          <div className="flex items-center gap-3 pr-2">
-            {pathSource !== 'none' && <LiveDots />}
-            <LiveFlame size={20} />
-          </div>
+          // (Nothing to solve from your games: no crest, dots or flame crowding the title.)
+          yoursEmpty ? undefined : (
+            <div className="flex items-center gap-3 pr-2">
+              {pathSource !== 'none' && <LiveDots />}
+              <LiveFlame size={20} />
+            </div>
+          )
         }
       />
       <div className="mx-auto w-full max-w-xl flex-1 overflow-y-auto land:max-w-6xl">
-        {empty && <p className="p-6 text-center text-stone-500">{mode.kind === 'yours' ? 'No positions from your games yet — they appear once your games are analysed and your opponents slip.' : "You've done every puzzle in this set. Amazing!"}</p>}
+        {yoursEmpty ? (
+          <div className="flex flex-col items-center px-6 pt-12 pb-6 text-center" data-testid="yours-empty">
+            <span className="flex h-14 w-14 items-center justify-center rounded-[12px] bg-hue-rose-100 text-hue-rose-700 dark:bg-hue-rose-900/40 dark:text-hue-rose-300">
+              <Swords size={28} />
+            </span>
+            <p className="mt-4 max-w-xs text-[15px] text-stone-600 dark:text-stone-300">No positions from your games yet — they appear once your games are analysed and your opponents slip.</p>
+            <button
+              className="btn-primary mt-5 w-full max-w-xs !py-3"
+              onClick={() => {
+                useSettings.getState().set({ playSide: 'characters' });
+                useNav.getState().setTab('play');
+              }}
+            >
+              Play a game
+            </button>
+            <button className="mt-3 text-sm font-semibold text-stone-500 active:text-stone-800" onClick={pop}>
+              Back to puzzles
+            </button>
+          </div>
+        ) : (
+          empty && <p className="p-6 text-center text-stone-500">You've done every puzzle in this set. Amazing!</p>
+        )}
         {!spec && !empty && (
           <div className="flex justify-center p-10">
             <Spinner />
@@ -197,7 +222,7 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
               ) : award?.streakLost && award.streakLost >= 3 ? (
                 <p className="mt-1.5 text-xs text-stone-500">Streak of {award.streakLost} ended. Start a new one!</p>
               ) : outcome?.newPeak ? (
-                <div className="mt-1.5 text-xs"><span className="chip bg-gold-300/50 text-stone-800 dark:bg-gold-500/25 dark:text-gold-300">★ Highest rating</span></div>
+                <div className="mt-1.5 text-xs"><span className="chip gap-1 bg-gold-300/50 text-stone-800 dark:bg-gold-500/25 dark:text-gold-300"><Trophy size={12} /> Highest rating</span></div>
               ) : null
             }
           />

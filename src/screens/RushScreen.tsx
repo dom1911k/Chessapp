@@ -10,7 +10,9 @@ import { fromLichess, type PuzzleSpec } from '../lib/puzzles/spec';
 import { progress } from '../lib/progress';
 import { CountUp, FillBar } from '../components/Reward';
 import { useCelebrate } from '../lib/celebrate';
-import { Shield, Trophy, Zap } from 'lucide-react';
+import { Check, Shield, Trophy, X, Zap } from 'lucide-react';
+import { useNav } from '../lib/nav';
+import { tryMove } from '../lib/chess/game';
 import { sfx } from '../lib/sfx';
 
 const STRIKES = 3;
@@ -39,6 +41,8 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
   const [prevBest, setPrevBest] = useState(0);
   const [recordPts, setRecordPts] = useState(0);
   const [plus, setPlus] = useState(0);
+  // This run's puzzles and how each went (in memory only: nothing new is saved).
+  const [run, setRun] = useState<{ spec: PuzzleSpec; ok: boolean }[]>([]);
   const rating = useRef(START_RATING);
   const seen = useRef(new Set<string>());
   const ended = useRef(false);
@@ -74,6 +78,7 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
     seen.current.clear();
     setScore(0);
     setMisses(0);
+    setRun([]);
     setLeft(DURATION[mode]);
     setNewBest(false);
     ended.current = false;
@@ -120,8 +125,9 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
               </span>
               {mode !== 'survival' && <span className={`tabular-nums ${left <= 10 ? 'animate-urgent text-danger-700' : left <= 20 ? 'text-danger-700' : ''}`}>{mm}:{ss}</span>}
               <span className="relative">
-                <span key={score} className="animate-count-pop font-display inline-block min-w-[1.6ch] text-center text-xl text-brand-700 tabular-nums dark:text-brand-500">{score}</span>
-                {plus > 0 && <span key={plus} className="animate-float-up pointer-events-none absolute -top-4 -right-3 text-[11px] font-black text-brand-700">+1</span>}
+                {/* (Distinct keys: the score and the "+1" are siblings, and clashing numbers left old scores behind.) */}
+                <span key={'s' + score} className="animate-count-pop font-display inline-block min-w-[1.6ch] text-center text-xl text-brand-700 tabular-nums dark:text-brand-500" data-testid="rush-score">{score}</span>
+                {plus > 0 && <span key={'p' + plus} className="animate-float-up pointer-events-none absolute -top-4 -right-3 text-[11px] font-black text-brand-700">+1</span>}
               </span>
             </div>
           ) : null
@@ -157,6 +163,7 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
               spec={spec}
               fast
               onFinish={(r) => {
+                setRun((x) => [...x, { spec, ok: r.success }]);
                 if (r.success) {
                   setScore((x) => x + 1);
                   setPlus((x) => x + 1);
@@ -164,6 +171,7 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
                 } else setMisses((x) => x + 1);
               }}
               onNext={() => void load()}
+              footer={run.length > 0 ? <RunStrip run={run} /> : undefined}
             />
           ) : (
             <div className="flex justify-center p-10"><Spinner /></div>
@@ -176,13 +184,20 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
               <span className="text-sm text-stone-500">puzzles solved</span>
               <div className="mt-4 w-full">
                 <div className="mb-1 flex justify-between text-xs text-stone-500">
-                  <span>Best {prevBest}</span>
+                  {/* (No "Best 0" on a first run.) */}
+                  {prevBest > 0 ? <span>Best {prevBest}</span> : <span />}
                   {newBest && <span className="animate-reveal flex items-center gap-1 font-bold text-gold-500" style={{ animationDelay: '1100ms' }}><Trophy size={13} /> New best!</span>}
                   {newBest && recordPts > 0 && <span className="animate-reveal rounded-full bg-[#f2b51c] px-2 py-0.5 text-xs font-extrabold text-[#3a2a00]" style={{ animationDelay: '1300ms' }} data-testid="rush-record">Rush record +{recordPts}</span>}
                 </div>
                 <FillBar from={0} to={Math.min(1, score / Math.max(1, prevBest, score))} delay={200} ms={1100} className="h-2.5" fill={newBest ? 'bg-gradient-to-r from-hue-amber-300 to-gold-500' : 'bg-gradient-to-r from-hue-lime-400 to-brand-500'} />
               </div>
             </div>
+            {run.length > 0 && (
+              <div className="card !px-3 !py-3">
+                <div className="mb-2 px-1 text-xs font-semibold text-stone-500">Your run · tap a puzzle to see its solution</div>
+                <RunStrip run={run} tappable />
+              </div>
+            )}
             <CoachBubble actions={<button className="btn-primary" onClick={() => void start()}>Try again</button>}>
               <p className="text-sm text-stone-600 dark:text-stone-300">
                 {newBest ? `A new personal best in ${RUSH_LABEL[mode]} — ${score - prevBest} more than before.` : prevBest - score <= 2 ? `So close — ${prevBest - score === 0 ? 'you tied' : `${prevBest - score} short of`} your best.` : `Your best in ${RUSH_LABEL[mode]} is ${best}.`} Speed comes from recognising patterns — the more you solve, the faster you get.
@@ -191,6 +206,45 @@ export function RushScreen({ mode: initial = '3' }: { mode?: RushMode }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The run so far: a square per puzzle (green with a check, red with a cross) and its rating under
+ * it, newest on the right; the row scrolls sideways once it's full. On the end card a tap opens
+ * Analyse with that puzzle's solution.
+ */
+function RunStrip({ run, tappable = false }: { run: { spec: PuzzleSpec; ok: boolean }[]; tappable?: boolean }) {
+  const row = useRef<HTMLDivElement>(null);
+  const push = useNav((s) => s.push);
+  useEffect(() => {
+    row.current?.scrollTo({ left: row.current.scrollWidth });
+  }, [run.length]);
+  const open = (spec: PuzzleSpec) => {
+    const fen = spec.setup ? tryMove(spec.fen, spec.setup)!.fen : spec.fen;
+    push({ name: 'explore', fen, orientation: fen.split(' ')[1] === 'w' ? 'white' : 'black', title: 'Puzzle analysis', line: spec.solution });
+  };
+  return (
+    <div ref={row} className="no-scrollbar flex gap-1.5 overflow-x-auto px-3 pt-2 pb-1" data-testid={tappable ? 'rush-end-strip' : 'rush-strip'}>
+      <div className="ml-auto" />
+      {run.map((r, i) => {
+        const cell = (
+          <>
+            <span className={`flex h-[30px] w-[30px] items-center justify-center rounded-[7px] text-white ${r.ok ? 'bg-brand-500' : 'bg-danger-500'}`}>{r.ok ? <Check size={17} strokeWidth={3.2} /> : <X size={17} strokeWidth={3.2} />}</span>
+            <span className="text-[10px] leading-none font-semibold text-stone-500 tabular-nums">{r.spec.rating ?? ''}</span>
+          </>
+        );
+        return tappable ? (
+          <button key={i} className="press flex shrink-0 flex-col items-center gap-1" onClick={() => open(r.spec)} aria-label={`${r.ok ? 'Solved' : 'Missed'} puzzle ${r.spec.rating ?? ''}: see the solution`} data-run={r.ok ? 'ok' : 'miss'}>
+            {cell}
+          </button>
+        ) : (
+          <span key={i} className="flex shrink-0 flex-col items-center gap-1" data-run={r.ok ? 'ok' : 'miss'}>
+            {cell}
+          </span>
+        );
+      })}
     </div>
   );
 }
