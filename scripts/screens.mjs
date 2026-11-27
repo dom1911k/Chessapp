@@ -1860,13 +1860,47 @@ async function run([W, H], scheme) {
     await waitFor(p, ['userTurn'], 60000);
     await p.waitForTimeout(1500);
     const sam = await p.evaluate(() => { const f = window.__play.getState().game.feed ?? []; return f.filter((x) => x.kind === 'sam').map((x) => x.text.join(' ')); });
-    const label = await p.evaluate(() => [...document.querySelectorAll('div')].map((d) => d.textContent ?? '').find((t) => /^Coach Sam · 1\. /i.test(t)) ?? null);
+    // The label as it shows (innerText includes text-transform): moves keep their case, "Coach Sam · 1.e4".
+    const label = await p.evaluate(() => [...document.querySelectorAll('div')].map((d) => d.innerText ?? '').find((t) => /^coach sam · 1\.\S+$/i.test(t)) ?? null);
     const first = await p.evaluate(() => window.__play.getState().game.plies[0]?.san);
     // Sam's first move: a centre pawn or a developing move gets a line; anything else may not.
-    if (['e4', 'd4', 'Nf3', 'Nc3'].includes(first) && (!sam.length || !label)) errors.push(`coach-explains: after 1.${first} Sam said ${JSON.stringify(sam)} (label ${label})`);
+    if (['e4', 'd4', 'Nf3', 'Nc3'].includes(first) && (!sam.length || label !== `Coach Sam · 1.${first}`)) errors.push(`coach-explains: after 1.${first} Sam said ${JSON.stringify(sam)} (label ${JSON.stringify(label)})`);
     await shot('r7-coach-explains');
     await p.evaluate(() => window.__play.getState().abandon?.());
     await p.waitForTimeout(500);
+    // Sam's voice on the pause card: you leave a knight to his queen (1.e4 e5 2.Nf3 Nc6 3.Ng5?), and he says "I", not "they".
+    await p.evaluate(() => window.__play.getState().newGame('w', 500, 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3', 'coach', { coach: 'your' }));
+    await p.waitForTimeout(900);
+    await p.evaluate(() => window.__play.getState().endIntro());
+    await waitFor(p, ['userTurn'], 60000);
+    // First the pre-move check ("Check what I could take."), then play it anyway for the pause card.
+    await p.evaluate(() => window.__play.getState().userMove({ from: 'f3', to: 'g5' }));
+    await p.waitForTimeout(600);
+    const pre = await p.evaluate(() => { const c = window.__play.getState().precheck?.check; return c ? `${c.ask} ${c.reveal}` : null; });
+    if (pre && /\b(they|their|them|your opponent)\b/i.test(pre)) errors.push(`coach-explains: the pre-move check reads ${pre}`);
+    if (pre) await shot('r7-coach-voice-precheck');
+    if (pre) await p.evaluate(() => window.__play.getState().userMove({ from: 'f3', to: 'g5' }, true));
+    await waitFor(p, ['paused', 'botThinking', 'userTurn'], 60000);
+    await p.waitForFunction(() => (window.__play.getState().game.feed ?? []).some((f) => f.kind === 'comment'), null, { timeout: 60000 }).catch(() => {});
+    await p.waitForTimeout(1500);
+    const voice = await p.evaluate(() => ({ phase: window.__play.getState().phase, text: (window.__play.getState().game.feed ?? []).filter((f) => f.kind === 'comment').map((f) => f.text.join(' ')).join(' | ') }));
+    // (Some lines don't name the opponent at all: "Your knight on g5 can be taken for free.")
+    if (!voice.text || /\b(they|their|them|theirs|your opponent)\b/i.test(voice.text)) errors.push(`coach-explains: Sam's comment on a hung knight reads ${JSON.stringify(voice)}`);
+    await shot('r7-coach-voice');
+    await p.evaluate(() => window.__play.getState().abandon?.());
+    await p.waitForTimeout(500);
+    // Other labels with a move in them keep its case: the Openings groups and the repertoire slots.
+    await push({ name: 'openings' });
+    await p.waitForTimeout(900);
+    const groups = await p.evaluate(() => [...document.querySelectorAll('h2')].map((h) => h.innerText));
+    if (!groups.includes('1. e4') || !groups.includes('1. d4')) errors.push(`coach-explains: Openings groups read ${JSON.stringify(groups)}`);
+    await p.evaluate(() => window.__nav.getState().pop?.());
+    await push({ name: 'repertoire' });
+    await p.waitForTimeout(900);
+    const slots = await p.evaluate(() => [...document.querySelectorAll('h2')].map((h) => h.innerText));
+    if (!slots.includes('With Black against 1.e4') || !slots.includes('With Black against 1.d4')) errors.push(`coach-explains: repertoire slots read ${JSON.stringify(slots)}`);
+    await p.evaluate(() => window.__nav.getState().pop?.());
+    await p.waitForTimeout(300);
   }
 
   // coach-question: a quick question (wrong, right, Skip) with taps on the board, stored on the game.
@@ -1881,10 +1915,38 @@ async function run([W, H], scheme) {
       const { undefendedQuestion } = await import(find('/src/lib/coach/quiz.ts'));
       window.__play.setState({ quiz: undefendedQuestion('1r2k3/8/8/1N6/8/8/8/4K3 w - - 0 1', 'w') });
     });
+    // Sam's intro and a long line of his are on the panel: they fold to one line while the question is open.
+    await p.evaluate(() => {
+      const g = window.__play.getState().game;
+      window.__play.setState({ game: { ...g, feed: [...(g.feed ?? []), { id: 99001, ply: -1, kind: 'sam', text: ["Knight to c6. Look closely at what I'm threatening — and think about what it means for every piece you have on the queenside."] }] } });
+    });
     await ask();
     await p.waitForTimeout(600);
     const open = await p.locator('[data-testid="quiz"]').textContent().catch(() => null);
     if (!/Quick question.*Which of your pieces is undefended\? Tap it\..*Skip/.test(open ?? '')) errors.push(`coach-question: the question reads ${open}`);
+    // All of it in view: outside the scrolling panel, above the dock, nothing over it, no "More" pill.
+    const quizLayout = () => p.evaluate(() => {
+      const q = document.querySelector('[data-testid="quiz"]');
+      if (!q) return { missing: true };
+      const seen = (el) => {
+        if (!el) return null;
+        const b = el.getBoundingClientRect();
+        const top = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+        return !!top && (el === top || el.contains(top)) && b.top >= 0 && b.bottom <= innerHeight;
+      };
+      const dock = document.querySelector('[data-testid="quiz-slot"]')?.nextElementSibling;
+      return {
+        inPanel: !!q.closest('[data-testid="coach-panel"]'),
+        more: !!document.querySelector('[data-testid="coach-more"]'),
+        prompt: seen(q.querySelector('p')),
+        skip: seen(document.querySelector('[data-testid="quiz-skip"]')),
+        result: seen(document.querySelector('[data-testid="quiz-result"]')),
+        aboveDock: !dock || q.getBoundingClientRect().bottom <= dock.getBoundingClientRect().top + 1,
+        folded: [...document.querySelectorAll('[data-testid="coach-line"]')].map((l) => l.scrollWidth > l.clientWidth || l.getBoundingClientRect().height < 26),
+      };
+    });
+    const lay = await quizLayout();
+    if (lay.missing || lay.inPanel || lay.more || !lay.prompt || !lay.skip || !lay.aboveDock || lay.folded.length !== 1 || !lay.folded[0]) errors.push(`coach-question: open question layout ${JSON.stringify(lay)}`);
     // The board takes taps, not moves.
     if (await p.evaluate(() => window.__play.getState().userMove({ from: 'b5', to: 'c7' }))) errors.push('coach-question: a move went through while the question was open');
     await shot('r7-coach-question');
@@ -1892,6 +1954,8 @@ async function run([W, H], scheme) {
     await p.waitForTimeout(500);
     const wrong = await p.evaluate(() => ({ state: document.querySelector('[data-testid="quiz"]')?.getAttribute('data-state'), marks: [...document.querySelectorAll('[data-quiz-mark]')].map((m) => m.getAttribute('data-quiz-mark')).sort().join(',') }));
     if (wrong.state !== 'wrong' || wrong.marks !== 'right,wrong') errors.push(`coach-question: a wrong tap shows ${JSON.stringify(wrong)}`);
+    const layWrong = await quizLayout();
+    if (layWrong.inPanel || layWrong.more || !layWrong.prompt || !layWrong.result || !layWrong.aboveDock) errors.push(`coach-question: the wrong answer isn't in full view ${JSON.stringify(layWrong)}`);
     await shot('r7-coach-question-wrong');
     await ask();
     await p.waitForTimeout(400);
@@ -1899,6 +1963,8 @@ async function run([W, H], scheme) {
     await p.waitForTimeout(500);
     const right = await p.evaluate(() => ({ state: document.querySelector('[data-testid="quiz"]')?.getAttribute('data-state'), text: document.querySelector('[data-testid="quiz-result"]')?.textContent, marks: [...document.querySelectorAll('[data-quiz-mark]')].map((m) => m.getAttribute('data-quiz-mark')).join(',') }));
     if (right.state !== 'right' || right.marks !== 'right' || !/^Right\. Your knight on b5 can be taken\.$/.test(right.text ?? '')) errors.push(`coach-question: a right tap shows ${JSON.stringify(right)}`);
+    const layRight = await quizLayout();
+    if (layRight.inPanel || layRight.more || !layRight.prompt || !layRight.result || !layRight.aboveDock) errors.push(`coach-question: the answer isn't in full view ${JSON.stringify(layRight)}`);
     await shot('r7-coach-question-right');
     await ask();
     await p.waitForTimeout(400);

@@ -573,3 +573,31 @@ describe('round 7 · 4.2 quick questions', async () => {
     usePlay.setState({ game: null, quiz: null, phase: 'setup' });
   });
 });
+
+describe('round 7 · qa: Sam talks about himself in Play Coach', async () => {
+  const { samVoice } = await import('../lib/coach/voice');
+  it('the feedback says I / my / me for the opponent', () => {
+    const cases: [string, string][] = [
+      ['Your knight on e5 is undefended — they win it for free.', 'Your knight on e5 is undefended — I win it for free.'],
+      ['Their pawn on d3 had no defender — it was yours to take.', 'My pawn on d3 had no defender — it was yours to take.'],
+      ['This lets them checkmate you on your back row: Qd1#.', 'This lets me checkmate you on your back row: Qd1#.'],
+      ['Now they can take on e5, and they are better.', "Now I can take on e5, and I'm better."],
+      ["Danger! They're setting up a checkmate, starting with: they move the queen to h4.", "Danger! I'm setting up a checkmate, starting with: I move the queen to h4."],
+      ['Before you move, ask "what do they want?" Your rook on a1 was attacked and still is.', 'Before you move, ask "what do I want?" Your rook on a1 was attacked and still is.'],
+      ['Your opponent threatens checkmate!', 'I threaten checkmate!'],
+      ['Your opponent has no real threat right now.', 'I have no real threat right now.'],
+      ['Hold on! Before you play that — is everything still safe? Check what your opponent could take.', 'Hold on! Before you play that — is everything still safe? Check what I could take.'],
+      ["You've brought out more pieces than them. Use that head start!", "You've brought out more pieces than me. Use that head start!"],
+      ['You have the black pieces — Sam moves first.', 'You have the black pieces — I move first.'],
+      ['Coach Sam got you this time. 2 moments to fix in the review.', 'I got you this time. 2 moments to fix in the review.'],
+      ["Coach Sam's knight now attacks your queen on d1. What will you do?", 'My knight now attacks your queen on d1. What will you do?'],
+    ];
+    for (const [a, b] of cases) expect(samVoice(a)).toBe(b);
+  });
+  it('"them" for pieces stays, and the line reads the same when voiced twice', () => {
+    expect(samVoice('You still have 3 knights and bishops at home — bring them out!')).toBe('You still have 3 knights and bishops at home — bring them out!');
+    expect(samVoice('Some of their pawns are weak — you can go after them later.')).toBe('Some of my pawns are weak — you can go after them later.');
+    const once = samVoice('Careful: they can take on f7, and their bishop hits your king and rook at once.');
+    expect(samVoice(once)).toBe(once);
+  });
+});

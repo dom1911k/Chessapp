@@ -260,6 +260,10 @@ time {
 @utility section-title {
   @apply px-1 text-[11px] font-bold tracking-[0.06em] text-stone-500 uppercase;
 }
+/* A section title with a move in it ("With Black against 1.e4"): chess notation keeps its case. */
+@utility section-title-plain {
+  @apply px-1 text-[12px] font-bold text-stone-500;
+}
 
 @keyframes fade-in {
   from {

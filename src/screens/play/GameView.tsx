@@ -27,13 +27,14 @@ import { aidsFor, coachLevelLabel } from '../../lib/coach/level';
 import { VersusIntro } from '../../components/VersusIntro';
 import { RewardsOverlay } from '../../components/RewardsOverlay';
 import { THEMES } from '../../lib/themes';
-import { CoachCard, CoachHistory } from './CoachCard';
+import { CoachCard, CoachHistory, QuizBubble } from './CoachCard';
 import { type ActionKind, GameActions, newOpponent, rematch } from './GameActions';
 import { QuizBoard } from './QuizBoard';
 import { PlayerBar } from './PlayerBar';
 import { haptic, reduced } from '../../lib/motion';
 import { sfx } from '../../lib/sfx';
 import { END_BEATS, END_STALE_MS, endStinger } from '../../lib/endBeats';
+import { samVoice } from '../../lib/coach/voice';
 
 /** The opponent's name for banners: the character, a stand-in, or "Your opponent". */
 const opponentName = (g: { opponentId?: string; rematch?: { name: string }; stranger?: { name: string } }) => opponentById(g.opponentId)?.name ?? g.stranger?.name ?? (g.rematch ? g.rematch.name : 'Your opponent');
@@ -165,6 +166,8 @@ export function GameView() {
     arrows.push(...safety.arrows);
     highlights.push(...safety.highlights);
   }
+  // Play Coach: Sam warns you in his own voice ("I threaten checkmate!").
+  const safetyLines = (safety?.messages ?? []).map((t) => (g.coach ? samVoice(t) : t));
 
   const lastEval = [...g.plies].reverse().find((p) => p.evalAfter)?.evalAfter;
   const whitePct = lastEval ? winPct(povScore(lastEval, 'w')) : 50;
@@ -280,14 +283,14 @@ export function GameView() {
               <MoveHistory plies={g.plies} startFen={g.startFen} view={viewing ? view : null} onView={setView} arrows={aids.requests} />
               {coachFresh && (
                 <div className="max-h-[45%] shrink-0 overflow-y-auto">
-                  <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => setHistory(true)} />
+                  <CoachCard safetyMessages={safetyLines} onHistory={() => setHistory(true)} />
                 </div>
               )}
             </div>
           ) : (
             <>
-              <FadeScroll className="px-3 pt-2 pb-3" testId="coach-panel" onMore={() => setFull(true)}>
-                <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => setHistory(true)} />
+              <FadeScroll className={`px-3 ${s.quiz ? 'pt-1 pb-1' : 'pt-2 pb-3'}`} testId="coach-panel" onMore={() => setFull(true)} quiet={!!s.quiz}>
+                <CoachCard safetyMessages={safetyLines} onHistory={() => setHistory(true)} />
               </FadeScroll>
               {settings.showMoveList && (
                 <div className="hidden min-h-0 px-3 pb-2 land:flex land:max-h-[48%] land:flex-col" data-testid="move-table">
@@ -295,6 +298,13 @@ export function GameView() {
                 </div>
               )}
             </>
+          )}
+          {/* Play Coach's quick question: its own place above the dock, outside the scrolling panel, so the
+              question, Skip and the answer are always in view. */}
+          {s.quiz && !s.over && (
+            <div className="shrink-0 px-3 pb-2" data-testid="quiz-slot">
+              <QuizBubble />
+            </div>
           )}
           {/* Choices (a paused mistake, the pre-check, game over) take the Dock's place, so they're never scrolled away. */}
           {actionKind ? (
@@ -365,7 +375,7 @@ export function GameView() {
       </Dialog>
       <Dialog open={full} onClose={() => setFull(false)}>
         <div className="max-h-[70dvh] overflow-y-auto">
-          <CoachCard safetyMessages={safety?.messages ?? []} onHistory={() => (setFull(false), setHistory(true))} />
+          <CoachCard safetyMessages={safetyLines} onHistory={() => (setFull(false), setHistory(true))} />
         </div>
       </Dialog>
       <Dialog open={overMenu} onClose={() => setOverMenu(false)}>

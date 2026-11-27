@@ -225,7 +225,8 @@ export function Arrive({ ready, skeleton, children, inline = false, className = 
  * A top-aligned scrolling area with a soft fade at the bottom while there's more below (coach
  * panels). With `onMore`, a small "More" pill sits on the bottom edge while it overflows.
  */
-export function FadeScroll({ children, className = '', testId, onMore }: { children: ReactNode; className?: string; testId?: string; onMore?: () => void }) {
+/** `quiet`: no fade and no "More" pill (something below needs the edge, e.g. Play Coach's question). */
+export function FadeScroll({ children, className = '', testId, onMore, quiet = false }: { children: ReactNode; className?: string; testId?: string; onMore?: () => void; quiet?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [more, setMore] = useState(false);
   useEffect(() => {
@@ -244,7 +245,7 @@ export function FadeScroll({ children, className = '', testId, onMore }: { child
     };
   }, []);
   const area = (
-    <div ref={ref} className={`min-h-0 flex-1 overflow-y-auto ${more ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]' : ''} ${className}`} data-testid={testId}>
+    <div ref={ref} className={`min-h-0 flex-1 overflow-y-auto ${more && !quiet ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]' : ''} ${className}`} data-testid={testId}>
       {children}
     </div>
   );
@@ -252,7 +253,7 @@ export function FadeScroll({ children, className = '', testId, onMore }: { child
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {area}
-      {more && (
+      {more && !quiet && (
         <button
           // On the bubble's bottom edge, half outside it, so it never sits on a line of text.
           className="absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 translate-y-1/2 items-center gap-0.5 rounded-full bg-white py-0.5 pr-2 pl-2.5 text-[12px] font-bold text-[#312e2b] shadow-[0_1px_4px_rgba(0,0,0,0.3)]"

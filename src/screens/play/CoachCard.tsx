@@ -58,8 +58,8 @@ function useTypewriter(key: string, total: number, enabled: boolean) {
 function FeedBubble({ it, compact, flag, type }: { it: FeedItem; compact?: boolean; flag?: boolean; type?: boolean }) {
   const g = usePlay((s) => s.game)!;
   const p = it.ply >= 0 ? g.plies[it.ply] : undefined;
-  // Sam's line about his own move (Play Coach): "Coach Sam · 6… Ng4".
-  const samLabel = it.kind === 'sam' && p ? { label: `Coach Sam · ${Number(p.fenBefore.split(' ')[5]) || Math.floor(it.ply / 2) + 1}${p.color === 'b' ? '…' : '.'} ${p.san}`, icon: undefined } : undefined;
+  // Sam's line about his own move (Play Coach): "Coach Sam · 6…Ng4" (a move keeps its case).
+  const samLabel = it.kind === 'sam' && p ? { label: `Coach Sam · ${moveName(p, it.ply)}`, icon: undefined, labelCase: 'normal' as const } : undefined;
   const words = useMemo(() => it.text.map((t) => t.split(' ')), [it.text]);
   const total = words.reduce((n, w) => n + w.length, 0);
   const gentle = useSettings((st) => st.coachStyle === 'gentle');
@@ -97,6 +97,25 @@ function FeedBubble({ it, compact, flag, type }: { it: FeedItem; compact?: boole
   );
 }
 
+/** "6…Ng4" / "7.e5": a move with its number, as it's written. */
+function moveName(p: PlyRecord, ply: number): string {
+  return `${Number(p.fenBefore.split(' ')[5]) || Math.floor(ply / 2) + 1}${p.color === 'b' ? '…' : '.'}${p.san}`;
+}
+
+/** A message folded to one line, while a quick question has the stage. */
+function FeedLine({ it }: { it: FeedItem }) {
+  const g = usePlay((s) => s.game)!;
+  const p = it.ply >= 0 ? g.plies[it.ply] : undefined;
+  return (
+    <CoachBubble compact mood={it.mood ?? 'happy'} className="!py-1.5">
+      <p className="truncate" data-testid="coach-line">
+        {it.kind === 'sam' && p && <b className="mr-1">{moveName(p, it.ply)}</b>}
+        {it.text.join(' ')}
+      </p>
+    </CoachBubble>
+  );
+}
+
 /** Coach Sam's current message only — the conversation so far is one tap away. */
 export function CoachCard({ safetyMessages, onHistory }: { safetyMessages: string[]; onHistory: () => void }) {
   const s = usePlay();
@@ -122,26 +141,27 @@ export function CoachCard({ safetyMessages, onHistory }: { safetyMessages: strin
       </CoachBubble>
     );
   } else if (latest) {
-    // A quick question is open: anything longer than Sam's line about his move gets out of its way.
-    card = <FeedBubble key={latest.id} it={latest} flag type compact={stale || (!!s.quiz && latest.kind !== 'sam')} />;
+    // A quick question is open (it has its own place above the dock): the message folds to one line.
+    card = s.quiz ? <FeedLine key={latest.id} it={latest} /> : <FeedBubble key={latest.id} it={latest} flag type compact={stale} />;
   }
 
   return (
     <div className="space-y-2">
-      {stale && myTurn && (
+      {stale && myTurn && !s.quiz && (
         <p className="flex items-center gap-2 px-1 text-[15px] font-bold" data-testid="your-move">
           <span className="h-2 w-2 rounded-full bg-brand-500" /> Your move
         </p>
       )}
       {card}
-      {s.quiz && <QuizBubble />}
-      {!s.precheck && safetyMessages.length > 0 && settings.safetyOverlay && (
+      {/* (Not while a question is open: "your knight is undefended" would answer it.) */}
+      {!s.precheck && !s.quiz && safetyMessages.length > 0 && settings.safetyOverlay && (
         <p className="flex items-start gap-1.5 px-1 text-[13px] text-stone-600 dark:text-stone-300">
           <ShieldCheck size={15} className="mt-0.5 shrink-0 text-brand-700" />
           {safetyMessages.join(' ')}
         </p>
       )}
-      <div className="flex items-center justify-between px-1 text-xs text-stone-500">
+      {/* (While a question is open it says what to do, so this row steps aside too.) */}
+      {!s.quiz && <div className="flex items-center justify-between px-1 text-xs text-stone-500">
         <span className="flex items-center gap-1.5">
           {s.phase === 'analyzing' ? (
             <>
@@ -156,24 +176,21 @@ export function CoachCard({ safetyMessages, onHistory }: { safetyMessages: strin
             <MessagesSquare size={14} /> {earlier} earlier
           </button>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
 
-/** Play Coach's quick question under Sam's line: the question with Skip, then how it went. */
-function QuizBubble() {
+/**
+ * Play Coach's quick question: the question with Skip, then how it went. It has its own place above
+ * the dock (outside the scrolling coach panel), so all of it is always in view.
+ */
+export function QuizBubble() {
   const q = usePlay((s) => s.quiz)!;
   const skip = usePlay((s) => s.skipQuiz);
   const res = q.result;
-  const box = useRef<HTMLDivElement>(null);
-  // Keep the question (and then its answer) in view in the panel under the board.
-  // (Braces: newer browsers return a promise from scrollIntoView, which mustn't become the cleanup.)
-  useEffect(() => {
-    box.current?.scrollIntoView({ block: 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
-  }, [q.prompt, res]);
   return (
-    <div ref={box} className="surface-light ml-[50px] rounded-[10px] bg-[#eef6e6] px-3.5 py-3 text-[15px] leading-snug text-[#312e2b] ring-1 ring-brand-500/50 animate-pop" data-testid="quiz" data-state={res ? (res.ok ? 'right' : 'wrong') : 'open'}>
+    <div className="surface-light rounded-[10px] bg-[#eef6e6] px-3.5 py-3 text-[15px] leading-snug text-[#312e2b] ring-1 ring-brand-500/50 animate-pop" data-testid="quiz" data-state={res ? (res.ok ? 'right' : 'wrong') : 'open'}>
       <div className="mb-1 flex items-center gap-1 text-[11px] font-bold tracking-[0.06em] text-brand-700 uppercase">
         <CircleHelp size={12} /> Quick question
       </div>

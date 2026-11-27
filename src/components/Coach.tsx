@@ -71,6 +71,7 @@ export function CoachBubble({
   className = '',
   corner,
   round = false,
+  labelCase = 'upper',
 }: {
   children: ReactNode;
   mood?: 'happy' | 'concerned' | 'thinking';
@@ -89,6 +90,8 @@ export function CoachBubble({
   corner?: ReactNode;
   /** chess.com's puzzle coach: a 46px round avatar with a white ring and a soft shadow. */
   round?: boolean;
+  /** 'normal' for a label with a move in it ("Coach Sam · 6…Ng4"): notation keeps its case. */
+  labelCase?: 'upper' | 'normal';
 }) {
   return (
     <div className={`flex items-start gap-2.5 ${compact ? 'opacity-75' : 'animate-pop'}`}>
@@ -106,7 +109,7 @@ export function CoachBubble({
         <span aria-hidden className={`absolute -left-[7px] h-0 w-0 border-y-[7px] border-r-[8px] border-y-transparent border-r-white ${compact ? 'top-[9px]' : 'top-[13px]'}`} />
         {corner && <span className="absolute top-1 right-1 z-10">{corner}</span>}
         {label && !compact && (
-          <div className="mb-1 flex items-center gap-1 text-[11px] font-bold tracking-[0.06em] text-stone-500 uppercase">
+          <div className={`mb-1 flex items-center gap-1 font-bold text-stone-500 ${labelCase === 'normal' ? 'text-[12px]' : 'text-[11px] tracking-[0.06em] uppercase'}`}>
             {icon}
             {label}
           </div>

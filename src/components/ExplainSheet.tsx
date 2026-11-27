@@ -290,7 +290,7 @@ function ExplainBody({ p, cls, isUser, orientation, onClose, history, rating, ca
                   </>
                 )}
                 {tab === 'moves' && line && (
-                  <Block title={line.label} right={<span className="text-xs text-stone-500">tap a move to jump there</span>}>
+                  <Block title={line.label} plain right={<span className="text-xs text-stone-500">tap a move to jump there</span>}>
                     <ol className="-mx-1.5 space-y-0.5">
                       {notes.map((x, i) => (
                         <li key={i}>
@@ -336,11 +336,12 @@ function ExplainBody({ p, cls, isUser, orientation, onClose, history, rating, ca
 }
 
 /** A titled section inside the explanation card. */
-function Block({ title, icon, right, children }: { title: string; icon?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode }) {
+/** `plain`: the title has a move in it ("After Nf3"), so it keeps its case. */
+function Block({ title, icon, right, children, plain }: { title: string; icon?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode; plain?: boolean }) {
   return (
     <section className="px-4 py-3.5 text-[14.5px] leading-snug">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-stone-500 uppercase">
+        <h3 className={`flex items-center gap-1.5 font-bold text-stone-500 ${plain ? 'text-[12px]' : 'text-[11px] tracking-[0.08em] uppercase'}`}>
           {icon}
           {title}
         </h3>

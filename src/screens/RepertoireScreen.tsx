@@ -75,7 +75,7 @@ export function RepertoireScreen() {
           const chosen = systemById(rep.picks[slot.id] ?? '');
           return (
             <section key={slot.id}>
-              <h2 className="section-title">{slot.label}</h2>
+              <h2 className="section-title-plain">{slot.label}</h2>
               <p className="mb-2 px-1 text-xs text-stone-500">{slot.sub}</p>
               <div className="flex flex-wrap gap-2">
                 {SYSTEMS.filter((s) => s.slot === slot.id).map((s) => {

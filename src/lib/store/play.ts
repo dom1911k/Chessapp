@@ -8,6 +8,7 @@ import { gameOverInfo, START_FEN, tryMove, type GameResult, type MoveInput } fro
 import { hangingPieces, other, parseFen, PIECE_NAME, VALUE, type Color, type PieceType } from '../chess/pos';
 import { getOpponentRecords } from '../people/record';
 import { explainMove, explainTakeback, getHint, type CoachComment } from '../coach';
+import { samVoice } from '../coach/voice';
 import type { Hint } from '../coach/hints';
 import type { Theme } from '../coach/types';
 import { fixMoments, reviewGame } from '../review';
@@ -181,8 +182,10 @@ export const usePlay = create<PlayStore>((set, get) => {
   const post = (item: Omit<FeedItem, 'id' | 'ply'> & { ply?: number }) => {
     const g = get().game;
     if (!g) return;
+    // Play Coach: the opponent is Sam, so his feedback says "I" and "my", not "they" and "their".
+    const text = g.coach && item.kind !== 'opening' && item.kind !== 'sam' ? item.text.map(samVoice) : item.text;
     update((gg) => {
-      gg.feed = [...(gg.feed ?? []), { ...item, id: feedId++, ply: item.ply ?? gg.plies.length - 1 }].slice(-80);
+      gg.feed = [...(gg.feed ?? []), { ...item, text, id: feedId++, ply: item.ply ?? gg.plies.length - 1 }].slice(-80);
     });
   };
 
@@ -345,7 +348,7 @@ export const usePlay = create<PlayStore>((set, get) => {
       const after = gameOver ? null : await analyze(ply.fenAfter, params.multipv, depth);
       if (my !== token) return;
       const history = g.plies.slice(0, i).map((p) => p.uci);
-      const comment = explainMove({
+      const told = explainMove({
         fenBefore: ply.fenBefore,
         uci: ply.uci,
         before,
@@ -354,6 +357,8 @@ export const usePlay = create<PlayStore>((set, get) => {
         startFen: g.startFen,
         suppress: g.told,
       });
+      // Play Coach: in Sam's own voice (kept on the move too, for the review).
+      const comment = g.coach ? { ...told, text: told.text.map(samVoice) } : told;
       // Tactics you played (sound moves only) and brilliant / great moves.
       const sound = comment.classification === 'best' || comment.classification === 'good';
       const tactics: TacticCounts = sound ? tacticsOfMove(ply.fenBefore, ply.uci) : {};
@@ -794,7 +799,8 @@ export const usePlay = create<PlayStore>((set, get) => {
       if (!force && aidsOf(game).precheck) {
         const check = preMoveCheck(fen, r.move.lan);
         if (check) {
-          set({ precheck: { move: m, uci: r.move.lan, check, revealed: false }, hint: null, threat: null });
+          const voiced = game.coach ? { ...check, ask: samVoice(check.ask), reveal: samVoice(check.reveal) } : check;
+          set({ precheck: { move: m, uci: r.move.lan, check: voiced, revealed: false }, hint: null, threat: null });
           playSound('notify');
           return false;
         }
