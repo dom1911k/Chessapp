@@ -13,6 +13,13 @@ export interface Hint {
   highlights: CoachHighlight[];
 }
 
+/**
+ * The hint ladder for a puzzle (round 8): 1 the idea, 2 the piece, 3 the move. When the prompt
+ * already names the motif ("Find the checkmate.", prompt level 2 or more), the idea would only
+ * repeat it: the first hint goes straight to the piece and the second shows the move.
+ */
+export const hintSteps = (promptLevel?: number): (1 | 2 | 3)[] => ((promptLevel ?? 0) >= 2 ? [2, 3] : [1, 2, 3]);
+
 /** `line` is the best line starting with the move to hint at. */
 export function getHint(fen: string, line: string[], level: 1 | 2 | 3): Hint | null {
   const uci = line[0];

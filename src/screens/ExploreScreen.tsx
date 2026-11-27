@@ -19,8 +19,9 @@ import type { ReviewClass } from '../lib/review';
 
 const OWNER = 'explore';
 
-export function ExploreScreen({ fen, orientation: startOrientation, title }: { fen: string; orientation: 'white' | 'black'; title?: string }) {
-  const [tree, setTree] = useState<Tree>(() => newTree(fen));
+export function ExploreScreen({ fen, orientation: startOrientation, title, line }: { fen: string; orientation: 'white' | 'black'; title?: string; line?: string[] }) {
+  // With a line (a puzzle's solution): it's in the move list, you're at the start.
+  const [tree, setTree] = useState<Tree>(() => (line?.length ? toStart(playLine(newTree(fen), line)) : newTree(fen)));
   const [orientation, setOrientation] = useState(startOrientation);
   const [engineOn, setEngineOn] = useState(true);
   const [lines, setLines] = useState<AnalysisResult | null>(null);

@@ -7,7 +7,7 @@ import { tryMove, type MoveInput } from '../lib/chess/game';
 import { classify, povScore, winPct } from '../lib/chess/evaluation';
 import { explainKeyMove, getHint } from '../lib/coach';
 import { Dock, DockButton, DockMain } from './Dock';
-import type { Hint } from '../lib/coach/hints';
+import { hintSteps, type Hint } from '../lib/coach/hints';
 import { getEngine } from '../lib/engine';
 import { playSound, playStep } from '../lib/sound';
 import { MoveMark, SolveBurst, type SquareMark } from './PuzzleFx';
@@ -234,7 +234,14 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     setState('wrong');
   };
 
+  /** What a wrong move left on the board (its red ✗, chips, the ring) goes with it. */
+  const clearMarks = () => {
+    setMark(null);
+    boardBox.current?.querySelectorAll('.pp-mark,.pp-chip,.pp-ring').forEach((e) => e.remove());
+  };
+
   const retry = () => {
+    clearMarks();
     setFen(currentPuzzleFen());
     setLast(null);
     setState('solving');
@@ -248,6 +255,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
   };
 
   const showSolution = () => {
+    clearMarks();
     setFailed(true);
     let f = currentPuzzleFen();
     const moves = spec.solution.slice(idx);
@@ -271,8 +279,11 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
     setFailed(false); setHints(0); setHint(null); setMark(null); setBurst(null); setIdx(0); setFen(startFen); setLast(null); setWhy(false);
     startedAt.current = Date.now(); setSecs(0); setState('solving');
   };
+  // The hint ladder: Hint 1/3 … 3/3, or 1/2 and 2/2 when the prompt already names the motif.
+  const steps = hintSteps(spec.promptLevel);
+  const hintLabel = hint ? `Hint ${Math.min(hints, steps.length)}/${steps.length}` : 'Hint';
   const askHint = () => {
-    const level = Math.min(3, (hint?.level ?? 0) + 1) as 1 | 2 | 3;
+    const level = steps[Math.min(hints, steps.length - 1)];
     const h = getHint(currentPuzzleFen(), spec.solution.slice(idx), level);
     if (h) {
       setHint(h);
@@ -341,8 +352,8 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
             movable={state === 'solving' ? userColor : null}
             onMove={onMove}
             lastMove={last}
-            arrows={done ? [] : (hint?.arrows ?? [])}
-            highlights={hint?.highlights ?? []}
+            arrows={state === 'solving' ? (hint?.arrows ?? []) : []}
+            highlights={state === 'solving' ? (hint?.highlights ?? []) : []}
           />
         </div>
       </div>
@@ -373,14 +384,10 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
                 <span className={`h-4 w-4 rounded-[4px] ring-1 ${userColor === 'w' ? 'bg-white ring-stone-400' : 'bg-stone-900 ring-stone-500'}`} />
               )}
               <span className={bubble.tone === 'good' ? 'text-brand-700' : bubble.tone === 'bad' ? 'text-danger-700' : bubble.tone === 'hint' ? 'text-[#b5740a]' : ''}>{bubble.head}</span>
-              {hint && state === 'solving' && <span className="ml-auto text-xs font-semibold text-[#946a00]">Hint {hint.level}/3</span>}
+              {hint && state === 'solving' && <span className="ml-auto text-xs font-semibold text-[#946a00]">{hintLabel}</span>}
             </p>
             <p className="text-[14.5px] leading-snug text-stone-700">{bubble.text}</p>
-            {done && explanation && (
-              <button className="mt-1 block text-left text-[13px] leading-snug text-stone-600" onClick={() => setWhy(!why)}>
-                {why ? explanation.text.join(' ') : <><span className="font-semibold text-brand-700">Why it works ›</span> <span className="text-stone-500">{explanation.text[0]?.slice(0, 48)}…</span></>}
-              </button>
-            )}
+            {done && explanation && <WhyLine text={explanation.text.join(' ')} open={why} onToggle={() => setWhy(!why)} />}
             {why && spec.kind === 'mistake' && spec.explanation?.length ? <p className="mt-1 text-[13px] text-stone-500">In the game: {spec.explanation[0]}</p> : null}
             </div>
             {footer}
@@ -401,7 +408,7 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
         <Dock sticky>
           {state === 'solving' && (
             <>
-              <DockButton label={hint ? `Hint ${hint.level}/3` : 'Hint'} icon={<Lightbulb size={22} />} primary disabled={hint?.level === 3} onClick={askHint} />
+              <DockButton label={hintLabel} icon={<Lightbulb size={22} />} primary disabled={hints >= steps.length} onClick={askHint} />
               <DockMain quiet onClick={showSolution}><Eye size={17} /> Solution</DockMain>
             </>
           )}
@@ -416,12 +423,37 @@ export function PuzzlePlayer({ spec, onFinish, onNext, nextLabel = 'Next puzzle'
           {done && (
             <>
               <DockButton label="Again" ariaLabel="Try the puzzle again" icon={<RotateCcw size={22} />} onClick={again} />
-              <DockButton label="Analyse" ariaLabel="Analyse this position" icon={<Microscope size={22} />} onClick={() => push({ name: 'explore', fen: startFen, orientation, title: 'Puzzle analysis' })} />
+              <DockButton label="Analyse" ariaLabel="Analyse this position" icon={<Microscope size={22} />} onClick={() => push({ name: 'explore', fen: startFen, orientation, title: 'Puzzle analysis', line: spec.solution })} />
               {onNext && <DockMain onClick={onNext} chess={pathMode} ariaLabel={nextLabel}>{nextLabel} <ChevronRight size={18} strokeWidth={2.75} /></DockMain>}
             </>
           )}
         </Dock>
       )}
     </div>
+  );
+}
+
+/**
+ * "Why it works ›" and the whole explanation, clamped to two lines by CSS (no cut mid-word). Only
+ * when the clamp actually cuts is it a button that opens the rest.
+ */
+function WhyLine({ text, open, onToggle }: { text: string; open: boolean; onToggle: () => void }) {
+  const box = useRef<HTMLParagraphElement>(null);
+  const [cut, setCut] = useState(false);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (el && !open) setCut(el.scrollHeight > el.clientHeight + 1);
+  }, [text, open]);
+  const body = (
+    <p ref={box} className={`mt-1 text-left text-[13px] leading-snug text-stone-600 ${open ? '' : 'line-clamp-2'}`} data-testid="why-line">
+      <span className="font-semibold text-brand-700">Why it works{cut ? ' ›' : ''}</span> <span className="text-stone-500">{text}</span>
+    </p>
+  );
+  return cut || open ? (
+    <button className="block w-full text-left" onClick={onToggle} aria-expanded={open} data-testid="why-toggle">
+      {body}
+    </button>
+  ) : (
+    body
   );
 }

@@ -11,7 +11,7 @@ export type Screen =
   | { name: 'report'; gameId: number | string; fix?: boolean }
   | { name: 'review'; gameId: number | string; ply?: number }
   | { name: 'turning'; gameId: number | string }
-  | { name: 'explore'; fen: string; orientation: 'white' | 'black'; title?: string }
+  | { name: 'explore'; fen: string; orientation: 'white' | 'black'; title?: string; /** A line to load (UCI): you're at the start and ▶ steps through it. */ line?: string[] }
   | { name: 'puzzle'; mode: PuzzleMode }
   | { name: 'endgame'; drillId: string }
   | { name: 'openings' }

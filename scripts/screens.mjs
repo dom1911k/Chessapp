@@ -611,6 +611,90 @@ async function run([W, H], scheme) {
     }
   }
   if (P('hint')) await rated({ at: [0, 3, 0], streak: 3 }, [[2600, 'path-hint-solve']], { hint: true });
+  // ---- Round 8, Phase 2: solving ----
+  const marks = () => p.evaluate(() => ({ marks: document.querySelectorAll('.pp-mark').length, arrows: document.querySelectorAll('[marker-end]').length }));
+  const openRated = async (patch) => {
+    await setPath(patch);
+    await push({ name: 'puzzle', mode: { kind: 'rated' } });
+    await p.waitForTimeout(3500);
+  };
+  if (P('puzzle-retry-clean')) {
+    // A hint, a wrong move: the ✗ shows and the hint arrow goes; Retry clears the ✗ and brings the arrow back.
+    await openRated({ at: [0, 3, 0] });
+    await p.getByRole('button', { name: /^Hint/ }).first().click();
+    await p.waitForTimeout(700);
+    const before = await marks();
+    await solveOpen({ wrong: true });
+    await p.waitForTimeout(1500);
+    const wrong = await marks();
+    if (!wrong.marks || wrong.arrows) errors.push(`puzzle-retry-clean: after the wrong move ${JSON.stringify(wrong)} (hint arrows before: ${before.arrows})`);
+    await p.locator('button:has-text("Retry")').first().click();
+    await p.waitForTimeout(700);
+    const after = await marks();
+    if (after.marks || (before.arrows && !after.arrows)) errors.push(`puzzle-retry-clean: after Retry ${JSON.stringify(after)}`);
+    await shot('puzzle-retry-clean');
+    await home();
+  }
+  if (P('puzzle-hint-skip')) {
+    // Wood names the motif in the prompt (level 3): Hint 1/2 goes straight to the piece, Hint 2/2 shows the move.
+    await openRated({ at: [0, 3, 0] });
+    const btn = p.getByRole('button', { name: /^Hint/ }).first();
+    await btn.click();
+    await p.waitForTimeout(600);
+    const one = await btn.textContent();
+    await btn.click();
+    await p.waitForTimeout(600);
+    const two = await btn.textContent();
+    const dis = await btn.isDisabled();
+    if (!/Hint 1\/2/.test(one ?? '') || !/Hint 2\/2/.test(two ?? '') || !dis) errors.push(`puzzle-hint-skip: ${one} → ${two} (disabled after: ${dis})`);
+    await shot('puzzle-hint-skip');
+    await home();
+  }
+  if (P('puzzle-why-clamp') || P('analyse-solution')) {
+    await openRated({ at: [0, 3, 0] });
+    const spec = await p.evaluate(() => window.__puzzle && { solution: window.__puzzle.solution });
+    await solveOpen();
+    await p.waitForTimeout(6500);
+    // "Why it works" and the whole explanation, at most two lines; never cut mid-word with "…".
+    const why = await p.evaluate(() => {
+      const el = document.querySelector('[data-testid="why-line"]');
+      if (!el) return null;
+      const lh = parseFloat(getComputedStyle(el).lineHeight);
+      return { h: el.clientHeight, lh, text: el.textContent, button: !!el.closest('[data-testid="why-toggle"]'), cut: el.scrollHeight > el.clientHeight + 1 };
+    });
+    if (!why || why.h > why.lh * 2 + 2 || /\S…$/.test(why.text ?? '') || why.cut !== why.button) errors.push(`puzzle-why-clamp: ${JSON.stringify(why)}`);
+    if (P('puzzle-why-clamp')) await shot('puzzle-why-clamp');
+    if (P('analyse-solution')) {
+      await p.getByRole('button', { name: 'Analyse this position' }).click();
+      await p.waitForTimeout(1500);
+      const top = await p.evaluate(() => window.__nav.getState().stack.at(-1));
+      if (top?.name !== 'explore' || JSON.stringify(top.line) !== JSON.stringify(spec?.solution)) errors.push(`analyse-solution: opened ${JSON.stringify(top)}`);
+      await shot('analyse-solution');
+    }
+    await home();
+  }
+  if (P('daily-solved-footer')) {
+    // No toast over the board at mate: the coach card's footer says it.
+    await setPath({ at: [0, 3, 0] });
+    await p.evaluate(async () => {
+      const find = (n) => performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n) && !x.includes('?t=')) ?? performance.getEntriesByType('resource').map((e) => e.name).find((x) => x.includes(n));
+      const db = await import(find('/src/lib/db.ts'));
+      const T = db.today();
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      await db.kvSet('dailyPuzzle', { solved: [db.today(d)] });
+      return T;
+    });
+    await push({ name: 'puzzle', mode: { kind: 'dailyPuzzle' } });
+    await p.waitForTimeout(3500);
+    await solveOpen();
+    await p.waitForTimeout(2500);
+    const foot = await p.locator('[data-testid="daily-footer"]').textContent().catch(() => null);
+    const toast = await p.locator('text=/Daily Puzzle solved!/').count();
+    if (!/^Daily streak 2 · a new puzzle tomorrow$/.test(foot ?? '') || toast) errors.push(`daily-solved-footer: footer ${foot}, toast ${toast}`);
+    await shot('daily-solved-footer');
+    await home();
+  }
   /** The world's shared gradients are mounted once at the app root (hedge tops, clouds, shadows). */
   const checkDefs = async (name) => {
     if (!(await p.evaluate(() => !!document.getElementById('hedgeTop')))) errors.push(`${name}: the path world's shared gradients (#hedgeTop) are missing`);

@@ -28,3 +28,16 @@ describe('round 8 · 1.5 your avatar on the pawn\'s tag', async () => {
     expect(svg).toMatch(/class="ptag" data-avatar="1" transform="translate\(0,-[\d.]+\)"/);
   });
 });
+
+describe('round 8 · 2.3 the first hint skips what the prompt already says', async () => {
+  const { hintSteps } = await import('../lib/coach/hints');
+  it('prompt level 2 or more (it names the motif): the piece, then the move', () => {
+    expect(hintSteps(2)).toEqual([2, 3]);
+    expect(hintSteps(3)).toEqual([2, 3]);
+  });
+  it('levels 0 and 1 (and no prompt level) keep all three: the idea, the piece, the move', () => {
+    expect(hintSteps(0)).toEqual([1, 2, 3]);
+    expect(hintSteps(1)).toEqual([1, 2, 3]);
+    expect(hintSteps(undefined)).toEqual([1, 2, 3]);
+  });
+});

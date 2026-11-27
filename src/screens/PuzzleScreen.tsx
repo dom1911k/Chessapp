@@ -20,7 +20,8 @@ import type { PathSource } from '../lib/puzzles/path';
 import { useSettings } from '../lib/settings';
 import { useContext } from 'react';
 import { PuzzleTimer } from '../components/PuzzleProgress';
-import { dailyPick, gamePuzzles, markDailySolved } from '../lib/puzzles/sources';
+import { dailyPick, dailyStreak, gamePuzzles, markDailySolved } from '../lib/puzzles/sources';
+import { Flame } from 'lucide-react';
 import { loadRange } from '../lib/puzzles/data';
 import { allGames } from '../lib/games';
 
@@ -40,6 +41,8 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
   const source = mode.kind === 'rated' ? 'rated' : rated ? 'theme' : 'learn';
   const yours = useRef<PuzzleSpec[] | null>(null);
   const [dailyDone, setDailyDone] = useState(false);
+  // The Daily Puzzle: its streak, for the line in the coach card's footer (no toast over the board).
+  const [dailyRun, setDailyRun] = useState<number | null>(null);
   const drill = mode.kind === 'drill' ? mode : null;
   const [drillSolved, setDrillSolved] = useState(0);
   const pop = useNav((n) => n.pop);
@@ -110,9 +113,9 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
     const o = await recordAttempt(spec, r.success, r.hintsUsed, source, { seconds: r.seconds, correctMoves: r.correctMoves, path: pathSource });
     if (mode.kind === 'yours' && r.success) void kvGet<string[]>(YOURS_KEY, []).then((d) => kvSet(YOURS_KEY, [...d, spec.id].slice(-2000)));
     if (mode.kind === 'dailyPuzzle' && r.success) {
-      await markDailySolved();
+      const ds = await markDailySolved();
       setDailyDone(true);
-      useCelebrate.getState().toast({ icon: 'calendar', title: 'Daily Puzzle solved!', text: 'Come back tomorrow to keep your streak.' });
+      setDailyRun(dailyStreak(ds.solved));
     }
     if (course && r.success) {
       const n = await addCoursePuzzle(course.stepId);
@@ -186,7 +189,12 @@ export function PuzzleScreen({ mode }: { mode: PuzzleMode }) {
               ) : null
             }
             footer={
-              award?.streakLost && award.streakLost >= 3 ? (
+              dailyRun !== null && mode.kind === 'dailyPuzzle' ? (
+                <p className="mt-1.5 flex items-center gap-1 text-xs text-stone-500" data-testid="daily-footer">
+                  <Flame size={13} className="shrink-0 text-[#f0861a]" fill="currentColor" />
+                  {dailyRun > 1 ? `Daily streak ${dailyRun} · a new puzzle tomorrow` : 'Daily Puzzle solved · a new one tomorrow'}
+                </p>
+              ) : award?.streakLost && award.streakLost >= 3 ? (
                 <p className="mt-1.5 text-xs text-stone-500">Streak of {award.streakLost} ended. Start a new one!</p>
               ) : outcome?.newPeak ? (
                 <div className="mt-1.5 text-xs"><span className="chip bg-gold-300/50 text-stone-800 dark:bg-gold-500/25 dark:text-gold-300">★ Highest rating</span></div>
