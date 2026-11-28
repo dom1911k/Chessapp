@@ -104,3 +104,22 @@ describe('round 8 · 4.2 / 4.5 the trophy', async () => {
     }
   });
 });
+
+describe('round 8 · 4.5 the trophy stands clear', async () => {
+  const { ISO } = await import('../lib/puzzles/world');
+  it("on the opposite side from the path's last step, away from the next board's first tiles", () => {
+    for (const w of [0, 1, 2, 3, 4, 5, 6]) {
+      const at = (c: { gx: number; gy: number }) => ({ X: c.gx - c.gy, Y: c.gx + c.gy });
+      const t = at(ISO.trophyCell(w));
+      const c19 = at(ISO.cell(w, 19));
+      const c18 = at(ISO.cell(w, 18));
+      const lastRight = c19.X > c18.X;
+      expect(Math.sign(t.X - c19.X)).toBe(lastRight ? -1 : 1);
+      // The next board's first three tiles aren't in the trophy's column (it's ~2 tiles tall).
+      for (const i of [0, 1, 2]) {
+        const n = at(ISO.cell(w + 1, i));
+        expect(Math.abs(n.X - t.X) >= 2 || n.Y - t.Y > 4).toBe(true);
+      }
+    }
+  });
+});
