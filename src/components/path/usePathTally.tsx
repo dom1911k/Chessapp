@@ -94,7 +94,7 @@ export function usePathTally(opts: PathTallyOpts = {}) {
   /** The board moment hands over to the new-board card (a 300 ms crossfade). */
   const boardEnded = (board: number) => {
     setTierCard(board);
-    setTimeout(() => setBoardDone(null), 320);
+    setTimeout(() => setBoardDone(null), 600);
   };
   /** The new-board card closed: everything held for it (the board's achievement toast) shows now. */
   const tierClosed = () => {

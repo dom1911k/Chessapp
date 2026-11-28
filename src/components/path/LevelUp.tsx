@@ -218,8 +218,6 @@ export function TierUpCard({ board, onClose, onOpenPath }: { board: number; onCl
     const o = root.current;
     if (!o) return;
     const q = (s: string) => o.querySelector(s);
-    // It crossfades in from the world (the board moment fades out under it).
-    void animate(o, [{ opacity: 0 }, { opacity: 1 }], { d: 300 });
     void animate(q('.tc-rays'), [{ transform: 'scale(.25)', opacity: 0 }, { transform: 'scale(1)', opacity: 0.42 }], { d: 1000, e: 'cubic-bezier(.2,.9,.3,1)' });
     void animate(q('.tc-lab'), [{ opacity: 0, transform: 'translateY(8px)', letterSpacing: '.4em' }, { opacity: 1, transform: 'none', letterSpacing: '.14em' }], { d: 600, e: 'cubic-bezier(.2,.8,.3,1)', delay: 120 });
     void animate(crest.current, [{ transform: 'translateY(-240px) scale(.5) rotate(-20deg)', opacity: 0 }, { transform: 'translateY(0) scale(1) rotate(0)', opacity: 1 }], { d: BOUNCE.d + 120, e: BOUNCE.e, delay: 160 });
@@ -237,39 +235,46 @@ export function TierUpCard({ board, onClose, onOpenPath }: { board: number; onCl
     // (No confetti rain here: the board moment had it.)
     sfx('tierUp');
     // The window onto the new board: the pawn on tile 1, the old board's last hedges behind it.
-    if (win.current) {
+    // (Drawn a moment later, so drawing it doesn't hold up the entrance; the window comes in at 760 ms.)
+    const draw = setTimeout(() => {
+      if (!win.current) return;
       const sc = buildScene(win.current, { b: t, lvl: 0, w0: Math.max(0, t - 1), w1: Math.min(7, t + 1), mt: 40, ...pathTag() }, 'tw');
       const p1 = cellPoint(sc, { i: t, l: 1 });
       sc.inner.style.transform = `translateY(${(win.current.clientHeight * 0.58 - p1.y).toFixed(1)}px)`;
-    }
-    return () => clearTimeout(land);
+    }, D(420));
+    return () => {
+      clearTimeout(land);
+      clearTimeout(draw);
+    };
   }, [t]);
   const name = `${boardName(board)} board`;
   return (
-    <div ref={root} className="fixed inset-0 z-[70] flex flex-col items-center justify-center overflow-hidden px-6 text-center text-white" style={{ background: `radial-gradient(circle at 50% 24%, color-mix(in srgb, ${MAT[t][1]} 38%, #161412), #141210 62%)` }} data-testid="tierup-card">
+    // It crossfades in over the board moment's world (a CSS fade from its first paint, so it never
+    // shows un-animated while its window onto the new board is being drawn).
+    <div ref={root} className="fixed inset-0 z-[70] flex flex-col items-center justify-center overflow-hidden px-6 text-center text-white" style={{ background: `radial-gradient(circle at 50% 24%, color-mix(in srgb, ${MAT[t][1]} 38%, #161412), #141210 62%)`, animation: 'fade-in 300ms ease both' }} data-testid="tierup-card">
       <div className="tc-rays pointer-events-none absolute top-[30%] left-1/2 h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: 'repeating-conic-gradient(rgba(255,236,190,.22) 0 7deg,transparent 7deg 18deg)', animation: 'ppspin 30s linear infinite' }} />
-      <div className="tc-lab relative mb-2 text-[11px] font-extrabold tracking-[0.14em] text-[#f7c631] uppercase">New board unlocked</div>
-      <div ref={crest} className="relative">
+      <div className="tc-lab relative mb-2 text-[11px] font-extrabold tracking-[0.14em] text-[#f7c631] uppercase opacity-0">New board unlocked</div>
+      <div ref={crest} className="relative opacity-0">
         <PathBadge tier={t} level={1} size={120} />
       </div>
       <div className="tc-name relative mt-2 text-[30px] font-extrabold tracking-[-0.01em]">
         {[...name].map((c, i) => (
-          <span key={i} className="inline-block">
+          <span key={i} className="inline-block opacity-0">
             {c === ' ' ? ' ' : c}
           </span>
         ))}
       </div>
-      <div ref={win} className="isoWin relative mt-3 overflow-hidden rounded-2xl shadow-[0_18px_40px_rgba(0,0,0,.55)] ring-1 ring-white/15" style={{ width: 310, height: 150, background: ISO.TH[t].g[0] }}>
+      <div ref={win} className="isoWin relative mt-3 overflow-hidden rounded-2xl opacity-0 shadow-[0_18px_40px_rgba(0,0,0,.55)] ring-1 ring-white/15" style={{ width: 310, height: 150, background: ISO.TH[t].g[0] }}>
         <div className="isoIn absolute inset-x-0 top-0" />
       </div>
       <ul className="relative mt-4 space-y-1 text-[14px] font-semibold text-white/90">
-        <li className="tc-perk">
+        <li className="tc-perk opacity-0">
           Every puzzle pays ×{BOARD_FACTORS[t]} <s className="text-white/45">×{BOARD_FACTORS[prev]}</s>
         </li>
-        <li className="tc-perk">Daily Solver +{Math.round(60 * BOARD_FACTORS[t])}</li>
-        <li className="tc-perk">{board > 7 ? `Levels cost a little more · ${round5(60 * BOARD_FACTORS[7])}+ a day` : PROMPT_LINE[t]}</li>
+        <li className="tc-perk opacity-0">Daily Solver +{Math.round(60 * BOARD_FACTORS[t])}</li>
+        <li className="tc-perk opacity-0">{board > 7 ? `Levels cost a little more · ${round5(60 * BOARD_FACTORS[7])}+ a day` : PROMPT_LINE[t]}</li>
       </ul>
-      <div className="tc-btns relative mt-6 flex w-full max-w-xs flex-col items-center gap-3">
+      <div className="tc-btns relative mt-6 flex w-full max-w-xs flex-col items-center gap-3 opacity-0">
         <button className="btn-primary w-full !py-3 text-base" onClick={onClose} data-testid="tierup-keep">
           Keep climbing
         </button>

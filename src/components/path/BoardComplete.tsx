@@ -98,8 +98,8 @@ export function BoardComplete({ from, to, record, still = false, onLanded, onDon
     ended.current = true;
     if (run.current) run.current.skip = true;
     land();
+    // The card fades in over the world (which stays put underneath until it's gone).
     onDone(newBoard);
-    void animate(root.current, [{ opacity: 1 }, { opacity: 0 }], { d: 300 });
   };
 
   useEffect(() => {
