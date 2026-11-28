@@ -833,6 +833,8 @@ async function run([W, H], scheme) {
     await p.waitForTimeout(2000);
     await p.locator('button:has-text("Start training"), button:has-text("Train some more"), button:has-text("Continue session")').first().click();
     await p.waitForTimeout(3500);
+    // Round 8: the Daily screen's dock sits on the bottom edge too.
+    await dockCheck('dailytally (daily screen)');
     if (await solveOpen()) await shotsAt(Date.now(), [[2400, 'path-daily-tally'], [6000, 'path-daily-done']]);
     await home();
   }
@@ -905,7 +907,7 @@ async function run([W, H], scheme) {
     });
     await push({ name: 'puzzle', mode: { kind: 'yours' } });
     await p.waitForTimeout(2500);
-    const y = await p.evaluate(() => ({ empty: !!document.querySelector('[data-testid="yours-empty"]'), title: document.querySelector('h1')?.textContent, play: !!document.querySelector('[data-testid="yours-empty"] button.btn-primary') }));
+    const y = await p.evaluate(() => ({ empty: !!document.querySelector('[data-testid="yours-empty"]'), title: [...document.querySelectorAll('h1')].map((h) => h.textContent).pop(), play: !!document.querySelector('[data-testid="yours-empty"] button.btn-primary') }));
     if (!y.empty || y.title !== 'Your games' || !y.play) errors.push(`yours-empty: ${JSON.stringify(y)}`);
     await shot('yours-empty');
     await home();
